@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '(.tool_input.file_path // .tool_response.filePath) // empty'); case \"$f\" in *.py) cd /Users/s24393/trung/legal-guard-PH && uv run ruff check \"$f\" 2>&1 || true ;; esac",
+            "timeout": 30,
+            "statusMessage": "ruff check file vừa sửa..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /Users/s24393/trung/legal-guard-PH && QWEN_API_KEY=\"\" GEMINI_API_KEY=\"\" uv run ruff check . || exit 2; if git status --porcelain | grep -q '[.]py'; then QWEN_API_KEY=\"\" GEMINI_API_KEY=\"\" uv run pytest -q || exit 2; else echo 'ℹ️ Không có .py thay đổi — bỏ qua pytest (tiết kiệm).'; fi",
+            "timeout": 180,
+            "statusMessage": "ruff + (pytest nếu .py đổi)..."
+          }
+        ]
+      }
+    ]
+  }
+}

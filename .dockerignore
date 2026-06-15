@@ -1,0 +1,19 @@
+# Không đưa vào Docker image
+.venv
+data
+# hợp đồng thật để test local
+file
+# tài liệu chiến lược nội bộ
+docs/internal
+.git
+.github
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+*.db
+# secrets: loại .env nhưng GIỮ .env.example làm template
+.env
+!.env.example
+.claude
+tests

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "arbitration + payment",
+    "contract": "Disputes shall be resolved by arbitration in Beijing. Payment by T/T 60 days after delivery.",
+    "expected": ["arbitration", "payment"],
+    "reference": "Two material risks. (1) Arbitration is seated in Beijing, a venue unfavorable to the Vietnamese SME; a neutral seat such as SIAC (Singapore) or HKIAC should be proposed. (2) Payment by T/T deferred 60 days creates non-payment risk and should be secured by an irrevocable L/C with any advance capped."
+  },
+  {
+    "name": "inspection at destination",
+    "contract": "Quality inspection shall take place at the destination port upon arrival.",
+    "expected": ["inspection"],
+    "reference": "One material risk: quality inspection at the destination port exposes the seller to transit-damage disputes. Inspection should instead occur at the port of loading (FOB) by an independent inspector such as SGS or Bureau Veritas."
+  },
+  {
+    "name": "advance + inspection",
+    "contract": "Buyer requires 50% advance payment. Inspection at destination port.",
+    "expected": ["payment", "inspection"],
+    "reference": "Two material risks. (1) A 50% advance payment is high and should be capped (around 30%) or secured. (2) Inspection at the destination port should be moved to the port of loading (FOB) under an independent inspector."
+  },
+  {
+    "name": "all three",
+    "contract": "Arbitration in Beijing. T/T payment after 30 days. Inspection at destination port.",
+    "expected": ["arbitration", "payment", "inspection"],
+    "reference": "Three material risks. (1) Arbitration seated in Beijing is unfavorable; propose a neutral seat (SIAC/HKIAC). (2) T/T payment deferred 30 days risks non-payment; secure with an L/C. (3) Inspection at the destination port should move to the port of loading (FOB)."
+  },
+  {
+    "name": "clean contract",
+    "contract": "Both parties cooperate in good faith with standard delivery terms.",
+    "expected": [],
+    "reference": "No material risks to flag. The contract contains only standard good-faith cooperation and delivery terms acceptable to the Vietnamese SME."
+  }
+]

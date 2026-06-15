@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Legal Guard PH — Rà soát hợp đồng</title>
+  <style>
+    :root { --ink:#1a2233; --muted:#5b6677; --brand:#0d6efd; --bg:#f7f9fc; --line:#e3e8ef;
+            --high:#dc3545; --medium:#fd7e14; --low:#6c757d; --ok:#198754; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+           color:var(--ink); background:var(--bg); line-height:1.55; }
+    .wrap { max-width:960px; margin:0 auto; padding:0 20px 64px; }
+    header { background:linear-gradient(135deg,#0d6efd,#0aa6b8); color:#fff; padding:22px 0; }
+    header .wrap { padding-bottom:0; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+    header h1 { font-size:1.3rem; margin:0; }
+    header a { color:#fff; opacity:.85; font-size:.9rem; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:18px; margin-top:18px; }
+    h2 { font-size:1.05rem; margin:0 0 10px; }
+    label { display:block; font-size:.85rem; color:var(--muted); margin:10px 0 4px; }
+    textarea, input[type=text], input[type=password], select {
+      width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px;
+      font:inherit; background:#fff; }
+    textarea { min-height:170px; resize:vertical; }
+    .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
+    .btn { display:inline-block; background:var(--brand); color:#fff; font-weight:700; border:0;
+           padding:11px 22px; border-radius:8px; cursor:pointer; font-size:1rem; }
+    .btn:disabled { opacity:.55; cursor:wait; }
+    .btn.ghost { background:#fff; color:var(--brand); border:1px solid var(--brand); }
+    .btn.ok { background:var(--ok); }
+    .btn.danger { background:var(--high); }
+    .muted { color:var(--muted); font-size:.88rem; }
+    .badge { display:inline-block; padding:2px 9px; border-radius:99px; color:#fff; font-size:.75rem; font-weight:700; }
+    .b-high{background:var(--high);} .b-medium{background:var(--medium);} .b-low{background:var(--low);}
+    .b-must_fix{background:var(--high);} .b-negotiate{background:var(--medium);} .b-acceptable{background:var(--ok);}
+    table { width:100%; border-collapse:collapse; }
+    th,td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; font-size:.9rem; }
+    th { background:#eef3fb; white-space:nowrap; }
+    .banner { border-left:5px solid var(--medium); background:#fff8ed; padding:14px 16px; border-radius:8px; margin-top:18px; }
+    .banner.approved { border-color:var(--ok); background:#edf9f1; }
+    .banner.rejected { border-color:var(--high); background:#fdf0f1; }
+    .reply { background:#f2f6fd; border:1px dashed var(--brand); border-radius:8px; padding:10px 12px;
+             font-size:.9rem; margin-top:8px; position:relative; }
+    .locked .reply { filter:blur(4px); user-select:none; pointer-events:none; }
+    .locknote { display:none; }
+    .locked .locknote { display:block; }
+    details { margin-top:14px; }
+    summary { cursor:pointer; color:var(--brand); font-weight:600; }
+    .trace-step { font-size:.85rem; border-left:3px solid var(--line); padding:4px 10px; margin:6px 0; }
+    .trace-step code { background:#eef3fb; padding:1px 6px; border-radius:5px; }
+    .err { color:var(--high); font-weight:600; margin-top:12px; }
+    pre { white-space:pre-wrap; font:inherit; margin:0; }
+    .note { font-size:.88rem; margin:3px 0; }
+    #spinner { display:none; margin-top:12px; color:var(--brand); font-weight:600; }
+  </style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>⚖️ Legal Guard PH — Rà soát hợp đồng</h1>
+  <a href="/">← trang giới thiệu</a> <a href="/docs">API docs</a>
+</div></header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>1 · Hợp đồng</h2>
+    <label>Dán nội dung hợp đồng</label>
+    <textarea id="text" placeholder="Dán điều khoản hợp đồng (EN/VI)…"></textarea>
+    <label>… hoặc tải file (PDF / DOCX / TXT / ảnh scan)</label>
+    <input type="file" id="file" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg" />
+
+    <h2 style="margin-top:20px">2 · Vị thế đàm phán của bạn</h2>
+    <div class="row">
+      <div><label>Lợi thế (leverage)</label>
+        <select id="leverage"><option value="balanced">Cân bằng</option>
+          <option value="weak">Yếu thế</option><option value="strong">Mạnh</option></select></div>
+      <div><label>Mức gấp (urgency)</label>
+        <select id="urgency"><option value="low">Không gấp</option><option value="high">Cần chốt gấp</option></select></div>
+      <div><label>Quan hệ đối tác</label>
+        <select id="relationship"><option value="new">Lần đầu</option><option value="repeat">Đã làm nhiều lần</option></select></div>
+      <div><label>Có phương án thay thế (BATNA)?</label>
+        <select id="alternatives"><option value="false">Không</option><option value="true">Có</option></select></div>
+      <div><label>Ngôn ngữ báo cáo</label>
+        <select id="lang"><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
+      <div><label>API key (bỏ trống nếu dev)</label>
+        <input type="password" id="apikey" placeholder="X-API-Key" /></div>
+    </div>
+
+    <p style="margin-top:18px">
+      <button class="btn" id="go">🔍 Phân tích hợp đồng</button>
+      <span id="spinner">⏳ AI agent đang rà soát — gọi tool, tra KB luật…</span>
+    </p>
+    <p class="err" id="err"></p>
+  </div>
+
+  <div id="result" style="display:none">
+    <div class="banner" id="review-banner"></div>
+
+    <div class="card"><h2>📋 Tóm tắt cho chủ doanh nghiệp</h2><pre id="summary"></pre>
+      <div id="notes" style="margin-top:10px"></div></div>
+
+    <div class="card"><h2>🚨 Điều khoản rủi ro</h2>
+      <table><thead><tr><th>Điều khoản</th><th>Rủi ro</th><th>Mức</th><th>Ưu tiên</th><th>Bằng chứng (trích HĐ)</th><th>Nguồn KB</th></tr></thead>
+      <tbody id="risks"></tbody></table></div>
+
+    <div class="card" id="fallbacks-card"><h2>♟️ Chiến thuật fallback</h2>
+      <p class="locknote muted">🔒 Câu gửi đối tác sẽ hiện sau khi chuyên gia duyệt.</p>
+      <div id="fallbacks"></div></div>
+
+    <div class="card"><h2>🧭 Chiến lược đàm phán (giữ / nhượng / walk-away)</h2><pre id="strategy"></pre></div>
+
+    <div class="card"><details><summary>🤖 Trace — agent đã làm gì (tool calls)</summary>
+      <div id="trace"></div></details></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+$('apikey').value = localStorage.getItem('lg_apikey') || '';
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+
+$('go').onclick = async () => {
+  const text = $('text').value.trim(), file = $('file').files[0];
+  $('err').textContent = '';
+  if (!text && !file) { $('err').textContent = 'Dán nội dung hoặc chọn file hợp đồng trước đã.'; return; }
+  const fd = new FormData();
+  if (file) fd.append('file', file); else fd.append('text', text);
+  for (const k of ['lang','leverage','urgency','relationship','alternatives']) fd.append(k, $(k).value);
+  const headers = {};
+  const key = $('apikey').value.trim();
+  if (key) { headers['X-API-Key'] = key; localStorage.setItem('lg_apikey', key); }
+
+  $('go').disabled = true; $('spinner').style.display = 'inline'; $('result').style.display = 'none';
+  try {
+    const r = await fetch('/analyze', { method:'POST', body:fd, headers });
+    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
+    render(await r.json());
+  } catch (e) { $('err').textContent = '❌ ' + e.message; }
+  finally { $('go').disabled = false; $('spinner').style.display = 'none'; }
+};
+
+function render(d) {
+  $('result').style.display = 'block';
+  $('summary').textContent = d.summary || '(không có)';
+  $('notes').innerHTML = (d.notes||[]).map(n => `<p class="note muted">${esc(n)}</p>`).join('');
+  $('strategy').textContent = d.strategy || '(không có)';
+
+  $('risks').innerHTML = (d.risks||[]).map(r => `<tr>
+    <td><strong>${esc(r.clause)}</strong>${r.verified===false?' <span class="badge b-medium">chưa verify</span>':''}</td>
+    <td>${esc(r.risk)}</td>
+    <td><span class="badge b-${esc(r.severity)}">${esc(r.severity)}</span></td>
+    <td>${r.priority?`<span class="badge b-${esc(r.priority)}">${esc(r.priority)}</span>`:''}</td>
+    <td class="muted">${esc((r.evidence||'').slice(0,160))}</td>
+    <td class="muted">${esc((r.source||'').slice(0,100))}</td></tr>`).join('')
+    || '<tr><td colspan="6" class="muted">Không phát hiện rủi ro đáng kể ✅</td></tr>';
+
+  $('fallbacks').innerHTML = (d.fallbacks||[]).map(f => `<div style="margin-bottom:14px">
+    <strong>${esc(f.clause)}</strong>${f.win_rate!=null?` <span class="badge b-acceptable">win ${(f.win_rate*100).toFixed(0)}%</span>`:''}
+    <div>${esc(f.suggestion)}</div>
+    ${f.english_reply?`<div class="reply">✉️ ${esc(f.english_reply)}</div>`:''}
+    ${f.source?`<div class="muted">nguồn: ${esc(f.source.slice(0,100))}</div>`:''}</div>`).join('')
+    || '<p class="muted">(không có)</p>';
+
+  $('trace').innerHTML = (d.trace||[]).map(s => `<div class="trace-step">
+    <code>${esc(s.tool)}</code> ${esc(JSON.stringify(s.arguments).slice(0,140))}<br>
+    <span class="muted">→ ${esc((s.observation||'').slice(0,180))}</span></div>`).join('');
+
+  // Human checkpoint: khóa english_reply tới khi duyệt.
+  // Banner được DỰNG LẠI mỗi lần render — phân tích lần 2 sau khi đã duyệt vẫn hoạt động.
+  const reasons = d.needs_human_review
+    ? (d.review_reasons||[]).join(' · ') || 'Có rủi ro cao — cần chuyên gia pháp lý duyệt.'
+    : 'Không có rủi ro cao, nhưng vẫn cần một người xác nhận trước khi gửi đối tác.';
+  const banner = $('review-banner');
+  banner.className = 'banner';
+  banner.innerHTML = `<strong>🧑‍⚖️ Human checkpoint:</strong> ${esc(reasons)}
+    <p class="muted" style="margin:6px 0 10px">Câu đàm phán gửi đối tác bị khóa cho tới khi chuyên gia duyệt.
+      AI làm phần nặng — quyết định cuối thuộc về con người.</p>
+    <button class="btn ok" id="approve">✓ Duyệt khuyến nghị</button>
+    <button class="btn danger ghost" id="reject" style="margin-left:8px">✗ Từ chối — chuyển chuyên gia</button>`;
+  $('fallbacks-card').classList.add('locked');
+  $('approve').onclick = () => {
+    $('fallbacks-card').classList.remove('locked');
+    banner.className = 'banner approved';
+    banner.innerHTML = '<strong>✅ Đã duyệt</strong> — câu đàm phán gửi đối tác đã được mở khóa bên dưới.';
+  };
+  $('reject').onclick = () => {
+    banner.className = 'banner rejected';
+    banner.innerHTML = '<strong>⛔ Đã từ chối</strong> — case được chuyển cho chuyên gia pháp lý xử lý thủ công. ' +
+                       'Khuyến nghị AI <em>không</em> được gửi cho đối tác.';
+  };
+}
+</script>
+</body>
+</html>
