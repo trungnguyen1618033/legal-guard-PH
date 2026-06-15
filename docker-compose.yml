@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: legalguard
+      POSTGRES_PASSWORD: legalguard
+      POSTGRES_DB: legalguard
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legalguard"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Trỏ DB sang service postgres (đè giá trị sqlite trong .env).
+      DATABASE_URL: postgresql+psycopg://legalguard:legalguard@db:5432/legalguard
+      # Chat session dùng Redis (test backend redis dưới local).
+      CONVERSATION_BACKEND: redis
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - path: .env          # QWEN_API_KEY / GEMINI_API_KEY...
+        required: false
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app             # mount code để hot-reload
+      - /app/.venv          # giữ .venv của container (KHÔNG để .venv host macOS đè lên)
+    command: sh -c "alembic upgrade head && uvicorn app:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  pgdata:

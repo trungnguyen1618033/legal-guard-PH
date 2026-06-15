@@ -1,0 +1,53 @@
+"""Cấu hình đọc từ biến môi trường / .env."""
+from __future__ import annotations
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Qwen (LLM chính)
+    qwen_api_key: str = ""
+    qwen_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    qwen_model: str = "qwen3.6-plus"      # mặc định khuyến nghị (5/2026); override qua env nếu cần
+    qwen_embed_model: str = "text-embedding-v4"  # Qwen3-Embedding: đa ngữ 100+, #1 MTEB
+    qwen_vl_model: str = "qwen-vl-plus"   # OCR HĐ scan/ảnh (vision)
+    llm_temperature: float = 0.1          # thấp = nhất quán/ổn định (legal cần xác định)
+
+    # Gemini (>=1 call cho XPRIZE)
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"   # 2.0 đã cũ, free tier hẹp (hay dính 429)
+
+    # App
+    default_tenant: str = "VN"
+    knowledge_base_dir: str = "knowledge_base"
+    rerank_enabled: bool = False     # bật LLM rerank (tốn thêm call); mặc định dùng hybrid RRF
+
+    # Chat session store: sql (persist + đa instance) | memory (dev) | redis
+    conversation_backend: str = "sql"
+    redis_url: str = ""              # redis://host:6379/0 (local) | rediss://... (TLS/Upstash)
+
+    # Bảo mật. api_keys dạng "KEY:ORG_ID:COUNTRY" (vd "k1:acme:VN,k2:globex:VN").
+    # → bật auth + cô lập theo công ty (org). Rỗng = mở (chỉ dev).
+    api_keys: str = ""
+    max_upload_bytes: int = 10 * 1024 * 1024   # 10MB
+    rate_limit_per_min: int = 60               # 0 = tắt; in-process (prod nên dùng Redis)
+
+    # Observability (Langfuse — rỗng = NoOp)
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = ""
+
+    # Kênh nhắn tin (rỗng = tắt webhook tương ứng)
+    slack_signing_secret: str = ""
+    slack_bot_token: str = ""        # gửi reply Slack (chat.postMessage) + tải file
+    zalo_oa_secret: str = ""
+    zalo_app_id: str = ""
+    zalo_access_token: str = ""      # gửi reply Zalo OA + tải ảnh
+    revenue_log_path: str = "data/revenue.csv"
+    # SQLite cho local/dev; prod đổi sang postgresql+psycopg://user:pass@host:5432/legalguard
+    database_url: str = "sqlite:///data/cases.db"
+
+
+settings = Settings()

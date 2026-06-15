@@ -1,0 +1,49 @@
+[project]
+name = "legal-guard-ph"
+version = "0.1.0"
+description = "AI chiến lược gia đàm phán hợp đồng thương mại cho SME Việt Nam"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.136",
+    "uvicorn[standard]>=0.49",
+    "python-multipart>=0.0.32",
+    "pydantic>=2.13",
+    "pydantic-settings>=2.14",
+    "httpx>=0.28",
+    "pypdf>=6.13",
+    "python-docx>=1.2",
+    "sqlalchemy>=2.0.50",
+    "alembic>=1.18.4",
+    "psycopg[binary]>=3.3.4",
+    "pymupdf>=1.27.2.3",
+    "redis>=8.0.0",
+    "mcp>=1.27.2",
+    "striprtf>=0.0.32",
+]
+
+# Bật ở giai đoạn scale: redis>=5.0 (cache/queue), pgvector (semantic RAG trên Postgres)
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "ruff>=0.15",
+]
+# Lớp eval sâu (RAGAS) — opt-in, không cần cho runtime. Cài: uv sync --group eval
+# Pin langchain <1.0: RAGAS 0.4.3 import langchain_community.chat_models.vertexai (bị bỏ ở v1).
+eval = [
+    "ragas>=0.4,<0.5",
+    "langchain-openai>=0.2,<1.0",
+    "langchain-community>=0.3,<0.4",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.uv]
+package = false
