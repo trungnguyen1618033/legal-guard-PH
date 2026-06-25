@@ -38,7 +38,9 @@ citation closure document-aware đi theo dẫn chiếu kéo về điều luật 
 (`CitationClosureRetriever`, `CITATION_CLOSURE`; article-level: `extract_article_refs` phân giải "Điều 9 của
 NĐ 123/2020"→đúng file qua map doc_id, "của Luật này"→cùng file; doc-level: cạnh amends/amended_by/replaced_by/
 guided_by từ front-matter → kéo VB sửa đổi/thay thế/hướng dẫn liên quan; dựng cạnh bằng rule không LLM — Phase 2), lọc hiệu lực mặc-định-chỉ-trả-văn-bản-còn-hiệu-lực
-(`InForceRetriever`, `IN_FORCE_FILTER`, theo front-matter `status` của file KB; ý định lịch sử mới hiện bản cũ),
+(`InForceRetriever`, `IN_FORCE_FILTER`, theo front-matter `status`; ý định lịch sử mới hiện bản cũ;
+**point-in-time #11**: câu hỏi có mốc thời gian "năm 2020"/"1/6/2022" → trả VB còn hiệu lực TẠI mốc đó
+theo effective_date/expiry_date — `_extract_as_of`/`_valid_at`),
 căn cứ pháp lý tất định cho từng risk & fallback (`_legal_citation` trong `domain/analysis.py`,
 `LEGAL_BASIS_GROUNDING`: tra KB gắn `Risk.legal_basis`/`Fallback.legal_basis` = điều luật còn hiệu lực,
 ngưỡng trùng ≥3 thuật ngữ để tránh căn cứ lạc), adaptive routing + chunking (`domain/analysis.py`),

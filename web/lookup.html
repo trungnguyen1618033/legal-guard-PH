@@ -25,6 +25,13 @@
   .src code { background:#f3f5f7; padding:1px 5px; border-radius:4px; }
   .warn { background:#fff8e6; border:1px solid #f0d68a; border-radius:8px; padding:10px 12px;
           font-size:13px; margin-top:14px; }
+  details { margin-top:14px; border:1px solid var(--line); border-radius:10px; padding:10px 14px; }
+  summary { cursor:pointer; font-weight:600; }
+  .add { background:#d7f5dd; }
+  .del { background:#ffd9d9; text-decoration:line-through; }
+  .rl { white-space:pre-wrap; font-size:14px; margin-top:8px; }
+  .timeline { font-size:14px; margin-top:8px; }
+  .timeline li { margin:4px 0; }
   #err { color:#c0392b; }
   a { color:var(--b); }
 </style>
@@ -54,6 +61,26 @@
       <span id="fbmsg" class="muted"></span>
     </div>
   </div>
+
+  <p class="muted" style="margin-top:6px">💡 Mẹo: thêm mốc thời gian vào câu hỏi (vd <i>"…năm 2020"</i>) để tra <b>luật tại thời điểm đó</b>.</p>
+
+  <details>
+    <summary>📜 Thay đổi của một văn bản (sửa đổi / thay thế)</summary>
+    <div class="row">
+      <input id="docid" placeholder="Số hiệu, vd 123/2020/NĐ-CP" style="flex:1">
+      <button class="ghost" onclick="loadChanges()">Xem</button>
+    </div>
+    <div id="changes" class="timeline"></div>
+  </details>
+
+  <details>
+    <summary>🔀 So sánh 2 phiên bản (redline)</summary>
+    <textarea id="old" placeholder="Dán bản CŨ" style="min-height:60px;margin-top:8px"></textarea>
+    <textarea id="new" placeholder="Dán bản MỚI" style="min-height:60px;margin-top:8px"></textarea>
+    <div class="row"><button class="ghost" onclick="doRedline()">So sánh</button>
+      <span id="rlsim" class="muted"></span></div>
+    <div id="rl" class="rl"></div>
+  </details>
 
   <div class="warn">⚠️ Thông tin tham khảo, <b>không thay tư vấn pháp lý chính thức</b>. Văn bản cần luật sư đối chiếu bản gốc.</div>
 
@@ -88,6 +115,43 @@ $('go').onclick = async () => {
   } catch (e) { $('err').textContent = "Lỗi: " + e.message; }
   finally { $('go').disabled = false; $('spin').style.display = 'none'; }
 };
+
+const _REL_VI = { amended_by:"được sửa đổi bởi", amends:"sửa đổi", replaced_by:"được thay thế bởi",
+  replaces:"thay thế", guided_by:"được hướng dẫn bởi", guides:"hướng dẫn" };
+
+async function loadChanges() {
+  const id = $('docid').value.trim();
+  $('changes').textContent = '';
+  if (!id) return;
+  try {
+    const r = await fetch(encodeURI('/changes/' + id), { headers: authHeaders() });
+    if (r.status === 404) { $('changes').textContent = 'Không tìm thấy văn bản trong KB.'; return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const items = (d.related || []).map(x =>
+      `<li><b>${esc(_REL_VI[x.relation] || x.relation)}</b>: ${esc(x.doc_id)}` +
+      (x.title ? ` — ${esc(x.title)}` : '') +
+      (x.effective_date ? ` <span class="muted">(hiệu lực ${esc(x.effective_date)})</span>` : '') + `</li>`).join('');
+    $('changes').innerHTML = `<div><b>${esc(d.title || d.doc_id)}</b> — trạng thái: ${esc(d.status)}` +
+      (d.effective_date ? `, hiệu lực ${esc(d.effective_date)}` : '') + `</div>` +
+      (items ? `<ul>${items}</ul>` : '<p class="muted">Chưa ghi nhận quan hệ sửa đổi/thay thế.</p>');
+  } catch (e) { $('changes').textContent = 'Lỗi: ' + e.message; }
+}
+
+async function doRedline() {
+  $('rl').textContent = ''; $('rlsim').textContent = '';
+  try {
+    const r = await fetch('/redline', { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ old:$('old').value, new:$('new').value }) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    $('rl').innerHTML = esc(d.redline)
+      .replace(/\[\+([\s\S]*?)\+\]/g, '<span class="add">$1</span>')
+      .replace(/\[-([\s\S]*?)-\]/g, '<span class="del">$1</span>');
+    $('rlsim').textContent = `Giống nhau: ${(d.similarity * 100).toFixed(0)}%`;
+  } catch (e) { $('rl').textContent = 'Lỗi: ' + e.message; }
+}
 
 async function fb(rating) {
   $('fbmsg').textContent = " đang gửi…";

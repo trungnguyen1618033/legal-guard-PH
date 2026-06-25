@@ -6,6 +6,8 @@ from legalguard.adapters.outbound.knowledge_base import (
     InForceRetriever,
     KeywordRetriever,
     RerankRetriever,
+    _extract_as_of,
+    _valid_at,
     build_retriever,
 )
 
@@ -156,6 +158,25 @@ def test_citation_closure_document_aware_cross_doc():
     srcs = [h.source for h in hits]
     assert any(s.startswith("nd_70_2025") for s in srcs)                 # hit gốc = NĐ sửa đổi
     assert any(s == "nd_123_2020_hoa_don.md#Điều 9" for s in srcs)       # kéo đúng văn bản đích
+
+
+def test_extract_as_of_and_valid_at():
+    assert _extract_as_of("hóa đơn năm 2020") == "2020-12-31"
+    assert _extract_as_of("ngày 1/6/2022") == "2022-06-01"
+    assert _extract_as_of("Nghị định 123/2020/NĐ-CP") is None     # số hiệu, KHÔNG phải mốc thời gian
+    assert _valid_at("2014-06-01", "2022-07-01", "2020-12-31") is True    # còn hiệu lực 2020
+    assert _valid_at("2014-06-01", "2022-07-01", "2024-01-01") is False   # đã hết 2024
+    assert _valid_at("2022-07-01", "", "2020-12-31") is False             # chưa hiệu lực 2020
+
+
+def test_point_in_time_returns_law_valid_at_date():
+    r = build_retriever(KB, "VN", strategy="keyword", in_force=True)
+    f2020 = {h.source.split("#")[0] for h in r.retrieve("thời điểm lập hóa đơn năm 2020", top_k=4)}
+    assert any("tt_39_2014" in s for s in f2020)        # TT 39/2014 còn hiệu lực 2020
+    assert not any("nd_123_2020" in s for s in f2020)   # NĐ 123 (2022) chưa hiệu lực
+    f2024 = {h.source.split("#")[0] for h in r.retrieve("thời điểm lập hóa đơn năm 2024", top_k=4)}
+    assert any("nd_123_2020" in s for s in f2024)        # NĐ 123 còn hiệu lực 2024
+    assert not any("tt_39_2014" in s for s in f2024)     # TT 39 đã hết
 
 
 def test_citation_closure_doc_level_pulls_amendment():
