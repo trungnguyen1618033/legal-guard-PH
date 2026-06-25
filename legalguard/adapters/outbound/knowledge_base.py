@@ -152,22 +152,28 @@ def legal_changelog(base_dir: str, tenant: str, doc_id: str) -> dict | None:
 _CHANGE_RELATIONS = ("amends", "replaces", "guides")   # doc_id MỚI tác động LÊN văn bản đích
 
 
-def affected_doc_files(base_dir: str, tenant: str, doc_id: str) -> dict[str, str]:
-    """Văn bản mới `doc_id` sửa đổi/thay thế/hướng dẫn những FILE nào trong KB → {filename: relation}.
+def affected_doc_files(base_dir: str, tenant: str, doc_id: str) -> dict[str, dict]:
+    """Văn bản mới `doc_id` sửa đổi/thay thế/hướng dẫn những FILE nào trong KB.
 
-    Dùng cho regulatory change intelligence: VB mới ban hành → suy ra file luật cũ bị tác động (qua
-    changelog cấp văn bản) → đem đối chiếu căn cứ pháp lý của các case đã rà soát. Trả {} nếu doc_id
-    không có trong KB hoặc không tác động lên VB nào đã có file."""
+    → {filename: {"relation": str, "articles": list[str]}}. `articles` = các Điều của văn bản đích bị
+    tác động (từ front-matter `amends_articles` của CHÍNH `doc_id`); RỖNG = tác động cả văn bản
+    (doc-level). Dùng cho regulatory change intelligence: VB mới → file luật cũ bị tác động (qua
+    changelog) → đối chiếu căn cứ pháp lý các case. {} nếu doc_id không có trong KB / không tác động ai."""
     cl = legal_changelog(base_dir, tenant, doc_id)
     if not cl:
         return {}
     ids = _load_doc_ids(base_dir, tenant)
-    out: dict[str, str] = {}
+    # Điều bị tác động khai trong front-matter của VB mới (áp cho mọi văn bản đích — đơn giản hóa MVP).
+    metas = _load_doc_meta(base_dir, tenant)
+    self_fn = ids.get(doc_id.strip().upper())
+    raw_arts = (metas.get(self_fn, {}).get("amends_articles", "") if self_fn else "")
+    articles = [a.strip() for a in re.split(r"[;,]", raw_arts) if a.strip()]
+    out: dict[str, dict] = {}
     for rel in cl["related"]:
         if rel["relation"] in _CHANGE_RELATIONS:
             fn = ids.get(rel["doc_id"])
             if fn:
-                out[fn] = rel["relation"]
+                out[fn] = {"relation": rel["relation"], "articles": list(articles)}
     return out
 
 

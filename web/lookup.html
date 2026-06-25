@@ -163,7 +163,7 @@ async function loadImpact() {
     }
     const items = (d.items || []).map(x =>
       `<li><b>${esc(x.case_id)}</b> — ${esc(x.clause || '(điều khoản)')} ` +
-      `<span class="muted">(${esc(x.kind === 'risk' ? 'rủi ro' : 'phương án')}, ${esc(_REL_VI[x.relation] || x.relation)} ${esc(x.affected_file)})</span></li>`).join('');
+      `<span class="muted">(${esc(x.kind === 'risk' ? 'rủi ro' : 'phương án')}, ${esc(_REL_VI[x.relation] || x.relation)} ${esc(x.affected_file)}${x.affected_article ? ' ' + esc(x.affected_article) : ''})</span></li>`).join('');
     $('impact').innerHTML = `<div class="warn">🛎️ <b>${d.impacted_cases}</b> hợp đồng cần rà soát lại do <b>${esc(d.doc_id)}</b>.</div>` +
       `<ul>${items}</ul>`;
   } catch (e) { $('impact').textContent = 'Lỗi: ' + e.message; }

@@ -92,9 +92,11 @@ bản ([+thêm+]/[-bỏ-] + similarity, `domain/redline.py`, difflib tất đị
 
 Regulatory change intelligence (chủ động, moat system-of-record): `GET /impact/{doc_id}` = VB pháp luật MỚI
 ban hành → case nào của công ty viện dẫn văn bản nó vừa sửa đổi/thay thế/hướng dẫn → cần rà soát lại.
-Nối: `affected_doc_files` (suy file luật bị tác động qua changelog quan hệ amends/replaces/guides) →
+Nối: `affected_doc_files` (suy file luật bị tác động qua changelog quan hệ amends/replaces/guides; trả
+{file: {relation, articles}} — `articles` từ front-matter `amends_articles` của VB mới) →
 `AnalysisService.regulatory_impact` → `scan_cases` (THUẦN, `domain/regulatory.py`: quét `legal_basis`/`source`
-của risk+fallback trong case đã lưu, khử trùng theo (case,kind,clause,file)). Cô lập theo `org_id`.
+của risk+fallback, khử trùng theo (case,kind,clause,file)). ARTICLE-LEVEL: nếu VB khai `amends_articles` thì
+CHỈ cảnh báo case viện dẫn ĐÚNG điều bị sửa (giảm báo động giả; `articles` rỗng → doc-level). Cô lập `org_id`.
 UI: section "Văn bản mới ảnh hưởng hợp đồng nào?" trong `web/lookup.html`.
 Cảnh báo CHỦ ĐỘNG: `POST /impact/{doc_id}/notify` {via: slack|zalo, channel} → quét + `format_impact_alert`
 (gom theo case, text) → gửi qua sender tương ứng (truyền vào `build_api(senders=...)` từ container, dùng chung
