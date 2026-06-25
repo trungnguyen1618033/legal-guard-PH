@@ -263,6 +263,11 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         # Win-rate theo điều khoản từ flywheel kết quả đàm phán của công ty.
         return service.tactic_stats(org.id)
 
+    @app.get("/insights/dashboard")
+    async def org_dashboard(limit: int = 200, org: Organization = Depends(require_auth)) -> dict:
+        # System-of-record: tổng hợp HĐ đã rà soát, rủi ro hay gặp, tín hiệu feedback, win-rate chiến thuật.
+        return await run_in_threadpool(service.dashboard, org.id, limit)
+
     @app.post("/feedback")
     def submit_feedback(body: FeedbackIn, org: Organization = Depends(require_auth)) -> dict:
         # Vòng học: phản hồi người dùng về câu trả lời → gom golden set + tìm lỗ hổng KB.
