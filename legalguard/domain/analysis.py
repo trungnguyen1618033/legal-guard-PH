@@ -173,6 +173,17 @@ class AnalysisService:
                                 {"doc_id": doc_id, "org_id": org_id, "hits": len(impacts)})
         return [asdict(i) for i in impacts]
 
+    def draft_counter_clause(self, clause: str, risk: str = "", suggestion: str = "",
+                             legal_basis: str = "", leverage: str = "balanced") -> dict:
+        """Soạn điều khoản phản-đề song ngữ (dán vào HĐ) cho 1 điều khoản rủi ro. Bám căn cứ + vị thế."""
+        from legalguard.domain.counter_clause import draft_counter_clause as _draft
+
+        cc = _draft(self.reasoner, clause=clause, risk=risk, suggestion=suggestion,
+                    legal_basis=legal_basis, leverage=leverage)
+        if self.observer:
+            self.observer.event("counter_clause", {"clause": clause, "grounded": cc.grounded})
+        return asdict(cc)
+
     def get_case(self, case_id: str) -> AnalysisCase | None:
         return self.cases.get(case_id) if self.cases else None
 

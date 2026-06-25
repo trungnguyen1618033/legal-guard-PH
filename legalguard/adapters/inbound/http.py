@@ -62,6 +62,14 @@ class RedlineIn(BaseModel):
     new: str                    # phiên bản mới
 
 
+class CounterIn(BaseModel):
+    clause: str                 # điều khoản gốc (đối tác áp)
+    risk: str = ""              # rủi ro với DN Việt
+    suggestion: str = ""        # hướng thỏa hiệp mong muốn
+    legal_basis: str = ""       # căn cứ pháp lý (nếu đã có từ /analyze)
+    leverage: str = "balanced"  # vị thế đàm phán: strong | balanced | weak
+
+
 class AlertIn(BaseModel):
     via: str                    # slack | zalo
     channel: str                # Slack channel ID hoặc Zalo user_id nhận cảnh báo
@@ -310,6 +318,18 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             raise HTTPException(status_code=502, detail=f"Gửi {body.via} thất bại: {exc}") from exc
         return {"doc_id": doc_id.strip(), "impacted_cases": len(cases),
                 "case_ids": cases, "sent": True, "via": body.via}
+
+    @app.post("/counter")
+    async def counter_clause(body: CounterIn, _: Organization = Depends(require_auth)) -> dict:
+        # Soạn điều khoản phản-đề song ngữ VN/EN (dán vào HĐ) cho 1 điều khoản rủi ro.
+        if len(body.clause) > max_input_chars:
+            raise HTTPException(status_code=413, detail="Nội dung quá dài.")
+        try:
+            return await run_in_threadpool(
+                service.draft_counter_clause, body.clause, body.risk, body.suggestion,
+                body.legal_basis, body.leverage)
+        except LLMError as exc:
+            raise HTTPException(status_code=502, detail=f"LLM lỗi: {exc}") from exc
 
     @app.post("/redline")
     def text_redline(body: RedlineIn, _: Organization = Depends(require_auth)) -> dict:
