@@ -51,6 +51,8 @@ về thế trận thật: *lợi thế của bạn, mức độ gấp, quan hệ
   trọng tài Bắc Kinh → đề nghị SIAC/HKIAC trung lập; thanh toán T/T trả sau → chuyển L/C
   ngân hàng bảo lãnh; kiểm định cảng đến → SGS/Bureau Veritas tại cảng đi…
 - Soạn sẵn **câu phản hồi tiếng Anh** chuyên nghiệp cho từng đề xuất — copy gửi đối tác được ngay
+- **Soạn điều khoản phản-đề song ngữ Việt/Anh** (counter-clause) — không chỉ "gợi ý đàm phán" mà
+  là **văn bản điều khoản thay thế dán thẳng vào hợp đồng được**, bám đúng căn cứ pháp lý và vị thế của bạn
 - **Đề nghị cũng có căn cứ pháp lý**: mỗi giải pháp/chiến thuật được gắn điều luật còn hiệu lực liên quan
   (khi có) để bạn đàm phán có cơ sở, không chỉ "theo thông lệ"
 - Đưa **chiến lược tổng thể**: giữ cứng điều gì, nhượng điều gì để chốt deal, và **điểm rút lui**
@@ -69,6 +71,17 @@ nhất quán với phân tích trước đó.
 Bạn ghi lại kết quả mỗi lần đàm phán (đối tác chấp nhận / thỏa hiệp / từ chối) — hệ thống
 thống kê **tỉ lệ thành công của từng chiến thuật** và ưu tiên gợi ý những nước đi đã được
 chứng minh hiệu quả với SME Việt. Đây là tri thức thực chiến không cuốn sách mẫu nào có.
+
+### 🛎️ Cảnh báo chủ động khi luật thay đổi — không phải đi tìm
+Pháp luật VN sửa đổi liên tục. Khi một văn bản mới ban hành (vd Nghị định mới sửa nghị định hóa đơn),
+Legal Guard **tự rà các hợp đồng bạn đã phân tích** và chỉ ra **hợp đồng nào viện dẫn đúng điều luật vừa bị
+sửa** — tới tận **từng Điều**, không báo tràn. Cảnh báo gửi thẳng vào **Slack/Zalo**. Đây là việc chỉ làm
+được khi hệ thống *nhớ* hợp đồng của bạn cùng căn cứ pháp lý — chatbot tra cứu thường không có.
+
+### 📊 Bảng điều khiển — hồ sơ pháp lý của công ty một chỗ
+Tất cả ở một màn hình: số hợp đồng đã rà soát, **điều khoản rủi ro hay gặp nhất**, mức độ nghiêm trọng,
+tỉ lệ thắng của từng chiến thuật, và những chỗ tri thức cần bổ sung từ phản hồi thực tế. Càng dùng,
+hồ sơ càng dày — đây là tài sản dữ liệu riêng của công ty bạn.
 
 ### 📚 Tra cứu pháp luật Việt Nam có căn cứ
 Không chỉ soát hợp đồng — hỏi thẳng câu hỏi pháp lý, nhận câu trả lời **có dẫn nguồn truy vết được**:
