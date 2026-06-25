@@ -13,6 +13,7 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
 | [internal/pitch-presell.md](internal/pitch-presell.md) 🔒 | Bộ pitch pre-sell: ICP · kịch bản gọi · bảng giá · xử lý từ chối |
 | [internal/legal-search-expansion.md](internal/legal-search-expansion.md) 🔒 | **Mở rộng: tra cứu+tổng hợp luật VN bằng AI** · tiềm năng/use case · embedding VN · RAG dẫn-chiếu-chéo (citation graph, closure, temporal) · roadmap |
 | [internal/legal-search-tech-process.md](internal/legal-search-tech-process.md) 🔒 | **Kỹ thuật/công nghệ/quy trình** RAG luật VN: ingestion ETL (dataset mở vbpl.vn) · serving stack (pgvector + CTE + self-host reranker) · eval harness (golden set, Recall@k/closure/in-force) · lộ trình theo mốc |
+| [internal/moat-and-differentiation.md](internal/moat-and-differentiation.md) 🔒 | **Moat & "độc lạ duy nhất"**: cái gì commoditize vs moat thật · khe hở duy nhất (đàm phán theo vị thế) · 3 góc định vị · việc cần làm theo ROI (NLI verify, living flywheel, system-of-record, proactive compliance) |
 
 > 🔒 = tài liệu nội bộ trong `docs/internal/` — **gitignore, không có trong repo public** (chiến lược thi đấu, giá, lead).
 
