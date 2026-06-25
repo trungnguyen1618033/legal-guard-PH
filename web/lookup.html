@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tra cứu pháp luật — Legal Guard PH</title>
+<style>
+  :root { --b:#0d6efd; --mut:#667; --line:#e3e6ea; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,Segoe UI,Roboto,sans-serif; max-width:760px; margin:0 auto;
+         padding:24px 16px; color:#1a1d21; line-height:1.55; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .muted { color:var(--mut); }
+  textarea,input,select { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px;
+         font-size:15px; font-family:inherit; }
+  textarea { min-height:80px; resize:vertical; }
+  .row { display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap; }
+  button { background:var(--b); color:#fff; border:0; border-radius:8px; padding:10px 18px;
+           font-size:15px; cursor:pointer; }
+  button.ghost { background:#fff; color:#333; border:1px solid var(--line); padding:6px 12px; font-size:14px; }
+  button:disabled { opacity:.5; cursor:default; }
+  .card { border:1px solid var(--line); border-radius:10px; padding:16px; margin-top:18px; }
+  .answer { white-space:pre-wrap; font-size:15.5px; }
+  .src { border-top:1px solid var(--line); padding-top:8px; margin-top:10px; font-size:13.5px; }
+  .src code { background:#f3f5f7; padding:1px 5px; border-radius:4px; }
+  .warn { background:#fff8e6; border:1px solid #f0d68a; border-radius:8px; padding:10px 12px;
+          font-size:13px; margin-top:14px; }
+  #err { color:#c0392b; }
+  a { color:var(--b); }
+</style>
+</head>
+<body>
+  <h1>⚖️ Tra cứu pháp luật Việt Nam</h1>
+  <p class="muted">Hỏi câu hỏi pháp lý — nhận câu trả lời dẫn <b>đúng Điều/Khoản còn hiệu lực</b>.
+    Cần soát hợp đồng? → <a href="/app">trang phân tích hợp đồng</a>.</p>
+
+  <textarea id="q" placeholder="Vd: Mức phạt vi phạm hợp đồng tối đa bao nhiêu phần trăm?"></textarea>
+  <div class="row">
+    <select id="lang" style="width:auto"><option value="vi">Tiếng Việt</option><option value="en">English</option></select>
+    <input id="apikey" placeholder="API key (nếu có)" style="width:auto;flex:1">
+    <button id="go">Tra cứu</button>
+    <span id="spin" style="display:none">⏳…</span>
+  </div>
+  <p id="err"></p>
+
+  <div id="result" class="card" style="display:none">
+    <div id="answer" class="answer"></div>
+    <div id="sources" class="src"></div>
+    <div id="fb" style="margin-top:12px;font-size:14px">
+      <span class="muted">Hữu ích?</span>
+      <button class="ghost" onclick="fb('helpful')">👍 Đúng</button>
+      <button class="ghost" onclick="fb('wrong')">⚠️ Sai</button>
+      <button class="ghost" onclick="fb('incomplete')">➖ Thiếu</button>
+      <span id="fbmsg" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="warn">⚠️ Thông tin tham khảo, <b>không thay tư vấn pháp lý chính thức</b>. Văn bản cần luật sư đối chiếu bản gốc.</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => { const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; };
+const authHeaders = () => { const k=$('apikey').value.trim(); return k?{'X-API-Key':k}:{}; };
+let _q = "";
+
+$('apikey').value = localStorage.getItem('lg_apikey') || "";
+
+$('go').onclick = async () => {
+  const q = $('q').value.trim();
+  $('err').textContent = "";
+  if (!q) { $('err').textContent = "Nhập câu hỏi trước đã."; return; }
+  const key = $('apikey').value.trim();
+  if (key) localStorage.setItem('lg_apikey', key);
+  $('go').disabled = true; $('spin').style.display = 'inline'; $('result').style.display = 'none';
+  try {
+    const r = await fetch('/ask', { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ question:q, lang:$('lang').value }) });
+    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
+    const d = await r.json();
+    _q = q;
+    $('answer').textContent = d.answer || "(không có câu trả lời)";
+    $('sources').innerHTML = (d.sources||[]).length
+      ? "<b>Nguồn:</b> " + d.sources.map(s => `<code>${esc(s)}</code>`).join(" · ")
+      : '<span class="muted">(không có nguồn — chưa đủ căn cứ trong cơ sở tri thức)</span>';
+    $('fbmsg').textContent = "";
+    $('result').style.display = 'block';
+  } catch (e) { $('err').textContent = "Lỗi: " + e.message; }
+  finally { $('go').disabled = false; $('spin').style.display = 'none'; }
+};
+
+async function fb(rating) {
+  $('fbmsg').textContent = " đang gửi…";
+  try {
+    await fetch('/feedback', { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ kind:'lookup', ref:_q, rating }) });
+    $('fbmsg').textContent = " — cảm ơn phản hồi!";
+  } catch { $('fbmsg').textContent = " — gửi lỗi."; }
+}
+</script>
+</body>
+</html>

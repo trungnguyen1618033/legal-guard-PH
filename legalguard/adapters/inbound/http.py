@@ -33,6 +33,7 @@ from legalguard.domain.tenants import Organization, default_org, get_tenant
 
 _LANDING = Path("web/index.html")
 _APP = Path("web/app.html")
+_LOOKUP = Path("web/lookup.html")
 
 
 class RevenueIn(BaseModel):
@@ -106,6 +107,13 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         if _APP.exists():
             return FileResponse(_APP)
         return HTMLResponse("<h1>Legal Guard PH</h1><p>UI chưa được cài. API: /docs</p>")
+
+    @app.get("/lookup", response_class=HTMLResponse)
+    def lookup_ui():
+        # UI tra cứu luật: câu hỏi → /ask → câu trả lời dẫn điều/khoản còn hiệu lực + nguồn.
+        if _LOOKUP.exists():
+            return FileResponse(_LOOKUP)
+        return HTMLResponse("<h1>Legal Guard PH</h1><p>UI tra cứu chưa được cài. API: /ask</p>")
 
     @app.get("/health")
     def health() -> dict:           # liveness
