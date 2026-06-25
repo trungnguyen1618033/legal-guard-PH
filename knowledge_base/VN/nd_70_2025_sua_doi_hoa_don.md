@@ -5,6 +5,7 @@ doc_type: nghi_dinh
 status: in_force
 effective_date: 2025-06-01
 amends: 123/2020/NĐ-CP
+amends_articles: Điều 4, Điều 9, Điều 10, Điều 11
 source_url: https://datafiles.chinhphu.vn/cpp/files/vbpq/2025/3/70-nd-cp.signed.pdf
 ---
 Nghị định 70/2025/NĐ-CP sửa đổi, bổ sung một số điều của Nghị định số 123/2020/NĐ-CP ngày 19/10/2020 về hóa đơn, chứng từ. Ban hành 20/3/2025, hiệu lực 01/06/2025. Trích phần sửa đổi Điều 9 (thời điểm lập hóa đơn) — điểm mới nổi bật: bổ sung quy định thời điểm lập hóa đơn cho xuất khẩu hàng hóa. Trích cho mục đích tra cứu/tham khảo.
