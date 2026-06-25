@@ -175,12 +175,15 @@ function render(d) {
     <td class="muted">${esc((r.source||'').slice(0,100))}${r.legal_basis?`<br>📎 ${esc(r.legal_basis.slice(0,140))}`:''}</td></tr>`).join('')
     || '<tr><td colspan="6" class="muted">Không phát hiện rủi ro đáng kể ✅</td></tr>';
 
-  $('fallbacks').innerHTML = (d.fallbacks||[]).map(f => `<div style="margin-bottom:14px">
+  window._fb = d.fallbacks || [];
+  $('fallbacks').innerHTML = (d.fallbacks||[]).map((f,i) => `<div style="margin-bottom:14px">
     <strong>${esc(f.clause)}</strong>${f.win_rate!=null?` <span class="badge b-acceptable">win ${(f.win_rate*100).toFixed(0)}%</span>`:''}
     <div>${esc(f.suggestion)}</div>
     ${f.english_reply?`<div class="reply">✉️ ${esc(f.english_reply)}</div>`:''}
     ${f.legal_basis?`<div class="muted">📎 căn cứ: ${esc(f.legal_basis.slice(0,140))}</div>`:''}
-    ${f.source?`<div class="muted">nguồn: ${esc(f.source.slice(0,100))}</div>`:''}</div>`).join('')
+    ${f.source?`<div class="muted">nguồn: ${esc(f.source.slice(0,100))}</div>`:''}
+    <button class="ghost" style="margin-top:6px" onclick="counter(${i})">📝 Soạn điều khoản phản-đề (VN/EN)</button>
+    <div id="cc-${i}" class="rl" style="margin-top:6px"></div></div>`).join('')
     || '<p class="muted">(không có)</p>';
 
   $('trace').innerHTML = (d.trace||[]).map(s => `<div class="trace-step">
@@ -210,6 +213,25 @@ function render(d) {
     banner.innerHTML = '<strong>⛔ Đã từ chối</strong> — case được chuyển cho chuyên gia pháp lý xử lý thủ công. ' +
                        'Khuyến nghị AI <em>không</em> được gửi cho đối tác.';
   };
+}
+
+async function counter(i) {
+  const f = (window._fb || [])[i]; if (!f) return;
+  const box = $('cc-' + i);
+  box.textContent = 'Đang soạn…';
+  try {
+    const r = await fetch('/counter', { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ clause: f.clause, suggestion: f.suggestion || '',
+        legal_basis: f.legal_basis || '', leverage: $('leverage').value }) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    box.innerHTML =
+      (d.grounded ? '' : '<div class="muted">⚠️ Khung sơ bộ (chưa có LLM) — cần luật sư hoàn thiện.</div>') +
+      `<div><b>🇻🇳 VN:</b> ${esc(d.vi)}</div>` +
+      (d.en ? `<div style="margin-top:4px"><b>🇬🇧 EN:</b> ${esc(d.en)}</div>` : '') +
+      (d.rationale ? `<div class="muted" style="margin-top:4px">Lý do: ${esc(d.rationale)}</div>` : '');
+  } catch (e) { box.textContent = 'Lỗi: ' + e.message; }
 }
 </script>
 </body>

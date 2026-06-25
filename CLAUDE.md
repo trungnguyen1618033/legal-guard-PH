@@ -74,6 +74,12 @@ Upload: `DocumentParserPort` = `OcrFallbackParser(PdfDocxParser, QwenVisionOcr)`
 dùng base; scan/ảnh (.png/.jpg/PDF-scan rỗng text) → OCR Qwen-VL (`QWEN_VL_MODEL`), fallback lỗi rõ
 khi chưa có key. Còn thiếu (next): vòng đàm phán đa phiên, escalation chuyên gia thật, kênh Zalo.
 
+Counter-clause (`domain/counter_clause.py`): `POST /counter` {clause, risk, suggestion, legal_basis, leverage}
+→ điều khoản PHẢN-ĐỀ song ngữ VN/EN dán-được-ngay vào HĐ (khác `english_reply` = câu nhắn đối tác). Qwen
+reasoner soạn bám `legal_basis` + vị thế; offline → khung an toàn `grounded=False`, KHÔNG bịa luật.
+`_parse_counter` thuần (khối ```json/{} trần, fallback vi=raw). UI: nút "📝 Soạn điều khoản phản-đề" mỗi
+fallback trong `web/app.html`.
+
 Moat/flywheel (`docs/moat.md`): `Outcome` (kết quả đàm phán) → `OutcomeRepositoryPort` →
 `POST /cases/{id}/outcome`, `GET /insights/tactics`; `AnalysisService` gắn `win_rate` vào fallback
 (outcome-aware ranking). Đây là dữ liệu độc quyền — moat thật, không phải tech.
