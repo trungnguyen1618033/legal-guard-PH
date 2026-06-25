@@ -173,6 +173,15 @@ class AnalysisService:
                                 {"doc_id": doc_id, "org_id": org_id, "hits": len(impacts)})
         return [asdict(i) for i in impacts]
 
+    def dashboard(self, org_id: str, limit: int = 200) -> dict:
+        """System-of-record: tổng hợp hoạt động pháp lý của công ty (cases/feedback/outcome). Cô lập org."""
+        from legalguard.domain.dashboard import build_dashboard
+
+        cases = self.cases.list_by_org(org_id, limit) if self.cases else []
+        feedbacks = self.feedback.list_by_org(org_id, limit) if self.feedback else []
+        win_rates = self.outcomes.win_rates(org_id) if self.outcomes else {}
+        return build_dashboard(cases, feedbacks, win_rates)
+
     def draft_counter_clause(self, clause: str, risk: str = "", suggestion: str = "",
                              legal_basis: str = "", leverage: str = "balanced") -> dict:
         """Soạn điều khoản phản-đề song ngữ (dán vào HĐ) cho 1 điều khoản rủi ro. Bám căn cứ + vị thế."""
