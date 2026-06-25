@@ -22,6 +22,7 @@ uv run alembic upgrade head        # apply DB migrations (DATABASE_URL; sqlite d
 uv run python -m evaluation.run_eval  # fast eval: precision/recall + groundedness on golden set (offline)
 uv run python -m evaluation.legal_eval # eval TRA CỨU LUẬT: Recall@k/MRR + closure-recall + still-good-law (offline)
 uv run python -m ingestion.hf_to_kb --pages 4 --keyword "hóa đơn" --out knowledge_base/_ingested # ETL: HF dataset luật VN → KB .md (front-matter status)
+uv run python -m evaluation.feedback_to_golden --org default --out evaluation/golden_candidates.json # vòng học: feedback ⚠️/➖ → ứng viên golden + báo lỗ hổng KB
 uv sync --group eval                  # cài lớp eval sâu (RAGAS) — opt-in, không cần cho runtime
 uv run python -m evaluation.ragas_eval  # deep eval: RAGAS LLM-as-judge (cần QWEN_API_KEY; chậm/tốn call)
 uv add <pkg>                       # add a dependency
@@ -78,6 +79,9 @@ Moat/flywheel (`docs/moat.md`): `Outcome` (kết quả đàm phán) → `Outcome
 (outcome-aware ranking). Đây là dữ liệu độc quyền — moat thật, không phải tech.
 Vòng học: `Feedback` (phản hồi người dùng helpful/wrong/incomplete) → `FeedbackRepositoryPort` →
 `POST /feedback` (+ nút trên web UI) + `GET /feedback` (export build golden set); gom lỗ hổng KB từ usage thật.
+Đóng vòng: `evaluation/feedback_to_golden.py` biến feedback ⚠️ wrong/➖ incomplete → ứng viên golden set
+(`expected` rỗng cho luật sư điền) + báo lỗ hổng KB (`gap_report`) → merge vào `legal_golden.json` → eval đo
+cải thiện (usage→feedback→golden→đo→vá). Hàm thuần test offline; CLI đọc feedback từ DB qua repo.
 Trên Slack: câu trả lời (analyze/lookup) kèm Block Kit buttons 👍/⚠️/➖ → `POST /channels/slack/interactions`
 (verify chữ ký trên raw body, replace_original xác nhận). Lookup chat hiện cả nguồn (📎). Routing: câu có dấu
 hỏi/từ-để-hỏi (`_is_question`) ưu tiên lookup dù chứa từ khóa HĐ.
