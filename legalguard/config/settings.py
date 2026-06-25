@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     revenue_log_path: str = "data/revenue.csv"
     # SQLite cho local/dev; prod đổi sang postgresql+psycopg://user:pass@host:5432/legalguard
     database_url: str = "sqlite:///data/cases.db"
+    # Mức log của app (DEBUG/INFO/WARNING). INFO → thấy timing analyze + cảnh báo trong `docker logs`.
+    log_level: str = "INFO"
 
 
 settings = Settings()

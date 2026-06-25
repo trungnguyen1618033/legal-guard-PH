@@ -28,7 +28,8 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
 | [data-model.md](data-model.md) | Persistence SQLAlchemy (SQLite→Postgres) · Alembic · bảng `cases` |
 | [security.md](security.md) | Threat model · cô lập theo công ty · redaction PII · prompt-injection · compliance |
 | [deployment.md](deployment.md) | Triển khai & scale trên Alibaba Cloud · topology · tiers · CI/CD · bottlenecks |
-| [deploy-ecs.md](deploy-ecs.md) | **Hướng dẫn deploy ECS + HTTPS từng bước** (Caddy auto-TLS, Neon, Upstash) |
+| [deploy-ecs-selfhosted.md](deploy-ecs-selfhosted.md) | **Deploy ECS self-contained** (app+Caddy+PG+Redis 1 VM, DuckDNS, $0 ngoài) + backup DB + log/debug + SSH tunnel chọc DB từ local |
+| [deploy-ecs.md](deploy-ecs.md) | Deploy ECS + HTTPS bản dùng **Neon + Upstash** (DB/Redis ngoài) |
 | [architecture-diagram.md](architecture-diagram.md) | Sơ đồ kiến trúc (Mermaid) cho Devpost — tô đậm Alibaba Cloud |
 | [capacity.md](capacity.md) | Ước tính năng lực: nghẽn ở quota LLM · ~8–10k công ty/account standard · đòn bẩy |
 | [knowledge_base/_README.md](../knowledge_base/_README.md) | Thiết kế & độ phủ KB · cách mở rộng tình huống/quốc gia |
