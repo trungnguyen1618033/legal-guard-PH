@@ -2,7 +2,9 @@
 
 Dữ liệu hợp đồng cực nhạy cảm và **được gửi sang LLM bên thứ ba** → bảo mật là yêu cầu
 sống còn, không phải tính năng phụ. Tài liệu này định nghĩa threat model, các lớp phòng thủ,
-và lộ trình. Tham chiếu: OWASP LLM Top 10 (2025), VN PDPD 13/2023, GDPR (nếu có khách EU).
+và lộ trình. Tham chiếu: OWASP LLM Top 10 (2025); **Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15 +
+Nghị định 356/2025 (hiệu lực 1/1/2026, thay Nghị định 13/2023)**; **Luật về Trí tuệ nhân tạo số
+134/2025/QH15 (hiệu lực 1/3/2026 — AI lĩnh vực tư pháp có thể thuộc nhóm high-risk)**; GDPR (nếu có khách EU).
 
 ## 1. Threat model (bảo vệ gì, chống gì)
 

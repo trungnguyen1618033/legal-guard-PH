@@ -53,12 +53,13 @@ class QwenAdapter(LLMPort):
     name = "qwen"
 
     def __init__(self, api_key: str, base_url: str, model: str, embed_model: str = "text-embedding-v4",
-                 temperature: float = 0.1) -> None:
+                 temperature: float = 0.1, rerank_model: str = "qwen3-rerank") -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.embed_model = embed_model
         self.temperature = temperature
+        self.rerank_model = rerank_model
 
     @property
     def available(self) -> bool:
@@ -110,6 +111,28 @@ class QwenAdapter(LLMPort):
             except (KeyError, IndexError, TypeError):
                 raise LLMError(self.name, "phản hồi embeddings không hợp lệ") from None
         return vectors
+
+    def rerank(self, query: str, docs: list[str]) -> list[float] | None:
+        """Cross-encoder rerank qua DashScope text-rerank (gte-rerank). Trả điểm/doc theo
+        đúng thứ tự `docs`; None khi chưa có key (→ retriever passthrough)."""
+        if not self.available or not docs:
+            return None
+        # Endpoint rerank là native DashScope (không nằm ở compatible-mode/v1).
+        url = self.base_url.replace("/compatible-mode/v1",
+                                    "/api/v1/services/rerank/text-rerank/text-rerank")
+        data = post_json(url, provider=self.name,
+                         headers={"Authorization": f"Bearer {self.api_key}"},
+                         json={"model": self.rerank_model,
+                               "input": {"query": query, "documents": docs},
+                               "parameters": {"return_documents": False, "top_n": len(docs)}},
+                         timeout=60)
+        try:
+            scores = [0.0] * len(docs)
+            for r in data["output"]["results"]:
+                scores[r["index"]] = float(r["relevance_score"])
+            return scores
+        except (KeyError, IndexError, TypeError, ValueError):
+            raise LLMError(self.name, "phản hồi rerank không hợp lệ") from None
 
     def _post_chat(self, payload: dict) -> dict:
         return post_json(f"{self.base_url}/chat/completions", provider=self.name,

@@ -10,9 +10,10 @@ class Settings(BaseSettings):
     # Qwen (LLM chính)
     qwen_api_key: str = ""
     qwen_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-    qwen_model: str = "qwen3.6-plus"      # mặc định khuyến nghị (5/2026); override qua env nếu cần
+    qwen_model: str = "qwen3.7-max"       # flagship, 1M context, suy luận mạnh nhất (Alibaba gợi ý 6/2026)
     qwen_embed_model: str = "text-embedding-v4"  # Qwen3-Embedding: đa ngữ 100+, #1 MTEB
-    qwen_vl_model: str = "qwen-vl-plus"   # OCR HĐ scan/ảnh (vision)
+    qwen_vl_model: str = "qwen3.7-plus"   # multimodal — OCR HĐ scan/ảnh (thay Qwen-VL, chính xác hơn)
+    qwen_rerank_model: str = "qwen3-rerank"  # cross-encoder rerank (Model Studio: Qwen-Rerank, 100+ ngôn ngữ)
     llm_temperature: float = 0.1          # thấp = nhất quán/ổn định (legal cần xác định)
 
     # Gemini (>=1 call cho XPRIZE)
@@ -23,6 +24,10 @@ class Settings(BaseSettings):
     default_tenant: str = "VN"
     knowledge_base_dir: str = "knowledge_base"
     rerank_enabled: bool = False     # bật LLM rerank (tốn thêm call); mặc định dùng hybrid RRF
+    cross_encoder_rerank: bool = False  # bật cross-encoder rerank (Qwen gte-rerank) — ưu tiên hơn LLM rerank
+    citation_closure: bool = False   # bật citation closure: đi theo dẫn chiếu kéo về điều luật liên quan (Phase 2)
+    in_force_filter: bool = True     # mặc định CHỈ trả văn bản còn hiệu lực (lọc theo front-matter status)
+    legal_basis_grounding: bool = True  # gắn căn cứ điều luật (tất định, từ KB) cho mỗi risk/fallback
 
     # Chat session store: sql (persist + đa instance) | memory (dev) | redis
     conversation_backend: str = "sql"

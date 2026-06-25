@@ -69,6 +69,7 @@ class Risk:
     evidence: str = ""         # trích nguyên văn ĐOẠN TRONG HỢP ĐỒNG kích hoạt rủi ro
     priority: str = ""         # must_fix | negotiate | acceptable (theo vị thế đàm phán)
     verified: bool = True       # qua verification (clause-existence + LLM-judge) chưa
+    legal_basis: str = ""      # căn cứ pháp lý gắn tất định từ KB: 'file#Điều N: <nguyên văn>'
 
 
 @dataclass
@@ -78,6 +79,7 @@ class Fallback:
     english_reply: str = ""    # câu mẫu gửi đối tác (tiếng Anh) — sẵn dùng
     source: str = ""           # citation: chunk KB grounding cho fallback này
     win_rate: float | None = None   # tỉ lệ thắng lịch sử (outcome flywheel) nếu có
+    legal_basis: str = ""      # căn cứ pháp lý gắn tất định từ KB: 'file#Điều N: <nguyên văn>'
 
 
 @dataclass

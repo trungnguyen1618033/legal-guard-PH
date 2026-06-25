@@ -1,0 +1,79 @@
+[
+  {
+    "id": "muc-phat-toi-da",
+    "query": "mức phạt vi phạm hợp đồng tối đa là bao nhiêu phần trăm giá trị nghĩa vụ",
+    "expected": ["luat_thuong_mai_2005_che_tai.md#Điều 301"],
+    "type": "known_item"
+  },
+  {
+    "id": "lai-cham-thanh-toan",
+    "query": "chậm thanh toán tiền hàng có được yêu cầu trả tiền lãi không",
+    "expected": ["luat_thuong_mai_2005_che_tai.md#Điều 306"],
+    "type": "known_item"
+  },
+  {
+    "id": "mien-trach-nhiem",
+    "query": "các trường hợp được miễn trách nhiệm khi vi phạm hợp đồng bất khả kháng",
+    "expected": ["luat_thuong_mai_2005_che_tai.md#Điều 294"],
+    "type": "known_item"
+  },
+  {
+    "id": "giao-thieu-hang",
+    "query": "bên bán giao thiếu hàng hoặc hàng kém chất lượng thì xử lý thế nào",
+    "expected": ["luat_thuong_mai_2005_che_tai.md#Điều 297"],
+    "type": "known_item"
+  },
+  {
+    "id": "boi-thuong-thiet-hai",
+    "query": "giá trị bồi thường thiệt hại bao gồm những khoản nào tổn thất thực tế",
+    "expected": ["luat_thuong_mai_2005_che_tai.md#Điều 302"],
+    "type": "known_item"
+  },
+  {
+    "id": "cac-loai-che-tai",
+    "query": "có những loại chế tài nào trong thương mại buộc thực hiện tạm ngừng hủy bỏ",
+    "expected": ["luat_thuong_mai_2005_che_tai.md#Điều 292"],
+    "type": "known_item"
+  },
+  {
+    "id": "thong-bao-mien-trach",
+    "query": "phải thông báo bằng văn bản trường hợp miễn trách nhiệm cho bên kia",
+    "expected": ["luat_thuong_mai_2005_che_tai.md#Điều 295"],
+    "type": "known_item"
+  },
+  {
+    "id": "phat-va-boi-thuong",
+    "query": "vừa phạt vi phạm vừa buộc bồi thường thiệt hại có được không",
+    "expected": ["luat_thuong_mai_2005_che_tai.md#Điều 307"],
+    "type": "known_item"
+  },
+  {
+    "id": "hoadon-thoi-diem-lap",
+    "query": "thời điểm lập hóa đơn khi bán hàng hóa và cung cấp dịch vụ",
+    "expected": ["nd_123_2020_hoa_don.md#Điều 9"],
+    "type": "known_item"
+  },
+  {
+    "id": "hoadon-nguyen-tac-lap",
+    "query": "nguyên tắc lập quản lý sử dụng hóa đơn chứng từ người bán phải lập hóa đơn giao người mua",
+    "expected": ["nd_123_2020_hoa_don.md#Điều 4"],
+    "type": "known_item"
+  },
+  {
+    "id": "hoadon-noi-dung",
+    "query": "nội dung bắt buộc trên hóa đơn tên ký hiệu mẫu số hóa đơn",
+    "expected": ["nd_123_2020_hoa_don.md#Điều 10"],
+    "type": "known_item"
+  },
+  {
+    "id": "closure-phat-mien-trach",
+    "query": "trả một khoản tiền phạt do vi phạm hợp đồng nếu có thoả thuận",
+    "expected": [
+      "luat_thuong_mai_2005_che_tai.md#Điều 300",
+      "luat_thuong_mai_2005_che_tai.md#Điều 294"
+    ],
+    "type": "closure",
+    "closure_seed": "luat_thuong_mai_2005_che_tai.md#Điều 300",
+    "note": "Đ.300 dẫn chiếu Đ.294 (miễn trách nhiệm). Query chỉ chứa từ của Đ.300 → Đ.294 phải lấy qua closure."
+  }
+]

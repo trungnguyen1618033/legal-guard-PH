@@ -1,6 +1,6 @@
 """Adapter knowledge base (file .md) → implement KnowledgeBasePort/Provider.
 
-- KeywordRetriever:  chấm điểm từ khóa (không cần key, luôn chạy).
+- KeywordRetriever:  lexical BM25 (Okapi) — chuẩn hóa độ dài + IDF (không cần key, luôn chạy).
 - EmbeddingRetriever: semantic search bằng embedding + cosine.
 - FileKnowledgeBaseProvider.for_tenant(): chọn semantic nếu có embed_fn, lỗi → keyword.
 """
@@ -9,41 +9,118 @@ from __future__ import annotations
 import logging
 import math
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Callable
 
+from legalguard.adapters.outbound.legal_chunker import (
+    article_key,
+    chunk_legal,
+    extract_article_refs,
+    nfc,
+    parse_front_matter,
+)
 from legalguard.domain.models import Snippet
 from legalguard.domain.ports import KnowledgeBasePort, LLMPort
 from legalguard.domain.tenants import Organization
 
 EmbedFn = Callable[[list[str]], "list[list[float]] | None"]
+# Rerank cross-encoder: (query, docs) -> điểm liên quan / doc (cao = liên quan hơn), hoặc None khi không sẵn.
+RerankFn = Callable[[str, "list[str]"], "list[float] | None"]
 
 _log = logging.getLogger(__name__)
 
 
 def _load_chunks(base_dir: str, tenant: str) -> list[tuple[str, str]]:
+    """Nạp KB → [(source, text)]. Bỏ front-matter, chunk theo cấu trúc Điều/Khoản (legal_chunker);
+    nhãn cấu trúc gắn vào source dạng 'file.md#Điều 5' để dẫn nguồn đúng cấp điều luật."""
     tenant_dir = Path(base_dir) / tenant
     chunks: list[tuple[str, str]] = []
     if not tenant_dir.exists():
         return chunks
     for md in sorted(tenant_dir.glob("*.md")):
-        for para in re.split(r"\n\s*\n", md.read_text(encoding="utf-8")):
-            if para.strip():
-                chunks.append((md.name, para.strip()))
+        _, body = parse_front_matter(md.read_text(encoding="utf-8"))
+        for label, text in chunk_legal(body):
+            source = f"{md.name}#{label}" if label else md.name
+            chunks.append((source, text))
     return chunks
 
 
+# Trạng thái coi là CÒN hiệu lực (mặc định khi không khai báo → còn hiệu lực).
+_IN_FORCE = {"", "in_force", "con_hieu_luc", "còn hiệu lực", "active", "valid"}
+
+
+def _load_doc_status(base_dir: str, tenant: str) -> dict[str, str]:
+    """filename → status (từ front-matter). File không khai báo → 'in_force'."""
+    out: dict[str, str] = {}
+    tenant_dir = Path(base_dir) / tenant
+    if not tenant_dir.exists():
+        return out
+    for md in sorted(tenant_dir.glob("*.md")):
+        meta, _ = parse_front_matter(md.read_text(encoding="utf-8"))
+        out[md.name] = (meta.get("status") or "in_force").strip().lower()
+    return out
+
+
+def _is_in_force(status: str) -> bool:
+    return status.strip().lower() in _IN_FORCE
+
+
+def _load_doc_ids(base_dir: str, tenant: str) -> dict[str, str]:
+    """doc_id (số hiệu, chuẩn hóa UPPER) → filename. Để phân giải dẫn chiếu liên văn bản đúng đích."""
+    out: dict[str, str] = {}
+    tenant_dir = Path(base_dir) / tenant
+    if not tenant_dir.exists():
+        return out
+    for md in sorted(tenant_dir.glob("*.md")):
+        meta, _ = parse_front_matter(md.read_text(encoding="utf-8"))
+        did = (meta.get("doc_id") or "").strip().upper()
+        if did:
+            out[did] = md.name
+    return out
+
+
+def _tokenize(text: str) -> list[str]:
+    """Tách token (NFC, lower, len>2). Dùng chung cho index + query của BM25."""
+    return [t for t in re.findall(r"\w+", nfc(text).lower()) if len(t) > 2]
+
+
 class KeywordRetriever:
+    """Lexical retrieval bằng BM25 (Okapi) — chuẩn hóa độ dài chunk + IDF, thay cho đếm tần suất thô.
+
+    BM25 sửa hai lỗi của đếm thô: (1) chunk dài không còn thắng oan (length normalization), (2) từ phổ
+    biến ('hợp đồng', 'quy định') bị IDF hạ trọng số, từ đặc trưng nổi lên. Tất định, offline, không cần key.
+    """
+    _K1 = 1.5
+    _B = 0.75
+
     def __init__(self, base_dir: str, tenant: str) -> None:
         self._chunks = _load_chunks(base_dir, tenant)
+        self._docs = [_tokenize(text) for _, text in self._chunks]
+        self._tf = [Counter(d) for d in self._docs]
+        self._len = [len(d) for d in self._docs]
+        self._avgdl = (sum(self._len) / len(self._len)) if self._docs else 0.0
+        df: Counter = Counter()
+        for d in self._docs:
+            df.update(set(d))
+        n = len(self._docs)
+        self._idf = {t: math.log(1 + (n - c + 0.5) / (c + 0.5)) for t, c in df.items()}
 
     def retrieve(self, query: str, top_k: int = 4) -> list[Snippet]:
-        terms = {t for t in re.findall(r"\w+", query.lower()) if len(t) > 2}
-        scored = [
-            Snippet(src, chunk, float(sum(chunk.lower().count(t) for t in terms)))
-            for src, chunk in self._chunks
-        ]
-        scored = [s for s in scored if s.score > 0]
+        q = [t for t in _tokenize(query) if t in self._idf]
+        if not q or not self._docs:
+            return []
+        scored: list[Snippet] = []
+        for i, (src, chunk) in enumerate(self._chunks):
+            tf, dl = self._tf[i], self._len[i]
+            score = 0.0
+            for t in q:
+                f = tf.get(t, 0)
+                if f:
+                    denom = f + self._K1 * (1 - self._B + self._B * dl / (self._avgdl or 1))
+                    score += self._idf[t] * f * (self._K1 + 1) / denom
+            if score > 0:
+                scored.append(Snippet(src, chunk, score))
         scored.sort(key=lambda s: s.score, reverse=True)
         return scored[:top_k]
 
@@ -57,7 +134,7 @@ class EmbeddingRetriever:
     def retrieve(self, query: str, top_k: int = 4) -> list[Snippet]:
         if not self._chunks:
             return []
-        qv = self._embed_fn([query])[0]
+        qv = self._embed_fn([nfc(query)])[0]
         scored = [
             Snippet(src, chunk, _cosine(qv, vec))
             for (src, chunk), vec in zip(self._chunks, self._vectors)
@@ -133,23 +210,168 @@ class RerankRetriever:
         return ranked[:top_k]
 
 
-def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
-                    reranker_llm: LLMPort | None = None, strategy: str = "auto") -> KnowledgeBasePort:
-    """strategy: auto (hybrid nếu có embed, else keyword) | keyword | hybrid | full."""
-    if strategy == "keyword":
-        return KeywordRetriever(base_dir, tenant)
-    if strategy == "full":
-        return FullContextRetriever(base_dir, tenant)
+class CrossEncoderRerankRetriever:
+    """Decorator: lấy fetch_k ứng viên từ base rồi rerank bằng cross-encoder (vd Qwen/BGE reranker VN).
 
-    base: KnowledgeBasePort = KeywordRetriever(base_dir, tenant)
-    if embed_fn is not None:
+    Đây là tầng 2 của pipeline retrieve→rerank — lực đẩy chất lượng lớn nhất cho pháp lý VN
+    (Zalo-legal: +5 MRR@10). `rerank_fn(query, docs)` trả điểm/doc; None hoặc lỗi → passthrough
+    (an toàn offline / khi chưa cấu hình key). Khác RerankRetriever (dùng LLM sinh chuỗi chỉ số):
+    cross-encoder cho điểm trực tiếp, rẻ và ổn định hơn.
+    """
+
+    def __init__(self, base: KnowledgeBasePort, rerank_fn: RerankFn, fetch_k: int = 12) -> None:
+        self.base = base
+        self.rerank_fn = rerank_fn
+        self.fetch_k = fetch_k
+        self._enabled = True       # circuit-breaker: lỗi 1 lần (vd 403 chưa kích hoạt) → tự tắt, khỏi hammer
+
+    def retrieve(self, query: str, top_k: int = 4) -> list[Snippet]:
+        cands = self.base.retrieve(query, self.fetch_k)
+        if not self._enabled or len(cands) <= top_k:
+            return cands[:top_k]
         try:
-            base = HybridRetriever(base, EmbeddingRetriever(base_dir, tenant, embed_fn))  # type: ignore[arg-type]
-        except Exception:  # noqa: BLE001 — fallback an toàn khi embedding lỗi
-            _log.warning("Embedding KB lỗi (tenant=%s) — hạ xuống keyword retriever.",
-                         tenant, exc_info=True)
-    if reranker_llm is not None:
-        return RerankRetriever(base, reranker_llm)
+            scores = self.rerank_fn(nfc(query), [c.text for c in cands])
+        except Exception:  # noqa: BLE001 — rerank lỗi → tắt hẳn (tránh gọi lại endpoint hỏng) + giữ base
+            self._enabled = False
+            _log.warning("Cross-encoder rerank lỗi — tắt rerank, giữ thứ tự base (BM25+embedding).",
+                         exc_info=True)
+            return cands[:top_k]
+        if not scores or len(scores) != len(cands):
+            return cands[:top_k]
+        ranked = sorted(zip(cands, scores), key=lambda cs: cs[1], reverse=True)
+        return [Snippet(c.source, c.text, float(s)) for c, s in ranked[:top_k]]
+
+
+# Ý định tra cứu lịch sử → cho phép trả cả văn bản đã hết hiệu lực/bị thay.
+_HISTORICAL_RE = re.compile(
+    r"hết hiệu lực|bản cũ|phiên bản cũ|trước đây|trước khi (sửa|thay)|"
+    r"đã bị (thay|sửa|bãi bỏ)|từng quy định|quy định cũ|lịch sử",
+    re.IGNORECASE,
+)
+
+
+def _is_historical_query(query: str) -> bool:
+    return bool(_HISTORICAL_RE.search(nfc(query)))
+
+
+class InForceRetriever:
+    """Lọc hiệu lực: mặc định CHỈ trả văn bản còn hiệu lực — diệt 'inapplicable authority'
+    (trả điều luật đã hết hiệu lực/bị thay; lỗi RAG pháp lý hàng đầu theo Stanford RegLab).
+
+    Văn bản đã hết hiệu lực chỉ hiện khi query có ý định lịch sử ('bản cũ', 'trước đây'...).
+    Over-fetch rồi lọc để vẫn đủ top_k. Bọc base (trước rerank/closure) để mọi tầng sau chỉ
+    thấy văn bản còn hiệu lực.
+    """
+
+    def __init__(self, base: KnowledgeBasePort, base_dir: str, tenant: str, fetch_mult: int = 3) -> None:
+        self.base = base
+        self.fetch_mult = fetch_mult
+        self._status = _load_doc_status(base_dir, tenant)
+
+    def _ok(self, source: str) -> bool:
+        return _is_in_force(self._status.get(source.split("#", 1)[0], "in_force"))
+
+    def retrieve(self, query: str, top_k: int = 4) -> list[Snippet]:
+        if _is_historical_query(query):
+            return self.base.retrieve(query, top_k)
+        fetch = max(top_k * self.fetch_mult, 12)
+        kept = [h for h in self.base.retrieve(query, fetch) if self._ok(h.source)]
+        return kept[:top_k]
+
+
+class CitationClosureRetriever:
+    """Phase 2 — citation closure (DOCUMENT-AWARE): sau khi khớp, ĐI THEO dẫn chiếu kéo về điều được trỏ
+    tới, phân giải ĐÚNG VĂN BẢN đích (không đoán theo số điều).
+
+    'Điều 294 của Luật này' → cùng file; 'Điều 9 của Nghị định 123/2020/NĐ-CP' → đúng file NĐ 123 (xuyên
+    cấp Luật→NĐ→TT); 'Điều 10' trống ngữ cảnh → mặc định cùng file. Đồ thị dựng BẰNG RULE
+    (`extract_article_refs` + map doc_id→file), không để LLM bịa cạnh. 1-hop, decay điểm; đích vắng/đã
+    hết hiệu lực → bỏ qua êm. Decorator bọc ngoài cùng (sau rerank).
+    """
+
+    def __init__(self, base: KnowledgeBasePort, base_dir: str, tenant: str,
+                 decay: float = 0.5, max_expand: int = 6) -> None:
+        self.base = base
+        self.decay = decay
+        self.max_expand = max_expand
+        status = _load_doc_status(base_dir, tenant)
+        self._file_by_docid = _load_doc_ids(base_dir, tenant)
+        # Chỉ mục (filename, 'điều 9') → chunk; chỉ văn bản còn hiệu lực (không dẫn về điều đã hết hiệu lực).
+        self._by_file_article: dict[tuple[str, str], list[Snippet]] = {}
+        for src, text in _load_chunks(base_dir, tenant):
+            if "#" not in src:
+                continue
+            fn = src.split("#", 1)[0]
+            if not _is_in_force(status.get(fn, "in_force")):
+                continue
+            key = article_key(src.split("#", 1)[1])
+            if key:
+                self._by_file_article.setdefault((fn, key.lower()), []).append(Snippet(src, text, 0.0))
+
+    def _resolve_file(self, doc_ref: str | None, hit_file: str) -> str | None:
+        """doc_ref → filename đích. 'self'/None → cùng file; số hiệu → tra map; không khớp → None."""
+        if doc_ref in (None, "self"):
+            return hit_file
+        return self._file_by_docid.get(doc_ref.upper())
+
+    def retrieve(self, query: str, top_k: int = 4) -> list[Snippet]:
+        hits = self.base.retrieve(query, top_k)
+        seen = {(h.source, h.text) for h in hits}
+        out = list(hits)
+        added = 0
+        for h in hits:
+            hit_file = h.source.split("#", 1)[0]
+            own = article_key(h.source.split("#", 1)[1]) if "#" in h.source else None
+            for art, doc_ref in extract_article_refs(h.text):
+                key = article_key(art)
+                if not key:
+                    continue
+                target_file = self._resolve_file(doc_ref, hit_file)
+                if not target_file:
+                    continue                                  # dẫn chiếu văn bản chưa có trong KB → bỏ
+                if target_file == hit_file and key.lower() == (own or "").lower():
+                    continue                                  # chính nó/khoản anh em
+                for ref in self._by_file_article.get((target_file, key.lower()), []):
+                    rk = (ref.source, ref.text)
+                    if rk in seen:
+                        continue
+                    seen.add(rk)
+                    out.append(Snippet(ref.source, ref.text, h.score * self.decay))
+                    added += 1
+                    if added >= self.max_expand:
+                        return out
+        return out
+
+
+def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
+                    reranker_llm: LLMPort | None = None, strategy: str = "auto",
+                    rerank_fn: RerankFn | None = None, closure: bool = False,
+                    in_force: bool = False) -> KnowledgeBasePort:
+    """strategy: auto (hybrid nếu có embed, else keyword) | keyword | hybrid | full.
+
+    Thứ tự bọc: base → [in_force lọc hiệu lực] → [rerank] → [closure]. rerank_fn (cross-encoder)
+    ưu tiên hơn reranker_llm.
+    """
+    if strategy == "keyword":
+        base: KnowledgeBasePort = KeywordRetriever(base_dir, tenant)
+    elif strategy == "full":
+        return FullContextRetriever(base_dir, tenant)
+    else:
+        base = KeywordRetriever(base_dir, tenant)
+        if embed_fn is not None:
+            try:
+                base = HybridRetriever(base, EmbeddingRetriever(base_dir, tenant, embed_fn))  # type: ignore[arg-type]
+            except Exception:  # noqa: BLE001 — fallback an toàn khi embedding lỗi
+                _log.warning("Embedding KB lỗi (tenant=%s) — hạ xuống keyword retriever.",
+                             tenant, exc_info=True)
+    if in_force:
+        base = InForceRetriever(base, base_dir, tenant)
+    if rerank_fn is not None:
+        base = CrossEncoderRerankRetriever(base, rerank_fn)
+    elif reranker_llm is not None:
+        base = RerankRetriever(base, reranker_llm)
+    if closure:
+        base = CitationClosureRetriever(base, base_dir, tenant)
     return base
 
 
@@ -178,11 +400,16 @@ class FileKnowledgeBaseProvider:
     """
 
     def __init__(self, base_dir: str, embed_fn: EmbedFn | None = None,
-                 reranker_llm: LLMPort | None = None, strategy: str = "auto") -> None:
+                 reranker_llm: LLMPort | None = None, strategy: str = "auto",
+                 rerank_fn: RerankFn | None = None, closure: bool = False,
+                 in_force: bool = False) -> None:
         self.base_dir = base_dir
         self.embed_fn = embed_fn
         self.reranker_llm = reranker_llm
         self.strategy = strategy
+        self.rerank_fn = rerank_fn
+        self.closure = closure
+        self.in_force = in_force
         self._cache: dict[tuple[str, str], KnowledgeBasePort] = {}
 
     def for_org(self, org: Organization) -> KnowledgeBasePort:
@@ -193,11 +420,14 @@ class FileKnowledgeBaseProvider:
         return self._cache[key]
 
     def _build(self, org: Organization) -> KnowledgeBasePort:
-        base = build_retriever(self.base_dir, org.country, self.embed_fn,
-                               self.reranker_llm, self.strategy)
+        base = build_retriever(self.base_dir, org.country, self.embed_fn, self.reranker_llm,
+                               self.strategy, self.rerank_fn, self.closure, self.in_force)
         overlay_dir = Path(self.base_dir) / "_orgs" / org.id
         if overlay_dir.exists() and any(overlay_dir.glob("*.md")):
-            overlay = build_retriever(self.base_dir, f"_orgs/{org.id}", strategy="keyword")
+            # Overlay riêng công ty: giữ keyword (nhỏ, khỏi embed) NHƯNG vẫn tôn trọng lọc hiệu lực
+            # để không trả văn bản nội bộ đã hết hiệu lực.
+            overlay = build_retriever(self.base_dir, f"_orgs/{org.id}",
+                                      strategy="keyword", in_force=self.in_force)
             return OverlayRetriever(base, overlay)
         return base
 

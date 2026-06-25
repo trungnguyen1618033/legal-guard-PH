@@ -53,6 +53,21 @@ def test_company_scoping_blocks_cross_company_read(tmp_path):
     assert c.get(f"/cases/{cid}", headers={"x-api-key": "globexkey"}).status_code == 404  # chống đọc chéo
 
 
+# ---- /ask (tra cứu luật) auth + redaction ----
+def test_ask_requires_auth(tmp_path):
+    c = _client(tmp_path, api_orgs={"acmekey": Organization(id="acme", country="VN")})
+    assert c.post("/ask", json={"question": "phạt vi phạm hợp đồng"}).status_code == 401   # thiếu key
+    assert c.post("/ask", json={"question": "phạt vi phạm hợp đồng"},
+                  headers={"x-api-key": "acmekey"}).status_code == 200
+
+
+def test_lookup_redacts_pii_in_question():
+    # Câu hỏi pháp lý có PII → redact TRƯỚC khi tra/đưa LLM (data minimization).
+    from legalguard.domain.analysis import _legal_citation  # noqa: F401 (đảm bảo import được)
+    out, n = redact("Tôi là a@b.com hỏi về phạt vi phạm hợp đồng")
+    assert "[EMAIL]" in out and n >= 1
+
+
 # ---- File upload limit ----
 def test_upload_size_limit(tmp_path):
     c = _client(tmp_path, max_upload_bytes=10)

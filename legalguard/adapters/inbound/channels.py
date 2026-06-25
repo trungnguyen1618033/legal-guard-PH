@@ -28,6 +28,16 @@ from legalguard.domain.tenants import default_org
 # Tín hiệu nội dung là hợp đồng (→ rà soát); ngược lại coi là câu hỏi tiếp (follow-up).
 _SIGNALS = ("hợp đồng", "điều khoản", "trọng tài", "thanh toán", "kiểm định", "giao hàng",
             "contract", "clause", "arbitration", "payment", "inspection", "delivery")
+# Tín hiệu "đây là câu hỏi pháp lý" → mới tra cứu KB (tránh tốn LLM cho lời chào/ack vu vơ).
+_QUESTION_RE = re.compile(
+    r"\?|\b(gì|nào|sao|ra sao|thế nào|bao nhiêu|khi nào|ở đâu|có được|có phải|có cần|được không)\b"
+    r"|luật|điều|khoản|nghị định|thông tư|quy định|phạt|bồi thường|hóa đơn|thuế|lao động|hiệu lực",
+    re.IGNORECASE)
+
+
+def _looks_like_question(text: str) -> bool:
+    """Câu hỏi pháp lý nếu có dấu '?', từ để hỏi, thuật ngữ luật, hoặc đủ dài (≥6 từ)."""
+    return bool(_QUESTION_RE.search(text)) or len(text.split()) >= 6
 _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ N lượt gần
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
@@ -115,9 +125,12 @@ class ChatHandler:
                 return f"Xin lỗi, chưa xử lý được: {exc}"
             conv.context = _context_from_result(result)    # nhớ deal đang bàn
             return format_chat_reply(result, lang)
-        if conv.context:                                   # → TRẢ LỜI TIẾP (follow-up)
+        if conv.context:                                   # → TRẢ LỜI TIẾP (follow-up theo deal)
             return self._followup(conv, text or "", lang)
-        return "Gửi giúp em nội dung điều khoản hoặc file hợp đồng để rà soát nhé."
+        if text and _looks_like_question(text):            # → TRA CỨU LUẬT có grounding (không có deal)
+            answer, _ = self.service.lookup(text, org, lang=lang)
+            return answer
+        return "Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, hoặc đặt câu hỏi pháp lý nhé."
 
     def _followup(self, conv: Conversation, question: str, lang: str) -> str:
         hist = "\n".join(f"{m['role']}: {m['content']}" for m in conv.recent(6))
@@ -271,8 +284,12 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
         @router.post("/channels/zalo/webhook")
         async def zalo_webhook(request: Request, background: BackgroundTasks):
             body = await request.body()
-            payload = json.loads(body or b"{}")
-            if not _verify_zalo(zalo_app_id, body.decode("utf-8"), str(payload.get("timestamp", "")),
+            try:                                       # body do bên ngoài gửi (pre-auth) → parse an toàn, lỗi = 400
+                raw = body.decode("utf-8")
+                payload = json.loads(raw or "{}")
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                raise HTTPException(status_code=400, detail="Body không hợp lệ.") from None
+            if not _verify_zalo(zalo_app_id, raw, str(payload.get("timestamp", "")),
                                 zalo_oa_secret, request.headers.get("X-ZEvent-Signature", "")):
                 raise HTTPException(status_code=401, detail="Chữ ký Zalo không hợp lệ.")
             message = payload.get("message") or {}

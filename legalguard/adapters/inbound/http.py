@@ -15,6 +15,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from legalguard.domain.analysis import AnalysisService
@@ -41,6 +42,11 @@ class OutcomeIn(BaseModel):
     clause: str
     tactic: str = ""
     result: str = "pending"     # accepted | partial | rejected | pending
+
+
+class AskIn(BaseModel):
+    question: str
+    lang: str = "vi"            # vi | en
 
 
 def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: EvidenceService,
@@ -132,8 +138,10 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             raise HTTPException(status_code=400, detail="Không trích được nội dung hợp đồng.")
 
         try:
-            result = service.analyze(contract_text, org, lang=lang, position=position,
-                                     source=source)
+            # service.analyze ĐỒNG BỘ (HTTP blocking + ThreadPool) → đẩy sang threadpool để KHÔNG
+            # chặn event loop (handler async vì phải await file.read()). 1 phân tích chậm không treo worker.
+            result = await run_in_threadpool(service.analyze, contract_text, org, lang=lang,
+                                             position=position, source=source)
         except ValueError as exc:        # quốc gia chưa hỗ trợ
             raise HTTPException(status_code=400, detail=str(exc)) from None
         except LLMError as exc:
@@ -144,6 +152,19 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             return PlainTextResponse(render_markdown_report(result, tenant, lang),
                                      media_type="text/markdown")
         return result.__dict__
+
+    @app.post("/ask")
+    def ask(body: AskIn, org: Organization = Depends(require_auth)) -> dict:
+        """Tra cứu pháp luật có grounding (không cần hợp đồng): câu hỏi → câu trả lời dẫn đúng
+        điều/khoản còn hiệu lực + danh sách nguồn."""
+        lang = body.lang if body.lang in ("en", "vi") else "vi"
+        if not body.question.strip():
+            raise HTTPException(status_code=400, detail="Cần cung cấp `question`.")
+        try:
+            answer, snippets = service.lookup(body.question, org, lang=lang)
+        except LLMError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from None
+        return {"answer": answer, "sources": [s.source for s in snippets]}
 
     @app.post("/evidence/revenue")
     def record_revenue(body: RevenueIn, _: Organization = Depends(require_auth)) -> dict:

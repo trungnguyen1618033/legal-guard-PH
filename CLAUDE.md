@@ -20,15 +20,28 @@ uv run pytest                      # full suite (offline; conftest blanks API ke
 uv run pytest tests/test_agent.py::test_agent_produces_structured_risks_and_trace   # single test
 uv run alembic upgrade head        # apply DB migrations (DATABASE_URL; sqlite default, postgres in prod)
 uv run python -m evaluation.run_eval  # fast eval: precision/recall + groundedness on golden set (offline)
+uv run python -m evaluation.legal_eval # eval TRA CỨU LUẬT: Recall@k/MRR + closure-recall + still-good-law (offline)
+uv run python -m ingestion.hf_to_kb --pages 4 --keyword "hóa đơn" --out knowledge_base/_ingested # ETL: HF dataset luật VN → KB .md (front-matter status)
 uv sync --group eval                  # cài lớp eval sâu (RAGAS) — opt-in, không cần cho runtime
 uv run python -m evaluation.ragas_eval  # deep eval: RAGAS LLM-as-judge (cần QWEN_API_KEY; chậm/tốn call)
 uv add <pkg>                       # add a dependency
 ```
 
 AI/RAG quality techniques: grounding+citation+evidence (`tools.py`), verification 2-layer
-(clause-existence + LLM-judge, `domain/verification.py`), hybrid retrieval RRF + opt-in LLM reranker
-+ full-context (`outbound/knowledge_base.py`, `RERANK_ENABLED`), adaptive routing + chunking
-(`domain/analysis.py`), eval harness + A/B (`evaluation/`). Hai tầng eval: `run_eval.py` =
+(clause-existence + LLM-judge, `domain/verification.py`), lexical BM25 (Okapi, length-norm + IDF) +
+embedding, hybrid retrieval RRF + opt-in LLM reranker
++ opt-in cross-encoder reranker (Qwen `gte-rerank`, `CROSS_ENCODER_RERANK`) + full-context
+(`outbound/knowledge_base.py`, `RERANK_ENABLED`), structure-aware legal chunking + NFC + citation
+extraction (`outbound/legal_chunker.py` — chunk theo Điều/Khoản, nhãn gắn vào `Snippet.source` dạng
+`file.md#Điều 5`; Phase 0 hướng mở rộng tra cứu luật VN, xem `docs/internal/legal-search-expansion.md`),
+citation closure document-aware đi theo dẫn chiếu kéo về điều luật liên quan ở ĐÚNG văn bản đích
+(`CitationClosureRetriever`, `CITATION_CLOSURE`; `extract_article_refs` phân giải "Điều 9 của NĐ 123/2020"
+→ đúng file qua map doc_id, "của Luật này"→cùng file; dựng cạnh bằng rule không LLM — Phase 2), lọc hiệu lực mặc-định-chỉ-trả-văn-bản-còn-hiệu-lực
+(`InForceRetriever`, `IN_FORCE_FILTER`, theo front-matter `status` của file KB; ý định lịch sử mới hiện bản cũ),
+căn cứ pháp lý tất định cho từng risk & fallback (`_legal_citation` trong `domain/analysis.py`,
+`LEGAL_BASIS_GROUNDING`: tra KB gắn `Risk.legal_basis`/`Fallback.legal_basis` = điều luật còn hiệu lực,
+ngưỡng trùng ≥3 thuật ngữ để tránh căn cứ lạc), adaptive routing + chunking (`domain/analysis.py`),
+eval harness + A/B (`evaluation/`). Hai tầng eval: `run_eval.py` =
 fast gate keyword-matching (offline, free, dùng trong CI); `ragas_eval.py` = deep gate RAGAS
 LLM-as-judge (Faithfulness / Context Precision / Response Relevancy; + Context Recall + Factual
 Correctness khi golden có `reference`), judge = Qwen qua endpoint OpenAI-compatible nên không cần
@@ -42,8 +55,9 @@ theo thế trận thật". MCP + observability: `inbound/mcp_server.py` expose t
 `AnalysisService.observer` emit event mỗi lần analyze.
 
 Chat/memory (`docs/conversation.md`): kênh Zalo/Slack qua `ChatHandler` stateful + `ConversationStorePort`
-(in-memory MVP, prod Redis/SQL): nhớ history + deal context; intent routing (tín hiệu HĐ → analyze, else
-follow-up qua `reasoner`). Webhook: ack nhanh + BackgroundTasks; outbound `chat_senders.py`.
+(in-memory MVP, prod Redis/SQL): nhớ history + deal context; intent routing (tín hiệu HĐ → analyze; có deal
+context → follow-up qua `reasoner`; câu hỏi pháp lý đứng một mình → `AnalysisService.lookup` tra cứu KB có
+grounding, cũng expose qua `POST /ask`). Webhook: ack nhanh + BackgroundTasks; outbound `chat_senders.py`.
 
 Web UI: `web/index.html` (landing, `GET /`) + `web/app.html` (demo UI, `GET /app`): form
 upload/dán HĐ + vị thế đàm phán → gọi `/analyze` → bảng risks/fallbacks/strategy/trace +

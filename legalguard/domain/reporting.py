@@ -26,6 +26,7 @@ _L = {
         "prio": "Priority",
         "risks": "Risks found", "risk": "Risk", "tactic": "Suggested tactic",
         "reply": "Reply to partner (EN)", "winrate": "Historical win-rate",
+        "legal_basis": "Legal basis",
         "no_risk": "_No clear risky clauses detected._",
         "review": "## ⚖️ Needs expert review", "reason": "Reason",
         "review_default": "high-severity clauses present", "todo": "_(pending)_",
@@ -38,6 +39,7 @@ _L = {
         "prio": "Ưu tiên",
         "risks": "Rủi ro phát hiện", "risk": "Rủi ro", "tactic": "Chiến thuật đề xuất",
         "reply": "Câu gửi đối tác (EN)", "winrate": "Tỉ lệ thắng lịch sử",
+        "legal_basis": "Căn cứ pháp lý",
         "no_risk": "_Không phát hiện điều khoản rủi ro rõ ràng._",
         "review": "## ⚖️ Cần chuyên gia duyệt", "reason": "Lý do",
         "review_default": "có điều khoản rủi ro cao", "todo": "_(chưa có)_",
@@ -75,6 +77,9 @@ def render_markdown_report(result: AnalysisResult, tenant: Tenant, lang: str = "
                 lines += [f"- **{t['reply']}:** _{f['english_reply']}_"]
             if f.get("win_rate") is not None:
                 lines += [f"- **{t['winrate']}:** {int(f['win_rate'] * 100)}%"]
+            basis = r.get("legal_basis") or f.get("legal_basis")
+            if basis:
+                lines += [f"- **{t['legal_basis']}:** {basis}"]
             lines += [""]
     else:
         lines += [t["no_risk"], ""]

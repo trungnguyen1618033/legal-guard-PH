@@ -1,6 +1,9 @@
 from legalguard.adapters.outbound.knowledge_base import (
+    CitationClosureRetriever,
+    CrossEncoderRerankRetriever,
     FullContextRetriever,
     HybridRetriever,
+    InForceRetriever,
     KeywordRetriever,
     RerankRetriever,
     build_retriever,
@@ -69,3 +72,95 @@ def test_reranker_wraps_and_passthrough_when_llm_offline():
     assert isinstance(r, RerankRetriever)            # có wrap rerank
     hits = r.retrieve("trọng tài", top_k=2)          # llm offline → passthrough, vẫn trả kết quả
     assert hits and any("trọng tài" in h.text.lower() for h in hits)
+
+
+def test_cross_encoder_rerank_reorders_by_score():
+    # rerank_fn ưu tiên đoạn chứa "kiểm định" — đẩy nó lên đầu bất kể thứ tự base.
+    def rerank_fn(_query, docs):
+        return [1.0 if "kiểm định" in d.lower() else 0.0 for d in docs]
+
+    r = build_retriever(KB, "VN", embed_fn=_fake_embed, rerank_fn=rerank_fn)
+    assert isinstance(r, CrossEncoderRerankRetriever)
+    # query khớp cả trọng tài lẫn kiểm định → cả hai vào fetch set; rerank_fn đẩy kiểm định lên đầu
+    hits = r.retrieve("trọng tài kiểm định cảng đến", top_k=1)
+    assert hits and "kiểm định" in hits[0].text.lower()
+
+
+def test_cross_encoder_rerank_circuit_breaker_after_error():
+    # rerank_fn lỗi (vd 403 chưa kích hoạt) → tắt hẳn sau lần đầu, không gọi lại; vẫn trả base.
+    calls = {"n": 0}
+
+    def failing(_q, _docs):
+        calls["n"] += 1
+        raise RuntimeError("HTTP 403")
+
+    r = build_retriever(KB, "VN", embed_fn=_fake_embed, rerank_fn=failing)
+    for _ in range(3):
+        hits = r.retrieve("trọng tài", top_k=2)
+    assert calls["n"] == 1                           # circuit-breaker: chỉ gọi 1 lần dù retrieve 3 lần
+    assert hits and any("trọng tài" in h.text.lower() for h in hits)   # vẫn trả kết quả base
+
+
+def test_cross_encoder_rerank_passthrough_when_fn_returns_none():
+    r = build_retriever(KB, "VN", embed_fn=_fake_embed, rerank_fn=lambda q, d: None)
+    hits = r.retrieve("trọng tài", top_k=2)          # None → giữ thứ tự base, vẫn trả kết quả
+    assert hits and any("trọng tài" in h.text.lower() for h in hits)
+
+
+def test_cross_encoder_rerank_takes_priority_over_llm():
+    r = build_retriever(KB, "VN", embed_fn=_fake_embed,
+                        reranker_llm=_StubLLM(available=True), rerank_fn=lambda q, d: None)
+    assert isinstance(r, CrossEncoderRerankRetriever)  # cross-encoder ưu tiên hơn LLM rerank
+
+
+def test_citation_closure_pulls_referenced_article():
+    # base top_k=1 chỉ trả Điều 300; Đ.300 dẫn chiếu Đ.294 → closure phải kéo Đ.294 về.
+    r = build_retriever(KB, "VN", strategy="keyword", closure=True)
+    assert isinstance(r, CitationClosureRetriever)
+    hits = r.retrieve("trả một khoản tiền phạt do vi phạm hợp đồng nếu có thoả thuận", top_k=1)
+    srcs = [h.source for h in hits]
+    assert any(s.endswith("#Điều 300") for s in srcs)        # hit gốc
+    assert any(s.endswith("#Điều 294") for s in srcs)        # kéo về theo dẫn chiếu chéo
+
+
+def _two_doc_kb(tmp_path):
+    vn = tmp_path / "VN"
+    vn.mkdir()
+    (vn / "moi.md").write_text(
+        "---\nstatus: in_force\n---\nĐiều 1. Quy định mới\nÁp dụng thuế suất mới.\n\n"
+        "Điều 2. Hiệu lực\nCó hiệu lực thi hành.", encoding="utf-8")
+    (vn / "cu.md").write_text(
+        "---\nstatus: expired\n---\nĐiều 1. Quy định cũ\nÁp dụng thuế suất cũ.\n\n"
+        "Điều 2. Hiệu lực\nĐã hết hiệu lực.", encoding="utf-8")
+    return str(tmp_path)
+
+
+def test_in_force_filter_hides_expired_by_default(tmp_path):
+    r = build_retriever(_two_doc_kb(tmp_path), "VN", strategy="keyword", in_force=True)
+    assert isinstance(r, InForceRetriever)
+    srcs = [h.source for h in r.retrieve("thuế suất", top_k=5)]
+    assert any(s.startswith("moi.md") for s in srcs)         # còn hiệu lực → có
+    assert not any(s.startswith("cu.md") for s in srcs)      # hết hiệu lực → ẩn
+
+
+def test_in_force_filter_surfaces_expired_on_historical_query(tmp_path):
+    r = build_retriever(_two_doc_kb(tmp_path), "VN", strategy="keyword", in_force=True)
+    srcs = [h.source for h in r.retrieve("thuế suất quy định cũ trước đây", top_k=5)]
+    assert any(s.startswith("cu.md") for s in srcs)          # ý định lịch sử → hiện bản cũ
+
+
+def test_citation_closure_document_aware_cross_doc():
+    # NĐ 70/2025 dẫn chiếu "Điều 9 của Nghị định 123/2020" → closure phải kéo Điều 9 từ ĐÚNG file NĐ 123.
+    r = build_retriever(KB, "VN", strategy="keyword", closure=True)
+    hits = r.retrieve("gia công xuất khẩu thông quan hải quan ngày làm việc tiếp theo", top_k=1)
+    srcs = [h.source for h in hits]
+    assert any(s.startswith("nd_70_2025") for s in srcs)                 # hit gốc = NĐ sửa đổi
+    assert any(s == "nd_123_2020_hoa_don.md#Điều 9" for s in srcs)       # kéo đúng văn bản đích
+
+
+def test_citation_closure_skips_self_and_absent_targets():
+    r = build_retriever(KB, "VN", strategy="keyword", closure=True)
+    # Đ.301 dẫn chiếu Đ.266 (chưa nạp vào KB) → không crash, không bịa; không tự kéo khoản anh em.
+    hits = r.retrieve("mức phạt không quá 8% giá trị phần nghĩa vụ hợp đồng bị vi phạm", top_k=1)
+    assert any(s.source.endswith("#Điều 301") for s in hits)
+    assert not any(s.source.endswith("#Điều 266") for s in hits)   # đích vắng → bỏ qua êm
