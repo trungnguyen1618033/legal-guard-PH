@@ -158,6 +158,14 @@ def test_citation_closure_document_aware_cross_doc():
     assert any(s == "nd_123_2020_hoa_don.md#Điều 9" for s in srcs)       # kéo đúng văn bản đích
 
 
+def test_citation_closure_doc_level_pulls_amendment():
+    # NĐ 123/2020 có front-matter amended_by 70/2025 → doc-level closure kéo NĐ 70 (văn bản sửa đổi).
+    r = build_retriever(KB, "VN", strategy="keyword", in_force=True, closure=True)
+    srcs = [h.source for h in r.retrieve("nội dung bắt buộc trên hóa đơn tên ký hiệu mẫu số", top_k=2)]
+    assert any(s.startswith("nd_123_2020") for s in srcs)        # hit gốc
+    assert any(s.startswith("nd_70_2025") for s in srcs)         # kéo theo quan hệ amended_by
+
+
 def test_citation_closure_skips_self_and_absent_targets():
     r = build_retriever(KB, "VN", strategy="keyword", closure=True)
     # Đ.301 dẫn chiếu Đ.266 (chưa nạp vào KB) → không crash, không bịa; không tự kéo khoản anh em.
