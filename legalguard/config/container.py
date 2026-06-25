@@ -88,7 +88,20 @@ def build_parser(cfg: Settings = settings) -> OcrFallbackParser:
     return OcrFallbackParser(PdfDocxParser(), ocr)
 
 
+def _setup_logging(cfg: Settings) -> None:
+    """Cấu hình log cho `legalguard.*` để hiện trong `docker logs` (uvicorn không bật INFO cho app
+    logger). Mức theo `LOG_LEVEL` (mặc định INFO → thấy timing analyze, cảnh báo auth, lỗi degrade)."""
+    lg = logging.getLogger("legalguard")
+    lg.setLevel(cfg.log_level.upper())
+    if not lg.handlers:                         # tránh gắn handler trùng khi reload/đa import
+        h = logging.StreamHandler()
+        h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+        lg.addHandler(h)
+    lg.propagate = False                        # không nhân đôi qua root
+
+
 def build_app(cfg: Settings = settings) -> FastAPI:
+    _setup_logging(cfg)
     service = build_service(cfg)
     parser = build_parser(cfg)
     api_orgs = _parse_orgs(cfg.api_keys)

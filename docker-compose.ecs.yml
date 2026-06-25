@@ -10,6 +10,10 @@ services:
       POSTGRES_USER: legalguard
       POSTGRES_PASSWORD: legalguard
       POSTGRES_DB: legalguard
+    ports:
+      # CHỈ bind 127.0.0.1 của ECS (KHÔNG 0.0.0.0 → không lộ ra internet). Truy cập từ local bằng
+      # SSH tunnel: `ssh -L 5432:127.0.0.1:5432 root@<IP>` rồi nối psql tới localhost:5432.
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,6 +25,8 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"   # chỉ localhost ECS — chọc từ local qua SSH tunnel (cổng 6379)
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -38,7 +44,9 @@ services:
       CONVERSATION_BACKEND: redis
       REDIS_URL: redis://redis:6379/0
     expose:
-      - "8000"                # chỉ nội bộ network — Caddy proxy vào, KHÔNG mở thẳng ra ngoài
+      - "8000"                # nội bộ network cho Caddy proxy
+    ports:
+      - "127.0.0.1:8000:8000" # bind localhost ECS → tunnel API thô (bỏ qua Caddy) để debug nếu cần
     # Dockerfile CMD = alembic upgrade head && uvicorn (prod, không --reload, không mount code).
     depends_on:
       db:
