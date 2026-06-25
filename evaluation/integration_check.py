@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,8 +27,18 @@ from legalguard.adapters.outbound.conversation_store import InMemoryConversation
 from legalguard.adapters.outbound.document_parser import PdfDocxParser
 from legalguard.config.container import build_service
 from legalguard.config.settings import settings
+from legalguard.domain.models import AnalysisCase
 
 _OUT_ROOT = Path("evaluation/snapshots")
+
+# Case mồi (deterministic) cho scenario impact/dashboard: 1 HĐ viện dẫn NĐ 123/2020 Điều 9 (hóa đơn)
+# → để /impact 70/2025 (sửa Điều 9) chắc chắn có 1 hit, không phụ thuộc LLM hay dữ liệu cũ trong DB.
+_SEED_CASE = AnalysisCase(
+    id="intg-seed-invoice", org_id="default", tenant="VN", created_at="2026-06-25T00:00:00Z",
+    lang="vi", contract_excerpt="(case mồi cho integration check)", summary="", needs_human_review=False,
+    risks=[{"clause": "Thời điểm lập hóa đơn xuất khẩu", "risk": "Lập hóa đơn sai thời điểm khi xuất khẩu",
+            "severity": "medium", "legal_basis": "nd_123_2020_hoa_don.md#Điều 9: Thời điểm lập hóa đơn…"}],
+    fallbacks=[], trace=[])
 
 # HĐ mẫu (tiếng Anh, có tín hiệu "arbitration/payment/delivery", KHÔNG dấu hỏi → route sang ANALYZE).
 _SAMPLE_CONTRACT = (
@@ -114,6 +125,11 @@ def _reply(handler: ChatHandler, conv: str, text: str) -> dict:
     return {"routed_kind": r.kind, "reply_text": r.text}
 
 
+def _clip(text: str, n: int) -> str:
+    """Cắt cho bản md, kèm chỉ báo rõ (snapshot.json giữ bản đầy đủ)."""
+    return text if len(text) <= n else text[:n] + f"\n…(cắt {len(text) - n} ký tự — xem snapshot.json)"
+
+
 def _to_markdown(meta: dict, items: list[dict]) -> str:
     lines = [f"# Integration snapshot — {meta['timestamp']}",
              f"- Model: `{meta['qwen_model']}` · commit: `{meta['git_commit']}`",
@@ -122,17 +138,17 @@ def _to_markdown(meta: dict, items: list[dict]) -> str:
         lines.append(f"## {it['name']} — {it['description']}")
         lines.append(f"_{it['duration_ms']} ms_" + (f" · ⚠️ **{it['error']}**" if it['error'] else ""))
         if it.get("input"):
-            lines.append(f"\n**Input:**\n\n```\n{it['input'][:1200]}\n```")
+            lines.append(f"\n**Input:**\n\n```\n{_clip(it['input'], 1200)}\n```")
         if it.get("routed_kind"):
             lines.append(f"\n**Định tuyến:** `{it['routed_kind']}`")
         if it.get("reply_text"):
-            lines.append(f"\n**Trả lời (Slack thấy):**\n\n{it['reply_text']}")
+            lines.append(f"\n**Trả lời (Slack thấy):**\n\n{_clip(it['reply_text'], 4000)}")
         if it.get("case_detail"):
-            lines.append(f"\n**Chi tiết case:**\n\n```json\n"
-                         f"{json.dumps(it['case_detail'], ensure_ascii=False, indent=2)[:3000]}\n```")
+            lines.append("\n**Chi tiết case:**\n\n```json\n"
+                         + _clip(json.dumps(it['case_detail'], ensure_ascii=False, indent=2), 3000) + "\n```")
         if it.get("output") is not None:
-            lines.append(f"\n**Output:**\n\n```json\n"
-                         f"{json.dumps(it['output'], ensure_ascii=False, indent=2)[:3000]}\n```")
+            lines.append("\n**Output:**\n\n```json\n"
+                         + _clip(json.dumps(it['output'], ensure_ascii=False, indent=2), 3000) + "\n```")
         lines.append("")
     return "\n".join(lines)
 
@@ -179,10 +195,15 @@ def main() -> None:
         raise SystemExit("Chưa có QWEN_API_KEY trong .env — file này cần LLM thật. "
                          "Dùng `uv run pytest` cho test offline (stub).")
 
-    service = build_service()
+    # DB CÁCH LY (sqlite tạm) → impact/dashboard chỉ phản ánh ĐÚNG lần chạy này (reproducible),
+    # KHÔNG đụng data/cases.db thật + không lẫn dữ liệu cũ. Conversation đã dùng in-memory.
+    tmp_db = Path(tempfile.mkdtemp(prefix="lg_intg_")) / "cases.db"
+    cfg = settings.model_copy(update={"database_url": f"sqlite:///{tmp_db}"})
+    service = build_service(cfg)
+    service.cases.save(_SEED_CASE)        # mồi 1 case hóa đơn để impact/dashboard tất định
     handler = ChatHandler(service, PdfDocxParser(), InMemoryConversationStore(), settings.default_tenant)
 
-    print(f"Chạy integration check (model={settings.qwen_model})…")
+    print(f"Chạy integration check (model={settings.qwen_model}, DB tạm cách ly)…")
     items = _run_scenarios(handler, service)
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
