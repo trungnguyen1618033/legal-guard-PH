@@ -140,8 +140,9 @@ Bạn:  Phạt vi phạm hợp đồng tối đa bao nhiêu phần trăm?
 Bot:  Không quá 8% giá trị phần nghĩa vụ bị vi phạm (Điều 301 Luật Thương mại 2005)...
 ```
 
-- Câu trả lời **dẫn đúng điều/khoản** và **chỉ dùng văn bản còn hiệu lực** (không lôi nhầm bản đã thay thế).
+- Câu trả lời **dẫn đúng điều/khoản** + dòng **📎 Nguồn** ở cuối, và **chỉ dùng văn bản còn hiệu lực**.
 - Muốn xem quy định **cũ/đã hết hiệu lực**: nói rõ *"trước đây"* / *"bản cũ"* trong câu hỏi.
+- Mỗi câu trả lời kèm **nút phản hồi 👍 Đúng / ⚠️ Sai / ➖ Thiếu** — bấm để giúp hệ thống tốt lên (1 chạm).
 - Việc nhạy cảm (đưa vào hợp đồng/quyết định) vẫn qua **chuyên gia duyệt** như mọi đầu ra khác.
 
 ---

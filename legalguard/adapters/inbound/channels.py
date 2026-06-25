@@ -12,11 +12,15 @@ import json
 import logging
 import re
 import time
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from legalguard.domain.analysis import AnalysisService
-from legalguard.domain.models import AnalysisResult, Conversation, SourceMeta
+from legalguard.domain.models import AnalysisResult, Conversation, Feedback, SourceMeta
 from legalguard.domain.ports import (
     ChatSenderPort,
     ConversationStorePort,
@@ -28,16 +32,24 @@ from legalguard.domain.tenants import default_org
 # Tín hiệu nội dung là hợp đồng (→ rà soát); ngược lại coi là câu hỏi tiếp (follow-up).
 _SIGNALS = ("hợp đồng", "điều khoản", "trọng tài", "thanh toán", "kiểm định", "giao hàng",
             "contract", "clause", "arbitration", "payment", "inspection", "delivery")
-# Tín hiệu "đây là câu hỏi pháp lý" → mới tra cứu KB (tránh tốn LLM cho lời chào/ack vu vơ).
-_QUESTION_RE = re.compile(
-    r"\?|\b(gì|nào|sao|ra sao|thế nào|bao nhiêu|khi nào|ở đâu|có được|có phải|có cần|được không)\b"
-    r"|luật|điều|khoản|nghị định|thông tư|quy định|phạt|bồi thường|hóa đơn|thuế|lao động|hiệu lực",
+# Dấu hỏi / từ để hỏi → đây là CÂU HỎI (không phải đoạn HĐ dán vào), kể cả khi chứa từ khóa HĐ.
+_INTERROG_RE = re.compile(
+    r"\?|\b(gì|nào|sao|ra sao|thế nào|như thế nào|bao nhiêu|khi nào|ở đâu|"
+    r"có được|có phải|có cần|được không|hay không)\b", re.IGNORECASE)
+# Thuật ngữ pháp lý → câu hỏi đáng tra cứu KB (kết hợp với interrogative ở dưới).
+_LEGAL_TERM_RE = re.compile(
+    r"luật|điều|khoản|nghị định|thông tư|quy định|phạt|bồi thường|hóa đơn|thuế|lao động|hiệu lực",
     re.IGNORECASE)
 
 
+def _is_question(text: str) -> bool:
+    """Câu hỏi rõ ràng: có dấu '?' hoặc từ để hỏi (dùng để ưu tiên TRA CỨU hơn rà soát HĐ)."""
+    return bool(_INTERROG_RE.search(text))
+
+
 def _looks_like_question(text: str) -> bool:
-    """Câu hỏi pháp lý nếu có dấu '?', từ để hỏi, thuật ngữ luật, hoặc đủ dài (≥6 từ)."""
-    return bool(_QUESTION_RE.search(text)) or len(text.split()) >= 6
+    """Đáng tra cứu KB nếu là câu hỏi rõ, có thuật ngữ luật, hoặc đủ dài (≥6 từ) — tránh tốn LLM cho lời chào."""
+    return _is_question(text) or bool(_LEGAL_TERM_RE.search(text)) or len(text.split()) >= 6
 _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ N lượt gần
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
@@ -72,6 +84,14 @@ def _context_from_result(result: AnalysisResult) -> str:
     return f"Rủi ro: {risks or 'không'}. Chiến lược: {result.strategy[:400]}"
 
 
+@dataclass
+class ChatReply:
+    """Kết quả 1 lượt chat: text + ngữ cảnh feedback (kind/ref) để gắn nút trên Slack."""
+    text: str
+    kind: str = ""        # "" | analysis | lookup (rỗng = không gắn nút feedback)
+    ref: str = ""         # case_id (analysis) hoặc câu hỏi (lookup)
+
+
 class ChatHandler:
     """Glue hội thoại: nhớ phiên (history + deal context) → rà soát hoặc trả lời tiếp."""
 
@@ -82,15 +102,19 @@ class ChatHandler:
         self.store = store
         self.default_tenant = default_tenant
 
-    def reply(self, conversation_id: str, text: str | None = None, attachment: bytes | None = None,
-              filename: str | None = None, lang: str = "vi") -> str:
+    def reply_ex(self, conversation_id: str, text: str | None = None, attachment: bytes | None = None,
+                 filename: str | None = None, lang: str = "vi") -> ChatReply:
         conv = self.store.get(conversation_id) or Conversation(id=conversation_id)
-        out = self._handle(conv, text, attachment, filename, lang)
+        res = self._handle(conv, text, attachment, filename, lang)
         conv.add("user", (text or "").strip() or "(đã gửi tệp)")
-        conv.add("assistant", out)
+        conv.add("assistant", res.text)
         self._summarize(conv)
         self.store.save(conv)
-        return out
+        return res
+
+    def reply(self, conversation_id: str, text: str | None = None, attachment: bytes | None = None,
+              filename: str | None = None, lang: str = "vi") -> str:
+        return self.reply_ex(conversation_id, text, attachment, filename, lang).text
 
     def _summarize(self, conv: Conversation) -> None:
         """Progressive summarization: gộp lượt cũ vào context, giữ N lượt gần (bound token)."""
@@ -106,7 +130,7 @@ class ChatHandler:
             except LLMError:
                 pass
 
-    def _handle(self, conv: Conversation, text, attachment, filename, lang) -> str:
+    def _handle(self, conv: Conversation, text, attachment, filename, lang) -> ChatReply:
         org = default_org(self.default_tenant)
         contract, source = None, None
         if attachment is not None:
@@ -114,23 +138,27 @@ class ChatHandler:
             try:
                 contract = self.parser.extract_text(attachment, filename or "file")
             except ValueError as exc:
-                return f"Không đọc được file: {exc}"
-        elif text and any(s in text.lower() for s in _SIGNALS):
-            contract = text
+                return ChatReply(f"Không đọc được file: {exc}")
+        elif text and not _is_question(text) and any(s in text.lower() for s in _SIGNALS):
+            contract = text                            # có tín hiệu HĐ & KHÔNG phải câu hỏi → rà soát
 
         if contract and contract.strip():                 # → RÀ SOÁT
             try:
                 result = self.service.analyze(contract, org, lang=lang, source=source)
             except (ValueError, LLMError) as exc:
-                return f"Xin lỗi, chưa xử lý được: {exc}"
+                return ChatReply(f"Xin lỗi, chưa xử lý được: {exc}")
             conv.context = _context_from_result(result)    # nhớ deal đang bàn
-            return format_chat_reply(result, lang)
+            return ChatReply(format_chat_reply(result, lang), "analysis", result.case_id or "")
         if conv.context:                                   # → TRẢ LỜI TIẾP (follow-up theo deal)
-            return self._followup(conv, text or "", lang)
+            return ChatReply(self._followup(conv, text or "", lang))
         if text and _looks_like_question(text):            # → TRA CỨU LUẬT có grounding (không có deal)
-            answer, _ = self.service.lookup(text, org, lang=lang)
-            return answer
-        return "Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, hoặc đặt câu hỏi pháp lý nhé."
+            answer, snippets = self.service.lookup(text, org, lang=lang)
+            if snippets:                                   # hiện nguồn (dẫn điều/khoản) gọn dưới câu trả lời
+                srcs = " · ".join(s.source for s in snippets[:3])
+                answer = f"{answer}\n\n📎 Nguồn: {srcs}"
+            return ChatReply(answer, "lookup", text)
+        return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "
+                         "hoặc đặt câu hỏi pháp lý nhé.")
 
     def _followup(self, conv: Conversation, question: str, lang: str) -> str:
         hist = "\n".join(f"{m['role']}: {m['content']}" for m in conv.recent(6))
@@ -184,9 +212,30 @@ def _zalo_file(message: dict) -> tuple[str | None, str | None]:
     return None, None
 
 
+# Nút feedback Slack (Block Kit). action_id → rating; value mang ngữ cảnh {kind, ref}.
+_FB_RATING = {"fb_helpful": "helpful", "fb_wrong": "wrong", "fb_incomplete": "incomplete"}
+
+
+def _feedback_blocks(kind: str, ref: str) -> list[dict]:
+    val = json.dumps({"k": kind, "r": ref[:300]}, ensure_ascii=False)   # value max 2000 ký tự
+
+    def btn(txt: str, aid: str, style: str | None = None) -> dict:
+        b = {"type": "button", "text": {"type": "plain_text", "text": txt, "emoji": True},
+             "action_id": aid, "value": val}
+        if style:
+            b["style"] = style
+        return b
+
+    return [{"type": "actions", "block_id": "lg_feedback", "elements": [
+        btn("👍 Đúng", "fb_helpful", "primary"),
+        btn("⚠️ Sai", "fb_wrong", "danger"),
+        btn("➖ Thiếu", "fb_incomplete")]}]
+
+
 def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: str,
              text: str, file_url: str | None, filename: str | None,
-             thread_ts: str | None = None, max_bytes: int = 10 * 1024 * 1024) -> None:
+             thread_ts: str | None = None, max_bytes: int = 10 * 1024 * 1024,
+             supports_buttons: bool = False) -> None:
     """Chạy nền: tải file (nếu có) + analyze + gửi reply (webhook chỉ ack nhanh)."""
     # Ack ngay khi sắp PHÂN TÍCH (lâu ~vài phút) — follow-up nhanh thì không cần, tránh ồn.
     if file_url or any(s in (text or "").lower() for s in _SIGNALS):
@@ -205,17 +254,23 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
                        f"File quá lớn (>{max_bytes // (1024 * 1024)}MB). "
                        "Vui lòng gửi bản gọn hơn.", thread_ts)
             return
+    blocks = None
     try:
-        reply = handler.reply(key, text=text, attachment=attachment, filename=filename)
+        res = handler.reply_ex(key, text=text, attachment=attachment, filename=filename)
+        reply = res.text
+        if supports_buttons and res.kind:          # gắn nút feedback (Slack) cho câu trả lời thật
+            blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": reply[:2900]}},
+                      *_feedback_blocks(res.kind, res.ref)]
     except Exception:  # noqa: BLE001 — task nền: lỗi bất ngờ → vẫn báo khách, không sập im lặng
         _log.exception("Lỗi xử lý tin nhắn (%s)", key)
         reply = "Xin lỗi, có lỗi khi xử lý. Vui lòng thử lại sau."
-    _safe_send(sender, send_to, reply, thread_ts)
+    _safe_send(sender, send_to, reply, thread_ts, blocks)
 
 
-def _safe_send(sender: ChatSenderPort, send_to: str, text: str, thread_ts: str | None) -> None:
+def _safe_send(sender: ChatSenderPort, send_to: str, text: str, thread_ts: str | None,
+               blocks: list | None = None) -> None:
     try:
-        sender.send(send_to, text, thread_ts)
+        sender.send(send_to, text, thread_ts, blocks)
     except Exception:  # noqa: BLE001 — gửi lỗi (token sai/channel sai) không làm sập task nền
         _log.exception("Không gửi được reply (%s)", send_to)
 
@@ -276,9 +331,40 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             if slack_sender and slack_sender.available:         # ack nhanh, xử lý nền + gửi reply
                 url, fn = _slack_file(event)
                 background.add_task(_process, handler, slack_sender, key, channel, text,
-                                    url, fn, thread_ts, max_upload_bytes)
+                                    url, fn, thread_ts, max_upload_bytes, True)
                 return {"ok": True}
             return {"ok": True, "reply": handler.reply(key, text=text)}
+
+        @router.post("/channels/slack/interactions")
+        async def slack_interactions(request: Request):
+            # Nút feedback (block_actions) → ghi Feedback. Verify chữ ký trên RAW body TRƯỚC khi parse.
+            body = await request.body()
+            if not _verify_slack(slack_signing_secret,
+                                 request.headers.get("X-Slack-Request-Timestamp", ""),
+                                 body, request.headers.get("X-Slack-Signature", "")):
+                raise HTTPException(status_code=401, detail="Chữ ký Slack không hợp lệ.")
+            try:
+                payload = json.loads(parse_qs(body.decode("utf-8")).get("payload", ["{}"])[0])
+            except (UnicodeDecodeError, json.JSONDecodeError, IndexError):
+                raise HTTPException(status_code=400, detail="Payload không hợp lệ.") from None
+            if payload.get("type") != "block_actions":
+                return {"ok": True}
+            action = (payload.get("actions") or [{}])[0]
+            rating = _FB_RATING.get(action.get("action_id", ""))
+            if not rating:
+                return {"ok": True}
+            try:
+                ctx = json.loads(action.get("value") or "{}")
+            except json.JSONDecodeError:
+                ctx = {}
+            org = default_org(handler.default_tenant)
+            handler.service.record_feedback(Feedback(
+                id=uuid.uuid4().hex, org_id=org.id, kind=ctx.get("k", "lookup"),
+                ref=ctx.get("r", ""), rating=rating,
+                note=f"slack:{(payload.get('user') or {}).get('id', '')}",
+                created_at=datetime.now(timezone.utc).isoformat()))
+            # Thay tin gốc bằng xác nhận (replace_original) — ack <3s, không hammer LLM.
+            return {"replace_original": True, "text": "✅ Cảm ơn phản hồi của bạn — đã ghi nhận."}
 
     if zalo_oa_secret:
         @router.post("/channels/zalo/webhook")

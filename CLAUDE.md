@@ -73,6 +73,9 @@ Moat/flywheel (`docs/moat.md`): `Outcome` (kết quả đàm phán) → `Outcome
 (outcome-aware ranking). Đây là dữ liệu độc quyền — moat thật, không phải tech.
 Vòng học: `Feedback` (phản hồi người dùng helpful/wrong/incomplete) → `FeedbackRepositoryPort` →
 `POST /feedback` (+ nút trên web UI) + `GET /feedback` (export build golden set); gom lỗ hổng KB từ usage thật.
+Trên Slack: câu trả lời (analyze/lookup) kèm Block Kit buttons 👍/⚠️/➖ → `POST /channels/slack/interactions`
+(verify chữ ký trên raw body, replace_original xác nhận). Lookup chat hiện cả nguồn (📎). Routing: câu có dấu
+hỏi/từ-để-hỏi (`_is_question`) ưu tiên lookup dù chứa từ khóa HĐ.
 
 Security (`docs/security.md`): API-key auth + per-company scoping (`API_KEYS="key:org:VN"`), PII
 redaction (`domain/redaction.py`), prompt-injection hardening, upload limit, right-to-erasure,

@@ -34,9 +34,10 @@ class _FakeSender:
     def available(self):
         return self._a
 
-    def send(self, conv, text, thread_ts=None):
+    def send(self, conv, text, thread_ts=None, blocks=None):
         self.sent.append((conv, text))
         self.threads.append(thread_ts)
+        self.blocks = blocks
 
     def download(self, url):
         self.downloaded.append(url)
@@ -280,3 +281,36 @@ def test_slack_downloads_attachment_then_analyzes():
     _slack_post(c, "s", payload)
     assert sender.downloaded == ["https://files/x"]        # đã tải file
     assert "Điều khoản trọng tài" in sender.sent[-1][1]    # phân tích nội dung file
+
+
+# ---- Slack feedback (interactive buttons) ----
+def _slack_interaction(client, secret, action_id, value):
+    import urllib.parse
+    payload = {"type": "block_actions", "user": {"id": "U1"}, "channel": {"id": "C1"},
+               "actions": [{"action_id": action_id, "value": value}]}
+    body = ("payload=" + urllib.parse.quote(json.dumps(payload))).encode()
+    ts = str(int(time.time()))
+    sig = "v0=" + hmac.new(secret.encode(), b"v0:" + ts.encode() + b":" + body, hashlib.sha256).hexdigest()
+    return client.post("/channels/slack/interactions", content=body,
+                       headers={"X-Slack-Request-Timestamp": ts, "X-Slack-Signature": sig,
+                                "Content-Type": "application/x-www-form-urlencoded"})
+
+
+def test_slack_interaction_records_feedback():
+    c = _client(slack="sek")
+    r = _slack_interaction(c, "sek", "fb_wrong", json.dumps({"k": "lookup", "r": "phạt vi phạm?"}))
+    assert r.status_code == 200
+    assert r.json().get("replace_original") is True        # thay tin gốc bằng xác nhận
+
+
+def test_slack_interaction_bad_signature_401():
+    c = _client(slack="sek")
+    r = c.post("/channels/slack/interactions", content=b"payload=%7B%7D",
+               headers={"X-Slack-Request-Timestamp": "0", "X-Slack-Signature": "v0=bad"})
+    assert r.status_code == 401
+
+
+def test_reply_ex_marks_lookup_and_analysis_kind():
+    h = _handler()
+    assert h.reply_ex("cK", text="Mức phạt vi phạm hợp đồng tối đa bao nhiêu?").kind == "lookup"
+    assert h.reply_ex("cA", text=MSG).kind == "analysis"
