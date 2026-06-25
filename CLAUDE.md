@@ -164,8 +164,10 @@ never imports adapters or frameworks.
 Tenancy is two axes (`tenants.py`): **Tenant = country/jurisdiction** (selects KB `knowledge_base/<CC>/`)
 and **Organization = company** (data isolation by `org_id` + per-company KB overlay at
 `knowledge_base/_orgs/<org_id>/` via `OverlayRetriever`). Data isolation is per-COMPANY, not per-country;
-`AnalysisService.analyze(contract, org)` and cases are scoped by `org_id`. Qwen = reasoner (agent),
-Gemini = summarizer (≥1-Gemini-call XPRIZE rule). Deploy target: Alibaba Cloud ECS.
+`AnalysisService.analyze(contract, org)` and cases are scoped by `org_id`. BA vai trò LLM: Qwen flagship
+`qwen3.7-max` = reasoner (agent phân tích — việc KHÓ); Qwen `qwen-flash` = `judge` (NLI/verify yes/no —
+việc PHỤ, ~0.5s vs ~23s, right-sizing); Gemini = summarizer (≥1-Gemini-call XPRIZE rule).
+`judge` mặc định = reasoner nếu không cấu hình (giữ tương thích/stub). Deploy target: Alibaba Cloud ECS.
 
 The **Fallback Matrix** (`docs/internal/legal-guard.md` §6) is the product's core logic: a mapping from a partner-imposed
 clause → risk analysis → concrete compromise tactic. This is the differentiator (flexible tactics, not rigid

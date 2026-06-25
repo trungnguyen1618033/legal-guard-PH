@@ -58,6 +58,8 @@ nano .env                 # điền key thật + DATABASE_URL/REDIS_URL + DOMAIN
 - `CROSS_ENCODER_RERANK=true` + `QWEN_RERANK_MODEL=qwen3-rerank` — rerank qua Qwen-Rerank (cần key có quyền
   model này trong Model Studio; lỗi → tự tắt, chạy tiếp bằng BM25+embedding).
 - `CITATION_CLOSURE=false` (mặc định) — bật `=true` để tự kéo điều luật dẫn chiếu.
+- `QWEN_FAST_MODEL=qwen-flash` (mặc định) — model nhanh cho việc kiểm yes/no (NLI/verify); cắt latency
+  `/analyze` ~½ mà không giảm chất lượng phân tích (agent vẫn dùng `qwen3.7-max`). Cần key có quyền model này.
 
 ## 6. Chạy
 ```bash
