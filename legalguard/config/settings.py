@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     citation_closure: bool = False   # bật citation closure: đi theo dẫn chiếu kéo về điều luật liên quan (Phase 2)
     in_force_filter: bool = True     # mặc định CHỈ trả văn bản còn hiệu lực (lọc theo front-matter status)
     legal_basis_grounding: bool = True  # gắn căn cứ điều luật (tất định, từ KB) cho mỗi risk/fallback
+    nli_verification: bool = True       # kiểm entailment: nguồn có hậu thuẫn claim không (chống hallucinate; tốn thêm LLM call)
 
     # Chat session store: sql (persist + đa instance) | memory (dev) | redis
     conversation_backend: str = "sql"

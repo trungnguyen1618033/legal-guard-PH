@@ -28,7 +28,9 @@ uv add <pkg>                       # add a dependency
 ```
 
 AI/RAG quality techniques: grounding+citation+evidence (`tools.py`), verification 2-layer
-(clause-existence + LLM-judge, `domain/verification.py`), lexical BM25 (Okapi, length-norm + IDF) +
+(clause-existence + LLM-judge + NLI entailment `nli_supports` — kiểm "nguồn CÓ hậu thuẫn claim không",
+chống citation tồn-tại-nhưng-không-hỗ-trợ, `NLI_VERIFICATION`; áp vào legal_basis grounding + lookup,
+`domain/verification.py`), lexical BM25 (Okapi, length-norm + IDF) +
 embedding, hybrid retrieval RRF + opt-in LLM reranker
 + opt-in cross-encoder reranker (Qwen `gte-rerank`, `CROSS_ENCODER_RERANK`) + full-context
 (`outbound/knowledge_base.py`, `RERANK_ENABLED`), structure-aware legal chunking + NFC + citation

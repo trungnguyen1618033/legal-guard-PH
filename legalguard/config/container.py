@@ -63,7 +63,8 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                 if cfg.langfuse_secret_key else NoOpObserver())
     return AnalysisService(reasoner=reasoner, summarizer=summarizer, kb=kb,
                            cases=cases, outcomes=outcomes, observer=observer,
-                           legal_basis_grounding=cfg.legal_basis_grounding, feedback=feedback)
+                           legal_basis_grounding=cfg.legal_basis_grounding, feedback=feedback,
+                           nli_verification=cfg.nli_verification)
 
 
 def build_evidence(cfg: Settings = settings) -> EvidenceService:

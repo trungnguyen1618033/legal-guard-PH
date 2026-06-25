@@ -1,6 +1,36 @@
 from legalguard.adapters.outbound.knowledge_base import build_retriever
 from legalguard.domain.analysis import _attach_legal_basis, _legal_citation
 from legalguard.domain.models import Fallback, Risk
+from legalguard.domain.verification import nli_supports
+
+
+class _Judge:
+    name = "qwen"
+
+    def __init__(self, out="YES", available=True):
+        self._out, self._a = out, available
+
+    @property
+    def available(self):
+        return self._a
+
+    def complete(self, prompt, *, system=None):
+        return self._out
+
+
+def test_nli_supports_yes_no_none():
+    assert nli_supports("claim", "evidence", _Judge("YES")) is True
+    assert nli_supports("claim", "evidence", _Judge("NO")) is False
+    assert nli_supports("claim", "evidence", _Judge("xyzabc")) is None      # đáp mơ hồ → None
+    assert nli_supports("claim", "evidence", _Judge("YES", available=False)) is None  # offline → None
+
+
+def test_legal_citation_nli_rejects_unsupported():
+    r = build_retriever("knowledge_base", "VN", strategy="keyword", in_force=True)
+    # judge nói NO → KHÔNG gắn dù có điều luật khớp thuật ngữ (chống citation không hậu thuẫn)
+    assert _legal_citation("phạt vi phạm 15% giá trị", r, _Judge("NO")) == ""
+    # judge nói YES → vẫn gắn Điều 301
+    assert "Điều 301" in _legal_citation("phạt vi phạm 15% giá trị", r, _Judge("YES"))
 
 
 def _r():
