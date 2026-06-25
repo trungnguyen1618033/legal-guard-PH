@@ -23,7 +23,7 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
 | [advisory-flow.md](advisory-flow.md) | Luồng tư vấn thật: vị thế đàm phán (BATNA/leverage) → ưu tiên giữ/nhượng → chiến lược |
 | [conversation.md](conversation.md) | Chat session/memory: working memory + deal context · intent routing · follow-up |
 | [slack-guide.md](slack-guide.md) | Cài đặt bot Slack (admin): app/scopes/events · env · troubleshooting |
-| [slack-handbook.md](slack-handbook.md) | Sổ tay người dùng Slack: tính năng · 6 use case từng bước (gồm tra cứu luật) · đọc kết quả · FAQ |
+| [slack-handbook.md](slack-handbook.md) | Sổ tay người dùng Slack: 8 use case (soát HĐ · tra cứu luật · point-in-time · feedback) · routing · FAQ |
 | [data-model.md](data-model.md) | Persistence SQLAlchemy (SQLite→Postgres) · Alembic · bảng `cases` |
 | [security.md](security.md) | Threat model · cô lập theo công ty · redaction PII · prompt-injection · compliance |
 | [deployment.md](deployment.md) | Triển khai & scale trên Alibaba Cloud · topology · tiers · CI/CD · bottlenecks |
