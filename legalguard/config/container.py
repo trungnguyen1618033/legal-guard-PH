@@ -48,6 +48,10 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     reasoner = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_model,
                            embed_model=cfg.qwen_embed_model, temperature=cfg.llm_temperature,
                            rerank_model=cfg.qwen_rerank_model)
+    # Judge NHANH (qwen-flash) cho việc phụ yes/no (NLI, verify) — ~0.5s/call thay vì ~40s của flagship,
+    # cắt mạnh latency khâu hậu-agent mà không bỏ bước kiểm. Cùng key/endpoint, chỉ khác model.
+    judge = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_fast_model,
+                        temperature=cfg.llm_temperature)
     summarizer = GeminiAdapter(cfg.gemini_api_key, cfg.gemini_model, temperature=cfg.llm_temperature)
     embed_fn = reasoner.embed if reasoner.available else None
     reranker = reasoner if cfg.rerank_enabled else None
@@ -64,7 +68,7 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     return AnalysisService(reasoner=reasoner, summarizer=summarizer, kb=kb,
                            cases=cases, outcomes=outcomes, observer=observer,
                            legal_basis_grounding=cfg.legal_basis_grounding, feedback=feedback,
-                           nli_verification=cfg.nli_verification)
+                           nli_verification=cfg.nli_verification, judge=judge)
 
 
 def build_evidence(cfg: Settings = settings) -> EvidenceService:

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -190,6 +191,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Integration check (gọi LLM thật) + lưu snapshot")
     ap.add_argument("--compare", help="đường dẫn snapshot.json cũ để so sánh nhanh")
     args = ap.parse_args()
+
+    # Hiện log timing của analyze (agent loop ms ∥ post-agent ms) để soi nghẽn latency.
+    logging.basicConfig(level=logging.INFO, format="    [%(name)s] %(message)s")
 
     if not settings.qwen_api_key:
         raise SystemExit("Chưa có QWEN_API_KEY trong .env — file này cần LLM thật. "
