@@ -231,3 +231,6 @@ knowledge_base/_ingested/
 
 # Ứng viên golden sinh từ feedback — luật sư review rồi mới merge thủ công
 evaluation/golden_candidates.json
+
+# Snapshot integration check (gọi LLM thật, không tất định) — artifact local để đối chiếu
+evaluation/snapshots/
