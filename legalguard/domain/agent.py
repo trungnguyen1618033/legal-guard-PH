@@ -18,7 +18,9 @@ Required workflow:
 2. For each dangerous clause, call `flag_risk` WITH `source` (short KB quote), `evidence` (EXACT
    verbatim text from the contract), and `priority` (must_fix / negotiate / acceptable) chosen from the
    CLIENT POSITION below — a weak-leverage / urgent client should concede more and only insist on must_fix.
+   FILL `reasoning` FIRST (why risky + why this severity/priority), THEN the decision fields.
 3. For each risk, call `propose_fallback` with: `suggestion` (concrete tactic) and `english_reply`.
+   Again, fill `reasoning` first, then the tactic.
 4. If any risk is `high`, call `request_human_review`.
 5. When done, reply with a NEGOTIATION STRATEGY in plain English: what to INSIST (must_fix), what to
    CONCEDE to close the deal, and a WALK-AWAY point based on the client's BATNA (alternatives). No more tools.
@@ -37,7 +39,9 @@ Quy trình bắt buộc:
 2. Với mỗi điều khoản nguy hiểm, gọi `flag_risk` KÈM `source` (quote KB), `evidence` (COPY NGUYÊN VĂN
    từ hợp đồng), và `priority` (must_fix / negotiate / acceptable) chọn theo VỊ THẾ KHÁCH bên dưới —
    khách yếu thế/gấp thì nhượng nhiều hơn, chỉ giữ cứng các điều khoản must_fix.
+   ĐIỀN `reasoning` TRƯỚC (vì sao rủi ro + vì sao mức severity/priority đó), RỒI mới điền các trường quyết định.
 3. Với mỗi rủi ro, gọi `propose_fallback` gồm `suggestion` (chiến thuật cụ thể) và `english_reply`.
+   Cũng điền `reasoning` trước, rồi mới tới chiến thuật.
 4. Nếu có rủi ro `high`, gọi `request_human_review`.
 5. Khi xong, trả lời bằng CHIẾN LƯỢC ĐÀM PHÁN tiếng Việt, ngôn ngữ thường: điều gì PHẢI GIỮ (must_fix),
    điều gì CÓ THỂ NHƯỢNG để chốt deal, và ĐIỂM RÚT (walk-away) dựa trên BATNA của khách. Không gọi thêm tool.

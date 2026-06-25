@@ -1,6 +1,11 @@
 from legalguard.adapters.outbound.knowledge_base import KeywordRetriever
 from legalguard.domain.models import AgentContext
-from legalguard.domain.tools import execute_tool
+from legalguard.domain.tools import TOOL_SCHEMAS, execute_tool
+
+
+def _props(tool_name: str) -> list[str]:
+    fn = next(t["function"] for t in TOOL_SCHEMAS if t["function"]["name"] == tool_name)
+    return list(fn["parameters"]["properties"])
 
 
 def _ctx() -> AgentContext:
@@ -36,6 +41,21 @@ def test_search_legal_knowledge_returns_text():
 
 def test_unknown_tool_is_handled():
     assert "không tồn tại" in execute_tool("no_such_tool", {}, _ctx()).lower()
+
+
+# ---- reason-then-format: `reasoning` đứng ĐẦU schema (model suy luận trước khi quyết) ----
+def test_reasoning_field_is_first_in_decision_tools():
+    assert _props("flag_risk")[0] == "reasoning"
+    assert _props("propose_fallback")[0] == "reasoning"
+    assert "reasoning" not in _props("flag_risk")[1:]   # không required, chỉ là gợi ý suy luận
+
+
+def test_dispatch_tolerates_reasoning_field():
+    # `reasoning` không phải required → có hay không, kết quả structured vẫn ghi nhận bình thường.
+    ctx = _ctx()
+    execute_tool("flag_risk", {"reasoning": "đẩy rủi ro về khách", "clause": "X", "risk": "Y",
+                               "severity": "high"}, ctx)
+    assert len(ctx.risks) == 1 and ctx.risks[0].severity == "high"
 
 
 # ---- QA chất lượng output LLM ----
