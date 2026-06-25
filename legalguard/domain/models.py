@@ -113,6 +113,18 @@ class Outcome:
 
 
 @dataclass
+class Feedback:
+    """Phản hồi người dùng về một câu trả lời — vòng học: gom golden set + tìm lỗ hổng từ usage thật."""
+    id: str
+    org_id: str
+    kind: str                  # analysis | lookup
+    ref: str                   # case_id (analysis) hoặc câu hỏi (lookup)
+    rating: str                # helpful | wrong | incomplete
+    note: str
+    created_at: str
+
+
+@dataclass
 class TraceStep:
     step: int
     tool: str
