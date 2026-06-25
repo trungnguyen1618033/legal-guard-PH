@@ -163,7 +163,7 @@ def affected_doc_files(base_dir: str, tenant: str, doc_id: str) -> dict[str, dic
     if not cl:
         return {}
     ids = _load_doc_ids(base_dir, tenant)
-    # Điều bị tác động khai trong front-matter của VB mới (áp cho mọi văn bản đích — đơn giản hóa MVP).
+    # Điều bị tác động (article-level) khai trong front-matter `amends_articles` của VB mới.
     metas = _load_doc_meta(base_dir, tenant)
     self_fn = ids.get(doc_id.strip().upper())
     raw_arts = (metas.get(self_fn, {}).get("amends_articles", "") if self_fn else "")
@@ -173,7 +173,10 @@ def affected_doc_files(base_dir: str, tenant: str, doc_id: str) -> dict[str, dic
         if rel["relation"] in _CHANGE_RELATIONS:
             fn = ids.get(rel["doc_id"])
             if fn:
-                out[fn] = {"relation": rel["relation"], "articles": list(articles)}
+                # CHỈ "amends" mới lọc theo điều (sửa một số Điều). "replaces" = thay cả văn bản →
+                # mọi viện dẫn đều lỗi thời (articles rỗng = doc-level). "guides" cũng doc-level.
+                arts = articles if rel["relation"] == "amends" else []
+                out[fn] = {"relation": rel["relation"], "articles": arts}
     return out
 
 

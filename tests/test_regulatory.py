@@ -174,3 +174,11 @@ def test_affected_doc_files_live_kb():
     assert "Điều 9" in info["articles"]               # amends_articles khai trong front-matter
     # VB không có trong KB → {}
     assert affected_doc_files("knowledge_base", "VN", "999/9999/NĐ-CP") == {}
+
+
+def test_affected_doc_files_replace_is_doc_level():
+    # NĐ 123/2020 THAY THẾ TT 39/2014 (cả văn bản) → articles RỖNG (doc-level), không lọc theo điều
+    # dù NĐ 123 có khai amends_articles cho mục đích khác.
+    aff = affected_doc_files("knowledge_base", "VN", "123/2020/NĐ-CP")
+    info = aff.get("tt_39_2014_hoa_don_HET_HIEU_LUC.md")
+    assert info["relation"] == "replaces" and info["articles"] == []

@@ -40,10 +40,15 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
 | [/CLAUDE.md](../CLAUDE.md) | Hướng dẫn cho Claude Code: lệnh, kiến trúc, kỹ thuật AI, bảo mật |
 
 ## Trạng thái dự án (25/6/2026)
-- ✅ MVP chạy được (156 test, lint sạch), offline qua stub.
+- ✅ MVP chạy được (221 test, lint sạch), offline qua stub.
 - ✅ Agentic RAG hiện đại + bảo mật + multi-tenancy 2 trục + persistence Postgres-ready + Docker.
-- ✅ **Hướng mở rộng tra cứu luật VN** (xem 2 doc internal): chunk Điều/Khoản + NFC, lọc hiệu lực
-  mặc-định-còn-hiệu-lực, citation-closure document-aware (xuyên Luật→NĐ→TT), cross-encoder rerank (opt-in),
-  eval harness tra cứu (`evaluation/legal_eval.py`), pipeline ingestion dataset mở (`ingestion/hf_to_kb.py`).
-- ✅ Tập trung Qwen hackathon (gác XPRIZE). Chờ `QWEN_API_KEY` để chạy thật + deploy Alibaba Cloud.
-- ⬜ Còn lại (moat đầy đủ): reranker/embedding pháp lý VN self-host · closure doc-level từ `relationships` · bulk ingest một domain.
+- ✅ **Tra cứu luật VN**: chunk Điều/Khoản + NFC, lọc hiệu lực + point-in-time, citation-closure
+  document-aware (xuyên Luật→NĐ→TT), cross-encoder rerank (opt-in), **NLI entailment verify**,
+  eval harness (`evaluation/legal_eval.py`), ingestion dataset mở (`ingestion/hf_to_kb.py`).
+- ✅ **Moat đã dựng**: đàm phán theo vị thế + **điều khoản phản-đề song ngữ** (`/counter`) ·
+  **regulatory change intel** article-level + cảnh báo Slack/Zalo (`/impact`) · **system-of-record
+  dashboard** (`/dashboard`, `/insights/dashboard`) · **living flywheel** feedback→golden
+  (`evaluation/feedback_to_golden.py`) · reason-then-format structured output.
+- ✅ Hạ tầng deploy Alibaba Cloud ECS SẴN SÀNG (Dockerfile · compose.prod · Caddy auto-TLS · `deploy-ecs.md`).
+- ✅ Tập trung Qwen hackathon (gác XPRIZE). Chờ `QWEN_API_KEY` để chạy thật + deploy.
+- ⬜ Còn lại (cần hạ tầng/cost): reranker/embedding pháp lý VN **self-host** (GPU) · **hard-negative mining** từ feedback (training).

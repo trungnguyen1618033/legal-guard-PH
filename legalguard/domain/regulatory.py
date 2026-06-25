@@ -29,7 +29,6 @@ class RegulatoryImpact:
 
 
 _REL_VI = {"amends": "sửa đổi", "replaces": "thay thế", "guides": "hướng dẫn"}
-_KIND_VI = {"risk": "rủi ro", "fallback": "phương án"}
 _ARTICLE_RE = re.compile(r"Điều\s+\d+[a-z]?", re.IGNORECASE)
 
 
