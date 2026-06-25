@@ -237,8 +237,11 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
              thread_ts: str | None = None, max_bytes: int = 10 * 1024 * 1024,
              supports_buttons: bool = False) -> None:
     """Chạy nền: tải file (nếu có) + analyze + gửi reply (webhook chỉ ack nhanh)."""
-    # Ack ngay khi sắp PHÂN TÍCH (lâu ~vài phút) — follow-up nhanh thì không cần, tránh ồn.
-    if file_url or any(s in (text or "").lower() for s in _SIGNALS):
+    # Ack ngay khi sắp PHÂN TÍCH HĐ (lâu ~vài phút). Câu hỏi tra cứu (lookup) nhanh → KHÔNG ack
+    # (khớp routing: tín hiệu HĐ mà là câu hỏi thì đi lookup, không phân tích).
+    will_analyze = bool(file_url) or (
+        bool(text) and not _is_question(text) and any(s in text.lower() for s in _SIGNALS))
+    if will_analyze:
         _safe_send(sender, send_to, _ACK, thread_ts)
     attachment: bytes | None = None
     if file_url:
@@ -358,11 +361,14 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             except json.JSONDecodeError:
                 ctx = {}
             org = default_org(handler.default_tenant)
-            handler.service.record_feedback(Feedback(
-                id=uuid.uuid4().hex, org_id=org.id, kind=ctx.get("k", "lookup"),
-                ref=ctx.get("r", ""), rating=rating,
-                note=f"slack:{(payload.get('user') or {}).get('id', '')}",
-                created_at=datetime.now(timezone.utc).isoformat()))
+            try:                                   # lỗi DB KHÔNG được làm 500 (Slack sẽ retry-storm)
+                handler.service.record_feedback(Feedback(
+                    id=uuid.uuid4().hex, org_id=org.id, kind=ctx.get("k", "lookup"),
+                    ref=ctx.get("r", ""), rating=rating,
+                    note=f"slack:{(payload.get('user') or {}).get('id', '')}",
+                    created_at=datetime.now(timezone.utc).isoformat()))
+            except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
+                _log.exception("Không ghi được feedback từ Slack")
             # Thay tin gốc bằng xác nhận (replace_original) — ack <3s, không hammer LLM.
             return {"replace_original": True, "text": "✅ Cảm ơn phản hồi của bạn — đã ghi nhận."}
 
