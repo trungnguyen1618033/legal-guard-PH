@@ -65,3 +65,6 @@ def test_dashboard_endpoint(tmp_path):
     body = c.get("/insights/dashboard").json()
     assert body["cases"]["total"] == 1 and body["cases"]["total_risks"] == 1
     assert body["top_risky_clauses"][0]["clause"] == "Phạt"
+    # UI bảng điều khiển phục vụ được (HTML).
+    page = c.get("/dashboard")
+    assert page.status_code == 200 and "Bảng điều khiển" in page.text

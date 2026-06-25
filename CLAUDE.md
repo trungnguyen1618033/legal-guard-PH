@@ -68,7 +68,10 @@ grounding, cũng expose qua `POST /ask`). Webhook: ack nhanh + BackgroundTasks; 
 Web UI: `web/index.html` (landing, `GET /`) + `web/app.html` (demo UI, `GET /app`): form
 upload/dán HĐ + vị thế đàm phán → gọi `/analyze` → bảng risks/fallbacks/strategy/trace +
 **human checkpoint** (english_reply bị khóa tới khi reviewer Approve; Reject = chuyển chuyên gia).
-+ `web/lookup.html` (`GET /lookup`): form tra cứu luật → `/ask` → câu trả lời dẫn điều/khoản + nguồn + nút feedback.
++ `web/lookup.html` (`GET /lookup`): form tra cứu luật → `/ask` → câu trả lời dẫn điều/khoản + nguồn + nút feedback
+(+ section "VB mới ảnh hưởng HĐ nào?" `/impact`, changelog, redline). app.html mỗi fallback có nút "📝 soạn
+điều khoản phản-đề" (`/counter`). + `web/dashboard.html` (`GET /dashboard`): system-of-record → `/insights/dashboard`
+(HĐ rà soát, phân bố severity, top điều khoản rủi ro, feedback, win-rate chiến thuật).
 
 Upload: `DocumentParserPort` = `OcrFallbackParser(PdfDocxParser, QwenVisionOcr)` — text-PDF/DOCX/TXT
 dùng base; scan/ảnh (.png/.jpg/PDF-scan rỗng text) → OCR Qwen-VL (`QWEN_VL_MODEL`), fallback lỗi rõ
