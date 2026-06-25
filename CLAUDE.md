@@ -137,7 +137,9 @@ never imports adapters or frameworks.
 - **`legalguard/domain/`** — business core. `ports.py` defines the interfaces the domain needs
   (`LLMPort`, `KnowledgeBasePort`, `KnowledgeBaseProvider`, `DocumentParserPort`, `LLMError`).
   `agent.py` is the ReAct tool-calling loop; `analysis.py` is the `AnalysisService` use-case;
-  `tools.py` holds tool schemas + dispatch; `models.py` holds DTOs; `tenants.py` the tenant config.
+  `tools.py` holds tool schemas + dispatch (reason-then-format: `reasoning` là property ĐẦU TIÊN của
+  `flag_risk`/`propose_fallback` — model suy luận trước khi điền các trường quyết định severity/priority/
+  suggestion; optional, vào trace để audit); `models.py` holds DTOs; `tenants.py` the tenant config.
 - **`legalguard/adapters/outbound/`** — implement the ports: `qwen.py`/`gemini.py` (`LLMPort`),
   `knowledge_base.py` (keyword + embedding retrievers + provider), `document_parser.py`.
 - **`legalguard/adapters/inbound/http.py`** — FastAPI driving adapter (HTTP ↔ domain).

@@ -28,6 +28,10 @@ TOOL_SCHEMAS: list[dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "reasoning": {"type": "string",
+                                  "description": "ĐIỀN TRƯỚC TIÊN (1-2 câu): vì sao điều khoản này rủi ro "
+                                  "với khách, và vì sao chọn mức `severity`+`priority` đó theo vị thế. "
+                                  "Suy luận trước rồi mới điền các trường quyết định bên dưới."},
                     "clause": {"type": "string"},
                     "risk": {"type": "string"},
                     "severity": {"type": "string", "enum": ["low", "medium", "high"]},
@@ -48,6 +52,10 @@ TOOL_SCHEMAS: list[dict] = [
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "reasoning": {"type": "string",
+                                  "description": "ĐIỀN TRƯỚC TIÊN (1-2 câu): vì sao chiến thuật này hợp "
+                                  "vị thế khách (giữ/nhượng), bám căn cứ nào. Suy luận trước rồi mới điền "
+                                  "`suggestion`+`english_reply`."},
                     "clause": {"type": "string"},
                     "suggestion": {"type": "string", "description": "Chiến thuật (tiếng Việt)"},
                     "english_reply": {"type": "string", "description": "Câu gửi đối tác (tiếng Anh)"},
