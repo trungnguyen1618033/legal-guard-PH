@@ -66,6 +66,18 @@ def _is_in_force(status: str) -> bool:
     return status.strip().lower() in _IN_FORCE
 
 
+def _load_doc_dates(base_dir: str, tenant: str) -> dict[str, tuple[str, str]]:
+    """filename → (effective_date, expiry_date) ISO từ front-matter. Cho point-in-time retrieval."""
+    out: dict[str, tuple[str, str]] = {}
+    tenant_dir = Path(base_dir) / tenant
+    if not tenant_dir.exists():
+        return out
+    for md in sorted(tenant_dir.glob("*.md")):
+        meta, _ = parse_front_matter(md.read_text(encoding="utf-8"))
+        out[md.name] = (meta.get("effective_date", "").strip(), meta.get("expiry_date", "").strip())
+    return out
+
+
 # Quan hệ cấp văn bản (front-matter) → cạnh closure doc-level (kéo VB sửa đổi/thay thế/hướng dẫn liên quan).
 _REL_FIELDS = ("amends", "amended_by", "replaced_by", "replaces", "guided_by", "guides")
 
@@ -325,24 +337,65 @@ def _is_historical_query(query: str) -> bool:
     return bool(_HISTORICAL_RE.search(nfc(query)))
 
 
+# Point-in-time: rút mốc thời gian "as of" từ câu hỏi → ISO date. Tránh năm trong SỐ HIỆU văn bản
+# (vd "123/2020/NĐ-CP" — phần loại VB không phải số nên dd/mm/yyyy không khớp).
+_DATE_RE = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b")
+_YEAR_RE = re.compile(r"năm\s+(\d{4})", re.IGNORECASE)
+_ISO_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
+
+
+def _extract_as_of(query: str) -> str | None:
+    """'ngày 1/6/2022' / '01/06/2022' → '2022-06-01'; 'năm 2020' → '2020-12-31'; ISO giữ nguyên. None nếu không có."""
+    q = nfc(query)
+    m = _ISO_RE.search(q)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+    m = _DATE_RE.search(q)
+    if m:
+        return f"{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}"
+    m = _YEAR_RE.search(q)
+    if m:
+        return f"{m.group(1)}-12-31"        # "năm X" → tính tới cuối năm đó
+    return None
+
+
+def _valid_at(eff: str, exp: str, as_of: str) -> bool:
+    """Văn bản còn hiệu lực TẠI as_of: đã có hiệu lực (eff<=as_of) và chưa hết (exp rỗng hoặc as_of<exp)."""
+    if eff and eff > as_of:                  # chưa có hiệu lực tại thời điểm đó
+        return False
+    if exp and as_of >= exp:                 # đã hết hiệu lực tại thời điểm đó
+        return False
+    return True
+
+
 class InForceRetriever:
     """Lọc hiệu lực: mặc định CHỈ trả văn bản còn hiệu lực — diệt 'inapplicable authority'
     (trả điều luật đã hết hiệu lực/bị thay; lỗi RAG pháp lý hàng đầu theo Stanford RegLab).
 
-    Văn bản đã hết hiệu lực chỉ hiện khi query có ý định lịch sử ('bản cũ', 'trước đây'...).
-    Over-fetch rồi lọc để vẫn đủ top_k. Bọc base (trước rerank/closure) để mọi tầng sau chỉ
-    thấy văn bản còn hiệu lực.
+    3 chế độ (theo query): (1) có mốc thời gian ('năm 2020', '1/6/2022') → POINT-IN-TIME: trả VB còn
+    hiệu lực TẠI mốc đó (effective_date/expiry_date); (2) ý định lịch sử ('bản cũ') → trả hết; (3) mặc
+    định → chỉ VB còn hiệu lực hiện tại. Bọc base (trước rerank/closure).
     """
 
     def __init__(self, base: KnowledgeBasePort, base_dir: str, tenant: str, fetch_mult: int = 3) -> None:
         self.base = base
         self.fetch_mult = fetch_mult
         self._status = _load_doc_status(base_dir, tenant)
+        self._dates = _load_doc_dates(base_dir, tenant)
 
     def _ok(self, source: str) -> bool:
         return _is_in_force(self._status.get(source.split("#", 1)[0], "in_force"))
 
     def retrieve(self, query: str, top_k: int = 4) -> list[Snippet]:
+        as_of = _extract_as_of(query)
+        if as_of:                            # POINT-IN-TIME: lọc theo hiệu lực TẠI mốc as_of
+            fetch = max(top_k * self.fetch_mult, 12)
+            kept = []
+            for h in self.base.retrieve(query, fetch):
+                eff, exp = self._dates.get(h.source.split("#", 1)[0], ("", ""))
+                if _valid_at(eff, exp, as_of):
+                    kept.append(h)
+            return kept[:top_k]
         if _is_historical_query(query):
             return self.base.retrieve(query, top_k)
         fetch = max(top_k * self.fetch_mult, 12)
