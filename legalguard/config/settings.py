@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     qwen_api_key: str = ""
     qwen_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
     qwen_model: str = "qwen3.7-max"       # flagship, 1M context, suy luận mạnh nhất (Alibaba gợi ý 6/2026)
+    # Model NHANH cho việc phụ đơn giản (NLI yes/no, verify gộp) — ~0.5s/call vs ~40s của flagship.
+    # Right-sizing: việc khó (agent phân tích) vẫn dùng qwen_model; việc kiểm tra yes/no dùng model này.
+    qwen_fast_model: str = "qwen-flash"
     qwen_embed_model: str = "text-embedding-v4"  # Qwen3-Embedding: đa ngữ 100+, #1 MTEB
     qwen_vl_model: str = "qwen3.7-plus"   # multimodal — OCR HĐ scan/ảnh (thay Qwen-VL, chính xác hơn)
     qwen_rerank_model: str = "qwen3-rerank"  # cross-encoder rerank (Model Studio: Qwen-Rerank, 100+ ngôn ngữ)

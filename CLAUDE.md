@@ -49,6 +49,11 @@ theo effective_date/expiry_date — `_extract_as_of`/`_valid_at`),
 căn cứ pháp lý tất định cho từng risk & fallback (`_legal_citation` trong `domain/analysis.py`,
 `LEGAL_BASIS_GROUNDING`: tra KB gắn `Risk.legal_basis`/`Fallback.legal_basis` = điều luật còn hiệu lực,
 ngưỡng trùng ≥3 thuật ngữ để tránh căn cứ lạc), adaptive routing + chunking (`domain/analysis.py`),
+**latency — model right-sizing**: việc KHÓ (agent phân tích, sinh chiến lược, trả lời lookup) dùng flagship
+`qwen3.7-max`; việc PHỤ yes/no (NLI entailment, verify gộp) dùng `judge` = `qwen-flash` (`QWEN_FAST_MODEL`)
+— đo thực tế: NLI flagship ~23s/call vs flash ~0.5s, flash KHỚP flagship 4/4 trên test NLI pháp lý (tác vụ
+phân loại, không cần lập luận sâu) → cắt khâu hậu-agent ~264s→~vài giây mà KHÔNG bỏ bước kiểm. Hậu-agent
+(verify ∥ summary ∥ legal_basis) chạy song song; NLI mỗi clause cũng song song (`_attach_legal_basis`).
 eval harness + A/B (`evaluation/`). Hai tầng eval: `run_eval.py` =
 fast gate keyword-matching (offline, free, dùng trong CI); `ragas_eval.py` = deep gate RAGAS
 LLM-as-judge (Faithfulness / Context Precision / Response Relevancy; + Context Recall + Factual

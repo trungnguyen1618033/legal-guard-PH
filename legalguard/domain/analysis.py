@@ -105,21 +105,32 @@ def _legal_citation(query: str, retriever, judge: LLMPort | None = None) -> str:
 
 def _attach_legal_basis(risks: list, fallbacks: list, retriever, judge: LLMPort | None = None) -> int:
     """Gắn căn cứ điều luật cho mỗi risk & fallback. CACHE theo clause: risk và fallback cùng một
-    điều khoản chỉ tra KB 1 lần (giảm ~½ số lần retrieve — đáng kể ở chế độ embedding). Trả số mục gắn được.
-    judge (tùy chọn): bật kiểm NLI — chỉ gắn điều luật THỰC SỰ hậu thuẫn claim."""
-    cache: dict[str, str] = {}
+    điều khoản chỉ tra KB 1 lần. judge (tùy chọn): bật kiểm NLI — chỉ gắn điều luật THỰC SỰ hậu thuẫn claim.
 
-    def basis(clause: str, extra: str) -> str:
-        if clause not in cache:
-            cache[clause] = _legal_citation(f"{clause} {extra}", retriever, judge)
-        return cache[clause]
+    Mỗi clause độc lập → tra cứu + NLI cho các clause khác nhau chạy SONG SONG (giảm latency tuyến tính
+    theo số clause; NLI mỗi clause là 1 round-trip LLM). Trả số mục gắn được."""
+    # clause → query text (risk xử lý trước nên `extra` của risk thắng — giữ nguyên ngữ nghĩa cache cũ).
+    queries: dict[str, str] = {}
+    for r in risks:
+        queries.setdefault(r.clause, r.risk)
+    for f in fallbacks:
+        queries.setdefault(f.clause, f.suggestion)
+
+    def _cite(clause: str) -> tuple[str, str]:
+        return clause, _legal_citation(f"{clause} {queries[clause]}", retriever, judge)
+
+    if len(queries) > 1:                      # >1 clause → song song (mỗi clause 1 NLI round-trip)
+        with ThreadPoolExecutor(max_workers=min(6, len(queries))) as pool:
+            cache = dict(pool.map(_cite, queries))
+    else:
+        cache = dict(_cite(c) for c in queries)
 
     grounded = 0
     for r in risks:
-        r.legal_basis = basis(r.clause, r.risk)
+        r.legal_basis = cache.get(r.clause, "")
         grounded += bool(r.legal_basis)
     for f in fallbacks:
-        f.legal_basis = basis(f.clause, f.suggestion)
+        f.legal_basis = cache.get(f.clause, "")
         grounded += bool(f.legal_basis)
     return grounded
 
@@ -131,9 +142,13 @@ class AnalysisService:
                  observer: ObservabilityPort | None = None,
                  legal_basis_grounding: bool = True,
                  feedback: FeedbackRepositoryPort | None = None,
-                 nli_verification: bool = True) -> None:
-        self.reasoner = reasoner      # Qwen: agent phân tích chính
+                 nli_verification: bool = True,
+                 judge: LLMPort | None = None) -> None:
+        self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         self.summarizer = summarizer  # Gemini: >=1 call tóm tắt (ràng buộc XPRIZE)
+        # Model NHANH cho việc phụ yes/no (NLI, verify gộp). Mặc định = reasoner (giữ tương thích/stub),
+        # prod truyền qwen-flash → cắt mạnh latency khâu hậu-agent mà KHÔNG giảm bước kiểm nào.
+        self.judge = judge or reasoner
         self.kb = kb
         self.cases = cases            # persistence (tùy chọn)
         self.outcomes = outcomes      # flywheel kết quả đàm phán (tùy chọn)
@@ -272,6 +287,7 @@ class AnalysisService:
         else:
             with ThreadPoolExecutor(max_workers=min(3, len(windows))) as pool:
                 runs = list(pool.map(_one, range(len(windows))))
+        _log.info("agent loop (%d window) %dms", len(windows), round((time.monotonic() - t0) * 1000))
 
         if all(r is None for r in runs):               # TẤT CẢ cửa sổ lỗi → 502 (không có gì để trả)
             raise errors[0] if errors else LLMError(self.reasoner.name, "phân tích thất bại")
@@ -315,20 +331,31 @@ class AnalysisService:
         if not self.reasoner.available:
             notes.append("⚠️ Đang chạy ở chế độ STUB (chưa cấu hình QWEN_API_KEY).")
 
-        # Verification (judge) ∥ Gemini summary: hai việc độc lập (summary chỉ đọc
-        # clause/risk/severity, verification chỉ ghi cờ verified) → chạy song song.
+        # BA việc hậu-agent ĐỘC LẬP (mỗi việc ghi trường khác nhau: verify→`verified`,
+        # summary→chỉ đọc, legal_basis→`legal_basis`) → chạy SONG SONG thay vì 3 chặng tuần tự.
+        # Đây là phần nặng latency nhất sau agent (mỗi NLI là 1 round-trip LLM).
         summary = strategy
-        if ctx.risks:
-            with ThreadPoolExecutor(max_workers=2) as pool:
-                f_verify = pool.submit(verify_risks, ctx.risks, contract_text,
-                                       retriever, self.reasoner)
-                f_summary = pool.submit(self._summarize, ctx.risks, lang)
+        judge = self.judge if self.nli_verification else None        # NLI (model nhanh): điều luật hậu thuẫn claim
+        do_basis = self.legal_basis_grounding and (ctx.risks or ctx.fallbacks)
+        t_post = time.monotonic()
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            f_verify = (pool.submit(verify_risks, ctx.risks, contract_text, retriever, self.judge)
+                        if ctx.risks else None)
+            f_summary = pool.submit(self._summarize, ctx.risks, lang) if ctx.risks else None
+            f_basis = (pool.submit(_attach_legal_basis, ctx.risks, ctx.fallbacks, retriever, judge)
+                       if do_basis else None)
+        if f_verify is not None:
             notes += f_verify.result()
+        if f_summary is not None:
             text, err = f_summary.result()
             if err:
                 notes.append(err)
             else:
                 summary = text
+        if f_basis is not None and (grounded := f_basis.result()):
+            notes.append(f"📎 Gắn căn cứ pháp lý (điều luật còn hiệu lực) cho {grounded} mục.")
+        _log.info("post-agent (verify∥summary∥legal_basis) %dms", round((time.monotonic() - t_post) * 1000))
+
         if any(not r.verified for r in ctx.risks):
             ctx.needs_human_review = True
         # Lời hứa sản phẩm: rủi ro HIGH luôn cần người duyệt — ép tất định ở domain,
@@ -336,14 +363,6 @@ class AnalysisService:
         if any(r.severity == "high" for r in ctx.risks) and not ctx.needs_human_review:
             ctx.needs_human_review = True
             ctx.review_reasons.append("Có rủi ro mức cao — tự động yêu cầu chuyên gia duyệt.")
-
-        # Căn cứ pháp lý (tất định): gắn điều luật còn hiệu lực liên quan cho mỗi rủi ro & fallback.
-        # Retrieval-based (không để LLM bịa trích dẫn); chỉ gắn khi có điều luật thật khớp.
-        if self.legal_basis_grounding:
-            judge = self.reasoner if self.nli_verification else None   # NLI: chỉ gắn điều luật hậu thuẫn claim
-            grounded = _attach_legal_basis(ctx.risks, ctx.fallbacks, retriever, judge)
-            if grounded:
-                notes.append(f"📎 Gắn căn cứ pháp lý (điều luật còn hiệu lực) cho {grounded} mục.")
 
         result = AnalysisResult(
             tenant=jurisdiction.id,
@@ -411,8 +430,8 @@ class AnalysisService:
             answer = self.reasoner.complete(prompt)
         except LLMError as exc:
             return f"Chưa trả lời được: {exc}", snippets
-        # NLI: câu trả lời có được CHÍNH các nguồn hậu thuẫn không? Không → gắn cảnh báo (chống hallucinate).
-        if self.nli_verification and nli_supports(answer, sources, self.reasoner) is False:
+        # NLI (model nhanh): câu trả lời có được CHÍNH các nguồn hậu thuẫn không? Không → cảnh báo.
+        if self.nli_verification and nli_supports(answer, sources, self.judge) is False:
             answer += ("\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy đủ — hãy kiểm chứng "
                        "với văn bản gốc." if lang == "vi" else
                        "\n\n⚠️ Note: this answer may not be fully supported by the cited sources — verify.")
