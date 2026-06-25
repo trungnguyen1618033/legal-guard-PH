@@ -44,6 +44,14 @@ nano .env                 # điền key thật + DATABASE_URL/REDIS_URL + DOMAIN
 ```
 > ⚠️ `DOMAIN` phải khớp domain đã trỏ DNS ở bước 3. `DATABASE_URL` dùng scheme `postgresql+psycopg://`.
 
+**Bảo mật (QUYẾT ĐỊNH TRƯỚC KHI MỞ RA INTERNET):**
+- **Demo mở** (hackathon, ai có link cũng dùng được): để `REQUIRE_AUTH=false`, `API_KEYS=` rỗng — mọi
+  caller chung org `default`. Vẫn có `RATE_LIMIT_PER_MIN` chặn abuse + `MAX_INPUT_CHARS` chặn chi phí.
+  App log cảnh báo "API đang MỞ" mỗi lần khởi động (bình thường, nhắc bạn đây là chế độ mở).
+- **Khóa thật** (có khách/đa công ty): đặt `REQUIRE_AUTH=true` + `API_KEYS="key1:acme:VN,key2:globex:VN"`
+  → app TỪ CHỐI khởi động nếu API_KEYS rỗng (fail-closed); mỗi công ty cô lập dữ liệu theo `org_id`.
+  Khi đó UI `/app` `/lookup` phải dán API key vào ô X-API-Key (đã có sẵn trong form).
+
 **Cờ chất lượng tra cứu (đều có default hợp lý — chỉ chỉnh nếu cần):**
 - `IN_FORCE_FILTER=true` (mặc định) — chỉ trả văn bản còn hiệu lực. Nên giữ true.
 - `LEGAL_BASIS_GROUNDING=true` (mặc định) — gắn căn cứ điều luật cho risk/fallback.
@@ -55,15 +63,17 @@ nano .env                 # điền key thật + DATABASE_URL/REDIS_URL + DOMAIN
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
-Lệnh này: build image (gồm antiword cho file .doc) → app tự `alembic upgrade head` (Neon đã ở 0005 nên no-op) → Caddy tự xin cert TLS cho DOMAIN.
+Lệnh này: build image (gồm antiword cho file .doc) → app tự `alembic upgrade head` (áp mọi migration còn thiếu lên Neon, đã áp rồi thì no-op) → Caddy tự xin cert TLS cho DOMAIN.
 
 ## 7. Kiểm tra
 ```bash
 docker compose -f docker-compose.prod.yml ps        # app + caddy đều "Up"
 docker compose -f docker-compose.prod.yml logs -f caddy   # thấy "certificate obtained"
 curl https://<DOMAIN>/health                        # {"status":"ok",...}
+curl https://<DOMAIN>/changes/123/2020/NĐ-CP        # changelog VB (KB tải được chưa)
 ```
-Mở trình duyệt: `https://<DOMAIN>/app` → UI demo, ổ khóa HTTPS xanh.
+Mở trình duyệt: `https://<DOMAIN>/app` → UI demo (rà soát HĐ + nút 📝 soạn điều khoản phản-đề),
+`https://<DOMAIN>/lookup` → tra cứu luật + "VB mới ảnh hưởng HĐ nào?". Ổ khóa HTTPS xanh.
 
 ## 8. Nối Slack (thay ngrok bằng domain thật)
 Slack app → **Event Subscriptions** → Request URL:
