@@ -62,6 +62,9 @@ class KnowledgeBaseProvider(Protocol):
 
     def changelog(self, doc_id: str, country: str) -> dict | None: ...   # "what changed" cấp văn bản
 
+    # VB mới `doc_id` tác động lên file luật nào trong KB → {filename: relation}. {} nếu không có.
+    def affected_files(self, doc_id: str, country: str) -> dict[str, str]: ...
+
 
 @runtime_checkable
 class DocumentParserPort(Protocol):

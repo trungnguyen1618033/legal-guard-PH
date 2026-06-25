@@ -149,6 +149,28 @@ def legal_changelog(base_dir: str, tenant: str, doc_id: str) -> dict | None:
             "effective_date": self_meta.get("effective_date", ""), "related": related}
 
 
+_CHANGE_RELATIONS = ("amends", "replaces", "guides")   # doc_id MỚI tác động LÊN văn bản đích
+
+
+def affected_doc_files(base_dir: str, tenant: str, doc_id: str) -> dict[str, str]:
+    """Văn bản mới `doc_id` sửa đổi/thay thế/hướng dẫn những FILE nào trong KB → {filename: relation}.
+
+    Dùng cho regulatory change intelligence: VB mới ban hành → suy ra file luật cũ bị tác động (qua
+    changelog cấp văn bản) → đem đối chiếu căn cứ pháp lý của các case đã rà soát. Trả {} nếu doc_id
+    không có trong KB hoặc không tác động lên VB nào đã có file."""
+    cl = legal_changelog(base_dir, tenant, doc_id)
+    if not cl:
+        return {}
+    ids = _load_doc_ids(base_dir, tenant)
+    out: dict[str, str] = {}
+    for rel in cl["related"]:
+        if rel["relation"] in _CHANGE_RELATIONS:
+            fn = ids.get(rel["doc_id"])
+            if fn:
+                out[fn] = rel["relation"]
+    return out
+
+
 def _load_doc_ids(base_dir: str, tenant: str) -> dict[str, str]:
     """doc_id (số hiệu, chuẩn hóa UPPER) → filename. Để phân giải dẫn chiếu liên văn bản đúng đích."""
     out: dict[str, str] = {}
@@ -557,6 +579,9 @@ class FileKnowledgeBaseProvider:
 
     def changelog(self, doc_id: str, country: str) -> dict | None:
         return legal_changelog(self.base_dir, country, doc_id)
+
+    def affected_files(self, doc_id: str, country: str) -> dict[str, str]:
+        return affected_doc_files(self.base_dir, country, doc_id)
 
     def _build(self, org: Organization) -> KnowledgeBasePort:
         base = build_retriever(self.base_dir, org.country, self.embed_fn, self.reranker_llm,

@@ -90,6 +90,13 @@ hỏi/từ-để-hỏi (`_is_question`) ưu tiên lookup dù chứa từ khóa H
 ngày hiệu lực — suy 2 chiều từ front-matter, `legal_changelog`); `POST /redline` {old,new} = diff text 2 phiên
 bản ([+thêm+]/[-bỏ-] + similarity, `domain/redline.py`, difflib tất định, không LLM).
 
+Regulatory change intelligence (chủ động, moat system-of-record): `GET /impact/{doc_id}` = VB pháp luật MỚI
+ban hành → case nào của công ty viện dẫn văn bản nó vừa sửa đổi/thay thế/hướng dẫn → cần rà soát lại.
+Nối: `affected_doc_files` (suy file luật bị tác động qua changelog quan hệ amends/replaces/guides) →
+`AnalysisService.regulatory_impact` → `scan_cases` (THUẦN, `domain/regulatory.py`: quét `legal_basis`/`source`
+của risk+fallback trong case đã lưu, khử trùng theo (case,kind,clause,file)). Cô lập theo `org_id`.
+UI: section "Văn bản mới ảnh hưởng hợp đồng nào?" trong `web/lookup.html`.
+
 Security (`docs/security.md`): API-key auth + per-company scoping (`API_KEYS="key:org:VN"`), PII
 redaction (`domain/redaction.py`), prompt-injection hardening, upload limit, right-to-erasure,
 rate limiting (`RATE_LIMIT_PER_MIN`), LLM retry/backoff (`adapters/outbound/_http.py`).
