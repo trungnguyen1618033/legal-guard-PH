@@ -62,6 +62,12 @@ class RedlineIn(BaseModel):
     new: str                    # phiên bản mới
 
 
+class AlertIn(BaseModel):
+    via: str                    # slack | zalo
+    channel: str                # Slack channel ID hoặc Zalo user_id nhận cảnh báo
+    limit: int = 200            # số case quét tối đa
+
+
 class FeedbackIn(BaseModel):
     kind: str = "lookup"        # analysis | lookup
     ref: str = ""               # case_id (analysis) hoặc câu hỏi (lookup)
@@ -72,9 +78,11 @@ class FeedbackIn(BaseModel):
 def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: EvidenceService,
               default_tenant: str = "VN", api_orgs: dict[str, Organization] | None = None,
               max_upload_bytes: int = 10 * 1024 * 1024, rate_limit_per_min: int = 60,
-              max_input_chars: int = 50_000) -> FastAPI:
+              max_input_chars: int = 50_000,
+              senders: dict | None = None) -> FastAPI:
     app = FastAPI(title="Legal Guard PH", version="0.6.0")
     orgs = api_orgs or {}
+    _senders = senders or {}        # {"slack": ChatSenderPort, "zalo": ChatSenderPort} — gửi cảnh báo chủ động
     _hits: dict[tuple, int] = {}   # rate limit in-process (prod → Redis; per-worker)
     _hits_lock = threading.Lock()
 
@@ -281,6 +289,27 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         cases = sorted({i["case_id"] for i in impacts})
         return {"doc_id": doc_id.strip(), "impacted_cases": len(cases),
                 "case_ids": cases, "items": impacts}
+
+    @app.post("/impact/{doc_id:path}/notify")
+    def regulatory_notify(doc_id: str, body: AlertIn,
+                          org: Organization = Depends(require_auth)) -> dict:
+        # Quét ảnh hưởng VB mới + GỬI cảnh báo chủ động qua Slack/Zalo (nếu có hợp đồng bị ảnh hưởng).
+        from legalguard.domain.regulatory import format_impact_alert
+
+        sender = _senders.get(body.via)
+        if sender is None or not getattr(sender, "available", False):
+            raise HTTPException(status_code=400, detail=f"Kênh '{body.via}' chưa cấu hình.")
+        impacts = service.regulatory_impact(doc_id, org.country, org.id, limit=body.limit)
+        cases = sorted({i["case_id"] for i in impacts})
+        if not cases:
+            return {"doc_id": doc_id.strip(), "impacted_cases": 0, "sent": False}
+        text = format_impact_alert(doc_id, impacts)
+        try:
+            sender.send(body.channel, text)
+        except Exception as exc:  # noqa: BLE001 — gửi lỗi không nên 500, báo rõ cho caller
+            raise HTTPException(status_code=502, detail=f"Gửi {body.via} thất bại: {exc}") from exc
+        return {"doc_id": doc_id.strip(), "impacted_cases": len(cases),
+                "case_ids": cases, "sent": True, "via": body.via}
 
     @app.post("/redline")
     def text_redline(body: RedlineIn, _: Organization = Depends(require_auth)) -> dict:

@@ -26,6 +26,32 @@ class RegulatoryImpact:
     basis: str            # nguyên căn cứ pháp lý đã gắn (để khách thấy chỗ cần soát)
 
 
+_REL_VI = {"amends": "sửa đổi", "replaces": "thay thế", "guides": "hướng dẫn"}
+_KIND_VI = {"risk": "rủi ro", "fallback": "phương án"}
+
+
+def format_impact_alert(doc_id: str, impacts: list[dict], max_items: int = 15) -> str:
+    """Soạn cảnh báo chủ động (text, dùng cho Slack/Zalo) từ kết quả `scan_cases` (dict đã `asdict`).
+
+    Rỗng → '' (không có gì để gửi). Gom theo case để khách dễ đọc."""
+    if not impacts:
+        return ""
+    cases: dict[str, list[dict]] = {}
+    for i in impacts:
+        cases.setdefault(i["case_id"], []).append(i)
+    lines = [f"🛎️ *Cảnh báo pháp lý* — văn bản mới: *{doc_id.strip()}*",
+             f"{len(cases)} hợp đồng đã rà soát có căn cứ bị ảnh hưởng, nên rà soát lại:"]
+    for cid in list(cases)[:max_items]:
+        items = cases[cid]
+        rel = _REL_VI.get(items[0]["relation"], items[0]["relation"])
+        clauses = ", ".join(dict.fromkeys(i["clause"] for i in items if i["clause"])) or "(điều khoản)"
+        lines.append(f"• *{cid}* — {clauses} (bị {rel}: {items[0]['affected_file']})")
+    if len(cases) > max_items:
+        lines.append(f"… và {len(cases) - max_items} hợp đồng khác.")
+    lines.append("Xem chi tiết tại trang Tra cứu (/lookup) hoặc API /impact/" + doc_id.strip() + ".")
+    return "\n".join(lines)
+
+
 def parse_basis_file(basis: str) -> str:
     """Lấy tên FILE từ căn cứ 'file.md#Điều N: …' hoặc 'file.md#Điều N' (rỗng nếu không có '#')."""
     if not basis or "#" not in basis:

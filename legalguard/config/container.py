@@ -96,16 +96,20 @@ def build_app(cfg: Settings = settings) -> FastAPI:
         logging.getLogger("legalguard").warning(
             "⚠️ API_KEYS rỗng — API đang MỞ KHÔNG xác thực (mọi caller chung org 'default'). "
             "PROD đặt REQUIRE_AUTH=true + API_KEYS.")
+    # Senders dùng chung: webhook reply + cảnh báo pháp lý chủ động (POST /impact/{id}/notify).
+    slack_sender = SlackSender(cfg.slack_bot_token)
+    zalo_sender = ZaloSender(cfg.zalo_access_token)
     app = build_api(service, parser, build_evidence(cfg),
                     default_tenant=cfg.default_tenant, api_orgs=api_orgs,
                     max_upload_bytes=cfg.max_upload_bytes, rate_limit_per_min=cfg.rate_limit_per_min,
-                    max_input_chars=cfg.max_input_chars)
+                    max_input_chars=cfg.max_input_chars,
+                    senders={"slack": slack_sender, "zalo": zalo_sender})
     # Kênh nhắn tin (Zalo/Slack) — chỉ mount webhook khi có secret tương ứng.
     handler = ChatHandler(service, parser, build_conversation_store(cfg), cfg.default_tenant)
     app.include_router(build_channels_router(
         handler, slack_signing_secret=cfg.slack_signing_secret,
         zalo_oa_secret=cfg.zalo_oa_secret, zalo_app_id=cfg.zalo_app_id,
-        slack_sender=SlackSender(cfg.slack_bot_token),
-        zalo_sender=ZaloSender(cfg.zalo_access_token),
+        slack_sender=slack_sender,
+        zalo_sender=zalo_sender,
         max_upload_bytes=cfg.max_upload_bytes))
     return app

@@ -96,6 +96,9 @@ Nối: `affected_doc_files` (suy file luật bị tác động qua changelog qua
 `AnalysisService.regulatory_impact` → `scan_cases` (THUẦN, `domain/regulatory.py`: quét `legal_basis`/`source`
 của risk+fallback trong case đã lưu, khử trùng theo (case,kind,clause,file)). Cô lập theo `org_id`.
 UI: section "Văn bản mới ảnh hưởng hợp đồng nào?" trong `web/lookup.html`.
+Cảnh báo CHỦ ĐỘNG: `POST /impact/{doc_id}/notify` {via: slack|zalo, channel} → quét + `format_impact_alert`
+(gom theo case, text) → gửi qua sender tương ứng (truyền vào `build_api(senders=...)` từ container, dùng chung
+sender với webhook). Hợp với cron/ops khi VB mới ban hành.
 
 Security (`docs/security.md`): API-key auth + per-company scoping (`API_KEYS="key:org:VN"`), PII
 redaction (`domain/redaction.py`), prompt-injection hardening, upload limit, right-to-erasure,
