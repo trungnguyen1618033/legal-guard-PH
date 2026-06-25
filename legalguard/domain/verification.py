@@ -19,6 +19,30 @@ _BATCH_PROMPT = (
 )
 _VERDICT = re.compile(r"(\d+)\s*[:.\-)]\s*(YES|NO|CÓ|KHÔNG)", re.IGNORECASE)
 
+_NLI_PROMPT = (
+    "Căn cứ:\n{evidence}\n\nKhẳng định: {claim}\n\n"
+    "Căn cứ trên có HẬU THUẪN (trực tiếp ủng hộ) khẳng định không? Chỉ trả lời đúng một từ: YES hoặc NO."
+)
+_NLI_YES = re.compile(r"\b(YES|CÓ)\b", re.IGNORECASE)
+_NLI_NO = re.compile(r"\b(NO|KHÔNG)\b", re.IGNORECASE)
+
+
+def nli_supports(claim: str, evidence: str, judge: LLMPort, max_chars: int = 1500) -> bool | None:
+    """Kiểm entailment: `evidence` CÓ hậu thuẫn `claim` không (chống 'citation tồn tại nhưng không hỗ trợ').
+    True = có, False = không, None = không kết luận được (judge offline/lỗi/đáp mơ hồ). LLM-based (swap NLI
+    model nhỏ như MiniCheck/AlignScore sau qua cùng chữ ký)."""
+    if not judge.available or not claim.strip() or not evidence.strip():
+        return None
+    try:
+        out = judge.complete(_NLI_PROMPT.format(evidence=evidence[:max_chars], claim=claim[:500]))
+    except LLMError:
+        return None
+    if _NLI_NO.search(out):           # ưu tiên NO (thận trọng: nghi ngờ → coi như không hỗ trợ)
+        return False
+    if _NLI_YES.search(out):
+        return True
+    return None
+
 
 def verify_risks(risks: list[Risk], contract_text: str, retriever: KnowledgeBasePort,
                  judge: LLMPort) -> list[str]:

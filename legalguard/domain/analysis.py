@@ -35,7 +35,7 @@ from legalguard.domain.ports import (
 )
 from legalguard.domain.redaction import redact
 from legalguard.domain.tenants import Organization, get_tenant
-from legalguard.domain.verification import verify_risks
+from legalguard.domain.verification import nli_supports, verify_risks
 
 _log = logging.getLogger(__name__)
 
@@ -80,11 +80,11 @@ def _terms(text: str) -> set[str]:
     return {t for t in re.findall(r"\w+", unicodedata.normalize("NFC", text).lower()) if len(t) > 2}
 
 
-def _legal_citation(query: str, retriever) -> str:
+def _legal_citation(query: str, retriever, judge: LLMPort | None = None) -> str:
     """Tra KB → căn cứ pháp lý cho 1 mục: 'file#Điều N: <nguyên văn rút gọn>'. Trả '' nếu không có
-    điều luật khớp ĐỦ MẠNH. Chống gắn căn cứ lạc (gắn điều luật không liên quan cũng sai như bịa) bằng
-    HAI điều kiện: (1) điểm của chunk điều luật ≥ 50% điểm hit cao nhất (điều luật phải THẬT SỰ liên quan,
-    không phải nhiễu xếp thấp), (2) trùng ≥3 thuật ngữ với mục. Chỉ nhận chunk cấp điều luật (`#Điều`)."""
+    điều luật khớp ĐỦ MẠNH. Chống gắn căn cứ lạc (gắn điều luật không liên quan cũng sai như bịa) bằng:
+    (1) điểm chunk ≥ 50% top hit, (2) trùng ≥3 thuật ngữ, (3) NLI: nếu có `judge`, điều luật phải THỰC SỰ
+    HẬU THUẪN claim (judge nói NO → bỏ, tránh 'citation tồn tại nhưng không hỗ trợ'). Chỉ nhận chunk `#Điều`."""
     try:
         hits = retriever.retrieve(query, top_k=5)
     except Exception:  # noqa: BLE001 — grounding là phụ, lỗi KB không chặn phân tích
@@ -97,18 +97,21 @@ def _legal_citation(query: str, retriever) -> str:
         if h.score < floor:
             break                                       # còn lại đều thấp hơn → dừng (tránh điều luật nhiễu)
         if "#Điều" in h.source and len(q_terms & _terms(h.text)) >= _LEGAL_BASIS_MIN_OVERLAP:
+            if judge is not None and nli_supports(query, h.text, judge) is False:
+                continue                                # điều luật KHÔNG hậu thuẫn claim → thử ứng viên kế
             return f"{h.source}: {' '.join(h.text.split())[:200]}…"
     return ""
 
 
-def _attach_legal_basis(risks: list, fallbacks: list, retriever) -> int:
+def _attach_legal_basis(risks: list, fallbacks: list, retriever, judge: LLMPort | None = None) -> int:
     """Gắn căn cứ điều luật cho mỗi risk & fallback. CACHE theo clause: risk và fallback cùng một
-    điều khoản chỉ tra KB 1 lần (giảm ~½ số lần retrieve — đáng kể ở chế độ embedding). Trả số mục gắn được."""
+    điều khoản chỉ tra KB 1 lần (giảm ~½ số lần retrieve — đáng kể ở chế độ embedding). Trả số mục gắn được.
+    judge (tùy chọn): bật kiểm NLI — chỉ gắn điều luật THỰC SỰ hậu thuẫn claim."""
     cache: dict[str, str] = {}
 
     def basis(clause: str, extra: str) -> str:
         if clause not in cache:
-            cache[clause] = _legal_citation(f"{clause} {extra}", retriever)
+            cache[clause] = _legal_citation(f"{clause} {extra}", retriever, judge)
         return cache[clause]
 
     grounded = 0
@@ -127,7 +130,8 @@ class AnalysisService:
                  outcomes: OutcomeRepositoryPort | None = None,
                  observer: ObservabilityPort | None = None,
                  legal_basis_grounding: bool = True,
-                 feedback: FeedbackRepositoryPort | None = None) -> None:
+                 feedback: FeedbackRepositoryPort | None = None,
+                 nli_verification: bool = True) -> None:
         self.reasoner = reasoner      # Qwen: agent phân tích chính
         self.summarizer = summarizer  # Gemini: >=1 call tóm tắt (ràng buộc XPRIZE)
         self.kb = kb
@@ -136,6 +140,7 @@ class AnalysisService:
         self.observer = observer      # telemetry (tùy chọn)
         self.legal_basis_grounding = legal_basis_grounding   # gắn căn cứ điều luật cho risk/fallback
         self.feedback = feedback      # vòng học: phản hồi người dùng (tùy chọn)
+        self.nli_verification = nli_verification  # kiểm entailment (nguồn có hậu thuẫn claim) — chống hallucinate
 
     def record_outcome(self, outcome: Outcome) -> str | None:
         return self.outcomes.record(outcome) if self.outcomes else None
@@ -296,7 +301,8 @@ class AnalysisService:
         # Căn cứ pháp lý (tất định): gắn điều luật còn hiệu lực liên quan cho mỗi rủi ro & fallback.
         # Retrieval-based (không để LLM bịa trích dẫn); chỉ gắn khi có điều luật thật khớp.
         if self.legal_basis_grounding:
-            grounded = _attach_legal_basis(ctx.risks, ctx.fallbacks, retriever)
+            judge = self.reasoner if self.nli_verification else None   # NLI: chỉ gắn điều luật hậu thuẫn claim
+            grounded = _attach_legal_basis(ctx.risks, ctx.fallbacks, retriever, judge)
             if grounded:
                 notes.append(f"📎 Gắn căn cứ pháp lý (điều luật còn hiệu lực) cho {grounded} mục.")
 
@@ -365,7 +371,12 @@ class AnalysisService:
         try:
             answer = self.reasoner.complete(prompt)
         except LLMError as exc:
-            answer = f"Chưa trả lời được: {exc}"
+            return f"Chưa trả lời được: {exc}", snippets
+        # NLI: câu trả lời có được CHÍNH các nguồn hậu thuẫn không? Không → gắn cảnh báo (chống hallucinate).
+        if self.nli_verification and nli_supports(answer, sources, self.reasoner) is False:
+            answer += ("\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy đủ — hãy kiểm chứng "
+                       "với văn bản gốc." if lang == "vi" else
+                       "\n\n⚠️ Note: this answer may not be fully supported by the cited sources — verify.")
         if self.observer is not None:
             self.observer.event("lookup", {"tenant": get_tenant(org.country).id,
                                            "lang": lang, "hits": len(snippets)})
