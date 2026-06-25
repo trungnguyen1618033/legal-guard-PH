@@ -74,6 +74,16 @@
   </details>
 
   <details>
+    <summary>🛎️ Văn bản mới ảnh hưởng hợp đồng nào? (cảnh báo chủ động)</summary>
+    <p class="muted" style="margin-top:6px">Nhập số hiệu <b>văn bản MỚI</b> ban hành → liệt kê các hợp đồng đã rà soát có căn cứ pháp lý bị nó sửa đổi/thay thế → cần soát lại.</p>
+    <div class="row">
+      <input id="impactid" placeholder="Số hiệu VB mới, vd 70/2025/NĐ-CP" style="flex:1">
+      <button class="ghost" onclick="loadImpact()">Quét ảnh hưởng</button>
+    </div>
+    <div id="impact" class="timeline"></div>
+  </details>
+
+  <details>
     <summary>🔀 So sánh 2 phiên bản (redline)</summary>
     <textarea id="old" placeholder="Dán bản CŨ" style="min-height:60px;margin-top:8px"></textarea>
     <textarea id="new" placeholder="Dán bản MỚI" style="min-height:60px;margin-top:8px"></textarea>
@@ -136,6 +146,27 @@ async function loadChanges() {
       (d.effective_date ? `, hiệu lực ${esc(d.effective_date)}` : '') + `</div>` +
       (items ? `<ul>${items}</ul>` : '<p class="muted">Chưa ghi nhận quan hệ sửa đổi/thay thế.</p>');
   } catch (e) { $('changes').textContent = 'Lỗi: ' + e.message; }
+}
+
+async function loadImpact() {
+  const id = $('impactid').value.trim();
+  $('impact').textContent = '';
+  if (!id) return;
+  $('impact').textContent = 'Đang quét…';
+  try {
+    const r = await fetch(encodeURI('/impact/' + id), { headers: authHeaders() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (!d.impacted_cases) {
+      $('impact').innerHTML = '<p class="muted">✅ Không có hợp đồng đã rà soát nào bị văn bản này ảnh hưởng.</p>';
+      return;
+    }
+    const items = (d.items || []).map(x =>
+      `<li><b>${esc(x.case_id)}</b> — ${esc(x.clause || '(điều khoản)')} ` +
+      `<span class="muted">(${esc(x.kind === 'risk' ? 'rủi ro' : 'phương án')}, ${esc(_REL_VI[x.relation] || x.relation)} ${esc(x.affected_file)})</span></li>`).join('');
+    $('impact').innerHTML = `<div class="warn">🛎️ <b>${d.impacted_cases}</b> hợp đồng cần rà soát lại do <b>${esc(d.doc_id)}</b>.</div>` +
+      `<ul>${items}</ul>`;
+  } catch (e) { $('impact').textContent = 'Lỗi: ' + e.message; }
 }
 
 async function doRedline() {

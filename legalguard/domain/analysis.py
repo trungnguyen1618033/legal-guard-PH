@@ -154,6 +154,25 @@ class AnalysisService:
     def list_feedback(self, org_id: str, limit: int = 100) -> list[Feedback]:
         return self.feedback.list_by_org(org_id, limit) if self.feedback else []
 
+    def regulatory_impact(self, doc_id: str, country: str, org_id: str,
+                          limit: int = 200) -> list[dict]:
+        """Chủ động cảnh báo: VB pháp luật MỚI `doc_id` → case nào của `org_id` viện dẫn văn bản bị
+        nó sửa đổi/thay thế/hướng dẫn → cần rà soát lại. Trả [] nếu chưa lưu case hoặc VB không
+        tác động lên văn bản đã có trong KB."""
+        from legalguard.domain.regulatory import scan_cases
+
+        if self.cases is None:
+            return []
+        affected = self.kb.affected_files(doc_id, country)
+        if not affected:
+            return []
+        cases = self.cases.list_by_org(org_id, limit)
+        impacts = scan_cases(cases, affected, new_doc_id=doc_id.strip())
+        if self.observer:
+            self.observer.event("regulatory_impact",
+                                {"doc_id": doc_id, "org_id": org_id, "hits": len(impacts)})
+        return [asdict(i) for i in impacts]
+
     def get_case(self, case_id: str) -> AnalysisCase | None:
         return self.cases.get(case_id) if self.cases else None
 

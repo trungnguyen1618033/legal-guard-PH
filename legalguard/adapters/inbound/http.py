@@ -272,6 +272,16 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             raise HTTPException(status_code=404, detail="Không tìm thấy văn bản trong KB.")
         return cl
 
+    @app.get("/impact/{doc_id:path}")
+    def regulatory_impact(doc_id: str, limit: int = 200,
+                          org: Organization = Depends(require_auth)) -> dict:
+        # Chủ động: VB pháp luật MỚI `doc_id` → case nào của công ty viện dẫn văn bản nó vừa
+        # sửa đổi/thay thế/hướng dẫn → cần rà soát lại. [] = không ảnh hưởng / chưa có case.
+        impacts = service.regulatory_impact(doc_id, org.country, org.id, limit=limit)
+        cases = sorted({i["case_id"] for i in impacts})
+        return {"doc_id": doc_id.strip(), "impacted_cases": len(cases),
+                "case_ids": cases, "items": impacts}
+
     @app.post("/redline")
     def text_redline(body: RedlineIn, _: Organization = Depends(require_auth)) -> dict:
         # So 2 phiên bản text → redline ([+thêm+]/[-bỏ-]) + tỉ lệ giống nhau. Tất định, không LLM.
