@@ -1,0 +1,73 @@
+# Self-contained trên Alibaba Cloud ECS: app + Caddy(HTTPS) + Postgres + Redis — TẤT CẢ trong Docker.
+# KHÔNG cần Neon/Upstash. DB/Redis chạy chung VM → $0 dịch vụ ngoài (dữ liệu nằm trên ổ ECS).
+# Chỉ cần .env có: QWEN_API_KEY, GEMINI_API_KEY, DOMAIN (+ tuỳ chọn QWEN_FAST_MODEL, REQUIRE_AUTH/API_KEYS).
+# Chạy: docker compose -f docker-compose.ecs.yml up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: legalguard
+      POSTGRES_PASSWORD: legalguard
+      POSTGRES_DB: legalguard
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legalguard"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env                  # QWEN_API_KEY / GEMINI_API_KEY / DOMAIN / (REQUIRE_AUTH, API_KEYS...)
+    environment:
+      # DB/Redis nội bộ — ĐÈ giá trị trong .env, trỏ sang service db/redis của compose này.
+      DATABASE_URL: postgresql+psycopg://legalguard:legalguard@db:5432/legalguard
+      CONVERSATION_BACKEND: redis
+      REDIS_URL: redis://redis:6379/0
+    expose:
+      - "8000"                # chỉ nội bộ network — Caddy proxy vào, KHÔNG mở thẳng ra ngoài
+    # Dockerfile CMD = alembic upgrade head && uvicorn (prod, không --reload, không mount code).
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s        # chờ migrate + build embedding index lần đầu
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"                # HTTP (Let's Encrypt challenge + redirect → HTTPS)
+      - "443:443"              # HTTPS
+    environment:
+      DOMAIN: ${DOMAIN}        # vd legalguard.duckdns.org — đọc từ .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # giữ cert TLS (đừng mất → tránh xin lại quá giới hạn Let's Encrypt)
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
