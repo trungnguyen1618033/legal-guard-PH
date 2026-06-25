@@ -9,12 +9,17 @@ Doanh nghiệp xuất khẩu Việt Nam ký hợp đồng quốc tế mỗi thá
 (trọng tài ở nước đối tác, thanh toán trả sau không bảo lãnh, kiểm định tại cảng đến…)
 lọt qua mắt người không chuyên, và cái giá phải trả chỉ lộ ra khi tranh chấp xảy ra.
 
-**Legal Guard là phòng pháp chế thuê ngoài bằng AI:** gửi hợp đồng — trong vài phút nhận lại
-bản phân tích rủi ro, chiến thuật đàm phán lại cho từng điều khoản, và câu phản hồi tiếng Anh
-sẵn gửi đối tác. Có chuyên gia pháp lý duyệt trước khi bạn hành động.
+**Legal Guard là phòng pháp chế thuê ngoài bằng AI** với hai năng lực bổ trợ nhau:
+1. **Soát hợp đồng:** gửi hợp đồng — trong vài phút nhận bản phân tích rủi ro, chiến thuật đàm phán lại
+   cho từng điều khoản, và câu phản hồi tiếng Anh sẵn gửi đối tác.
+2. **Tra cứu pháp luật VN có căn cứ:** hỏi thẳng một câu hỏi pháp lý — nhận câu trả lời ngôn ngữ thường,
+   **dẫn đúng Điều/Khoản** của văn bản **còn hiệu lực**, tự kéo về các quy định liên quan.
 
-**Dành cho:** SME xuất nhập khẩu (nông sản, thủy sản, logistics, gia công…) giao thương
-với Trung Quốc, EU, Mỹ — quy mô chưa đủ nuôi phòng pháp chế riêng.
+Cả hai đều có chuyên gia pháp lý duyệt trước khi bạn hành động.
+
+**Dành cho:** SME xuất nhập khẩu (nông sản, thủy sản, logistics, gia công…) giao thương với Trung Quốc,
+EU, Mỹ; và doanh nghiệp Việt cần tra cứu tuân thủ trong nước (thuế/hóa đơn, lao động, hợp đồng…) —
+quy mô chưa đủ nuôi phòng pháp chế riêng.
 
 ---
 
@@ -29,8 +34,9 @@ với Trung Quốc, EU, Mỹ — quy mô chưa đủ nuôi phòng pháp chế ri
 ### 🔍 Phát hiện rủi ro — có bằng chứng, không nói suông
 Mỗi rủi ro được chỉ ra kèm:
 - **Trích dẫn nguyên văn** đoạn hợp đồng gây rủi ro (bạn kiểm chứng được ngay)
-- **Nguồn tri thức pháp lý** làm căn cứ — xây dựng trên luật thương mại Việt Nam và
-  thực tiễn giao thương VN–Trung / VN–EU, có chuyên gia pháp lý rà soát
+- **Căn cứ pháp lý cụ thể** — khi có điều luật liên quan, hệ thống tự gắn **đúng Điều/Khoản của văn bản
+  còn hiệu lực** kèm nguyên văn (vd phạt vi phạm → *Điều 301 Luật Thương mại 2005: không quá 8%*).
+  Căn cứ lấy bằng truy xuất từ kho luật (không để AI bịa trích dẫn); không có điều luật khớp đủ thì **để trống** thay vì gắn bừa.
 - Mức nghiêm trọng rõ ràng: cao / trung bình / thấp
 
 AI còn **tự kiểm chứng 2 lớp** trước khi báo cáo: đối chiếu mọi trích dẫn với văn bản gốc
@@ -45,6 +51,8 @@ về thế trận thật: *lợi thế của bạn, mức độ gấp, quan hệ
   trọng tài Bắc Kinh → đề nghị SIAC/HKIAC trung lập; thanh toán T/T trả sau → chuyển L/C
   ngân hàng bảo lãnh; kiểm định cảng đến → SGS/Bureau Veritas tại cảng đi…
 - Soạn sẵn **câu phản hồi tiếng Anh** chuyên nghiệp cho từng đề xuất — copy gửi đối tác được ngay
+- **Đề nghị cũng có căn cứ pháp lý**: mỗi giải pháp/chiến thuật được gắn điều luật còn hiệu lực liên quan
+  (khi có) để bạn đàm phán có cơ sở, không chỉ "theo thông lệ"
 - Đưa **chiến lược tổng thể**: giữ cứng điều gì, nhượng điều gì để chốt deal, và **điểm rút lui**
 
 ### ⚖️ Chuyên gia duyệt trước khi bạn hành động (human checkpoint)
@@ -61,6 +69,24 @@ nhất quán với phân tích trước đó.
 Bạn ghi lại kết quả mỗi lần đàm phán (đối tác chấp nhận / thỏa hiệp / từ chối) — hệ thống
 thống kê **tỉ lệ thành công của từng chiến thuật** và ưu tiên gợi ý những nước đi đã được
 chứng minh hiệu quả với SME Việt. Đây là tri thức thực chiến không cuốn sách mẫu nào có.
+
+### 📚 Tra cứu pháp luật Việt Nam có căn cứ
+Không chỉ soát hợp đồng — hỏi thẳng câu hỏi pháp lý, nhận câu trả lời **có dẫn nguồn truy vết được**:
+
+- **Trích đúng Điều/Khoản** của văn bản (Luật / Nghị định / Thông tư) — không trả lời chung chung
+- **Chỉ trả văn bản CÒN HIỆU LỰC** — tự loại bản đã hết hiệu lực / bị thay thế. Đây là chỗ tra cứu từ
+  khóa và ChatGPT sai nhiều nhất (trả nhầm luật cũ nghe rất hợp lý). Cần xem bản cũ thì hỏi rõ "trước đây / bản cũ".
+- **Tự đi theo dẫn chiếu** — hỏi một điều, hệ thống kéo về các điều / nghị định / thông tư liên quan
+  (xuyên cấp Luật → Nghị định → Thông tư) để bạn thấy bức tranh đủ, không sót quy định chi phối.
+- **Diễn giải bằng ngôn ngữ thường** — trúng nỗi đau "luật khó hiểu, nhiều cách hiểu".
+- Lĩnh vực đang phủ và **mở rộng dần theo nhu cầu**: chế tài hợp đồng thương mại, hóa đơn điện tử / thuế, lao động…
+
+**Use case mẫu:**
+- *Kế toán:* "Thời điểm lập hóa đơn khi xuất khẩu hàng hóa?" → trả lời + dẫn **đúng Điều 9 Nghị định 123/2020**
+  (bản đã sửa bởi Nghị định 70/2025), **không lôi nhầm Thông tư 39/2014 đã hết hiệu lực**.
+- *Chủ doanh nghiệp:* "Phạt vi phạm hợp đồng tối đa bao nhiêu %?" → "không quá **8% giá trị phần nghĩa vụ bị
+  vi phạm**" (Điều 301 Luật Thương mại 2005), tự kèm Điều 300 & 294 liên quan (miễn trách nhiệm).
+- *Pháp chế:* kiểm tra một quy định cũ **còn áp dụng không** trước khi trích vào hợp đồng/văn bản nội bộ.
 
 ### 🌐 Dùng ở nơi bạn đang làm việc
 - **Web app**: form đầy đủ — upload, khai vị thế, xem bảng phân tích chi tiết + duyệt
@@ -90,6 +116,7 @@ chứng minh hiệu quả với SME Việt. Đây là tri thức thực chiến 
 | **Tự hỏi ChatGPT** | ChatGPT trả lời chung chung, không căn cứ luật VN, có thể bịa, không ai chịu trách nhiệm duyệt. Legal Guard trích bằng chứng từ chính hợp đồng, dựa tri thức pháp lý được chuyên gia rà soát, tự kiểm chứng, và có người duyệt. |
 | **Mẫu hợp đồng có sẵn** | Mẫu là thế trận lý tưởng — đối tác gửi draft của *họ* thì mẫu vô dụng. Legal Guard làm việc trên chính văn bản đối tác đưa và tư vấn cách *sửa nó*. |
 | **Thuê luật sư từng vụ** | Đắt và chậm cho từng hợp đồng nhỏ; không sẵn sàng lúc 9h tối khi đối tác đòi trả lời gấp. Legal Guard phản hồi trong vài phút, chuyên gia chỉ tham gia ở điểm quyết định — bạn dùng giờ luật sư cho đúng chỗ đắt giá nhất. |
+| **Tra cứu web pháp luật / Google** | Trả về *văn bản* để bạn tự đọc, không trả về *câu trả lời*; dẫn chiếu & tình trạng hiệu lực thường khóa sau phí; dễ đọc nhầm bản đã hết hiệu lực. Legal Guard trả lời ngôn ngữ thường, dẫn đúng điều/khoản **còn hiệu lực** và tự đi theo dẫn chiếu. |
 
 ## Quy trình mẫu — từ draft đến bàn đàm phán
 
@@ -98,6 +125,13 @@ chứng minh hiệu quả với SME Việt. Đây là tri thức thực chiến 
 3. Chuyên gia pháp lý duyệt các điểm rủi ro cao
 4. Bạn copy câu phản hồi tiếng Anh đã duyệt, gửi đối tác — tự tin như có phòng pháp chế sau lưng
 5. Đàm phán xong, ghi lại kết quả → hệ thống khôn hơn cho deal sau của chính bạn
+
+## Quy trình mẫu — tra cứu nhanh một quy định
+
+1. Hỏi thẳng câu hỏi pháp lý (Slack/Zalo, hoặc API `/ask`): *"Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?"*
+2. Nhận câu trả lời ngôn ngữ thường + **dẫn đúng điều/khoản còn hiệu lực** + các quy định liên quan được kéo theo
+3. Bấm vào nguồn để đọc nguyên văn điều luật, kiểm chứng ngay
+4. Việc nhạy cảm (đưa vào hợp đồng/quyết định) → chuyên gia duyệt như mọi đầu ra khác
 
 ---
 

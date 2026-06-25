@@ -5,6 +5,8 @@ tiêm vào các use-case + API. Đổi provider = đổi ở đây, không đụ
 """
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI
 
 from legalguard.adapters.inbound.channels import ChatHandler, build_channels_router
@@ -43,18 +45,23 @@ def _parse_orgs(raw: str) -> dict[str, Organization]:
 
 def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> AnalysisService:
     reasoner = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_model,
-                           embed_model=cfg.qwen_embed_model, temperature=cfg.llm_temperature)
+                           embed_model=cfg.qwen_embed_model, temperature=cfg.llm_temperature,
+                           rerank_model=cfg.qwen_rerank_model)
     summarizer = GeminiAdapter(cfg.gemini_api_key, cfg.gemini_model, temperature=cfg.llm_temperature)
     embed_fn = reasoner.embed if reasoner.available else None
     reranker = reasoner if cfg.rerank_enabled else None
+    rerank_fn = reasoner.rerank if (cfg.cross_encoder_rerank and reasoner.available) else None
     kb = FileKnowledgeBaseProvider(cfg.knowledge_base_dir, embed_fn=embed_fn,
-                                   reranker_llm=reranker, strategy=kb_strategy)
+                                   reranker_llm=reranker, strategy=kb_strategy,
+                                   rerank_fn=rerank_fn, closure=cfg.citation_closure,
+                                   in_force=cfg.in_force_filter)
     cases = SqlAlchemyCaseRepository(cfg.database_url)
     outcomes = SqlAlchemyOutcomeRepository(cfg.database_url)
     observer = (LangfuseObserver(cfg.langfuse_public_key, cfg.langfuse_secret_key, cfg.langfuse_host)
                 if cfg.langfuse_secret_key else NoOpObserver())
     return AnalysisService(reasoner=reasoner, summarizer=summarizer, kb=kb,
-                           cases=cases, outcomes=outcomes, observer=observer)
+                           cases=cases, outcomes=outcomes, observer=observer,
+                           legal_basis_grounding=cfg.legal_basis_grounding)
 
 
 def build_evidence(cfg: Settings = settings) -> EvidenceService:
@@ -77,8 +84,13 @@ def build_parser(cfg: Settings = settings) -> OcrFallbackParser:
 def build_app(cfg: Settings = settings) -> FastAPI:
     service = build_service(cfg)
     parser = build_parser(cfg)
+    api_orgs = _parse_orgs(cfg.api_keys)
+    if not api_orgs:   # rỗng = MỞ (ai cũng gọi được, chung org 'default') — chỉ hợp dev, PROD PHẢI đặt API_KEYS
+        logging.getLogger("legalguard").warning(
+            "⚠️ API_KEYS rỗng — API đang MỞ KHÔNG xác thực (mọi caller chung org 'default'). "
+            "PROD BẮT BUỘC đặt API_KEYS=\"key:org:VN,...\".")
     app = build_api(service, parser, build_evidence(cfg),
-                    default_tenant=cfg.default_tenant, api_orgs=_parse_orgs(cfg.api_keys),
+                    default_tenant=cfg.default_tenant, api_orgs=api_orgs,
                     max_upload_bytes=cfg.max_upload_bytes, rate_limit_per_min=cfg.rate_limit_per_min)
     # Kênh nhắn tin (Zalo/Slack) — chỉ mount webhook khi có secret tương ứng.
     handler = ChatHandler(service, parser, build_conversation_store(cfg), cfg.default_tenant)

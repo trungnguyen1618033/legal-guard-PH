@@ -151,13 +151,14 @@ function render(d) {
     <td><span class="badge b-${esc(r.severity)}">${esc(r.severity)}</span></td>
     <td>${r.priority?`<span class="badge b-${esc(r.priority)}">${esc(r.priority)}</span>`:''}</td>
     <td class="muted">${esc((r.evidence||'').slice(0,160))}</td>
-    <td class="muted">${esc((r.source||'').slice(0,100))}</td></tr>`).join('')
+    <td class="muted">${esc((r.source||'').slice(0,100))}${r.legal_basis?`<br>📎 ${esc(r.legal_basis.slice(0,140))}`:''}</td></tr>`).join('')
     || '<tr><td colspan="6" class="muted">Không phát hiện rủi ro đáng kể ✅</td></tr>';
 
   $('fallbacks').innerHTML = (d.fallbacks||[]).map(f => `<div style="margin-bottom:14px">
     <strong>${esc(f.clause)}</strong>${f.win_rate!=null?` <span class="badge b-acceptable">win ${(f.win_rate*100).toFixed(0)}%</span>`:''}
     <div>${esc(f.suggestion)}</div>
     ${f.english_reply?`<div class="reply">✉️ ${esc(f.english_reply)}</div>`:''}
+    ${f.legal_basis?`<div class="muted">📎 căn cứ: ${esc(f.legal_basis.slice(0,140))}</div>`:''}
     ${f.source?`<div class="muted">nguồn: ${esc(f.source.slice(0,100))}</div>`:''}</div>`).join('')
     || '<p class="muted">(không có)</p>';
 

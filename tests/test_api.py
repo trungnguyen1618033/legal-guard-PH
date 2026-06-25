@@ -36,6 +36,18 @@ def test_analyze_requires_input(client):
     assert client.post("/analyze").status_code == 400
 
 
+def test_ask_returns_grounded_answer_with_sources(client):
+    r = client.post("/ask", json={"question": "thời điểm lập hóa đơn", "lang": "vi"})
+    assert r.status_code == 200
+    d = r.json()
+    assert "answer" in d and isinstance(d["sources"], list)
+    assert d["sources"]                                  # có nguồn KB (tra cứu thật)
+
+
+def test_ask_requires_question(client):
+    assert client.post("/ask", json={"question": "   "}).status_code == 400
+
+
 def test_ready_probe(client):
     r = client.get("/ready")
     assert r.status_code == 200 and r.json() == {"ready": True}

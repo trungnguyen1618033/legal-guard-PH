@@ -225,3 +225,6 @@ docs/internal/
 
 # File hợp đồng thật để test local (nhạy cảm — không commit)
 file/
+
+# Auto-ingested KB (bulk, unverified) — không commit
+knowledge_base/_ingested/

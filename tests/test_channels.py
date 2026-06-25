@@ -78,6 +78,19 @@ def test_handler_analyzes_text():
     assert "Điều khoản trọng tài" in _handler().reply("c1", text=MSG)
 
 
+def test_handler_legal_lookup_without_contract():
+    # Câu hỏi pháp lý đứng một mình (không tín hiệu HĐ, chưa có deal) → tra cứu KB có grounding,
+    # KHÔNG trả câu nhắc chung "Gửi giúp...".
+    out = _handler().reply("cL", text="Thời điểm lập hóa đơn khi bán hàng hóa quy định ra sao?")
+    assert out and "Gửi giúp" not in out
+
+
+def test_handler_skips_lookup_for_casual_message():
+    # Lời chào/ack vu vơ KHÔNG kích hoạt tra cứu (tránh tốn LLM) → trả câu nhắc nhẹ.
+    out = _handler().reply("cZ", text="cảm ơn nhé")
+    assert "Gửi giúp" in out
+
+
 def test_conversation_remembers_context_and_history():
     store = InMemoryConversationStore()
     h = ChatHandler(build_service(), build_parser(), store, "VN")

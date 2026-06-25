@@ -1,0 +1,5 @@
+# Caddy reverse proxy + auto-HTTPS (Let's Encrypt) cho Legal Guard trên ECS.
+# {$DOMAIN} đọc từ biến môi trường (đặt trong .env). Caddy tự xin & gia hạn cert TLS.
+{$DOMAIN} {
+	reverse_proxy app:8000
+}

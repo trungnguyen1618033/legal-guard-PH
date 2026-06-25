@@ -6,6 +6,8 @@ Chỉ phụ thuộc PORT, không biết gì về Qwen/Gemini/FastAPI.
 from __future__ import annotations
 
 import logging
+import re
+import unicodedata
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -56,25 +58,79 @@ def _route(text: str) -> dict:
 
 
 def _dedupe(items: list) -> list:
+    # Khóa theo (clause, nội dung) — KHÔNG chỉ clause: hai rủi ro KHÁC NHAU trên cùng tên điều khoản
+    # (vd "Thanh toán": rủi ro trả-sau VÀ rủi ro phạt) phải giữ cả hai, không nuốt mất.
     seen, out = set(), []
     for it in items:
-        if it.clause not in seen:
-            seen.add(it.clause)
+        key = (it.clause, getattr(it, "risk", "") or getattr(it, "suggestion", ""))
+        if key not in seen:
+            seen.add(key)
             out.append(it)
     return out
+
+
+_LEGAL_BASIS_MIN_OVERLAP = 3   # số thuật ngữ phải trùng tối thiểu để gắn căn cứ (tránh căn cứ lạc)
+_LEGAL_BASIS_MIN_REL = 0.5     # điểm chunk điều luật ≥ 50% top hit mới gắn (điều luật phải thật sự liên quan)
+
+
+def _terms(text: str) -> set[str]:
+    return {t for t in re.findall(r"\w+", unicodedata.normalize("NFC", text).lower()) if len(t) > 2}
+
+
+def _legal_citation(query: str, retriever) -> str:
+    """Tra KB → căn cứ pháp lý cho 1 mục: 'file#Điều N: <nguyên văn rút gọn>'. Trả '' nếu không có
+    điều luật khớp ĐỦ MẠNH. Chống gắn căn cứ lạc (gắn điều luật không liên quan cũng sai như bịa) bằng
+    HAI điều kiện: (1) điểm của chunk điều luật ≥ 50% điểm hit cao nhất (điều luật phải THẬT SỰ liên quan,
+    không phải nhiễu xếp thấp), (2) trùng ≥3 thuật ngữ với mục. Chỉ nhận chunk cấp điều luật (`#Điều`)."""
+    try:
+        hits = retriever.retrieve(query, top_k=5)
+    except Exception:  # noqa: BLE001 — grounding là phụ, lỗi KB không chặn phân tích
+        return ""
+    if not hits:
+        return ""
+    q_terms = _terms(query)
+    floor = _LEGAL_BASIS_MIN_REL * hits[0].score        # hits đã sắp giảm dần theo điểm
+    for h in hits:                                      # lấy điều luật liên quan NHẤT (rank cao) đạt ngưỡng
+        if h.score < floor:
+            break                                       # còn lại đều thấp hơn → dừng (tránh điều luật nhiễu)
+        if "#Điều" in h.source and len(q_terms & _terms(h.text)) >= _LEGAL_BASIS_MIN_OVERLAP:
+            return f"{h.source}: {' '.join(h.text.split())[:200]}…"
+    return ""
+
+
+def _attach_legal_basis(risks: list, fallbacks: list, retriever) -> int:
+    """Gắn căn cứ điều luật cho mỗi risk & fallback. CACHE theo clause: risk và fallback cùng một
+    điều khoản chỉ tra KB 1 lần (giảm ~½ số lần retrieve — đáng kể ở chế độ embedding). Trả số mục gắn được."""
+    cache: dict[str, str] = {}
+
+    def basis(clause: str, extra: str) -> str:
+        if clause not in cache:
+            cache[clause] = _legal_citation(f"{clause} {extra}", retriever)
+        return cache[clause]
+
+    grounded = 0
+    for r in risks:
+        r.legal_basis = basis(r.clause, r.risk)
+        grounded += bool(r.legal_basis)
+    for f in fallbacks:
+        f.legal_basis = basis(f.clause, f.suggestion)
+        grounded += bool(f.legal_basis)
+    return grounded
 
 
 class AnalysisService:
     def __init__(self, reasoner: LLMPort, summarizer: LLMPort, kb: KnowledgeBaseProvider,
                  cases: CaseRepositoryPort | None = None,
                  outcomes: OutcomeRepositoryPort | None = None,
-                 observer: ObservabilityPort | None = None) -> None:
+                 observer: ObservabilityPort | None = None,
+                 legal_basis_grounding: bool = True) -> None:
         self.reasoner = reasoner      # Qwen: agent phân tích chính
         self.summarizer = summarizer  # Gemini: >=1 call tóm tắt (ràng buộc XPRIZE)
         self.kb = kb
         self.cases = cases            # persistence (tùy chọn)
         self.outcomes = outcomes      # flywheel kết quả đàm phán (tùy chọn)
         self.observer = observer      # telemetry (tùy chọn)
+        self.legal_basis_grounding = legal_basis_grounding   # gắn căn cứ điều luật cho risk/fallback
 
     def record_outcome(self, outcome: Outcome) -> str | None:
         return self.outcomes.record(outcome) if self.outcomes else None
@@ -143,9 +199,17 @@ class AnalysisService:
         windows = _windows(contract_text)
         contexts = [AgentContext(retriever=retriever) for _ in windows]
 
+        errors: list[LLMError] = []
+
         def _one(i: int):
-            return run_agent(windows[i], jurisdiction.country, self.reasoner, contexts[i],
-                             lang=lang, position=position, max_iters=route["max_iters"])
+            # Lỗi LLM ở 1 cửa sổ KHÔNG được xóa kết quả các cửa sổ khác → trả None, gom lỗi.
+            try:
+                return run_agent(windows[i], jurisdiction.country, self.reasoner, contexts[i],
+                                 lang=lang, position=position, max_iters=route["max_iters"])
+            except LLMError as exc:
+                _log.warning("Cửa sổ %d lỗi LLM: %s", i, exc)
+                errors.append(exc)
+                return None
 
         if len(windows) == 1:
             runs = [_one(0)]
@@ -153,9 +217,15 @@ class AnalysisService:
             with ThreadPoolExecutor(max_workers=min(3, len(windows))) as pool:
                 runs = list(pool.map(_one, range(len(windows))))
 
+        if all(r is None for r in runs):               # TẤT CẢ cửa sổ lỗi → 502 (không có gì để trả)
+            raise errors[0] if errors else LLMError(self.reasoner.name, "phân tích thất bại")
+
         trace, strategies = [], []
-        truncated = False
+        truncated, failed_windows = False, 0
         for run, wctx in zip(runs, contexts):          # merge theo thứ tự cửa sổ
+            if run is None:                            # cửa sổ lỗi → bỏ qua, đánh dấu cần người duyệt
+                failed_windows += 1
+                continue
             trace += run.trace
             truncated = truncated or run.truncated
             if run.final_message:                      # gom chiến lược mọi cửa sổ (không bỏ sót)
@@ -183,6 +253,9 @@ class AnalysisService:
         if truncated:
             notes.append("⚠️ Hợp đồng vượt giới hạn phân tích — phần cuối CHƯA được rà soát.")
             ctx.needs_human_review = True
+        if failed_windows:
+            notes.append(f"⚠️ {failed_windows} phân đoạn lỗi LLM — CHƯA rà soát hết, cần chuyên gia duyệt.")
+            ctx.needs_human_review = True
         if not self.reasoner.available:
             notes.append("⚠️ Đang chạy ở chế độ STUB (chưa cấu hình QWEN_API_KEY).")
 
@@ -207,6 +280,13 @@ class AnalysisService:
         if any(r.severity == "high" for r in ctx.risks) and not ctx.needs_human_review:
             ctx.needs_human_review = True
             ctx.review_reasons.append("Có rủi ro mức cao — tự động yêu cầu chuyên gia duyệt.")
+
+        # Căn cứ pháp lý (tất định): gắn điều luật còn hiệu lực liên quan cho mỗi rủi ro & fallback.
+        # Retrieval-based (không để LLM bịa trích dẫn); chỉ gắn khi có điều luật thật khớp.
+        if self.legal_basis_grounding:
+            grounded = _attach_legal_basis(ctx.risks, ctx.fallbacks, retriever)
+            if grounded:
+                notes.append(f"📎 Gắn căn cứ pháp lý (điều luật còn hiệu lực) cho {grounded} mục.")
 
         result = AnalysisResult(
             tenant=jurisdiction.id,
@@ -247,3 +327,29 @@ class AnalysisService:
                 "needs_human_review": result.needs_human_review, "case_id": result.case_id,
             })
         return result
+
+    def lookup(self, question: str, org: Organization, lang: str = "vi", top_k: int = 5):
+        """Tra cứu pháp luật có grounding (khác `analyze` — không cần hợp đồng).
+
+        Retrieve KB của org (đã gồm lọc hiệu lực + citation-closure theo cấu hình) → tổng hợp câu trả lời
+        BUỘC dẫn đúng Điều/Khoản, chỉ dùng căn cứ truy được. Trả (answer, snippets)."""
+        q, _ = redact(question)
+        snippets = self.kb.for_org(org).retrieve(q, top_k)
+        if not snippets:
+            return ("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
+                    if lang == "vi" else
+                    "Not enough grounding in the knowledge base to answer this."), []
+        sources = "\n---\n".join(f"[nguồn: {s.source}] {s.text}" for s in snippets)
+        tail = " Trả lời tiếng Việt." if lang == "vi" else " Answer in English."
+        prompt = (
+            "Bạn là trợ lý pháp lý. CHỈ dùng các đoạn căn cứ dưới đây để trả lời, KHÔNG bịa. "
+            "Trích dẫn đúng Điều/Khoản và tên văn bản. Nếu căn cứ không đủ, nói rõ là chưa đủ căn cứ.\n\n"
+            f"Căn cứ:\n{sources}\n\nCâu hỏi: {question}\nTrả lời ngắn gọn, ngôn ngữ thường, có dẫn nguồn." + tail)
+        try:
+            answer = self.reasoner.complete(prompt)
+        except LLMError as exc:
+            answer = f"Chưa trả lời được: {exc}"
+        if self.observer is not None:
+            self.observer.event("lookup", {"tenant": get_tenant(org.country).id,
+                                           "lang": lang, "hits": len(snippets)})
+        return answer, snippets

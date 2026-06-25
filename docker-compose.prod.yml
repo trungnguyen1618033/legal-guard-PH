@@ -1,18 +1,38 @@
-# Production trên Alibaba Cloud ECS — chỉ chạy app, KHÔNG dựng db/redis local.
-# DB → Neon · Chat store → Upstash, đều cấu hình qua .env (DATABASE_URL, REDIS_URL...).
+# Production trên Alibaba Cloud ECS — app + Caddy (auto-HTTPS). KHÔNG dựng db/redis local.
+# DB → Neon · Chat store → Upstash · đều cấu hình qua .env (DATABASE_URL, REDIS_URL...).
+# Caddy tự xin TLS cert cho ${DOMAIN} (cần DNS trỏ DOMAIN → IP ECS + mở port 80/443).
 # Chạy: docker compose -f docker-compose.prod.yml up -d --build
 services:
   app:
     build: .
     restart: unless-stopped       # ECS reboot / app crash → tự dậy lại
     env_file:
-      - .env                      # toàn bộ key + DATABASE_URL (Neon) + REDIS_URL (Upstash)
-    ports:
-      - "80:8000"                 # phục vụ trực tiếp cổng 80 (đặt Nginx/HTTPS phía trước nếu cần)
-    # KHÔNG mount code, KHÔNG --reload: chạy ảnh đã build (Dockerfile CMD = migrate + uvicorn).
+      - .env                      # key + DATABASE_URL (Neon) + REDIS_URL (Upstash) + DOMAIN
+    expose:
+      - "8000"                    # chỉ nội bộ network — Caddy proxy vào, KHÔNG mở ra ngoài
+    # Dockerfile CMD = alembic upgrade head && uvicorn (port 8000). KHÔNG mount code / --reload.
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"                   # HTTP (Let's Encrypt challenge + redirect → HTTPS)
+      - "443:443"                 # HTTPS
+    environment:
+      DOMAIN: ${DOMAIN}           # vd legalguard.example.com — đọc từ .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data          # lưu cert TLS (đừng mất → tránh xin lại quá giới hạn Let's Encrypt)
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:
