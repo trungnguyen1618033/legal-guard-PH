@@ -88,12 +88,7 @@ class QwenAdapter(LLMPort):
             msg = self._post_chat(payload)["choices"][0]["message"]
         except (KeyError, IndexError, TypeError):
             raise LLMError(self.name, "phản hồi không hợp lệ") from None
-        calls = [
-            ToolCall(id=tc["id"], name=tc["function"]["name"],
-                     arguments=_loads(tc["function"]["arguments"]))
-            for tc in msg.get("tool_calls") or []
-        ]
-        return ChatTurn(content=msg.get("content"), tool_calls=calls)
+        return ChatTurn(content=msg.get("content"), tool_calls=_parse_tool_calls(msg.get("tool_calls")))
 
     _EMBED_BATCH = 10   # DashScope giới hạn 10 texts / request embeddings
 
@@ -180,3 +175,20 @@ def _loads(s: str) -> dict:
         return json.loads(s) if s else {}
     except json.JSONDecodeError:
         return {}
+
+
+def _parse_tool_calls(raw: list | None) -> list[ToolCall]:
+    """Bóc tool_calls PHÒNG THỦ từ phản hồi LLM. Một số model (đặc biệt parallel tool calls) trả thiếu
+    `id` hoặc `function.name` → KHÔNG được để KeyError lọt ra (sẽ crash vòng phân tích thay vì degrade).
+    Bỏ tool_call thiếu tên; id rỗng → tự sinh (tránh trùng/ánh xạ sai → 400 ở request kế)."""
+    calls: list[ToolCall] = []
+    for i, tc in enumerate(raw or []):
+        if not isinstance(tc, dict):
+            continue
+        fn = tc.get("function") or {}
+        name = fn.get("name")
+        if not name:                                   # tool_call rác (thiếu tên) → bỏ
+            continue
+        calls.append(ToolCall(id=tc.get("id") or f"call_{i}",
+                              name=name, arguments=_loads(fn.get("arguments") or "")))
+    return calls
