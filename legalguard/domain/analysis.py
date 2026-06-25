@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 import unicodedata
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -180,6 +181,7 @@ class AnalysisService:
     def analyze(self, contract_text: str, org: Organization, lang: str = "en",
                 position: NegotiationPosition | None = None,
                 source: SourceMeta | None = None) -> AnalysisResult:
+        t0 = time.monotonic()
         jurisdiction = get_tenant(org.country)   # quốc gia → KB luật + bối cảnh
 
         # Audit fingerprint TRƯỚC redact: hash khớp với văn bản khách đưa (file đã hash
@@ -321,10 +323,15 @@ class AnalysisService:
                 _log.exception("Không lưu được case (org=%s)", org.id)
                 result.notes.append("⚠️ Không lưu được case (DB).")
 
+        duration_ms = round((time.monotonic() - t0) * 1000)
+        _log.info("analyze tenant=%s risks=%d review=%s windows=%d failed=%d %dms",
+                  result.tenant, len(result.risks), result.needs_human_review,
+                  len(windows), failed_windows, duration_ms)
         if self.observer is not None:
             self.observer.event("analysis", {
                 "tenant": result.tenant, "lang": lang, "risks": len(result.risks),
                 "needs_human_review": result.needs_human_review, "case_id": result.case_id,
+                "duration_ms": duration_ms, "failed_windows": failed_windows,
             })
         return result
 

@@ -51,7 +51,8 @@ class AskIn(BaseModel):
 
 def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: EvidenceService,
               default_tenant: str = "VN", api_orgs: dict[str, Organization] | None = None,
-              max_upload_bytes: int = 10 * 1024 * 1024, rate_limit_per_min: int = 60) -> FastAPI:
+              max_upload_bytes: int = 10 * 1024 * 1024, rate_limit_per_min: int = 60,
+              max_input_chars: int = 50_000) -> FastAPI:
     app = FastAPI(title="Legal Guard PH", version="0.6.0")
     orgs = api_orgs or {}
     _hits: dict[tuple, int] = {}   # rate limit in-process (prod → Redis; per-worker)
@@ -136,6 +137,9 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
 
         if not contract_text.strip():
             raise HTTPException(status_code=400, detail="Không trích được nội dung hợp đồng.")
+        if len(contract_text) > max_input_chars:
+            raise HTTPException(status_code=413,
+                                detail=f"Nội dung quá dài (>{max_input_chars} ký tự).")
 
         try:
             # service.analyze ĐỒNG BỘ (HTTP blocking + ThreadPool) → đẩy sang threadpool để KHÔNG
@@ -160,6 +164,8 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         lang = body.lang if body.lang in ("en", "vi") else "vi"
         if not body.question.strip():
             raise HTTPException(status_code=400, detail="Cần cung cấp `question`.")
+        if len(body.question) > max_input_chars:
+            raise HTTPException(status_code=413, detail=f"Câu hỏi quá dài (>{max_input_chars} ký tự).")
         try:
             answer, snippets = service.lookup(body.question, org, lang=lang)
         except LLMError as exc:

@@ -36,7 +36,9 @@ class Settings(BaseSettings):
     # Bảo mật. api_keys dạng "KEY:ORG_ID:COUNTRY" (vd "k1:acme:VN,k2:globex:VN").
     # → bật auth + cô lập theo công ty (org). Rỗng = mở (chỉ dev).
     api_keys: str = ""
+    require_auth: bool = False         # PROD đặt true → từ chối khởi động nếu API_KEYS rỗng (fail-closed)
     max_upload_bytes: int = 10 * 1024 * 1024   # 10MB
+    max_input_chars: int = 50_000      # trần độ dài text/câu hỏi gửi LLM (chống abuse chi phí)
     rate_limit_per_min: int = 60               # 0 = tắt; in-process (prod nên dùng Redis)
 
     # Observability (Langfuse — rỗng = NoOp)
