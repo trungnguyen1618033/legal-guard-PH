@@ -86,6 +86,57 @@ def _load_doc_relations(base_dir: str, tenant: str) -> dict[str, list[str]]:
     return out
 
 
+# Quan hệ nghịch đảo để suy ra cạnh 2 chiều (A amends B ⇒ B amended_by A).
+_REL_INVERSE = {"amends": "amended_by", "amended_by": "amends",
+                "replaces": "replaced_by", "replaced_by": "replaces",
+                "guides": "guided_by", "guided_by": "guides"}
+
+
+def _load_doc_meta(base_dir: str, tenant: str) -> dict[str, dict]:
+    """filename → front-matter (đầy đủ). Dùng cho changelog (title/ngày/trạng thái + quan hệ)."""
+    out: dict[str, dict] = {}
+    tenant_dir = Path(base_dir) / tenant
+    if not tenant_dir.exists():
+        return out
+    for md in sorted(tenant_dir.glob("*.md")):
+        out[md.name] = parse_front_matter(md.read_text(encoding="utf-8"))[0]
+    return out
+
+
+def legal_changelog(base_dir: str, tenant: str, doc_id: str) -> dict | None:
+    """'What changed' cấp văn bản: văn bản `doc_id` được sửa đổi/thay thế/hướng dẫn bởi (hoặc của) VB nào,
+    kèm ngày hiệu lực + trạng thái — suy 2 chiều từ front-matter. None nếu không có doc_id trong KB."""
+    did = doc_id.strip().upper()
+    metas = _load_doc_meta(base_dir, tenant)
+    by_docid = {(m.get("doc_id") or "").upper(): m for m in metas.values() if m.get("doc_id")}
+    if did not in by_docid:
+        return None
+    rel: dict[tuple[str, str], bool] = {}
+    self_meta = by_docid[did]
+    for f in _REL_FIELDS:                                   # cạnh thuận (khai trong chính VB)
+        for tid in re.split(r"[;,]", self_meta.get(f, "")):
+            if tid.strip():
+                rel[(f, tid.strip().upper())] = True
+    for m in metas.values():                                # cạnh nghịch (VB khác trỏ tới doc_id)
+        oid = (m.get("doc_id") or "").upper()
+        if oid == did:
+            continue
+        for f in _REL_FIELDS:
+            if any(t.strip().upper() == did for t in re.split(r"[;,]", m.get(f, "")) if t.strip()):
+                rel[(_REL_INVERSE.get(f, f), oid)] = True
+    related = []
+    for (r, tid) in sorted(rel):
+        info = {"relation": r, "doc_id": tid}
+        if tid in by_docid:
+            tm = by_docid[tid]
+            info.update(title=tm.get("title", ""), effective_date=tm.get("effective_date", ""),
+                        status=tm.get("status", "in_force"))
+        related.append(info)
+    return {"doc_id": did, "title": self_meta.get("title", ""),
+            "status": self_meta.get("status", "in_force"),
+            "effective_date": self_meta.get("effective_date", ""), "related": related}
+
+
 def _load_doc_ids(base_dir: str, tenant: str) -> dict[str, str]:
     """doc_id (số hiệu, chuẩn hóa UPPER) → filename. Để phân giải dẫn chiếu liên văn bản đúng đích."""
     out: dict[str, str] = {}
@@ -450,6 +501,9 @@ class FileKnowledgeBaseProvider:
         if key not in self._cache:
             self._cache[key] = self._build(org)
         return self._cache[key]
+
+    def changelog(self, doc_id: str, country: str) -> dict | None:
+        return legal_changelog(self.base_dir, country, doc_id)
 
     def _build(self, org: Organization) -> KnowledgeBasePort:
         base = build_retriever(self.base_dir, org.country, self.embed_fn, self.reranker_llm,
