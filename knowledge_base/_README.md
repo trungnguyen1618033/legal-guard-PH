@@ -19,6 +19,10 @@ KB là **nguồn tri thức pháp lý** mà agent truy xuất (RAG) để ground
 trọng tài · luật áp dụng · thanh toán T/T · đặt cọc · kiểm định · phạt một chiều · chấm dứt ·
 bất khả kháng · bảo mật/độc quyền · khiếu nại/bảo hành · dung sai · tỷ giá.
 
+**`VN/blds_2015_hop_dong.md`** — Bộ luật Dân sự 2015 (Luật 91/2015/QH13, còn hiệu lực), chế định hợp đồng:
+đặt cọc (Đ.328), trách nhiệm vi phạm nghĩa vụ (Đ.351), lãi chậm trả (Đ.357), bồi thường (Đ.360), phạt vi phạm
+(Đ.418 — *không* trần 8% như Luật TM), thiệt hại được bồi thường (Đ.419). Bổ trợ Luật TM 2005 cho phân tích HĐ.
+
 **`VN/luat_thuong_mai_2005_che_tai.md`** — văn bản luật thật (Luật Thương mại 2005, Mục chế tài:
 Đ.292/294/295/297/300/301/302/306/307). Đây là file **chunk theo Điều/Khoản** (`legal_chunker.py`):
 mỗi Điều = 1 chunk, source mang nhãn `#Điều 300`; Điều dài tự tách theo khoản. Ground thẳng các mục
