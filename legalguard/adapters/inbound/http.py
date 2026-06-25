@@ -28,6 +28,7 @@ from legalguard.domain.models import (
     SourceMeta,
 )
 from legalguard.domain.ports import DocumentParserPort, LLMError
+from legalguard.domain.redline import change_ratio, redline
 from legalguard.domain.reporting import render_markdown_report
 from legalguard.domain.tenants import Organization, default_org, get_tenant
 
@@ -54,6 +55,11 @@ class OutcomeIn(BaseModel):
 class AskIn(BaseModel):
     question: str
     lang: str = "vi"            # vi | en
+
+
+class RedlineIn(BaseModel):
+    old: str                    # phiên bản cũ
+    new: str                    # phiên bản mới
 
 
 class FeedbackIn(BaseModel):
@@ -257,5 +263,20 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
     def list_feedback(limit: int = 100, org: Organization = Depends(require_auth)) -> list[dict]:
         # Xuất phản hồi của công ty (để build golden set / rà lỗ hổng).
         return [asdict(f) for f in service.list_feedback(org.id, limit)]
+
+    @app.get("/changes/{doc_id:path}")
+    def doc_changes(doc_id: str, org: Organization = Depends(require_auth)) -> dict:
+        # "What changed" cấp văn bản: VB này được sửa đổi/thay thế bởi (hoặc của) VB nào, khi nào.
+        cl = service.kb.changelog(doc_id, org.country)
+        if cl is None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy văn bản trong KB.")
+        return cl
+
+    @app.post("/redline")
+    def text_redline(body: RedlineIn, _: Organization = Depends(require_auth)) -> dict:
+        # So 2 phiên bản text → redline ([+thêm+]/[-bỏ-]) + tỉ lệ giống nhau. Tất định, không LLM.
+        if len(body.old) > max_input_chars or len(body.new) > max_input_chars:
+            raise HTTPException(status_code=413, detail="Nội dung quá dài.")
+        return {"redline": redline(body.old, body.new), "similarity": change_ratio(body.old, body.new)}
 
     return app

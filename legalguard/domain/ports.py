@@ -60,6 +60,8 @@ class KnowledgeBaseProvider(Protocol):
 
     def for_org(self, org: Organization) -> KnowledgeBasePort: ...
 
+    def changelog(self, doc_id: str, country: str) -> dict | None: ...   # "what changed" cấp văn bản
+
 
 @runtime_checkable
 class DocumentParserPort(Protocol):
