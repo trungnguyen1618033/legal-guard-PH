@@ -68,6 +68,28 @@ def test_lookup_redacts_pii_in_question():
     assert "[EMAIL]" in out and n >= 1
 
 
+# ---- Fail-closed khi require_auth + API_KEYS rỗng ----
+def test_require_auth_fail_closed_refuses_open_boot(monkeypatch):
+    from legalguard.config import container
+    from legalguard.config.settings import Settings
+    cfg = Settings(api_keys="", require_auth=True)
+    import pytest
+    with pytest.raises(RuntimeError):
+        container.build_app(cfg)        # API_KEYS rỗng + require_auth → từ chối khởi động
+
+
+# ---- Cap độ dài input (chống abuse chi phí) ----
+def test_input_length_cap(tmp_path):
+    c = _client(tmp_path, max_upload_bytes=10 * 1024 * 1024)
+    big = "x" * 60000
+    # /analyze text quá dài → 413
+    r1 = c.post("/analyze", data={"text": big}, headers={"x-tenant-id": "VN"})
+    assert r1.status_code == 413
+    # /ask câu hỏi quá dài → 413
+    r2 = c.post("/ask", json={"question": big}, headers={"x-tenant-id": "VN"})
+    assert r2.status_code == 413
+
+
 # ---- File upload limit ----
 def test_upload_size_limit(tmp_path):
     c = _client(tmp_path, max_upload_bytes=10)

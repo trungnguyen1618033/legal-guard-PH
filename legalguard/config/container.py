@@ -85,13 +85,18 @@ def build_app(cfg: Settings = settings) -> FastAPI:
     service = build_service(cfg)
     parser = build_parser(cfg)
     api_orgs = _parse_orgs(cfg.api_keys)
-    if not api_orgs:   # rỗng = MỞ (ai cũng gọi được, chung org 'default') — chỉ hợp dev, PROD PHẢI đặt API_KEYS
+    if not api_orgs:   # rỗng = MỞ (ai cũng gọi được, chung org 'default') — chỉ hợp dev
+        if cfg.require_auth:   # fail-closed: PROD KHÔNG được chạy mở
+            raise RuntimeError(
+                "API_KEYS rỗng nhưng REQUIRE_AUTH=true — từ chối khởi động ở chế độ MỞ. "
+                "Đặt API_KEYS=\"key:org:VN,...\".")
         logging.getLogger("legalguard").warning(
             "⚠️ API_KEYS rỗng — API đang MỞ KHÔNG xác thực (mọi caller chung org 'default'). "
-            "PROD BẮT BUỘC đặt API_KEYS=\"key:org:VN,...\".")
+            "PROD đặt REQUIRE_AUTH=true + API_KEYS.")
     app = build_api(service, parser, build_evidence(cfg),
                     default_tenant=cfg.default_tenant, api_orgs=api_orgs,
-                    max_upload_bytes=cfg.max_upload_bytes, rate_limit_per_min=cfg.rate_limit_per_min)
+                    max_upload_bytes=cfg.max_upload_bytes, rate_limit_per_min=cfg.rate_limit_per_min,
+                    max_input_chars=cfg.max_input_chars)
     # Kênh nhắn tin (Zalo/Slack) — chỉ mount webhook khi có secret tương ứng.
     handler = ChatHandler(service, parser, build_conversation_store(cfg), cfg.default_tenant)
     app.include_router(build_channels_router(
