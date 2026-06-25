@@ -62,6 +62,7 @@ grounding, cũng expose qua `POST /ask`). Webhook: ack nhanh + BackgroundTasks; 
 Web UI: `web/index.html` (landing, `GET /`) + `web/app.html` (demo UI, `GET /app`): form
 upload/dán HĐ + vị thế đàm phán → gọi `/analyze` → bảng risks/fallbacks/strategy/trace +
 **human checkpoint** (english_reply bị khóa tới khi reviewer Approve; Reject = chuyển chuyên gia).
++ `web/lookup.html` (`GET /lookup`): form tra cứu luật → `/ask` → câu trả lời dẫn điều/khoản + nguồn + nút feedback.
 
 Upload: `DocumentParserPort` = `OcrFallbackParser(PdfDocxParser, QwenVisionOcr)` — text-PDF/DOCX/TXT
 dùng base; scan/ảnh (.png/.jpg/PDF-scan rỗng text) → OCR Qwen-VL (`QWEN_VL_MODEL`), fallback lỗi rõ

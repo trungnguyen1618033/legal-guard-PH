@@ -59,6 +59,12 @@ def test_demo_app_page_served(client):
     assert "checkpoint" in r.text.lower()      # UI có human checkpoint (Autopilot Agent)
 
 
+def test_lookup_ui_page_served(client):
+    r = client.get("/lookup")
+    assert r.status_code == 200
+    assert "tra cứu" in r.text.lower()         # trang tra cứu luật
+
+
 def test_analyze_persists_case_and_can_fetch(client, sample_contract):
     d = client.post("/analyze", data={"text": sample_contract},
                     headers={"x-tenant-id": "VN"}).json()
