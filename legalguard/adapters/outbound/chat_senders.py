@@ -21,8 +21,11 @@ class SlackSender:
     def available(self) -> bool:
         return bool(self.bot_token)
 
-    def send(self, conversation_id: str, text: str, thread_ts: str | None = None) -> None:
+    def send(self, conversation_id: str, text: str, thread_ts: str | None = None,
+             blocks: list | None = None) -> None:
         payload: dict = {"channel": conversation_id, "text": text}
+        if blocks:                          # Block Kit (vd nút feedback); text vẫn giữ làm fallback
+            payload["blocks"] = blocks
         if thread_ts:                       # trả lời đúng thread nếu khách hỏi trong thread
             payload["thread_ts"] = thread_ts
         resp = httpx.post("https://slack.com/api/chat.postMessage",
@@ -52,7 +55,8 @@ class ZaloSender:
     def available(self) -> bool:
         return bool(self.access_token)
 
-    def send(self, conversation_id: str, text: str, thread_ts: str | None = None) -> None:
+    def send(self, conversation_id: str, text: str, thread_ts: str | None = None,
+             blocks: list | None = None) -> None:   # blocks: Zalo không hỗ trợ → bỏ qua
         resp = httpx.post("https://openapi.zalo.me/v3.0/oa/message/cs",
                           headers={"access_token": self.access_token},
                           json={"recipient": {"user_id": conversation_id},

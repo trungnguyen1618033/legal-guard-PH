@@ -85,6 +85,13 @@ Bật **Enable Events** → Request URL: `https://<host>/channels/slack/events`
 **Subscribe to bot events:** `message.channels` + `app_mention`
 (+ `message.groups` / `message.im` nếu cần) → **Save**.
 
+### 4b. Interactivity (nút feedback 👍/⚠️/➖)
+
+Mục **Interactivity & Shortcuts** → bật **Interactivity** → Request URL:
+`https://<host>/channels/slack/interactions` → **Save**.
+(URL RIÊNG, khác Event Subscriptions ở mục 4. Cùng dùng `SLACK_SIGNING_SECRET` để verify.)
+Sau đó mỗi câu trả lời của bot kèm 3 nút; user bấm → ghi vào bảng `feedback` (xem qua `GET /feedback`).
+
 ### 5. Dùng thử
 
 ```
