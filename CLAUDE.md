@@ -35,8 +35,9 @@ embedding, hybrid retrieval RRF + opt-in LLM reranker
 extraction (`outbound/legal_chunker.py` — chunk theo Điều/Khoản, nhãn gắn vào `Snippet.source` dạng
 `file.md#Điều 5`; Phase 0 hướng mở rộng tra cứu luật VN, xem `docs/internal/legal-search-expansion.md`),
 citation closure document-aware đi theo dẫn chiếu kéo về điều luật liên quan ở ĐÚNG văn bản đích
-(`CitationClosureRetriever`, `CITATION_CLOSURE`; `extract_article_refs` phân giải "Điều 9 của NĐ 123/2020"
-→ đúng file qua map doc_id, "của Luật này"→cùng file; dựng cạnh bằng rule không LLM — Phase 2), lọc hiệu lực mặc-định-chỉ-trả-văn-bản-còn-hiệu-lực
+(`CitationClosureRetriever`, `CITATION_CLOSURE`; article-level: `extract_article_refs` phân giải "Điều 9 của
+NĐ 123/2020"→đúng file qua map doc_id, "của Luật này"→cùng file; doc-level: cạnh amends/amended_by/replaced_by/
+guided_by từ front-matter → kéo VB sửa đổi/thay thế/hướng dẫn liên quan; dựng cạnh bằng rule không LLM — Phase 2), lọc hiệu lực mặc-định-chỉ-trả-văn-bản-còn-hiệu-lực
 (`InForceRetriever`, `IN_FORCE_FILTER`, theo front-matter `status` của file KB; ý định lịch sử mới hiện bản cũ),
 căn cứ pháp lý tất định cho từng risk & fallback (`_legal_citation` trong `domain/analysis.py`,
 `LEGAL_BASIS_GROUNDING`: tra KB gắn `Risk.legal_basis`/`Fallback.legal_basis` = điều luật còn hiệu lực,

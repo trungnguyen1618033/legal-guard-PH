@@ -66,6 +66,26 @@ def _is_in_force(status: str) -> bool:
     return status.strip().lower() in _IN_FORCE
 
 
+# Quan hệ cấp văn bản (front-matter) → cạnh closure doc-level (kéo VB sửa đổi/thay thế/hướng dẫn liên quan).
+_REL_FIELDS = ("amends", "amended_by", "replaced_by", "replaces", "guided_by", "guides")
+
+
+def _load_doc_relations(base_dir: str, tenant: str) -> dict[str, list[str]]:
+    """filename → list doc_id liên quan (từ front-matter amends/amended_by/replaced_by/...)."""
+    out: dict[str, list[str]] = {}
+    tenant_dir = Path(base_dir) / tenant
+    if not tenant_dir.exists():
+        return out
+    for md in sorted(tenant_dir.glob("*.md")):
+        meta, _ = parse_front_matter(md.read_text(encoding="utf-8"))
+        ids: list[str] = []
+        for f in _REL_FIELDS:
+            ids += [x.strip().upper() for x in re.split(r"[;,]", meta.get(f, "")) if x.strip()]
+        if ids:
+            out[md.name] = ids
+    return out
+
+
 def _load_doc_ids(base_dir: str, tenant: str) -> dict[str, str]:
     """doc_id (số hiệu, chuẩn hóa UPPER) → filename. Để phân giải dẫn chiếu liên văn bản đúng đích."""
     out: dict[str, str] = {}
@@ -294,15 +314,16 @@ class CitationClosureRetriever:
         self.base = base
         self.decay = decay
         self.max_expand = max_expand
-        status = _load_doc_status(base_dir, tenant)
+        self._status = _load_doc_status(base_dir, tenant)
         self._file_by_docid = _load_doc_ids(base_dir, tenant)
-        # Chỉ mục (filename, 'điều 9') → chunk; chỉ văn bản còn hiệu lực (không dẫn về điều đã hết hiệu lực).
+        self._relations = _load_doc_relations(base_dir, tenant)   # cạnh doc-level (sửa đổi/thay thế/hướng dẫn)
+        # Chỉ mục (filename, 'điều 9') → chunk + chunk đại diện mỗi file (preamble/đầu tiên, cho doc-level).
         self._by_file_article: dict[tuple[str, str], list[Snippet]] = {}
+        self._rep_by_file: dict[str, Snippet] = {}
         for src, text in _load_chunks(base_dir, tenant):
-            if "#" not in src:
-                continue
             fn = src.split("#", 1)[0]
-            if not _is_in_force(status.get(fn, "in_force")):
+            self._rep_by_file.setdefault(fn, Snippet(src, text, 0.0))   # chunk đầu (preamble: tên+trạng thái VB)
+            if "#" not in src or not _is_in_force(self._status.get(fn, "in_force")):
                 continue
             key = article_key(src.split("#", 1)[1])
             if key:
@@ -318,8 +339,19 @@ class CitationClosureRetriever:
         hits = self.base.retrieve(query, top_k)
         seen = {(h.source, h.text) for h in hits}
         out = list(hits)
-        added = 0
+        budget = [self.max_expand]
+
+        def _add(snip: Snippet, score: float) -> None:
+            rk = (snip.source, snip.text)
+            if rk not in seen and budget[0] > 0:
+                seen.add(rk)
+                out.append(Snippet(snip.source, snip.text, score))
+                budget[0] -= 1
+
+        # 1) Article-level: đi theo dẫn chiếu trong câu → đúng văn bản đích.
         for h in hits:
+            if budget[0] <= 0:
+                break
             hit_file = h.source.split("#", 1)[0]
             own = article_key(h.source.split("#", 1)[1]) if "#" in h.source else None
             for art, doc_ref in extract_article_refs(h.text):
@@ -327,19 +359,19 @@ class CitationClosureRetriever:
                 if not key:
                     continue
                 target_file = self._resolve_file(doc_ref, hit_file)
-                if not target_file:
-                    continue                                  # dẫn chiếu văn bản chưa có trong KB → bỏ
-                if target_file == hit_file and key.lower() == (own or "").lower():
-                    continue                                  # chính nó/khoản anh em
+                if not target_file or (target_file == hit_file and key.lower() == (own or "").lower()):
+                    continue                                  # vắng / chính nó / khoản anh em
                 for ref in self._by_file_article.get((target_file, key.lower()), []):
-                    rk = (ref.source, ref.text)
-                    if rk in seen:
-                        continue
-                    seen.add(rk)
-                    out.append(Snippet(ref.source, ref.text, h.score * self.decay))
-                    added += 1
-                    if added >= self.max_expand:
-                        return out
+                    _add(ref, h.score * self.decay)
+
+        # 2) Doc-level: kéo văn bản sửa đổi/thay thế/hướng dẫn liên quan (từ front-matter), nếu còn hiệu lực.
+        for h in hits:
+            if budget[0] <= 0:
+                break
+            for doc_id in self._relations.get(h.source.split("#", 1)[0], []):
+                tf = self._file_by_docid.get(doc_id)
+                if tf and _is_in_force(self._status.get(tf, "in_force")) and tf in self._rep_by_file:
+                    _add(self._rep_by_file[tf], h.score * self.decay * self.decay)
         return out
 
 
