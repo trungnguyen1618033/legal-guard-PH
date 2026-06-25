@@ -12,6 +12,7 @@ from legalguard.domain.models import (
     AnalysisCase,
     ChatTurn,
     Conversation,
+    Feedback,
     Outcome,
     RevenueEntry,
     Snippet,
@@ -135,3 +136,12 @@ class OutcomeRepositoryPort(Protocol):
 
     # {clause: {"accepted": float, "total": int, "rate": float}}
     def win_rates(self, org_id: str | None = None) -> dict[str, dict]: ...
+
+
+@runtime_checkable
+class FeedbackRepositoryPort(Protocol):
+    """Lưu phản hồi người dùng về câu trả lời — vòng học (gom golden set, tìm lỗ hổng)."""
+
+    def record(self, feedback: Feedback) -> str: ...
+
+    def list_by_org(self, org_id: str, limit: int = 100) -> list[Feedback]: ...

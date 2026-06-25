@@ -20,7 +20,13 @@ from pydantic import BaseModel
 
 from legalguard.domain.analysis import AnalysisService
 from legalguard.domain.evidence import EvidenceService
-from legalguard.domain.models import NegotiationPosition, Outcome, RevenueEntry, SourceMeta
+from legalguard.domain.models import (
+    Feedback,
+    NegotiationPosition,
+    Outcome,
+    RevenueEntry,
+    SourceMeta,
+)
 from legalguard.domain.ports import DocumentParserPort, LLMError
 from legalguard.domain.reporting import render_markdown_report
 from legalguard.domain.tenants import Organization, default_org, get_tenant
@@ -47,6 +53,13 @@ class OutcomeIn(BaseModel):
 class AskIn(BaseModel):
     question: str
     lang: str = "vi"            # vi | en
+
+
+class FeedbackIn(BaseModel):
+    kind: str = "lookup"        # analysis | lookup
+    ref: str = ""               # case_id (analysis) hoặc câu hỏi (lookup)
+    rating: str                 # helpful | wrong | incomplete
+    note: str = ""
 
 
 def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: EvidenceService,
@@ -219,5 +232,22 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
     def tactic_insights(org: Organization = Depends(require_auth)) -> dict:
         # Win-rate theo điều khoản từ flywheel kết quả đàm phán của công ty.
         return service.tactic_stats(org.id)
+
+    @app.post("/feedback")
+    def submit_feedback(body: FeedbackIn, org: Organization = Depends(require_auth)) -> dict:
+        # Vòng học: phản hồi người dùng về câu trả lời → gom golden set + tìm lỗ hổng KB.
+        if body.rating not in ("helpful", "wrong", "incomplete"):
+            raise HTTPException(status_code=400, detail="rating không hợp lệ.")
+        fid = service.record_feedback(Feedback(
+            id=uuid.uuid4().hex, org_id=org.id, kind=body.kind, ref=body.ref[:500],
+            rating=body.rating, note=body.note[:1000],
+            created_at=datetime.now(timezone.utc).isoformat(),
+        ))
+        return {"recorded": fid is not None, "id": fid}
+
+    @app.get("/feedback")
+    def list_feedback(limit: int = 100, org: Organization = Depends(require_auth)) -> list[dict]:
+        # Xuất phản hồi của công ty (để build golden set / rà lỗ hổng).
+        return [asdict(f) for f in service.list_feedback(org.id, limit)]
 
     return app

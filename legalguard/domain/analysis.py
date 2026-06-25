@@ -19,12 +19,14 @@ from legalguard.domain.models import (
     AgentContext,
     AnalysisCase,
     AnalysisResult,
+    Feedback,
     NegotiationPosition,
     Outcome,
     SourceMeta,
 )
 from legalguard.domain.ports import (
     CaseRepositoryPort,
+    FeedbackRepositoryPort,
     KnowledgeBaseProvider,
     LLMError,
     LLMPort,
@@ -124,7 +126,8 @@ class AnalysisService:
                  cases: CaseRepositoryPort | None = None,
                  outcomes: OutcomeRepositoryPort | None = None,
                  observer: ObservabilityPort | None = None,
-                 legal_basis_grounding: bool = True) -> None:
+                 legal_basis_grounding: bool = True,
+                 feedback: FeedbackRepositoryPort | None = None) -> None:
         self.reasoner = reasoner      # Qwen: agent phân tích chính
         self.summarizer = summarizer  # Gemini: >=1 call tóm tắt (ràng buộc XPRIZE)
         self.kb = kb
@@ -132,12 +135,19 @@ class AnalysisService:
         self.outcomes = outcomes      # flywheel kết quả đàm phán (tùy chọn)
         self.observer = observer      # telemetry (tùy chọn)
         self.legal_basis_grounding = legal_basis_grounding   # gắn căn cứ điều luật cho risk/fallback
+        self.feedback = feedback      # vòng học: phản hồi người dùng (tùy chọn)
 
     def record_outcome(self, outcome: Outcome) -> str | None:
         return self.outcomes.record(outcome) if self.outcomes else None
 
     def tactic_stats(self, org_id: str) -> dict:
         return self.outcomes.win_rates(org_id) if self.outcomes else {}
+
+    def record_feedback(self, fb: Feedback) -> str | None:
+        return self.feedback.record(fb) if self.feedback else None
+
+    def list_feedback(self, org_id: str, limit: int = 100) -> list[Feedback]:
+        return self.feedback.list_by_org(org_id, limit) if self.feedback else []
 
     def get_case(self, case_id: str) -> AnalysisCase | None:
         return self.cases.get(case_id) if self.cases else None

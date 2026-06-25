@@ -25,6 +25,7 @@ from legalguard.adapters.outbound.qwen import QwenAdapter
 from legalguard.adapters.outbound.qwen_vision_ocr import QwenVisionOcr
 from legalguard.adapters.outbound.revenue_log import CsvRevenueLog
 from legalguard.adapters.outbound.sql_case_repository import SqlAlchemyCaseRepository
+from legalguard.adapters.outbound.sql_feedback_repository import SqlAlchemyFeedbackRepository
 from legalguard.adapters.outbound.sql_outcome_repository import SqlAlchemyOutcomeRepository
 from legalguard.config.settings import Settings, settings
 from legalguard.domain.analysis import AnalysisService
@@ -57,11 +58,12 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                                    in_force=cfg.in_force_filter)
     cases = SqlAlchemyCaseRepository(cfg.database_url)
     outcomes = SqlAlchemyOutcomeRepository(cfg.database_url)
+    feedback = SqlAlchemyFeedbackRepository(cfg.database_url)
     observer = (LangfuseObserver(cfg.langfuse_public_key, cfg.langfuse_secret_key, cfg.langfuse_host)
                 if cfg.langfuse_secret_key else NoOpObserver())
     return AnalysisService(reasoner=reasoner, summarizer=summarizer, kb=kb,
                            cases=cases, outcomes=outcomes, observer=observer,
-                           legal_basis_grounding=cfg.legal_basis_grounding)
+                           legal_basis_grounding=cfg.legal_basis_grounding, feedback=feedback)
 
 
 def build_evidence(cfg: Settings = settings) -> EvidenceService:

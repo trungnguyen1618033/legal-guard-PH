@@ -96,7 +96,14 @@
     <div class="banner" id="review-banner"></div>
 
     <div class="card"><h2>📋 Tóm tắt cho chủ doanh nghiệp</h2><pre id="summary"></pre>
-      <div id="notes" style="margin-top:10px"></div></div>
+      <div id="notes" style="margin-top:10px"></div>
+      <div id="feedback" style="margin-top:12px;font-size:14px">
+        <span class="muted">Kết quả này thế nào?</span>
+        <button type="button" onclick="sendFeedback('helpful')">👍 Hữu ích</button>
+        <button type="button" onclick="sendFeedback('wrong')">⚠️ Sai</button>
+        <button type="button" onclick="sendFeedback('incomplete')">➖ Thiếu</button>
+        <span id="fb-thanks" class="muted"></span>
+      </div></div>
 
     <div class="card"><h2>🚨 Điều khoản rủi ro</h2>
       <table><thead><tr><th>Điều khoản</th><th>Rủi ro</th><th>Mức</th><th>Ưu tiên</th><th>Bằng chứng (trích HĐ)</th><th>Nguồn KB</th></tr></thead>
@@ -118,6 +125,7 @@ const $ = id => document.getElementById(id);
 $('apikey').value = localStorage.getItem('lg_apikey') || '';
 
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+function authHeaders(){ const k=$('apikey').value.trim(); return k?{'X-API-Key':k}:{}; }
 
 $('go').onclick = async () => {
   const text = $('text').value.trim(), file = $('file').files[0];
@@ -139,8 +147,21 @@ $('go').onclick = async () => {
   finally { $('go').disabled = false; $('spinner').style.display = 'none'; }
 };
 
+let _caseId = null;
+async function sendFeedback(rating) {
+  $('fb-thanks').textContent = ' đang gửi…';
+  try {
+    await fetch('/feedback', { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ kind:'analysis', ref:_caseId||'', rating }) });
+    $('fb-thanks').textContent = ' — cảm ơn phản hồi!';
+  } catch { $('fb-thanks').textContent = ' — gửi lỗi, thử lại sau.'; }
+}
+
 function render(d) {
   $('result').style.display = 'block';
+  _caseId = d.case_id || null;
+  $('fb-thanks').textContent = '';
   $('summary').textContent = d.summary || '(không có)';
   $('notes').innerHTML = (d.notes||[]).map(n => `<p class="note muted">${esc(n)}</p>`).join('');
   $('strategy').textContent = d.strategy || '(không có)';

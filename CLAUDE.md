@@ -70,6 +70,8 @@ khi chưa có key. Còn thiếu (next): vòng đàm phán đa phiên, escalation
 Moat/flywheel (`docs/moat.md`): `Outcome` (kết quả đàm phán) → `OutcomeRepositoryPort` →
 `POST /cases/{id}/outcome`, `GET /insights/tactics`; `AnalysisService` gắn `win_rate` vào fallback
 (outcome-aware ranking). Đây là dữ liệu độc quyền — moat thật, không phải tech.
+Vòng học: `Feedback` (phản hồi người dùng helpful/wrong/incomplete) → `FeedbackRepositoryPort` →
+`POST /feedback` (+ nút trên web UI) + `GET /feedback` (export build golden set); gom lỗ hổng KB từ usage thật.
 
 Security (`docs/security.md`): API-key auth + per-company scoping (`API_KEYS="key:org:VN"`), PII
 redaction (`domain/redaction.py`), prompt-injection hardening, upload limit, right-to-erasure,
