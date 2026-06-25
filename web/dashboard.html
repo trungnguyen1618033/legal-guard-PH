@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bảng điều khiển — Legal Guard PH</title>
+<style>
+  :root { --b:#0d6efd; --mut:#667; --line:#e3e6ea; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,Segoe UI,Roboto,sans-serif; max-width:860px; margin:0 auto;
+         padding:24px 16px; color:#1a1d21; line-height:1.55; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:0 0 10px; }
+  .muted { color:var(--mut); }
+  input { padding:10px; border:1px solid var(--line); border-radius:8px; font-size:15px; }
+  .row { display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap; }
+  button { background:var(--b); color:#fff; border:0; border-radius:8px; padding:10px 18px;
+           font-size:15px; cursor:pointer; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:18px; }
+  .stat { border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .stat .n { font-size:28px; font-weight:700; }
+  .stat .l { font-size:13px; color:var(--mut); }
+  .card { border:1px solid var(--line); border-radius:10px; padding:16px; margin-top:18px; }
+  .bar { display:flex; align-items:center; gap:8px; margin:5px 0; font-size:14px; }
+  .bar .fill { height:14px; border-radius:4px; background:var(--b); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  td,th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  .pill { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; }
+  .high { background:#ffd9d9; } .medium { background:#fff0c2; } .low { background:#d7f5dd; }
+  #err { color:#c0392b; }
+  a { color:var(--b); }
+</style>
+</head>
+<body>
+  <h1>📊 Bảng điều khiển công ty</h1>
+  <p class="muted">Tổng hợp hoạt động pháp lý của công ty bạn — bằng chứng "hệ thống ghi nhận" (càng dùng càng giá trị).
+    <a href="/app">Rà soát HĐ</a> · <a href="/lookup">Tra cứu luật</a>.</p>
+  <div class="row">
+    <input id="apikey" placeholder="API key (nếu có)" style="flex:1">
+    <button id="go">Tải số liệu</button>
+    <span id="spin" style="display:none">⏳…</span>
+  </div>
+  <p id="err"></p>
+
+  <div id="dash" style="display:none">
+    <div class="grid">
+      <div class="stat"><div class="n" id="s-cases">0</div><div class="l">Hợp đồng đã rà soát</div></div>
+      <div class="stat"><div class="n" id="s-review">0</div><div class="l">Cần chuyên gia duyệt</div></div>
+      <div class="stat"><div class="n" id="s-risks">0</div><div class="l">Tổng rủi ro phát hiện</div></div>
+      <div class="stat"><div class="n" id="s-gaps">0</div><div class="l">Lỗ hổng KB (feedback)</div></div>
+    </div>
+
+    <div class="card"><h2>Phân bố mức độ rủi ro</h2><div id="sev"></div></div>
+    <div class="card"><h2>Điều khoản rủi ro hay gặp nhất</h2><table id="clauses"><tbody></tbody></table></div>
+    <div class="card"><h2>Tín hiệu phản hồi</h2><div id="fb"></div></div>
+    <div class="card"><h2>Chiến thuật thắng nhiều nhất (win-rate)</h2><table id="tactics"><tbody></tbody></table></div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => { const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; };
+const authHeaders = () => { const k=$('apikey').value.trim(); return k?{'X-API-Key':k}:{}; };
+$('apikey').value = localStorage.getItem('lg_apikey') || '';
+
+$('go').onclick = async () => {
+  $('err').textContent = '';
+  const key = $('apikey').value.trim();
+  if (key) localStorage.setItem('lg_apikey', key);
+  $('go').disabled = true; $('spin').style.display = 'inline';
+  try {
+    const r = await fetch('/insights/dashboard', { headers: authHeaders() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    render(await r.json());
+    $('dash').style.display = 'block';
+  } catch (e) { $('err').textContent = 'Lỗi: ' + e.message; }
+  finally { $('go').disabled = false; $('spin').style.display = 'none'; }
+};
+
+function render(d) {
+  $('s-cases').textContent = d.cases.total;
+  $('s-review').textContent = d.cases.needs_review;
+  $('s-risks').textContent = d.cases.total_risks;
+  $('s-gaps').textContent = d.feedback.kb_gaps;
+
+  const sev = d.cases.risk_by_severity || {};
+  const max = Math.max(1, ...Object.values(sev));
+  $('sev').innerHTML = ['high','medium','low'].filter(k=>sev[k]).map(k =>
+    `<div class="bar"><span class="pill ${k}" style="width:70px">${k}</span>
+     <div class="fill ${k}" style="width:${Math.round(sev[k]/max*260)}px;background:${k==='high'?'#e74c3c':k==='medium'?'#f1c40f':'#2ecc71'}"></div>
+     <b>${sev[k]}</b></div>`).join('') || '<p class="muted">Chưa có dữ liệu.</p>';
+
+  $('clauses').querySelector('tbody').innerHTML = (d.top_risky_clauses||[]).map(c =>
+    `<tr><td>${esc(c.clause)}</td><td style="text-align:right"><b>${c.count}</b></td></tr>`).join('')
+    || '<tr><td class="muted">Chưa có dữ liệu.</td></tr>';
+
+  const fb = d.feedback.by_rating || {};
+  $('fb').innerHTML = `👍 Đúng: <b>${fb.helpful||0}</b> &nbsp; ⚠️ Sai: <b>${fb.wrong||0}</b> &nbsp; ➖ Thiếu: <b>${fb.incomplete||0}</b>`
+    + (d.feedback.total ? '' : ' <span class="muted">(chưa có phản hồi)</span>');
+
+  $('tactics').querySelector('tbody').innerHTML = (d.top_tactics||[]).map(t =>
+    `<tr><td>${esc(t.clause)}</td><td style="text-align:right">${(t.win_rate*100).toFixed(0)}% <span class="muted">(${t.samples})</span></td></tr>`).join('')
+    || '<tr><td class="muted">Chưa có kết quả đàm phán nào được ghi nhận.</td></tr>';
+}
+</script>
+</body>
+</html>
