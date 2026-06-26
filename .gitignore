@@ -151,6 +151,10 @@ activemq-data/
 .env
 .envrc
 .venv
+
+# SSH private keys — KHÔNG BAO GIỜ commit (repo sẽ public)
+*.pem
+*.key
 env/
 venv/
 ENV/
