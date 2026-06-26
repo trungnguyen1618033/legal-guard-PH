@@ -43,6 +43,9 @@ _log = logging.getLogger(__name__)
 _CHUNK = 6000        # ký tự / cửa sổ cho hợp đồng dài
 _OVERLAP = 400       # chồng lấn để không cắt mất điều khoản ở biên
 _SIMPLE_MAX = 1500   # ngưỡng "đơn giản" cho adaptive routing
+# Câu hỏi point-in-time (có năm 19xx/20xx hoặc ngày d/m/y) cần suy luận thời điểm → dùng flagship,
+# không dùng model nhanh (qwen-plus yếu hơn ở reasoning thời điểm — đã đo). Hybrid lookup.
+_PIT_RE = re.compile(r"\b(?:19|20)\d{2}\b|\b\d{1,2}/\d{1,2}/\d{2,4}\b")
 
 
 def _windows(text: str) -> list[str]:
@@ -452,8 +455,10 @@ class AnalysisService:
                 "**Basis:** one citation per line — Article/Clause + document name + short point "
                 "(use only the sources below; if insufficient write 'Not enough grounding in the knowledge base').\n\n"
                 f"Sources:\n{sources}\n\nQuestion: {question}\nAnswer in English.")
+        # HYBRID: câu có mốc thời gian (point-in-time) → flagship (chính xác); còn lại → model nhanh.
+        llm = self.reasoner if _PIT_RE.search(question) else self.lookup_llm
         try:
-            answer = self.lookup_llm.complete(prompt)
+            answer = llm.complete(prompt)
         except LLMError as exc:
             return f"Chưa trả lời được: {exc}", snippets
         # NLI (model nhanh): câu trả lời có được CHÍNH các nguồn hậu thuẫn không? Không → cảnh báo.
