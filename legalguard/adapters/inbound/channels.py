@@ -236,6 +236,32 @@ def _feedback_blocks(kind: str, ref: str) -> list[dict]:
         btn("➖ Thiếu", "fb_incomplete")]}]
 
 
+def _mrkdwn_blocks(text: str, limit: int = 2900, max_blocks: int = 12) -> list[dict]:
+    """Chia reply thành NHIỀU section block Slack (mỗi block ≤ limit; Slack chặn 3000 ký tự/section).
+    Cắt ở ranh giới DÒNG để không vỡ chữ/cụt câu (reply HĐ nhiều rủi ro thường > 2900). Quá dài →
+    giữ `max_blocks` block + ghi chú xem bản đầy đủ trên web."""
+    chunks: list[str] = []
+    cur = ""
+    for line in text.split("\n"):
+        while len(line) > limit:                 # dòng đơn quá dài → cắt theo KÝ TỰ (an toàn UTF-8)
+            if cur:
+                chunks.append(cur)
+                cur = ""
+            chunks.append(line[:limit])
+            line = line[limit:]
+        if cur and len(cur) + len(line) + 1 > limit:
+            chunks.append(cur)
+            cur = line
+        else:
+            cur = f"{cur}\n{line}" if cur else line
+    if cur:
+        chunks.append(cur)
+    if len(chunks) > max_blocks:
+        chunks = chunks[:max_blocks]
+        chunks[-1] += "\n… (rút gọn — xem bản đầy đủ trên web /app)"
+    return [{"type": "section", "text": {"type": "mrkdwn", "text": c}} for c in chunks]
+
+
 def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: str,
              text: str, file_url: str | None, filename: str | None,
              thread_ts: str | None = None, max_bytes: int = 10 * 1024 * 1024,
@@ -266,8 +292,8 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         res = handler.reply_ex(key, text=text, attachment=attachment, filename=filename)
         reply = res.text
         if supports_buttons and res.kind:          # gắn nút feedback (Slack) cho câu trả lời thật
-            blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": reply[:2900]}},
-                      *_feedback_blocks(res.kind, res.ref)]
+            # Chia reply thành nhiều block (không cụt ở 2900) rồi mới tới nút feedback.
+            blocks = [*_mrkdwn_blocks(reply), *_feedback_blocks(res.kind, res.ref)]
     except Exception:  # noqa: BLE001 — task nền: lỗi bất ngờ → vẫn báo khách, không sập im lặng
         _log.exception("Lỗi xử lý tin nhắn (%s)", key)
         reply = "Xin lỗi, có lỗi khi xử lý. Vui lòng thử lại sau."
