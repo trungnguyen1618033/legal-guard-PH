@@ -23,10 +23,18 @@ yêu cầu "backend trên Alibaba Cloud" của Qwen hackathon).
   không cần compute-optimized: ưu tiên **`ecs.e` (Economical)**, hoặc `ecs.u1`/`ecs.t6` — rẻ hơn `c9i`
   nhiều (~⅓–½). 4GB là tối thiểu an toàn (app+PG+Redis+Caddy+embedding index); **đừng chọn 2GB**.
   (Singapore đắt hơn Hangzhou nhưng Hangzhou kẹt ICP — vài đô không đáng để dính rào cản.)
-- **Image: Ubuntu 24.04 LTS** (64-bit) · **System Disk 40GB** (cloud_essd).
-- **Public IP: Assign Public IPv4** ✅ (bắt buộc) · Bandwidth: **Pay-by-traffic** ~1–5 Mbps (rẻ cho demo).
-- **Logon Credentials**: đặt **Password (root)** hoặc **Key Pair** (để SSH ở Phase 4) — nhớ kỹ.
-- Network: Default VPC + Random vSwitch (mặc định OK).
+- **Image: Ubuntu 24.04 LTS** (64-bit) — KHÔNG cần 26.04 (mới, ít test).
+- **Storage**: System Disk **ESSD Entry 40GB**, giữ tick **Release with Instance** (xoá máy → xoá disk,
+  không phí thừa); Encryption tùy chọn; KHÔNG thêm Data Disk; **bật File Backup** (free 100GiB, backup
+  ngày, không cấu hình); Snapshot Policy để trống.
+- **Free Security Hardening**: bật cũng được (free, cảnh báo đăng nhập SSH lạ; ~150MB RAM — 4GB chịu được).
+- **Network & Security**:
+  - **Public IP: Assign Public IPv4** ✅ (bắt buộc).
+  - **Bandwidth: Pay-by-traffic**, peak ~5 Mbps (rẻ + nhanh hơn pay-by-bandwidth cố định cho demo).
+  - **Ports mở: 22 (SSH) + 80 (HTTP) + 443 (HTTPS)**. **BỎ RDP 3389** (của Windows, Ubuntu không dùng).
+  - SSH (22) nên giới hạn **chỉ IP của bạn** (sửa Security Group sau khi tạo) — chống bot dò mật khẩu.
+  - VPC: Default + Random vSwitch (mặc định OK).
+- **Logon Credentials**: đặt **Key Pair** (khuyến nghị, mạnh hơn) hoặc **Password (root)** — nhớ kỹ để SSH.
 - Tạo xong → **ghi lại IP public**.
 
 ## 2. Mở port (Security Group)
