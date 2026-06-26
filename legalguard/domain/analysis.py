@@ -433,14 +433,22 @@ class AnalysisService:
                     if lang == "vi" else
                     "Not enough grounding in the knowledge base to answer this."), []
         sources = "\n---\n".join(f"[nguồn: {s.source}] {s.text}" for s in snippets)
-        tail = " Trả lời tiếng Việt." if lang == "vi" else " Answer in English."
-        prompt = (
-            "Bạn là LUẬT SƯ tư vấn. CHỈ dùng các đoạn căn cứ dưới đây, KHÔNG bịa. Giọng CHUYÊN NGHIỆP, "
-            "súc tích, KHÔNG mở bài rườm rà. Trả lời theo ĐÚNG định dạng sau:\n"
-            "**Trả lời:** <1–3 câu trực tiếp; nêu rõ số liệu/mức trần nếu có>\n"
-            "**Căn cứ:** mỗi dòng một căn cứ — Điều/Khoản + tên văn bản + ý chính ngắn "
-            "(chỉ dùng căn cứ có bên dưới; nếu không đủ ghi 'Chưa đủ căn cứ trong cơ sở tri thức').\n\n"
-            f"Căn cứ:\n{sources}\n\nCâu hỏi: {question}" + tail)
+        if lang == "vi":
+            prompt = (
+                "Bạn là LUẬT SƯ tư vấn. CHỈ dùng các đoạn căn cứ dưới đây, KHÔNG bịa. Giọng CHUYÊN NGHIỆP, "
+                "súc tích, KHÔNG mở bài rườm rà. Trả lời theo ĐÚNG định dạng sau:\n"
+                "**Trả lời:** <1–3 câu trực tiếp; nêu rõ số liệu/mức trần nếu có>\n"
+                "**Căn cứ:** mỗi dòng một căn cứ — Điều/Khoản + tên văn bản + ý chính ngắn "
+                "(chỉ dùng căn cứ có bên dưới; nếu không đủ ghi 'Chưa đủ căn cứ trong cơ sở tri thức').\n\n"
+                f"Căn cứ:\n{sources}\n\nCâu hỏi: {question}\nTrả lời tiếng Việt.")
+        else:
+            prompt = (
+                "You are a legal advisor. Use ONLY the sources below, do NOT fabricate. PROFESSIONAL, "
+                "concise tone, no preamble. Reply in EXACTLY this format (in English):\n"
+                "**Answer:** <1-3 direct sentences; state figures/caps if any>\n"
+                "**Basis:** one citation per line — Article/Clause + document name + short point "
+                "(use only the sources below; if insufficient write 'Not enough grounding in the knowledge base').\n\n"
+                f"Sources:\n{sources}\n\nQuestion: {question}\nAnswer in English.")
         try:
             answer = self.reasoner.complete(prompt)
         except LLMError as exc:

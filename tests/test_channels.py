@@ -215,6 +215,24 @@ def test_slack_reply_stays_in_existing_thread():
     assert sender.threads and all(t == "111.22" for t in sender.threads)
 
 
+def test_slack_acks_lookup_question_not_silent():
+    # Câu hỏi pháp lý (lookup, ~30s) → phải gửi ack "đang tra cứu" trước, không để user chờ im.
+    sender = _FakeSender()
+    c = _client(slack="s", slack_sender=sender)
+    _slack_post(c, "s", {"event": {"text": "Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?",
+                                   "channel": "C1", "ts": "1.1"}})
+    assert sender.sent and "tra cứu" in sender.sent[0][1].lower()   # ack tra cứu đi trước
+    assert len(sender.sent) >= 2                                     # ack + kết quả
+
+
+def test_slack_no_ack_for_casual_message():
+    # Tin xã giao (không phải câu hỏi) → KHÔNG ack tra cứu (tránh phiền).
+    sender = _FakeSender()
+    c = _client(slack="s", slack_sender=sender)
+    _slack_post(c, "s", {"event": {"text": "cảm ơn nhé", "channel": "C1", "ts": "2.2"}})
+    assert all("tra cứu" not in t.lower() for _, t in sender.sent)
+
+
 def test_slack_ignores_bot_messages_no_reply_loop():
     sender = _FakeSender()
     c = _client(slack="s", slack_sender=sender)
