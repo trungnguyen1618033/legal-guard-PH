@@ -52,6 +52,12 @@ def _is_question(text: str) -> bool:
 def _looks_like_question(text: str) -> bool:
     """Đáng tra cứu KB nếu là câu hỏi rõ, có thuật ngữ luật, hoặc đủ dài (≥6 từ) — tránh tốn LLM cho lời chào."""
     return _is_question(text) or bool(_LEGAL_TERM_RE.search(text)) or len(text.split()) >= 6
+
+
+def _is_legal_lookup(text: str) -> bool:
+    """Câu hỏi pháp lý CHUNG (từ-để-hỏi + thuật ngữ luật) → ưu tiên LOOKUP (template + dẫn nguồn) hơn
+    follow-up, kể cả đang trong deal. Câu đặc-thù-deal ('nếu đối tác từ chối…') không khớp → follow-up."""
+    return bool(_is_question(text) and _LEGAL_TERM_RE.search(text))
 _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ N lượt gần
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
@@ -164,14 +170,17 @@ class ChatHandler:
                 return ChatReply(f"Xin lỗi, chưa xử lý được: {exc}")
             conv.context = _context_from_result(result)    # nhớ deal đang bàn
             return ChatReply(format_chat_reply(result, lang), "analysis", result.case_id or "")
-        if conv.context:                                   # → TRẢ LỜI TIẾP (follow-up theo deal)
+        # Follow-up theo deal — TRỪ câu hỏi pháp lý CHUNG (→ ưu tiên lookup template+dẫn nguồn cho nhất quán).
+        if conv.context and not _is_legal_lookup(text or ""):
             return ChatReply(self._followup(conv, text or "", lang))
-        if text and _looks_like_question(text):            # → TRA CỨU LUẬT có grounding (không có deal)
+        if text and _looks_like_question(text):            # → TRA CỨU LUẬT có grounding (template + nguồn)
             answer, snippets = self.service.lookup(text, org, lang=lang)
             if snippets:                                   # hiện nguồn (dẫn điều/khoản) gọn dưới câu trả lời
                 srcs = " · ".join(s.source for s in snippets[:3])
                 answer = f"{answer}\n\n📎 Nguồn: {srcs}"
             return ChatReply(answer, "lookup", text)
+        if conv.context:                                   # có deal, không phải câu hỏi → follow-up
+            return ChatReply(self._followup(conv, text or "", lang))
         return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "
                          "hoặc đặt câu hỏi pháp lý nhé.")
 
