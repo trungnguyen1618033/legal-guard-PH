@@ -423,9 +423,12 @@ class AnalysisService:
         sources = "\n---\n".join(f"[nguồn: {s.source}] {s.text}" for s in snippets)
         tail = " Trả lời tiếng Việt." if lang == "vi" else " Answer in English."
         prompt = (
-            "Bạn là trợ lý pháp lý. CHỈ dùng các đoạn căn cứ dưới đây để trả lời, KHÔNG bịa. "
-            "Trích dẫn đúng Điều/Khoản và tên văn bản. Nếu căn cứ không đủ, nói rõ là chưa đủ căn cứ.\n\n"
-            f"Căn cứ:\n{sources}\n\nCâu hỏi: {question}\nTrả lời ngắn gọn, ngôn ngữ thường, có dẫn nguồn." + tail)
+            "Bạn là LUẬT SƯ tư vấn. CHỈ dùng các đoạn căn cứ dưới đây, KHÔNG bịa. Giọng CHUYÊN NGHIỆP, "
+            "súc tích, KHÔNG mở bài rườm rà. Trả lời theo ĐÚNG định dạng sau:\n"
+            "**Trả lời:** <1–3 câu trực tiếp; nêu rõ số liệu/mức trần nếu có>\n"
+            "**Căn cứ:** mỗi dòng một căn cứ — Điều/Khoản + tên văn bản + ý chính ngắn "
+            "(chỉ dùng căn cứ có bên dưới; nếu không đủ ghi 'Chưa đủ căn cứ trong cơ sở tri thức').\n\n"
+            f"Căn cứ:\n{sources}\n\nCâu hỏi: {question}" + tail)
         try:
             answer = self.reasoner.complete(prompt)
         except LLMError as exc:

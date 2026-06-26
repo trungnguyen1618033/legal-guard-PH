@@ -179,7 +179,7 @@ class ChatHandler:
         hist = "\n".join(f"{m['role']}: {m['content']}" for m in conv.recent(6))
         tail = ", tiếng Việt." if lang == "vi" else ", in English."
         prompt = (f"Bối cảnh rà soát hợp đồng:\n{conv.context}\n\nLịch sử hội thoại:\n{hist}\n\n"
-                  f"Câu hỏi tiếp của khách: {question}\nTrả lời ngắn gọn, ngôn ngữ thường" + tail)
+                  f"Câu hỏi tiếp của khách: {question}\nTrả lời CHUYÊN NGHIỆP, súc tích, đi thẳng vấn đề" + tail)
         try:
             return self.service.reasoner.complete(prompt)
         except LLMError as exc:
