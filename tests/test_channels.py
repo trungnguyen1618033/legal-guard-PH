@@ -92,6 +92,17 @@ def test_handler_skips_lookup_for_casual_message():
     assert "Gửi giúp" in out
 
 
+def test_chat_history_redacts_pii_before_store():
+    # Khách DÁN hợp đồng có PII vào chat → history KHÔNG được giữ email/sđt nguyên văn.
+    store = InMemoryConversationStore()
+    h = ChatHandler(build_service(), build_parser(), store, "VN")
+    h.reply("cPII", text="Điều khoản trọng tài; liên hệ a@example.com, sđt 0912345678")
+    hist = store.get("cPII").history
+    joined = " ".join(m["content"] for m in hist if m["role"] == "user")
+    assert "a@example.com" not in joined and "0912345678" not in joined   # đã redact
+    assert "trọng tài" in joined.lower()                                  # vẫn giữ ngữ cảnh pháp lý
+
+
 def test_conversation_remembers_context_and_history():
     store = InMemoryConversationStore()
     h = ChatHandler(build_service(), build_parser(), store, "VN")

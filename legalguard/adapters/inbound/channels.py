@@ -27,6 +27,7 @@ from legalguard.domain.ports import (
     DocumentParserPort,
     LLMError,
 )
+from legalguard.domain.redaction import redact
 from legalguard.domain.tenants import default_org
 
 # Tín hiệu nội dung là hợp đồng (→ rà soát); ngược lại coi là câu hỏi tiếp (follow-up).
@@ -106,7 +107,10 @@ class ChatHandler:
                  filename: str | None = None, lang: str = "vi") -> ChatReply:
         conv = self.store.get(conversation_id) or Conversation(id=conversation_id)
         res = self._handle(conv, text, attachment, filename, lang)
-        conv.add("user", (text or "").strip() or "(đã gửi tệp)")
+        # REDACT trước khi lưu history: nếu khách DÁN hợp đồng vào chat, không giữ PII (email/sđt/số dài)
+        # nguyên văn trong conversation store. `_handle` đã redact bản gửi LLM riêng → không ảnh hưởng phân tích.
+        user_msg = redact((text or "").strip())[0] or "(đã gửi tệp)"
+        conv.add("user", user_msg)
         conv.add("assistant", res.text)
         self._summarize(conv)
         self.store.save(conv)

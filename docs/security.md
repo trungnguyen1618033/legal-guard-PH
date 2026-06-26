@@ -24,6 +24,8 @@ Nghị định 356/2025 (hiệu lực 1/1/2026, thay Nghị định 13/2023)**; 
 **Vẫn phải phòng thủ theo chiều sâu (defense-in-depth):**
 - **Redaction PII trước khi gửi:** che tên/điện thoại/email/mã số thuế/số tài khoản bằng
   **rule-based** (regex + dictionary; KHÔNG dùng LLM để redact — LLM redact không đáng tin).
+  Áp ở: `/analyze` (redact trước khi gửi LLM + lưu excerpt), `/ask`, **và chat history** (Slack/Zalo:
+  redact trước khi lưu vào conversation store — khách dán HĐ vào chat cũng không giữ PII nguyên văn).
   Nâng cấp: Microsoft **Presidio** / **LLM Guard** cho NER + entity pháp lý.
 - **Pseudonymization:** thay tên đối tác bằng `[BÊN_A]/[BÊN_B]`, khôi phục sau khi có kết quả.
 - **Data residency:** khóa region Singapore (intl) / Frankfurt (EU) tùy khách; tránh route nhầm.
