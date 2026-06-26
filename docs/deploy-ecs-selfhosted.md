@@ -19,8 +19,10 @@ yêu cầu "backend trên Alibaba Cloud" của Qwen hackathon).
   mới host web public 80/443; Singapore không cần ICP + cùng vùng `dashscope-intl` → nhanh nhất).
 - **Billing Method**: **Pay-as-you-go** (hackathon ngắn → stop/huỷ sau khi thi cho khỏi phí) hoặc
   Subscription 1 tháng (credit $40 thường phủ → $0).
-- **Architecture x86** · **Instance Type: ecs.c9i.large (2 vCPU / 4 GB)** — 4GB là tối thiểu an toàn
-  (app + Postgres + Redis + Caddy + dựng embedding index). **Đừng chọn 2GB.**
+- **Architecture x86** · **Instance Type 2 vCPU / 4 GB** — chọn họ RẺ vì app chờ LLM (I/O-bound),
+  không cần compute-optimized: ưu tiên **`ecs.e` (Economical)**, hoặc `ecs.u1`/`ecs.t6` — rẻ hơn `c9i`
+  nhiều (~⅓–½). 4GB là tối thiểu an toàn (app+PG+Redis+Caddy+embedding index); **đừng chọn 2GB**.
+  (Singapore đắt hơn Hangzhou nhưng Hangzhou kẹt ICP — vài đô không đáng để dính rào cản.)
 - **Image: Ubuntu 24.04 LTS** (64-bit) · **System Disk 40GB** (cloud_essd).
 - **Public IP: Assign Public IPv4** ✅ (bắt buộc) · Bandwidth: **Pay-by-traffic** ~1–5 Mbps (rẻ cho demo).
 - **Logon Credentials**: đặt **Password (root)** hoặc **Key Pair** (để SSH ở Phase 4) — nhớ kỹ.
