@@ -9,6 +9,7 @@ class _CountLLM:
 
     def __init__(self):
         self.calls = 0
+        self.last_prompt = ""
 
     @property
     def available(self):
@@ -16,6 +17,7 @@ class _CountLLM:
 
     def complete(self, prompt, *, system=None):
         self.calls += 1
+        self.last_prompt = prompt
         return f"**Trả lời:** đáp án {self.calls}"
 
 
@@ -81,6 +83,21 @@ def test_cache_isolated_per_org():
     svc.lookup("Cùng câu hỏi?", Organization(id="acme", country="VN"))
     svc.lookup("Cùng câu hỏi?", Organization(id="other", country="VN"))
     assert llm.calls == 2              # khác org → cache riêng
+
+
+def test_lookup_redacts_pii_before_llm():
+    # Câu hỏi chứa PII (email/sđt) → prompt gửi LLM phải đã REDACT (không lọt PII).
+    svc, llm = _svc()
+    svc.lookup("Hợp đồng với a@example.com sđt 0912345678 có hợp lệ không?", _ORG)
+    assert "a@example.com" not in llm.last_prompt and "0912345678" not in llm.last_prompt
+    assert "[EMAIL]" in llm.last_prompt and "[SỐ]" in llm.last_prompt
+
+
+def test_lookup_keeps_year_for_point_in_time():
+    # Năm KHÔNG bị redact → câu point-in-time vẫn giữ "2020" để LLM suy luận đúng.
+    svc, llm = _svc()
+    svc.lookup("Năm 2020 văn bản nào về hóa đơn còn hiệu lực?", _ORG)
+    assert "2020" in llm.last_prompt
 
 
 def test_hybrid_routes_point_in_time_to_flagship():
