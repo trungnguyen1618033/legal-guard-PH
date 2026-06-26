@@ -333,7 +333,9 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 text = text.replace(f"<@{bot_uid}>", "").strip()
             elif etype == "app_mention":
                 text = _MENTION_RE.sub("", text, count=1).strip()
-            thread_ts = event.get("thread_ts")                 # khách hỏi trong thread → reply đúng thread
+            # Reply LUÔN theo thread: nếu hỏi trong thread → đúng thread đó; nếu mention ở cấp channel
+            # → mở thread NGAY DƯỚI tin của người hỏi (dùng `ts` của tin đó) thay vì trả rời ở channel.
+            thread_ts = event.get("thread_ts") or event.get("ts")
             key = f"slack:{channel}"
             if slack_sender and slack_sender.available:         # ack nhanh, xử lý nền + gửi reply
                 url, fn = _slack_file(event)
