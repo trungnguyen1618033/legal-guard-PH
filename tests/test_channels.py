@@ -93,6 +93,23 @@ def test_handler_skips_lookup_for_casual_message():
     assert "Gửi giúp" in out
 
 
+def test_legal_question_in_deal_routes_lookup():
+    # Câu hỏi pháp lý CHUNG dù đang trong deal (đã analyze) → LOOKUP (template+nguồn), không follow-up.
+    h = _handler()
+    h.reply("cDeal", text=MSG)                          # analyze → set context
+    assert h.store.get("cDeal").context                  # context đã set
+    r = h.reply_ex("cDeal", text="Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?")
+    assert r.kind == "lookup"                            # câu pháp lý chung → lookup (nhất quán template)
+
+
+def test_deal_specific_question_routes_followup():
+    # Câu ĐẶC-THÙ-DEAL (không thuật ngữ luật chung) → follow-up theo ngữ cảnh, không lookup.
+    h = _handler()
+    h.reply("cDeal2", text=MSG)
+    r = h.reply_ex("cDeal2", text="Nếu đối tác từ chối thì mình nên làm gì?")
+    assert r.kind == ""                                  # follow-up (ChatReply không gắn kind)
+
+
 def test_chat_history_redacts_pii_before_store():
     # Khách DÁN hợp đồng có PII vào chat → history KHÔNG được giữ email/sđt nguyên văn.
     store = InMemoryConversationStore()
