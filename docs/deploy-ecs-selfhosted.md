@@ -135,6 +135,28 @@ docker compose -f docker-compose.ecs.yml down -v                     # dừng + 
 | Slack không verify | domain chưa HTTPS xong | `curl https://<DOMAIN>/health` phải 200 |
 | clone đòi mật khẩu | repo private | xem mục dưới |
 
+## 12. Source PUBLIC (nộp thi) → khoá để chỉ bạn dùng được
+Code công khai cho giám khảo, nhưng hệ thống đang chạy vẫn phải do bạn kiểm soát. Source public **không**
+lộ secret (tất cả ở `.env`, đã gitignore — đã quét sạch), nhưng URL thì ai cũng gọi được. Cần:
+
+1. **Bật auth (lever chính)** — trong `.env` trên ECS:
+   ```ini
+   REQUIRE_AUTH=true
+   API_KEYS=<chuỗi-ngẫu-nhiên-dài>:myorg:VN     # vd: openssl rand -hex 24
+   ```
+   → mọi request phải kèm header `X-API-Key: <chuỗi>`; sai key = 401. App fail-closed (từ chối khởi động
+   nếu `REQUIRE_AUTH=true` mà `API_KEYS` rỗng). UI `/app` `/lookup` `/dashboard` có ô nhập key.
+2. **Mật khẩu DB mạnh** — `POSTGRES_PASSWORD=<mạnh>` trong `.env` (compose đọc từ đây, không nằm trong
+   source công khai). DB vốn đã chỉ bind `127.0.0.1` (mục 8) nên không lộ internet — đây là phòng thủ lớp 2.
+3. **Cap chi phí Qwen** — trong DashScope/Model Studio console đặt **giới hạn quota/spending** cho key,
+   để dù bị lạm dụng cũng không cháy túi. App cũng đã có `RATE_LIMIT_PER_MIN` + `MAX_INPUT_CHARS`.
+4. **KHÔNG mở** 5432/6379/8000 ở Security Group (chỉ 22/80/443). Chọc DB từ local qua SSH tunnel (mục 8).
+5. **Cho giám khảo dùng thử**: hoặc (a) cấp riêng 1 API key trong thời gian chấm rồi xoá; hoặc (b) tạm để
+   `REQUIRE_AUTH=false` đúng cửa sổ chấm (vẫn có rate limit + spending cap) rồi khoá lại sau.
+
+> Nếu lỡ commit secret trước đó: coi như **đã lộ** → **xoay (rotate) key ngay** trên console (tạo key mới,
+> thu hồi key cũ); xoá khỏi lịch sử git (`git filter-repo`) là phụ, rotate mới là chính.
+
 ## Repo private?
 Dùng Personal Access Token (GitHub → Settings → Developer settings → Tokens, scope `repo`):
 ```bash
