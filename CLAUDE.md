@@ -71,6 +71,11 @@ Chat/memory (`docs/conversation.md`): kênh Zalo/Slack qua `ChatHandler` statefu
 (in-memory MVP, prod Redis/SQL): nhớ history + deal context; intent routing (tín hiệu HĐ → analyze; có deal
 context → follow-up qua `reasoner`; câu hỏi pháp lý đứng một mình → `AnalysisService.lookup` tra cứu KB có
 grounding, cũng expose qua `POST /ask`). Webhook: ack nhanh + BackgroundTasks; outbound `chat_senders.py`.
+Concurrency/threading: hội thoại định danh theo THREAD (`slack:{channel}:{thread_ts}`) — mỗi thread = 1 deal
+riêng, reply LUÔN threaded dưới tin người hỏi (`thread_ts or ts`); **lock per-conversation** (`threading.Lock`
+trong `reply_ex`) tuần tự hóa tin cùng hội thoại → chống race load→sửa→save, hội thoại khác chạy song song
+(verified test contention; đủ 1 instance, đa-instance cần Redis lock — `docs/internal/scale-concurrency.md`).
+History redact PII trước khi lưu; reply Slack chia nhiều block (`_mrkdwn_blocks`, ≤2900/block, không cụt).
 
 Web UI: `web/index.html` (landing, `GET /`) + `web/app.html` (demo UI, `GET /app`): form
 upload/dán HĐ + vị thế đàm phán → gọi `/analyze` → bảng risks/fallbacks/strategy/trace +
