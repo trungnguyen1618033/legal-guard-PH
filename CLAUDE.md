@@ -27,6 +27,7 @@ uv sync --group eval                  # cài lớp eval sâu (RAGAS) — opt-in,
 uv run python -m evaluation.ragas_eval  # deep eval: RAGAS LLM-as-judge (cần QWEN_API_KEY; chậm/tốn call)
 uv run python -m evaluation.integration_check  # smoke LLM THẬT (như trên Slack): analyze/lookup/counter… → lưu snapshot.json+md (evaluation/snapshots/) để diff giữa các lần
 uv run python -m evaluation.integration_check --compare evaluation/snapshots/<cũ>/snapshot.json  # so nhanh với lần chạy cũ (định tuyến/#risk/độ dài reply)
+uv run python -m evaluation.lookup_format_check  # test format+cache lookup nhiều case THẬT (Trả lời/Căn cứ + đo cache)
 uv add <pkg>                       # add a dependency
 ```
 

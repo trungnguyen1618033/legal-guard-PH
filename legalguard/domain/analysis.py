@@ -145,7 +145,8 @@ class AnalysisService:
                  feedback: FeedbackRepositoryPort | None = None,
                  nli_verification: bool = True,
                  judge: LLMPort | None = None,
-                 lookup_cache_size: int = 256) -> None:
+                 lookup_cache_size: int = 256,
+                 lookup_llm: LLMPort | None = None) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         self.summarizer = summarizer  # Gemini: >=1 call tóm tắt (ràng buộc XPRIZE)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp). Mặc định = reasoner (giữ tương thích/stub),
@@ -162,6 +163,8 @@ class AnalysisService:
         # trong 1 phiên deploy nên an toàn; redeploy = process mới = cache mới. 0 = tắt.
         self._lookup_cache_size = lookup_cache_size
         self._lookup_cache: OrderedDict[str, tuple] = OrderedDict()
+        # Model trả lời tra cứu: mặc định = reasoner (flagship); prod có thể dùng qwen-plus cho nhanh.
+        self.lookup_llm = lookup_llm or reasoner
 
     def record_outcome(self, outcome: Outcome) -> str | None:
         return self.outcomes.record(outcome) if self.outcomes else None
@@ -450,7 +453,7 @@ class AnalysisService:
                 "(use only the sources below; if insufficient write 'Not enough grounding in the knowledge base').\n\n"
                 f"Sources:\n{sources}\n\nQuestion: {question}\nAnswer in English.")
         try:
-            answer = self.reasoner.complete(prompt)
+            answer = self.lookup_llm.complete(prompt)
         except LLMError as exc:
             return f"Chưa trả lời được: {exc}", snippets
         # NLI (model nhanh): câu trả lời có được CHÍNH các nguồn hậu thuẫn không? Không → cảnh báo.

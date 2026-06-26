@@ -52,6 +52,9 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     # cắt mạnh latency khâu hậu-agent mà không bỏ bước kiểm. Cùng key/endpoint, chỉ khác model.
     judge = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_fast_model,
                         temperature=cfg.llm_temperature)
+    # Model tra cứu (tùy chọn): rỗng = dùng flagship reasoner; đặt qwen-plus để nhanh hơn.
+    lookup_llm = (QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_lookup_model,
+                              temperature=cfg.llm_temperature) if cfg.qwen_lookup_model else None)
     summarizer = GeminiAdapter(cfg.gemini_api_key, cfg.gemini_model, temperature=cfg.llm_temperature)
     embed_fn = reasoner.embed if reasoner.available else None
     reranker = reasoner if cfg.rerank_enabled else None
@@ -69,7 +72,7 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                            cases=cases, outcomes=outcomes, observer=observer,
                            legal_basis_grounding=cfg.legal_basis_grounding, feedback=feedback,
                            nli_verification=cfg.nli_verification, judge=judge,
-                           lookup_cache_size=cfg.lookup_cache_size)
+                           lookup_cache_size=cfg.lookup_cache_size, lookup_llm=lookup_llm)
 
 
 def build_evidence(cfg: Settings = settings) -> EvidenceService:

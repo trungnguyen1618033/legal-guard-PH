@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # Model NHANH cho việc phụ đơn giản (NLI yes/no, verify gộp) — ~0.5s/call vs ~40s của flagship.
     # Right-sizing: việc khó (agent phân tích) vẫn dùng qwen_model; việc kiểm tra yes/no dùng model này.
     qwen_fast_model: str = "qwen-flash"
+    # Model cho TRA CỨU (lookup Q&A): rỗng = dùng flagship qwen_model. Đặt 'qwen-plus' để nhanh hơn
+    # nhiều (Q&A đơn giản hơn phân tích HĐ) — right-sizing tầng giữa.
+    qwen_lookup_model: str = ""
     qwen_embed_model: str = "text-embedding-v4"  # Qwen3-Embedding: đa ngữ 100+, #1 MTEB
     qwen_vl_model: str = "qwen3.7-plus"   # multimodal — OCR HĐ scan/ảnh (thay Qwen-VL, chính xác hơn)
     qwen_rerank_model: str = "qwen3-rerank"  # cross-encoder rerank (Model Studio: Qwen-Rerank, 100+ ngôn ngữ)
