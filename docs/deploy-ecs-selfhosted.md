@@ -14,12 +14,18 @@ yêu cầu "backend trên Alibaba Cloud" của Qwen hackathon).
 - `QWEN_API_KEY`, `GEMINI_API_KEY` (key thật).
 - **Repo public** để `git clone https://...` không cần đăng nhập (nếu private → xem mục cuối).
 
-## 1. Tạo ECS (console Alibaba)
-ECS → Create Instance:
-- Region **Singapore** (gần Qwen/DashScope nhất).
-- Type **2 vCPU / 2–4GB** (ecs.t6 / e-family) — đủ, app chủ yếu chờ LLM.
-- OS **Ubuntu 24.04 LTS**. Public IP: **Assign**. Disk 40GB.
-- Ghi lại **IP public**.
+## 1. Tạo ECS (console Alibaba → ECS → Create Instance → Custom Launch)
+- **Region: Singapore** ⚠️ (KHÔNG để vùng Trung Quốc đại lục — Hangzhou/Beijing đòi **giấy phép ICP 备案**
+  mới host web public 80/443; Singapore không cần ICP + cùng vùng `dashscope-intl` → nhanh nhất).
+- **Billing Method**: **Pay-as-you-go** (hackathon ngắn → stop/huỷ sau khi thi cho khỏi phí) hoặc
+  Subscription 1 tháng (credit $40 thường phủ → $0).
+- **Architecture x86** · **Instance Type: ecs.c9i.large (2 vCPU / 4 GB)** — 4GB là tối thiểu an toàn
+  (app + Postgres + Redis + Caddy + dựng embedding index). **Đừng chọn 2GB.**
+- **Image: Ubuntu 24.04 LTS** (64-bit) · **System Disk 40GB** (cloud_essd).
+- **Public IP: Assign Public IPv4** ✅ (bắt buộc) · Bandwidth: **Pay-by-traffic** ~1–5 Mbps (rẻ cho demo).
+- **Logon Credentials**: đặt **Password (root)** hoặc **Key Pair** (để SSH ở Phase 4) — nhớ kỹ.
+- Network: Default VPC + Random vSwitch (mặc định OK).
+- Tạo xong → **ghi lại IP public**.
 
 ## 2. Mở port (Security Group)
 Inbound `0.0.0.0/0`: **22** (SSH — nên giới hạn IP của bạn), **80** (HTTP/Let's Encrypt), **443** (HTTPS).
