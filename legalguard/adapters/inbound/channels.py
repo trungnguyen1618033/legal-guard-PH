@@ -284,6 +284,8 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         bool(text) and not _is_question(text) and any(s in text.lower() for s in _SIGNALS))
     if will_analyze:
         _safe_send(sender, send_to, _ACK, thread_ts)
+    elif text and _looks_like_question(text):       # lookup/follow-up cũng chậm (~30s) → ack để không "chờ im"
+        _safe_send(sender, send_to, "🔎 Đang tra cứu, chờ chút nhé…", thread_ts)
     attachment: bytes | None = None
     if file_url:
         try:
