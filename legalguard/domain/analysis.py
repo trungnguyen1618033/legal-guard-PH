@@ -446,7 +446,7 @@ class AnalysisService:
                 "**Trả lời:** <1–3 câu trực tiếp; nêu rõ số liệu/mức trần nếu có>\n"
                 "**Căn cứ:** mỗi dòng một căn cứ — Điều/Khoản + tên văn bản + ý chính ngắn "
                 "(chỉ dùng căn cứ có bên dưới; nếu không đủ ghi 'Chưa đủ căn cứ trong cơ sở tri thức').\n\n"
-                f"Căn cứ:\n{sources}\n\nCâu hỏi: {question}\nTrả lời tiếng Việt.")
+                f"Căn cứ:\n{sources}\n\nCâu hỏi: {q}\nTrả lời tiếng Việt.")     # q = đã redact (PII)
         else:
             prompt = (
                 "You are a legal advisor. Use ONLY the sources below, do NOT fabricate. PROFESSIONAL, "
@@ -454,9 +454,10 @@ class AnalysisService:
                 "**Answer:** <1-3 direct sentences; state figures/caps if any>\n"
                 "**Basis:** one citation per line — Article/Clause + document name + short point "
                 "(use only the sources below; if insufficient write 'Not enough grounding in the knowledge base').\n\n"
-                f"Sources:\n{sources}\n\nQuestion: {question}\nAnswer in English.")
+                f"Sources:\n{sources}\n\nQuestion: {q}\nAnswer in English.")     # q = redacted (PII)
         # HYBRID: câu có mốc thời gian (point-in-time) → flagship (chính xác); còn lại → model nhanh.
-        llm = self.reasoner if _PIT_RE.search(question) else self.lookup_llm
+        # Dùng q (đã redact); năm/ngày KHÔNG bị redact (redact chỉ xóa email + số ≥9 chữ số) nên vẫn nhận.
+        llm = self.reasoner if _PIT_RE.search(q) else self.lookup_llm
         try:
             answer = llm.complete(prompt)
         except LLMError as exc:

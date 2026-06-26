@@ -50,11 +50,14 @@ theo effective_date/expiry_date — `_extract_as_of`/`_valid_at`),
 căn cứ pháp lý tất định cho từng risk & fallback (`_legal_citation` trong `domain/analysis.py`,
 `LEGAL_BASIS_GROUNDING`: tra KB gắn `Risk.legal_basis`/`Fallback.legal_basis` = điều luật còn hiệu lực,
 ngưỡng trùng ≥3 thuật ngữ để tránh căn cứ lạc), adaptive routing + chunking (`domain/analysis.py`),
-**latency — model right-sizing**: việc KHÓ (agent phân tích, sinh chiến lược, trả lời lookup) dùng flagship
+**latency — model right-sizing (3 tầng)**: việc KHÓ (agent phân tích, sinh chiến lược) dùng flagship
 `qwen3.7-max`; việc PHỤ yes/no (NLI entailment, verify gộp) dùng `judge` = `qwen-flash` (`QWEN_FAST_MODEL`)
-— đo thực tế: NLI flagship ~23s/call vs flash ~0.5s, flash KHỚP flagship 4/4 trên test NLI pháp lý (tác vụ
-phân loại, không cần lập luận sâu) → cắt khâu hậu-agent ~264s→~vài giây mà KHÔNG bỏ bước kiểm. Hậu-agent
-(verify ∥ summary ∥ legal_basis) chạy song song; NLI mỗi clause cũng song song (`_attach_legal_basis`).
+— đo thực tế: NLI flagship ~23s vs flash ~0.5s, flash KHỚP flagship → cắt hậu-agent ~264s→~7s. TRA CỨU
+(`lookup`) dùng `qwen-plus` (`QWEN_LOOKUP_MODEL`, ~4-6s vs ~48s flagship, format/citation y hệt) — HYBRID:
+câu point-in-time (có năm/ngày, `_PIT_RE`) tự route flagship vì plus yếu hơn ở suy luận thời điểm (đã đo).
+Lookup còn: template cố định **Trả lời/Căn cứ**, redact PII câu hỏi trước khi gửi LLM, cache LRU
+(`LOOKUP_CACHE_SIZE`, hỏi lặp→0ms), ack "đang tra cứu". Hậu-agent (verify ∥ summary ∥ legal_basis) chạy
+song song; NLI mỗi clause cũng song song (`_attach_legal_basis`).
 eval harness + A/B (`evaluation/`). Hai tầng eval: `run_eval.py` =
 fast gate keyword-matching (offline, free, dùng trong CI); `ragas_eval.py` = deep gate RAGAS
 LLM-as-judge (Faithfulness / Context Precision / Response Relevancy; + Context Recall + Factual
@@ -170,10 +173,11 @@ never imports adapters or frameworks.
 Tenancy is two axes (`tenants.py`): **Tenant = country/jurisdiction** (selects KB `knowledge_base/<CC>/`)
 and **Organization = company** (data isolation by `org_id` + per-company KB overlay at
 `knowledge_base/_orgs/<org_id>/` via `OverlayRetriever`). Data isolation is per-COMPANY, not per-country;
-`AnalysisService.analyze(contract, org)` and cases are scoped by `org_id`. BA vai trò LLM: Qwen flagship
-`qwen3.7-max` = reasoner (agent phân tích — việc KHÓ); Qwen `qwen-flash` = `judge` (NLI/verify yes/no —
-việc PHỤ, ~0.5s vs ~23s, right-sizing); Gemini = summarizer (≥1-Gemini-call XPRIZE rule).
-`judge` mặc định = reasoner nếu không cấu hình (giữ tương thích/stub). Deploy target: Alibaba Cloud ECS.
+`AnalysisService.analyze(contract, org)` and cases are scoped by `org_id`. VAI TRÒ LLM (right-sizing):
+Qwen flagship `qwen3.7-max` = reasoner (agent phân tích — việc KHÓ); Qwen `qwen-flash` = `judge` (NLI/verify
+yes/no — ~0.5s vs ~23s); Qwen `qwen-plus` = `lookup_llm` (tra cứu Q&A — ~4-6s, hybrid: point-in-time→flagship);
+Gemini = summarizer (≥1-Gemini-call XPRIZE rule). `judge`/`lookup_llm` mặc định = reasoner nếu không cấu hình
+(giữ tương thích/stub). Deploy target: Alibaba Cloud ECS.
 
 The **Fallback Matrix** (`docs/internal/legal-guard.md` §6) is the product's core logic: a mapping from a partner-imposed
 clause → risk analysis → concrete compromise tactic. This is the differentiator (flexible tactics, not rigid
