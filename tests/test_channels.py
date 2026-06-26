@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from legalguard.adapters.inbound.channels import (
     ChatHandler,
+    _mrkdwn_blocks,
     build_channels_router,
     format_chat_reply,
 )
@@ -163,6 +164,21 @@ def test_slack_sends_reply_via_sender():
     assert sender.sent and sender.sent[0][0] == "C123"    # đã gửi về đúng channel
     assert "Đã nhận" in sender.sent[0][1]                 # ack tức thì trước khi phân tích
     assert "Điều khoản trọng tài" in sender.sent[-1][1]   # rồi mới tới kết quả
+
+
+def test_mrkdwn_blocks_splits_long_reply_no_truncation():
+    # Reply dài (HĐ nhiều rủi ro) phải chia nhiều block, KHÔNG cụt, mỗi block ≤ 3000 ký tự.
+    long_reply = "\n".join(f"🔴 Điều {i}: rủi ro chi tiết tiếng Việt có dấu" for i in range(300))
+    blocks = _mrkdwn_blocks(long_reply)
+    assert len(blocks) >= 2                                          # chia nhiều block
+    assert all(len(b["text"]["text"]) <= 3000 for b in blocks)      # không vượt giới hạn Slack
+    joined = "\n".join(b["text"]["text"] for b in blocks)
+    assert "Điều 0:" in joined and "Điều 299:" in joined            # giữ cả đầu lẫn cuối (không cụt)
+
+
+def test_mrkdwn_blocks_short_reply_single_block():
+    blocks = _mrkdwn_blocks("Rủi ro: trọng tài Bắc Kinh.")
+    assert len(blocks) == 1 and blocks[0]["type"] == "section"
 
 
 def test_slack_reply_threads_under_top_level_message():
