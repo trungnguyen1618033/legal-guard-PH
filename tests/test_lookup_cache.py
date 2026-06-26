@@ -81,3 +81,15 @@ def test_cache_isolated_per_org():
     svc.lookup("Cùng câu hỏi?", Organization(id="acme", country="VN"))
     svc.lookup("Cùng câu hỏi?", Organization(id="other", country="VN"))
     assert llm.calls == 2              # khác org → cache riêng
+
+
+def test_hybrid_routes_point_in_time_to_flagship():
+    # Câu có mốc thời gian (năm/ngày) → dùng reasoner (flagship); câu thường → lookup_llm (nhanh).
+    fast = _CountLLM()
+    flagship = _CountLLM()
+    svc = AnalysisService(reasoner=flagship, summarizer=flagship, kb=_KB(),
+                          nli_verification=False, lookup_llm=fast)
+    svc.lookup("Mức phạt vi phạm tối đa?", _ORG)          # thường → fast
+    svc.lookup("Năm 2020 văn bản nào còn hiệu lực?", _ORG)  # point-in-time → flagship
+    svc.lookup("Quy định tại 01/06/2022 ra sao?", _ORG)    # có ngày → flagship
+    assert fast.calls == 1 and flagship.calls == 2
