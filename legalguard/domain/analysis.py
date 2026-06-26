@@ -10,6 +10,7 @@ import re
 import time
 import unicodedata
 import uuid
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -143,7 +144,8 @@ class AnalysisService:
                  legal_basis_grounding: bool = True,
                  feedback: FeedbackRepositoryPort | None = None,
                  nli_verification: bool = True,
-                 judge: LLMPort | None = None) -> None:
+                 judge: LLMPort | None = None,
+                 lookup_cache_size: int = 256) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         self.summarizer = summarizer  # Gemini: >=1 call tóm tắt (ràng buộc XPRIZE)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp). Mặc định = reasoner (giữ tương thích/stub),
@@ -156,6 +158,10 @@ class AnalysisService:
         self.legal_basis_grounding = legal_basis_grounding   # gắn căn cứ điều luật cho risk/fallback
         self.feedback = feedback      # vòng học: phản hồi người dùng (tùy chọn)
         self.nli_verification = nli_verification  # kiểm entailment (nguồn có hậu thuẫn claim) — chống hallucinate
+        # Cache tra cứu (in-process, bounded LRU): câu hỏi lặp → trả tức thì + tiết kiệm token. KB tĩnh
+        # trong 1 phiên deploy nên an toàn; redeploy = process mới = cache mới. 0 = tắt.
+        self._lookup_cache_size = lookup_cache_size
+        self._lookup_cache: OrderedDict[str, tuple] = OrderedDict()
 
     def record_outcome(self, outcome: Outcome) -> str | None:
         return self.outcomes.record(outcome) if self.outcomes else None
@@ -413,8 +419,14 @@ class AnalysisService:
         """Tra cứu pháp luật có grounding (khác `analyze` — không cần hợp đồng).
 
         Retrieve KB của org (đã gồm lọc hiệu lực + citation-closure theo cấu hình) → tổng hợp câu trả lời
-        BUỘC dẫn đúng Điều/Khoản, chỉ dùng căn cứ truy được. Trả (answer, snippets)."""
+        BUỘC dẫn đúng Điều/Khoản, chỉ dùng căn cứ truy được. Trả (answer, snippets).
+
+        Cache theo (country, org, lang, câu-hỏi-chuẩn-hóa-đã-redact): hỏi lặp → trả tức thì."""
         q, _ = redact(question)
+        ckey = f"{org.country}:{org.id}:{lang}:{' '.join(unicodedata.normalize('NFC', q).lower().split())}"
+        if self._lookup_cache_size and ckey in self._lookup_cache:
+            self._lookup_cache.move_to_end(ckey)        # LRU: vừa dùng → mới nhất
+            return self._lookup_cache[ckey]
         snippets = self.kb.for_org(org).retrieve(q, top_k)
         if not snippets:
             return ("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
@@ -441,4 +453,9 @@ class AnalysisService:
         if self.observer is not None:
             self.observer.event("lookup", {"tenant": get_tenant(org.country).id,
                                            "lang": lang, "hits": len(snippets)})
-        return answer, snippets
+        result = (answer, snippets)
+        if self._lookup_cache_size:                      # chỉ cache câu trả lời THÀNH CÔNG (không cache lỗi)
+            self._lookup_cache[ckey] = result
+            if len(self._lookup_cache) > self._lookup_cache_size:
+                self._lookup_cache.popitem(last=False)   # đẩy mục cũ nhất ra (LRU evict)
+        return result
