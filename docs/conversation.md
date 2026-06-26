@@ -10,8 +10,13 @@
 - **Bound token:** giữ N lượt gần nhất + (prod) **summarization** lượt cũ; tránh nhồi cả lịch sử.
 
 ## 2. Session
-- Key = `"{platform}:{conversation_id}"` (vd `zalo:user123`, `slack:C0XYZ`). Mỗi key một `Conversation`.
-- Lưu: `history[]` + `context` (deal) + `updated_at`. Port `ConversationStorePort`.
+- Key theo **THREAD**: `slack:{channel}:{thread_ts}` (Zalo: `zalo:{user_id}`). Mỗi thread/người = 1
+  `Conversation` riêng → nhiều người chung 1 channel KHÔNG lẫn ngữ cảnh. Reply luôn threaded dưới tin hỏi.
+- Lưu: `history[]` + `context` (deal) + `updated_at`. Port `ConversationStorePort`. PII trong history được
+  **redact trước khi lưu** (khách dán HĐ cũng không giữ email/sđt nguyên văn).
+- **Concurrency**: `lock per-conversation` (`threading.Lock` trong `reply_ex`) → tin cùng hội thoại xử lý
+  tuần tự (chống race load→sửa→save), hội thoại khác song song. Đủ 1 instance; đa-instance → Redis lock
+  + queue/worker (xem `docs/deployment.md`).
 - Adapter MVP: **in-memory** (1 process). Prod: **Redis/SQL** (TTL phiên) — chỉ đổi adapter.
 
 ## 3. Định tuyến ý định (intent)
