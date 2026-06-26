@@ -165,6 +165,22 @@ def test_slack_sends_reply_via_sender():
     assert "Điều khoản trọng tài" in sender.sent[-1][1]   # rồi mới tới kết quả
 
 
+def test_slack_reply_threads_under_top_level_message():
+    # Mention ở CẤP CHANNEL (không thread_ts) → ack + reply phải thread NGAY DƯỚI tin người hỏi (dùng ts).
+    sender = _FakeSender()
+    c = _client(slack="s", slack_sender=sender)
+    _slack_post(c, "s", {"event": {"text": MSG, "channel": "C1", "ts": "111.22"}})
+    assert sender.threads and all(t == "111.22" for t in sender.threads)
+
+
+def test_slack_reply_stays_in_existing_thread():
+    # Hỏi TRONG thread → reply đúng thread gốc (thread_ts), không tách theo ts tin mới.
+    sender = _FakeSender()
+    c = _client(slack="s", slack_sender=sender)
+    _slack_post(c, "s", {"event": {"text": MSG, "channel": "C1", "ts": "999.00", "thread_ts": "111.22"}})
+    assert sender.threads and all(t == "111.22" for t in sender.threads)
+
+
 def test_slack_ignores_bot_messages_no_reply_loop():
     sender = _FakeSender()
     c = _client(slack="s", slack_sender=sender)
