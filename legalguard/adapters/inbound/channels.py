@@ -11,6 +11,7 @@ import hmac
 import json
 import logging
 import re
+import threading
 import time
 import uuid
 from dataclasses import dataclass
@@ -102,19 +103,29 @@ class ChatHandler:
         self.parser = parser
         self.store = store
         self.default_tenant = default_tenant
+        # Lock PER-CONVERSATION (in-process): tin cùng 1 hội thoại xử lý tuần tự → hết race
+        # load→sửa→save (last-write-wins). Hội thoại khác nhau vẫn chạy SONG SONG. Đủ cho 1 instance;
+        # đa-instance cần Redis lock (xem docs/internal/scale-concurrency.md).
+        self._locks: dict[str, threading.Lock] = {}
+        self._locks_guard = threading.Lock()
+
+    def _conv_lock(self, conversation_id: str) -> threading.Lock:
+        with self._locks_guard:
+            return self._locks.setdefault(conversation_id, threading.Lock())
 
     def reply_ex(self, conversation_id: str, text: str | None = None, attachment: bytes | None = None,
                  filename: str | None = None, lang: str = "vi") -> ChatReply:
-        conv = self.store.get(conversation_id) or Conversation(id=conversation_id)
-        res = self._handle(conv, text, attachment, filename, lang)
-        # REDACT trước khi lưu history: nếu khách DÁN hợp đồng vào chat, không giữ PII (email/sđt/số dài)
-        # nguyên văn trong conversation store. `_handle` đã redact bản gửi LLM riêng → không ảnh hưởng phân tích.
-        user_msg = redact((text or "").strip())[0] or "(đã gửi tệp)"
-        conv.add("user", user_msg)
-        conv.add("assistant", res.text)
-        self._summarize(conv)
-        self.store.save(conv)
-        return res
+        with self._conv_lock(conversation_id):     # tuần tự hóa theo hội thoại (chống race)
+            conv = self.store.get(conversation_id) or Conversation(id=conversation_id)
+            res = self._handle(conv, text, attachment, filename, lang)
+            # REDACT trước khi lưu history: khách DÁN hợp đồng vào chat → không giữ PII nguyên văn.
+            # `_handle` đã redact bản gửi LLM riêng → không ảnh hưởng phân tích.
+            user_msg = redact((text or "").strip())[0] or "(đã gửi tệp)"
+            conv.add("user", user_msg)
+            conv.add("assistant", res.text)
+            self._summarize(conv)
+            self.store.save(conv)
+            return res
 
     def reply(self, conversation_id: str, text: str | None = None, attachment: bytes | None = None,
               filename: str | None = None, lang: str = "vi") -> str:
@@ -362,7 +373,9 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             # Reply LUÔN theo thread: nếu hỏi trong thread → đúng thread đó; nếu mention ở cấp channel
             # → mở thread NGAY DƯỚI tin của người hỏi (dùng `ts` của tin đó) thay vì trả rời ở channel.
             thread_ts = event.get("thread_ts") or event.get("ts")
-            key = f"slack:{channel}"
+            # Hội thoại theo THREAD (không theo cả channel) → mỗi thread/người = 1 deal riêng, không
+            # lẫn ngữ cảnh khi nhiều người dùng chung 1 channel.
+            key = f"slack:{channel}:{thread_ts}"
             if slack_sender and slack_sender.available:         # ack nhanh, xử lý nền + gửi reply
                 url, fn = _slack_file(event)
                 background.add_task(_process, handler, slack_sender, key, channel, text,

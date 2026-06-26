@@ -166,6 +166,24 @@ def test_slack_sends_reply_via_sender():
     assert "Điều khoản trọng tài" in sender.sent[-1][1]   # rồi mới tới kết quả
 
 
+def test_per_conversation_lock_no_lost_updates():
+    # 2 tin ĐỒNG THỜI cùng 1 hội thoại → lock tuần tự hóa → KHÔNG mất lượt (chống last-write-wins).
+    import threading
+    h = _handler()
+
+    def ask(msg):
+        h.reply("cRACE", text=msg)
+
+    threads = [threading.Thread(target=ask, args=(f"Mức phạt vi phạm hợp đồng là bao nhiêu {i}?",))
+               for i in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    hist = h.store.get("cRACE").history
+    assert len(hist) == 8                  # 4 user + 4 assistant — không lượt nào bị đè mất
+
+
 def test_mrkdwn_blocks_splits_long_reply_no_truncation():
     # Reply dài (HĐ nhiều rủi ro) phải chia nhiều block, KHÔNG cụt, mỗi block ≤ 3000 ký tự.
     long_reply = "\n".join(f"🔴 Điều {i}: rủi ro chi tiết tiếng Việt có dấu" for i in range(300))
