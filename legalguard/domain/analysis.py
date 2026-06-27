@@ -237,6 +237,25 @@ class AnalysisService:
                                 {"doc_id": doc_id, "org_id": org_id, "hits": len(impacts)})
         return [asdict(i) for i in impacts]
 
+    def monitor(self, org_id: str, country: str, since: str, limit: int = 200) -> dict:
+        """AUTOPILOT giám sát chủ động: TỰ quét VB luật MỚI (effective_date >= `since`) → case nào của
+        org bị ảnh hưởng (viện dẫn VB bị sửa/thay/hướng dẫn). Không cần người chỉ định từng VB.
+        Trả digest {since, new_laws_scanned, affected:[{doc_id,title,effective_date,cases,impacts}]}."""
+        if self.cases is None:
+            return {"since": since, "new_laws_scanned": 0, "affected": []}
+        laws = self.kb.recent(country, since)
+        affected = []
+        for law in laws:
+            impacts = self.regulatory_impact(law["doc_id"], country, org_id, limit)
+            if impacts:
+                affected.append({"doc_id": law["doc_id"], "title": law["title"],
+                                 "effective_date": law["effective_date"],
+                                 "cases": sorted({i["case_id"] for i in impacts}), "impacts": impacts})
+        if self.observer:
+            self.observer.event("monitor", {"org_id": org_id, "since": since,
+                                            "scanned": len(laws), "affected": len(affected)})
+        return {"since": since, "new_laws_scanned": len(laws), "affected": affected}
+
     def dashboard(self, org_id: str, limit: int = 200) -> dict:
         """System-of-record: tổng hợp hoạt động pháp lý của công ty (cases/feedback/outcome). Cô lập org."""
         from legalguard.domain.dashboard import build_dashboard

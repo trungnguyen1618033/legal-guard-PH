@@ -77,6 +77,13 @@ class AlertIn(BaseModel):
     limit: int = 200            # số case quét tối đa
 
 
+class MonitorIn(BaseModel):
+    since: str                  # mốc ISO 'YYYY-MM-DD' — quét VB có hiệu lực TỪ ngày này (luật mới)
+    via: str | None = None      # slack | zalo (tùy chọn) — gửi digest nếu có
+    channel: str | None = None  # kênh nhận digest
+    limit: int = 200
+
+
 class FeedbackIn(BaseModel):
     kind: str = "lookup"        # analysis | lookup
     ref: str = ""               # case_id (analysis) hoặc câu hỏi (lookup)
@@ -357,6 +364,26 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             raise HTTPException(status_code=502, detail=f"Gửi {body.via} thất bại: {exc}") from exc
         return {"doc_id": doc_id.strip(), "impacted_cases": len(cases),
                 "case_ids": cases, "sent": True, "via": body.via}
+
+    @app.post("/monitor/run")
+    def monitor_run(body: MonitorIn, org: Organization = Depends(require_auth)) -> dict:
+        # AUTOPILOT: tự quét VB luật MỚI (hiệu lực >= since) → hợp đồng nào bị ảnh hưởng. Có via+channel
+        # thì GỬI digest. Hợp với cron (ECS crontab gọi hằng ngày → 'agent làm việc khi bạn ngủ').
+        from legalguard.domain.regulatory import format_monitor_digest
+
+        res = service.monitor(org.id, org.country, body.since.strip(), limit=body.limit)
+        res["sent"] = False
+        if body.via and body.channel and res["affected"]:
+            sender = _senders.get(body.via)
+            if sender is None or not getattr(sender, "available", False):
+                raise HTTPException(status_code=400, detail=f"Kênh '{body.via}' chưa cấu hình.")
+            text = format_monitor_digest(res["affected"], res["since"])
+            try:
+                sender.send(body.channel, text)
+                res["sent"] = True
+            except Exception as exc:  # noqa: BLE001 — gửi lỗi không nên 500
+                raise HTTPException(status_code=502, detail=f"Gửi {body.via} thất bại: {exc}") from exc
+        return res
 
     @app.post("/counter")
     async def counter_clause(body: CounterIn, _: Organization = Depends(require_auth)) -> dict:

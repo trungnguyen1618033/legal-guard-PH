@@ -107,6 +107,17 @@
   </details>
 
   <details>
+    <summary>🤖 Autopilot — quét luật MỚI ảnh hưởng hợp đồng (giám sát chủ động)</summary>
+    <p class="muted" style="margin-top:6px">Chọn mốc ngày → agent <b>tự quét MỌI văn bản luật mới</b> (hiệu lực từ ngày đó)
+      và liệt kê hợp đồng đã rà soát bị ảnh hưởng — không cần nhập từng số hiệu. Chạy định kỳ qua cron để "agent làm việc khi bạn ngủ".</p>
+    <div class="row">
+      <input id="monsince" type="date" value="2025-01-01" style="width:auto">
+      <button class="ghost" onclick="runMonitor()">Quét luật mới</button>
+    </div>
+    <div id="monitor" class="timeline"></div>
+  </details>
+
+  <details>
     <summary>🔀 So sánh 2 phiên bản (redline)</summary>
     <textarea id="old" placeholder="Dán bản CŨ" style="min-height:60px;margin-top:8px"></textarea>
     <textarea id="new" placeholder="Dán bản MỚI" style="min-height:60px;margin-top:8px"></textarea>
@@ -228,6 +239,27 @@ async function loadImpact() {
     $('impact').innerHTML = `<div class="warn">🛎️ <b>${d.impacted_cases}</b> hợp đồng cần rà soát lại do <b>${esc(d.doc_id)}</b>.</div>` +
       `<ul>${items}</ul>`;
   } catch (e) { $('impact').textContent = 'Lỗi: ' + e.message; }
+}
+
+async function runMonitor() {
+  const since = $('monsince').value;
+  $('monitor').textContent = 'Agent đang quét luật mới…';
+  try {
+    const r = await fetch('/monitor/run', { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ since }) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (!d.affected.length) {
+      $('monitor').innerHTML = `<p class="muted">✅ Đã quét ${d.new_laws_scanned} văn bản mới — không hợp đồng nào bị ảnh hưởng.</p>`;
+      return;
+    }
+    const blocks = d.affected.map(a =>
+      `<li>📌 <b>${esc(a.doc_id)}</b>${a.title ? ' — ' + esc(a.title) : ''}` +
+      (a.effective_date ? ` <span class="muted">(hiệu lực ${esc(a.effective_date)})</span>` : '') +
+      `<br><span class="muted">→ ${a.cases.length} hợp đồng cần rà soát lại: ${esc(a.cases.join(', '))}</span></li>`).join('');
+    $('monitor').innerHTML = `<div class="warn">🛎️ Quét ${d.new_laws_scanned} VB mới → <b>${d.affected.length}</b> VB ảnh hưởng hợp đồng:</div><ul>${blocks}</ul>`;
+  } catch (e) { $('monitor').textContent = 'Lỗi: ' + e.message; }
 }
 
 async function doRedline() {

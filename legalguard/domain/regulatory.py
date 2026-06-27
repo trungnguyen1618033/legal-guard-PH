@@ -63,6 +63,28 @@ def format_impact_alert(doc_id: str, impacts: list[dict], max_items: int = 15) -
     return "\n".join(lines)
 
 
+def format_monitor_digest(affected: list[dict], since: str = "", max_laws: int = 10) -> str:
+    """Soạn DIGEST cảnh báo autopilot (nhiều VB luật mới cùng lúc) cho Slack/Zalo. '' nếu không có gì.
+    `affected` = danh sách từ `AnalysisService.monitor`['affected']."""
+    if not affected:
+        return ""
+    total_cases = len({cid for a in affected for cid in a.get("cases", [])})
+    head = "🛎️ *Autopilot — rà soát pháp lý định kỳ*"
+    head += f" (từ {since})" if since else ""
+    lines = [head,
+             f"Phát hiện *{len(affected)}* văn bản luật mới ảnh hưởng *{total_cases}* hợp đồng đã rà soát:"]
+    for a in affected[:max_laws]:
+        lines.append(f"\n📌 *{a['doc_id']}*"
+                     + (f" — {a['title']}" if a.get("title") else "")
+                     + (f" (hiệu lực {a['effective_date']})" if a.get("effective_date") else ""))
+        lines.append(f"   → {len(a.get('cases', []))} hợp đồng cần rà soát lại: "
+                     + ", ".join(a.get("cases", [])[:8]))
+    if len(affected) > max_laws:
+        lines.append(f"\n… và {len(affected) - max_laws} văn bản khác.")
+    lines.append("\nXem chi tiết: trang /lookup hoặc API /monitor/run.")
+    return "\n".join(lines)
+
+
 def parse_basis(basis: str) -> tuple[str, str]:
     """Tách (file, điều) từ căn cứ 'file.md#Điều N: …'. ('','') nếu không có '#'."""
     if not basis or "#" not in basis:
