@@ -44,6 +44,17 @@ _STUB_PATTERNS = [
                        "vi": "Thuê SGS/Bureau Veritas kiểm định tại cảng đi (FOB)."},
         "english_reply": "We suggest quality inspection by SGS/Bureau Veritas at the port of loading (FOB).",
     },
+    {
+        "pat": r"phạt|penalty|vi phạm.*%|%.*vi phạm",
+        "severity": "high", "priority": "must_fix",
+        "legal_status": "illegal", "violated_law": "Điều 301 Luật Thương mại 2005",
+        "clause": {"en": "Penalty clause", "vi": "Điều khoản phạt vi phạm"},
+        "risk": {"en": "Penalty likely exceeds the 8% statutory cap (Art.301) — may be void",
+                 "vi": "Mức phạt có thể vượt trần 8% (Điều 301) — có nguy cơ vô hiệu"},
+        "suggestion": {"en": "Cap the penalty at 8% of the breached obligation per Art.301.",
+                       "vi": "Đưa mức phạt về tối đa 8% phần nghĩa vụ bị vi phạm theo Điều 301."},
+        "english_reply": "We propose capping the penalty at 8% of the breached obligation, per Vietnamese law.",
+    },
 ]
 _HR_REASON = {"en": "High-severity clause requires expert review",
               "vi": "Có điều khoản rủi ro cao cần chuyên gia duyệt"}
@@ -136,7 +147,7 @@ class QwenAdapter(LLMPort):
 
     def _stub_chat(self, messages: list[dict]) -> ChatTurn:
         system = next((m["content"] for m in messages if m.get("role") == "system"), "")
-        lang = "vi" if "pháp chế thương mại" in system else "en"
+        lang = "vi" if "rà soát hợp đồng" in system else "en"   # cụm chỉ có trong system prompt tiếng Việt
         lev = (re.search(r"leverage=(\w+)", system) or [None, "balanced"])[1]
         if any(m.get("role") == "tool" for m in messages):
             strat = (f"[QWEN_STUB] Chiến lược (vị thế {lev}): GIỮ CỨNG điều khoản trọng tài (must_fix); "
@@ -158,6 +169,8 @@ class QwenAdapter(LLMPort):
                 calls.append(ToolCall(id=f"stub-r{i}", name="flag_risk",
                                       arguments={"clause": p["clause"][lang], "risk": p["risk"][lang],
                                                  "severity": p["severity"], "priority": p["priority"],
+                                                 "legal_status": p.get("legal_status", "unfavorable"),
+                                                 "violated_law": p.get("violated_law", ""),
                                                  "source": src, "evidence": evidence}))
                 calls.append(ToolCall(id=f"stub-f{i}", name="propose_fallback",
                                       arguments={"clause": p["clause"][lang],

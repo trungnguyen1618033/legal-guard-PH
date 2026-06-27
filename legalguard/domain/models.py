@@ -58,6 +58,7 @@ class NegotiationPosition:
     urgency: str = "low"            # low | high
     relationship: str = "new"       # new | repeat
     alternatives: bool = False      # có BATNA (đối tác/nhà cung cấp thay thế) không
+    protected_party: str = ""       # "bên mình bảo vệ" (vd Bên Vay/Bên B/Buyer); rỗng = mặc định SME {country}
 
 
 @dataclass
@@ -70,6 +71,8 @@ class Risk:
     priority: str = ""         # must_fix | negotiate | acceptable (theo vị thế đàm phán)
     verified: bool = True       # qua verification (clause-existence + LLM-judge) chưa
     legal_basis: str = ""      # căn cứ pháp lý gắn tất định từ KB: 'file#Điều N: <nguyên văn>'
+    legal_status: str = "unfavorable"  # illegal (trái luật, có thể vô hiệu) | unfavorable (bất lợi nhưng hợp pháp)
+    violated_law: str = ""     # điều luật bị vi phạm (khi legal_status=illegal), vd 'Điều 301 LTM 2005'
 
 
 @dataclass
