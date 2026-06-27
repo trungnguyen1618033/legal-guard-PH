@@ -52,6 +52,8 @@
     pre { white-space:pre-wrap; font:inherit; margin:0; }
     .md { line-height:1.6; } .md ul { margin:6px 0; padding-left:22px; } .md li { margin:2px 0; }
     .md strong { color:#14223a; }
+    .md .mdh { font-weight:700; color:#14223a; margin:10px 0 4px; font-size:1.02em; }
+    .md hr { border:0; border-top:1px solid var(--line); margin:10px 0; }
     .note { font-size:.88rem; margin:3px 0; }
     #spinner { display:none; margin-top:12px; color:var(--brand); font-weight:600; }
   </style>
@@ -135,9 +137,15 @@ function authHeaders(){ const k=$('apikey').value.trim(); return k?{'X-API-Key':
 function mdLite(s){
   let h = esc(s||'');
   h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  const lines = h.split('\n').map(l => /^\s*[-*]\s+/.test(l) ? '<li>'+l.replace(/^\s*[-*]\s+/,'')+'</li>' : l);
+  const lines = h.split('\n').map(l => {
+    if (/^\s*-{3,}\s*$/.test(l)) return '<hr>';                          // '---' → kẻ ngang
+    const hd = l.match(/^\s*(#{1,6})\s+(.+)$/);                          // '## tiêu đề' → tiêu đề đậm
+    if (hd) return `<div class="mdh">${hd[2]}</div>`;
+    if (/^\s*[-*]\s+/.test(l)) return '<li>'+l.replace(/^\s*[-*]\s+/,'')+'</li>';
+    return l;
+  });
   h = lines.join('\n').replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => '<ul>'+m.replace(/\n/g,'')+'</ul>');
-  return h.replace(/\n/g, '<br>');
+  return h.replace(/\n/g, '<br>').replace(/(<hr>|<\/ul>|<\/div>)<br>/g, '$1');  // bỏ <br> thừa sau block
 }
 
 // HĐ mẫu: 1 điều TRÁI LUẬT (phạt 15% > trần 8% Đ.301) + nhiều điều BẤT LỢI → khoe illegal vs unfavorable.
