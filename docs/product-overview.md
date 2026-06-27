@@ -17,9 +17,12 @@ lọt qua mắt người không chuyên, và cái giá phải trả chỉ lộ r
 
 Cả hai đều có chuyên gia pháp lý duyệt trước khi bạn hành động.
 
-**Dành cho:** SME xuất nhập khẩu (nông sản, thủy sản, logistics, gia công…) giao thương với Trung Quốc,
-EU, Mỹ; và doanh nghiệp Việt cần tra cứu tuân thủ trong nước (thuế/hóa đơn, lao động, hợp đồng…) —
-quy mô chưa đủ nuôi phòng pháp chế riêng.
+**Dành cho:**
+- **SME xuất nhập khẩu** (nông sản, thủy sản, logistics, gia công…) giao thương Trung Quốc/EU/Mỹ, và doanh
+  nghiệp Việt cần tra cứu tuân thủ trong nước — quy mô chưa đủ nuôi phòng pháp chế riêng (gói tự phục vụ).
+- **Luật sư / pháp chế / nhà cung cấp dịch vụ pháp lý** (gói cao cấp): bộ công cụ markup HĐ party-aware,
+  tách TRÁI LUẬT vs bất lợi có dẫn chứng, bản ghi nhớ sửa đổi xuất Word, lược đồ + theo dõi luật mới — trợ lý
+  làm phần nặng để luật sư duyệt/quyết. AI **hỗ trợ, không thay thế** tư vấn pháp lý chính thức.
 
 ---
 
@@ -57,10 +60,28 @@ về thế trận thật: *lợi thế của bạn, mức độ gấp, quan hệ
   (khi có) để bạn đàm phán có cơ sở, không chỉ "theo thông lệ"
 - Đưa **chiến lược tổng thể**: giữ cứng điều gì, nhượng điều gì để chốt deal, và **điểm rút lui**
 
+### ⚖️ Phân biệt điều khoản TRÁI LUẬT vs chỉ bất lợi — đòn mạnh cho luật sư
+Không chỉ nói "bất lợi". Legal Guard tách riêng điều khoản **TRÁI LUẬT — có thể VÔ HIỆU** (vi phạm quy định
+bắt buộc, vd phạt vượt trần 8% Điều 301, lãi quá hạn vượt 150% Điều 466 BLDS) khỏi điều khoản chỉ *bất lợi
+nhưng hợp pháp*. Mỗi cáo buộc "trái luật" được **đối chiếu đúng điều luật** (lớp NLI kiểm mâu thuẫn) và luôn
+kèm "cần luật sư đối chiếu bản gốc" — định vị là lớp **sàng lọc cho luật sư**, không phán quyết thay.
+Khai **"bên mình bảo vệ"** (Bên Vay / Bên B / Buyer…) → cùng một hợp đồng, đổi bên → kết quả đảo chiều.
+
+### 🔄 Đàm phán đa phiên — agent dẫn dắt qua từng vòng
+Đối tác phản hồi/counter-offer? Dán vào (web hoặc ngay trong thread Slack) — agent **đánh giá họ nhượng/giữ
+gì**, cập nhật chiến lược vòng tới, soạn câu trả lời, và khuyến nghị **tiếp tục / nên chốt / nên rút**. Bối
+cảnh nối tiếp qua các vòng — đàm phán nhiều bước, không chỉ phân tích một lần.
+
+### 📄 Bản ghi nhớ sửa đổi — xuất Word cho luật sư
+Gộp các điều khoản đã chọn thành **bản ghi nhớ** (bảng: Điều · Vấn đề · TRÁI LUẬT/bất lợi · Căn cứ · Đề xuất
+sửa · Ưu tiên, điều trái luật xếp đầu) — **tải về .docx** dán/gửi được ngay. Deliverable đúng định dạng luật
+sư vốn dùng.
+
 ### ⚖️ Chuyên gia duyệt trước khi bạn hành động (human checkpoint)
 AI làm phần nặng; con người quyết định cuối. Các khuyến nghị gửi đối tác được **khóa** cho tới
 khi chuyên gia pháp lý bấm duyệt — rủi ro cao tự động yêu cầu duyệt. Đây là thiết kế chủ đích:
-bạn không bao giờ gửi đi một câu chữ pháp lý chưa ai kiểm qua.
+bạn không bao giờ gửi đi một câu chữ pháp lý chưa ai kiểm qua. Khi reviewer **từ chối**, case được
+**chuyển thẳng cho luật sư** qua kênh chuyên gia (Slack) — không chỉ gắn cờ mà escalation tới người thật.
 
 ### 💬 Hỏi đáp như nói chuyện với luật sư riêng
 Sau khi phân tích, cứ hỏi tự nhiên: *"Đối tác từ chối SIAC thì sao?", "Bên mình cần gấp,
@@ -92,6 +113,9 @@ Không chỉ soát hợp đồng — hỏi thẳng câu hỏi pháp lý, nhận 
 - **Tự đi theo dẫn chiếu** — hỏi một điều, hệ thống kéo về các điều / nghị định / thông tư liên quan
   (xuyên cấp Luật → Nghị định → Thông tư) để bạn thấy bức tranh đủ, không sót quy định chi phối.
 - **Diễn giải bằng ngôn ngữ thường** — trúng nỗi đau "luật khó hiểu, nhiều cách hiểu".
+- **Lược đồ văn bản (kiểu Thư Viện Pháp Luật)**: xem 1 văn bản → đồ thị quan hệ (sửa đổi / thay thế /
+  hướng dẫn), **trạng thái hiệu lực** từng văn bản, **map tới bản mới nhất** (VB cũ → bản thay thế hiện hành),
+  và **điều nào đã bị sửa** (bôi vàng) — bởi văn bản nào.
 - Lĩnh vực đang phủ và **mở rộng dần theo nhu cầu**: chế tài hợp đồng thương mại, hóa đơn điện tử / thuế, lao động…
 
 **Use case mẫu:**
