@@ -76,6 +76,9 @@ class KnowledgeBaseProvider(Protocol):
     # Điều nào của doc_id đã bị VB khác sửa → {article: [doc_id]} (cho 'bôi vàng'). None nếu không có VB.
     def amended_articles(self, doc_id: str, country: str) -> dict | None: ...
 
+    # VB có effective_date >= since (luật MỚI) → [{doc_id,title,effective_date,status}]. Cho autopilot monitor.
+    def recent(self, country: str, since: str) -> list[dict]: ...
+
 
 @runtime_checkable
 class DocumentParserPort(Protocol):

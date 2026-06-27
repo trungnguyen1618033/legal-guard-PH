@@ -227,6 +227,19 @@ def latest_version(base_dir: str, tenant: str, doc_id: str) -> dict | None:
             "latest_status": lm.get("status", ""), "latest_title": lm.get("title", "")}
 
 
+def recent_laws(base_dir: str, tenant: str, since: str) -> list[dict]:
+    """VB có effective_date >= `since` (ISO 'YYYY-MM-DD') — phát hiện luật MỚI cho giám sát chủ động
+    (autopilot). Trả [{doc_id, title, effective_date, status}] sắp giảm dần theo ngày hiệu lực."""
+    out = []
+    for m in _load_doc_meta(base_dir, tenant).values():
+        did = (m.get("doc_id") or "").strip()
+        eff = (m.get("effective_date") or "").strip()
+        if did and eff and eff >= since:
+            out.append({"doc_id": did, "title": m.get("title", ""), "effective_date": eff,
+                        "status": m.get("status", "in_force")})
+    return sorted(out, key=lambda x: x["effective_date"], reverse=True)
+
+
 def amended_articles(base_dir: str, tenant: str, doc_id: str) -> dict | None:
     """Đọc luật `doc_id`: ĐIỀU nào của nó đã bị VB khác SỬA ĐỔI + bởi VB nào (cho 'bôi vàng' kiểu TVPL).
     {article: [doc_id VB sửa]} lấy từ `amends_articles` của các VB amends doc_id. None nếu không có VB."""
@@ -698,6 +711,9 @@ class FileKnowledgeBaseProvider:
 
     def amended_articles(self, doc_id: str, country: str) -> dict | None:
         return amended_articles(self.base_dir, country, doc_id)
+
+    def recent(self, country: str, since: str) -> list[dict]:
+        return recent_laws(self.base_dir, country, since)
 
     def _build(self, org: Organization, *, rerank: bool = True) -> KnowledgeBasePort:
         # rerank=False → tắt cả cross-encoder lẫn LLM rerank (giữ hybrid RRF BM25+embedding).

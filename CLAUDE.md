@@ -164,6 +164,12 @@ UI: section "Văn bản mới ảnh hưởng hợp đồng nào?" trong `web/loo
 Cảnh báo CHỦ ĐỘNG: `POST /impact/{doc_id}/notify` {via: slack|zalo, channel} → quét + `format_impact_alert`
 (gom theo case, text) → gửi qua sender tương ứng (truyền vào `build_api(senders=...)` từ container, dùng chung
 sender với webhook). Hợp với cron/ops khi VB mới ban hành.
+**AUTOPILOT giám sát chủ động** (`POST /monitor/run` {since, via?, channel?}): agent TỰ phát hiện luật MỚI
+(`recent_laws`: effective_date >= since) → `AnalysisService.monitor` quét MỌI VB mới × case của org →
+digest `format_monitor_digest` → gửi Slack/Zalo nếu có via+channel. KHÔNG cần chỉ từng doc_id (khác /impact).
+UI: section "🤖 Autopilot — quét luật mới" trong `web/lookup.html`. Production = cron trên ECS gọi hằng ngày
+(`curl -XPOST .../monitor/run -d '{"since":"<hôm-qua>","via":"slack","channel":"..."}'`) → "agent làm việc
+khi bạn ngủ" (đúng tinh thần Autopilot Agent). Cô lập org_id.
 
 Security (`docs/security.md`): API-key auth + per-company scoping (`API_KEYS="key:org:VN"`), PII
 redaction (`domain/redaction.py`), prompt-injection hardening, upload limit, right-to-erasure,

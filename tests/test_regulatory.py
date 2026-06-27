@@ -4,10 +4,12 @@ from legalguard.adapters.outbound.knowledge_base import (
     amended_articles,
     latest_version,
     legal_graph,
+    recent_laws,
 )
 from legalguard.domain.models import AnalysisCase
 from legalguard.domain.regulatory import (
     format_impact_alert,
+    format_monitor_digest,
     norm_article,
     parse_basis,
     parse_basis_file,
@@ -106,6 +108,15 @@ def test_regulatory_impact_endpoint(tmp_path):
 
     # VB không tác động văn bản nào trong KB → rỗng.
     assert c.get("/impact/999/9999/NĐ-CP").json()["impacted_cases"] == 0
+
+    # AUTOPILOT: /monitor/run tự quét VB mới (từ 2025) → tìm 70/2025 ảnh hưởng case-x, không cần chỉ doc.
+    m = c.post("/monitor/run", json={"since": "2025-01-01"})
+    assert m.status_code == 200
+    mb = m.json()
+    assert mb["new_laws_scanned"] >= 1
+    aff = {a["doc_id"]: a for a in mb["affected"]}
+    assert "70/2025/NĐ-CP" in aff and "case-x" in aff["70/2025/NĐ-CP"]["cases"]
+    assert mb["sent"] is False                         # không truyền via/channel → không gửi
 
 
 def test_format_impact_alert():
@@ -229,3 +240,22 @@ def test_amended_articles_for_reading_highlight():
     art = aa["amended_articles"]
     assert "Điều 9" in art and "70/2025/NĐ-CP" in art["Điều 9"]
     assert amended_articles("knowledge_base", "VN", "999/9999/NĐ-CP") is None
+
+
+# ---- Autopilot: giám sát chủ động ----
+def test_recent_laws_detects_new_by_effective_date():
+    # NĐ 70/2025 (hiệu lực 2025-06-01) là VB mới kể từ 2025; NĐ 123/2020 (2022) thì không.
+    recent = recent_laws("knowledge_base", "VN", "2025-01-01")
+    ids = [r["doc_id"] for r in recent]
+    assert "70/2025/NĐ-CP" in ids and "123/2020/NĐ-CP" not in ids
+    # quét từ 2020 → có cả 123/2020; sắp giảm dần theo ngày hiệu lực
+    older = recent_laws("knowledge_base", "VN", "2020-01-01")
+    assert older[0]["effective_date"] >= older[-1]["effective_date"]
+
+
+def test_format_monitor_digest():
+    affected = [{"doc_id": "70/2025/NĐ-CP", "title": "Sửa NĐ 123", "effective_date": "2025-06-01",
+                 "cases": ["case-x", "case-y"], "impacts": []}]
+    txt = format_monitor_digest(affected, since="2025-01-01")
+    assert "70/2025/NĐ-CP" in txt and "2 hợp đồng" in txt and "case-x" in txt
+    assert format_monitor_digest([]) == ""           # rỗng → không gửi gì
