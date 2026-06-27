@@ -50,6 +50,8 @@
     .trace-step code { background:#eef3fb; padding:1px 6px; border-radius:5px; }
     .err { color:var(--high); font-weight:600; margin-top:12px; }
     pre { white-space:pre-wrap; font:inherit; margin:0; }
+    .md { line-height:1.6; } .md ul { margin:6px 0; padding-left:22px; } .md li { margin:2px 0; }
+    .md strong { color:#14223a; }
     .note { font-size:.88rem; margin:3px 0; }
     #spinner { display:none; margin-top:12px; color:var(--brand); font-weight:600; }
   </style>
@@ -89,7 +91,8 @@
 
     <p style="margin-top:18px">
       <button class="btn" id="go">🔍 Phân tích hợp đồng</button>
-      <span id="spinner">⏳ AI agent đang rà soát — gọi tool, tra KB luật…</span>
+      <button type="button" class="btn" id="sample" style="background:#fff;color:var(--brand);border:1px solid var(--brand)">📄 Dùng hợp đồng mẫu</button>
+      <span id="spinner">⏳ <span id="spin-msg">Đang khởi động agent…</span> <span id="spin-time" class="muted"></span></span>
     </p>
     <p class="err" id="err"></p>
   </div>
@@ -97,7 +100,7 @@
   <div id="result" style="display:none">
     <div class="banner" id="review-banner"></div>
 
-    <div class="card"><h2>📋 Tóm tắt cho chủ doanh nghiệp</h2><pre id="summary"></pre>
+    <div class="card"><h2>📋 Tóm tắt cho chủ doanh nghiệp</h2><div id="summary" class="md"></div>
       <div id="notes" style="margin-top:10px"></div>
       <div id="feedback" style="margin-top:12px;font-size:14px">
         <span class="muted">Kết quả này thế nào?</span>
@@ -115,7 +118,7 @@
       <p class="locknote muted">🔒 Câu gửi đối tác sẽ hiện sau khi chuyên gia duyệt.</p>
       <div id="fallbacks"></div></div>
 
-    <div class="card"><h2>🧭 Chiến lược đàm phán (giữ / nhượng / walk-away)</h2><pre id="strategy"></pre></div>
+    <div class="card"><h2>🧭 Chiến lược đàm phán (giữ / nhượng / walk-away)</h2><div id="strategy" class="md"></div></div>
 
     <div class="card"><details><summary>🤖 Trace — agent đã làm gì (tool calls)</summary>
       <div id="trace"></div></details></div>
@@ -128,6 +131,44 @@ $('apikey').value = localStorage.getItem('lg_apikey') || '';
 
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
 function authHeaders(){ const k=$('apikey').value.trim(); return k?{'X-API-Key':k}:{}; }
+// Markdown tối giản (an toàn: esc trước rồi mới thêm thẻ): **đậm**, - gạch đầu dòng, xuống dòng.
+function mdLite(s){
+  let h = esc(s||'');
+  h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  const lines = h.split('\n').map(l => /^\s*[-*]\s+/.test(l) ? '<li>'+l.replace(/^\s*[-*]\s+/,'')+'</li>' : l);
+  h = lines.join('\n').replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => '<ul>'+m.replace(/\n/g,'')+'</ul>');
+  return h.replace(/\n/g, '<br>');
+}
+
+// HĐ mẫu: 1 điều TRÁI LUẬT (phạt 15% > trần 8% Đ.301) + nhiều điều BẤT LỢI → khoe illegal vs unfavorable.
+const SAMPLE = `HỢP ĐỒNG MUA BÁN HÀNG HÓA QUỐC TẾ
+Điều 1. Bên Bán (đối tác nước ngoài) giao hàng theo đơn đặt hàng của Bên Mua (doanh nghiệp Việt Nam).
+Điều 2. Phạt vi phạm: Bên vi phạm phải chịu phạt 15% tổng giá trị hợp đồng cho mỗi lần vi phạm.
+Điều 3. Thanh toán: Bên Mua thanh toán T/T 100% trong vòng 60 ngày TRƯỚC khi nhận hàng.
+Điều 4. Bồi thường: Bên vi phạm bồi thường toàn bộ thiệt hại, bao gồm cả thiệt hại gián tiếp.
+Điều 5. Trọng tài: Mọi tranh chấp giải quyết bằng trọng tài tại Bắc Kinh theo luật Trung Quốc.
+Điều 6. Bên Bán có quyền đơn phương chấm dứt hợp đồng và yêu cầu thanh toán toàn bộ trong 7 ngày.`;
+
+$('sample').onclick = () => {
+  $('text').value = SAMPLE; $('file').value = '';
+  $('leverage').value = 'weak'; $('urgency').value = 'high'; $('alternatives').value = 'false';
+  $('protected_party').value = 'Bên Mua';
+  $('err').textContent = ''; $('text').scrollIntoView({behavior:'smooth', block:'center'});
+};
+
+const _STEPS = ['Đọc & tách điều khoản…', 'Tra cứu KB luật (grounding)…', 'Gắn cờ rủi ro (trái luật / bất lợi)…',
+  'Đối chiếu NLI điều luật…', 'Soạn chiến thuật fallback theo vị thế…', 'Tổng hợp chiến lược đàm phán…'];
+let _timer = null;
+function startProgress(){
+  let t = 0, i = 0;
+  $('spin-msg').textContent = _STEPS[0];
+  _timer = setInterval(() => {
+    t += 1;
+    if (t % 12 === 0 && i < _STEPS.length - 1) $('spin-msg').textContent = _STEPS[++i];
+    $('spin-time').textContent = `(${t}s — thường 1–3 phút, đừng đóng tab)`;
+  }, 1000);
+}
+function stopProgress(){ if (_timer) { clearInterval(_timer); _timer = null; } }
 
 $('go').onclick = async () => {
   const text = $('text').value.trim(), file = $('file').files[0];
@@ -140,13 +181,13 @@ $('go').onclick = async () => {
   const key = $('apikey').value.trim();
   if (key) { headers['X-API-Key'] = key; localStorage.setItem('lg_apikey', key); }
 
-  $('go').disabled = true; $('spinner').style.display = 'inline'; $('result').style.display = 'none';
+  $('go').disabled = true; $('spinner').style.display = 'inline'; $('result').style.display = 'none'; startProgress();
   try {
     const r = await fetch('/analyze', { method:'POST', body:fd, headers });
     if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
     render(await r.json());
-  } catch (e) { $('err').textContent = '❌ ' + e.message; }
-  finally { $('go').disabled = false; $('spinner').style.display = 'none'; }
+  } catch (e) { $('err').textContent = '❌ ' + e.message + ' — thử lại (LLM có thể quá tải tạm thời).'; }
+  finally { $('go').disabled = false; $('spinner').style.display = 'none'; stopProgress(); }
 };
 
 let _caseId = null;
@@ -164,9 +205,16 @@ function render(d) {
   $('result').style.display = 'block';
   _caseId = d.case_id || null;
   $('fb-thanks').textContent = '';
-  $('summary').textContent = d.summary || '(không có)';
-  $('notes').innerHTML = (d.notes||[]).map(n => `<p class="note muted">${esc(n)}</p>`).join('');
-  $('strategy').textContent = d.strategy || '(không có)';
+  $('summary').innerHTML = mdLite(d.summary || '(không có)');
+  $('strategy').innerHTML = mdLite(d.strategy || '(không có)');
+  // Tách note: cảnh báo cho người dùng (hiện) vs kỹ thuật/audit (gấp lại, đỡ rối demo).
+  const _tech = n => /^(🧭|🔐|📎)/.test(n);
+  const notes = d.notes || [];
+  const userN = notes.filter(n => !_tech(n)), techN = notes.filter(_tech);
+  $('notes').innerHTML =
+    userN.map(n => `<p class="note muted">${esc(n)}</p>`).join('') +
+    (techN.length ? `<details style="margin-top:6px"><summary class="muted" style="font-size:13px">chi tiết kỹ thuật / audit</summary>` +
+      techN.map(n => `<p class="note muted">${esc(n)}</p>`).join('') + `</details>` : '');
 
   $('risks').innerHTML = (d.risks||[]).map(r => `<tr>
     <td><strong>${esc(r.clause)}</strong>${r.verified===false?' <span class="badge b-medium">chưa verify</span>':''}
