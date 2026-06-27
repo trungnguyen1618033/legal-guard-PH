@@ -36,6 +36,16 @@ def test_analyze_requires_input(client):
     assert client.post("/analyze").status_code == 400
 
 
+def test_negotiate_endpoint(client):
+    # Vòng đàm phán đa phiên: bối cảnh deal + tin đối tác → round có status hợp lệ.
+    r = client.post("/negotiate", json={"deal_context": "phạt 15% trái Điều 301",
+                    "partner_message": "Chúng tôi chỉ giảm phạt còn 12%.", "leverage": "weak",
+                    "protected_party": "Bên Mua"}, headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["status"] in ("continue", "close", "walk_away") and "assessment" in d
+
+
 def test_graph_endpoint_returns_nodes_and_edges(client):
     r = client.get("/graph/123/2020/NĐ-CP", headers={"x-tenant-id": "VN"})
     assert r.status_code == 200

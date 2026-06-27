@@ -124,6 +124,16 @@
 
     <div class="card"><details><summary>🤖 Trace — agent đã làm gì (tool calls)</summary>
       <div id="trace"></div></details></div>
+
+    <div class="card" id="nego-card">
+      <h2>💬 Đàm phán đa phiên — đối tác phản hồi thì sao?</h2>
+      <p class="muted">Dán <b>tin nhắn/counter-offer của đối tác</b> → agent đánh giá họ nhượng/giữ gì,
+        cập nhật chiến lược vòng tới + soạn câu trả lời. Mỗi vòng nối tiếp (agent dẫn đàm phán).</p>
+      <textarea id="partner-msg" placeholder="Vd: Chúng tôi đồng ý giảm phạt còn 10%, nhưng giữ trọng tài tại Bắc Kinh và thanh toán T/T 45 ngày." style="min-height:70px"></textarea>
+      <p><button type="button" class="btn" id="nego-go">↪️ Phân tích phản hồi & đàm phán tiếp</button>
+        <span id="nego-spin" style="display:none">⏳ Agent đang đàm phán…</span></p>
+      <div id="nego-result"></div>
+    </div>
   </div>
 </div>
 
@@ -199,6 +209,7 @@ $('go').onclick = async () => {
 };
 
 let _caseId = null;
+let _deal = '';
 async function sendFeedback(rating) {
   $('fb-thanks').textContent = ' đang gửi…';
   try {
@@ -213,6 +224,11 @@ function render(d) {
   $('result').style.display = 'block';
   _caseId = d.case_id || null;
   $('fb-thanks').textContent = '';
+  // Bối cảnh deal cho đàm phán đa phiên: chiến lược + danh sách rủi ro (clause/priority/status).
+  _deal = 'CHIẾN LƯỢC:\n' + (d.strategy || '') + '\n\nRỦI RO:\n' +
+    (d.risks||[]).map(r => `- ${r.clause} [${r.priority||''}/${r.legal_status||''}]: ${r.risk}`).join('\n');
+  $('nego-result').innerHTML = '';
+  $('partner-msg').value = '';
   $('summary').innerHTML = mdLite(d.summary || '(không có)');
   $('strategy').innerHTML = mdLite(d.strategy || '(không có)');
   // Tách note: cảnh báo cho người dùng (hiện) vs kỹ thuật/audit (gấp lại, đỡ rối demo).
@@ -292,6 +308,35 @@ async function counter(i) {
       (d.rationale ? `<div class="muted" style="margin-top:4px">Lý do: ${esc(d.rationale)}</div>` : '');
   } catch (e) { box.textContent = 'Lỗi: ' + e.message; }
 }
+
+const _NEGO_STATUS = {
+  continue: ['🔄 Tiếp tục đàm phán', '#eef3fb'], close: ['✅ Nên CHỐT deal', '#e6f7ec'],
+  walk_away: ['🚪 Nên RÚT (walk-away)', '#fdecea'] };
+$('nego-go').onclick = async () => {
+  const msg = $('partner-msg').value.trim();
+  if (!msg) { $('nego-result').innerHTML = '<p class="err">Dán phản hồi của đối tác trước đã.</p>'; return; }
+  $('nego-go').disabled = true; $('nego-spin').style.display = 'inline'; $('nego-result').innerHTML = '';
+  try {
+    const r = await fetch('/negotiate', { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ deal_context:_deal, partner_message:msg, lang:$('lang').value,
+        leverage:$('leverage').value, urgency:$('urgency').value, relationship:$('relationship').value,
+        alternatives:$('alternatives').value==='true', protected_party:$('protected_party').value }) });
+    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
+    const d = await r.json();
+    const [label, bg] = _NEGO_STATUS[d.status] || _NEGO_STATUS.continue;
+    $('nego-result').innerHTML =
+      `<div class="banner" style="background:${bg}"><strong>${label}</strong></div>` +
+      `<div style="margin-top:8px"><b>📊 Đánh giá phản hồi:</b><div class="md">${mdLite(d.assessment)}</div></div>` +
+      (d.strategy ? `<div style="margin-top:8px"><b>🧭 Chiến lược vòng tới:</b><div class="md">${mdLite(d.strategy)}</div></div>` : '') +
+      (d.reply_vi ? `<div style="margin-top:8px"><b>💬 Trả lời đối tác (VN):</b><div class="md">${mdLite(d.reply_vi)}</div></div>` : '') +
+      (d.reply_en ? `<div style="margin-top:6px"><b>💬 Reply (EN):</b><div class="md">${mdLite(d.reply_en)}</div></div>` : '') +
+      (d.grounded ? '' : '<p class="note muted">⚠️ Khung sơ bộ (chưa có LLM).</p>');
+    // Nối vòng: phản hồi này thành bối cảnh cho vòng sau.
+    _deal += `\n\n--- Đối tác: ${msg}\n--- Ta: ${d.reply_vi || d.assessment}`;
+  } catch (e) { $('nego-result').innerHTML = '<p class="err">❌ ' + e.message + '</p>'; }
+  finally { $('nego-go').disabled = false; $('nego-spin').style.display = 'none'; }
+};
 </script>
 </body>
 </html>
