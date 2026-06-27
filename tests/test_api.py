@@ -36,6 +36,45 @@ def test_analyze_requires_input(client):
     assert client.post("/analyze").status_code == 400
 
 
+def test_graph_endpoint_returns_nodes_and_edges(client):
+    r = client.get("/graph/123/2020/NĐ-CP", headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    g = r.json()
+    assert g["root"] == "123/2020/NĐ-CP"
+    assert any(n["doc_id"] == "70/2025/NĐ-CP" for n in g["nodes"])
+    assert g["edges"]
+
+
+def test_graph_endpoint_404_for_unknown(client):
+    assert client.get("/graph/999/9999/NĐ-CP", headers={"x-tenant-id": "VN"}).status_code == 404
+
+
+def test_latest_endpoint_maps_to_replacement(client):
+    r = client.get("/latest/39/2014/TT-BTC", headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["replaced"] is True and body["latest"] == "123/2020/NĐ-CP"
+
+
+def test_articles_changed_endpoint(client):
+    r = client.get("/articles-changed/123/2020/NĐ-CP", headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    art = r.json()["amended_articles"]
+    assert "Điều 9" in art and "70/2025/NĐ-CP" in art["Điều 9"]
+
+
+def test_analyze_accepts_protected_party_and_returns_legal_status(client):
+    # Phase A: /analyze nhận 'protected_party', mỗi risk có legal_status hợp lệ + tách illegal.
+    contract = "Phạt vi phạm 15% giá trị hợp đồng. Trọng tài tại Bắc Kinh. Thanh toán T/T 60 ngày."
+    r = client.post("/analyze", data={"text": contract, "protected_party": "Bên Vay"},
+                    headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    risks = r.json()["risks"]
+    assert risks and all(x["legal_status"] in ("illegal", "unfavorable") for x in risks)
+    illegal = [x for x in risks if x["legal_status"] == "illegal"]
+    assert illegal and illegal[0]["violated_law"]        # stub có 1 điều khoản trái luật kèm điều luật
+
+
 def test_ask_returns_grounded_answer_with_sources(client):
     r = client.post("/ask", json={"question": "thời điểm lập hóa đơn", "lang": "vi"})
     assert r.status_code == 200
@@ -63,6 +102,7 @@ def test_lookup_ui_page_served(client):
     r = client.get("/lookup")
     assert r.status_code == 200
     assert "tra cứu" in r.text.lower()         # trang tra cứu luật
+    assert "Lược đồ văn bản" in r.text and "loadGraph" in r.text   # section lược đồ (graph UI)
 
 
 def test_analyze_persists_case_and_can_fetch(client, sample_contract):

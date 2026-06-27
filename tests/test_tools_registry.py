@@ -73,6 +73,28 @@ def test_flag_risk_coerces_bad_legal_status_and_drops_violated():
     assert ctx.risks[0].legal_status == "unfavorable" and ctx.risks[0].violated_law == ""
 
 
+def test_flag_risk_illegal_without_violated_law_kept_empty():
+    # illegal nhưng model quên điền violated_law → giữ rỗng, KHÔNG vỡ; vẫn là illegal.
+    ctx = _ctx()
+    execute_tool("flag_risk", {"clause": "X", "risk": "y", "severity": "high",
+                               "legal_status": "illegal", "source": "s", "evidence": "e"}, ctx)
+    assert ctx.risks[0].legal_status == "illegal" and ctx.risks[0].violated_law == ""
+
+
+def test_flag_risk_unfavorable_explicit_drops_violated_law():
+    # khai unfavorable nhưng kèm violated_law (mâu thuẫn) → bỏ violated_law (chỉ illegal mới giữ).
+    ctx = _ctx()
+    execute_tool("flag_risk", {"clause": "X", "risk": "y", "severity": "low",
+                               "legal_status": "unfavorable", "violated_law": "Điều 301",
+                               "source": "s", "evidence": "e"}, ctx)
+    assert ctx.risks[0].legal_status == "unfavorable" and ctx.risks[0].violated_law == ""
+
+
+def test_flag_risk_schema_exposes_legal_status_fields():
+    props = _props("flag_risk")
+    assert "legal_status" in props and "violated_law" in props
+
+
 def test_dispatch_tolerates_reasoning_field():
     # `reasoning` không phải required → có hay không, kết quả structured vẫn ghi nhận bình thường.
     ctx = _ctx()

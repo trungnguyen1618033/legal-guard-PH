@@ -1,6 +1,6 @@
 from legalguard.adapters.outbound.knowledge_base import KeywordRetriever
 from legalguard.domain.models import Risk
-from legalguard.domain.verification import verify_risks
+from legalguard.domain.verification import nli_contradicts, verify_risks
 
 KB = KeywordRetriever("knowledge_base", "VN")
 CONTRACT = "Arbitration in Beijing. T/T payment after 60 days."
@@ -57,3 +57,32 @@ def test_batched_judge_handles_multiple_risks():
     risks = [_risk(), _risk(), _risk()]
     verify_risks(risks, CONTRACT, KB, _Judge(available=True, verdict="1: YES\n2: NO\n3: YES"))
     assert [r.verified for r in risks] == [True, False, True]
+
+
+# ---- Phase B: nli_contradicts (phát hiện TRÁI LUẬT có grounding) ----
+def test_contradicts_true_when_judge_says_yes():
+    assert nli_contradicts("Phạt 15%", "Phạt không quá 8%", _Judge(True, "YES")) is True
+
+
+def test_contradicts_false_when_judge_says_no():
+    assert nli_contradicts("Phạt 5%", "Phạt không quá 8%", _Judge(True, "NO")) is False
+
+
+def test_contradicts_none_when_judge_offline():
+    # Judge offline → None (không kết luận) → KHÔNG gắn illegal (bảo thủ).
+    assert nli_contradicts("Phạt 15%", "Phạt không quá 8%", _Judge(False)) is None
+
+
+def test_contradicts_none_on_ambiguous_answer():
+    # Đáp mơ hồ (không YES/NO) → None, không suy diễn trái luật.
+    assert nli_contradicts("x", "y", _Judge(True, "có thể tùy trường hợp")) is None
+
+
+def test_contradicts_prefers_no_when_both_words_present():
+    # Vừa có NO vừa có YES → ưu tiên NO (thận trọng, tránh gắn illegal sai).
+    assert nli_contradicts("x", "y", _Judge(True, "NO, không phải YES")) is False
+
+
+def test_contradicts_none_on_empty_inputs():
+    assert nli_contradicts("", "điều luật", _Judge(True, "YES")) is None
+    assert nli_contradicts("clause", "", _Judge(True, "YES")) is None

@@ -26,6 +26,17 @@ _NLI_PROMPT = (
 _NLI_YES = re.compile(r"\b(YES|CÓ)\b", re.IGNORECASE)
 _NLI_NO = re.compile(r"\b(NO|KHÔNG)\b", re.IGNORECASE)
 
+_CONTRADICT_PROMPT = (
+    "Điều luật (quy định pháp luật):\n{article}\n\n"
+    "Điều khoản trong hợp đồng:\n{clause}\n\n"
+    "Điều khoản hợp đồng này có VI PHẠM / TRÁI với quy định BẮT BUỘC của điều luật trên không "
+    "(tức có thể bị VÔ HIỆU)? Chỉ trả lời YES nếu CHẮC CHẮN trái quy định bắt buộc; nếu chỉ bất lợi "
+    "nhưng hợp pháp, hoặc không chắc, hãy trả lời NO. Chỉ trả đúng một từ: YES hoặc NO."
+)
+# Parser CHẶT cho illegal (bất đối xứng — false-positive 'trái luật' = trách nhiệm pháp lý lớn):
+# NO/KHÔNG → False (hướng an toàn); CHỈ 'YES' tiếng Anh → True. KHÔNG nhận 'CÓ' (va 'có thể' = maybe).
+_CONTRADICT_YES = re.compile(r"\bYES\b", re.IGNORECASE)
+
 
 def nli_supports(claim: str, evidence: str, judge: LLMPort, max_chars: int = 1500) -> bool | None:
     """Kiểm entailment: `evidence` CÓ hậu thuẫn `claim` không (chống 'citation tồn tại nhưng không hỗ trợ').
@@ -40,6 +51,24 @@ def nli_supports(claim: str, evidence: str, judge: LLMPort, max_chars: int = 150
     if _NLI_NO.search(out):           # ưu tiên NO (thận trọng: nghi ngờ → coi như không hỗ trợ)
         return False
     if _NLI_YES.search(out):
+        return True
+    return None
+
+
+def nli_contradicts(clause: str, article: str, judge: LLMPort, max_chars: int = 1500) -> bool | None:
+    """Kiểm điều khoản hợp đồng có TRÁI/VI PHẠM điều luật `article` không (đảo chiều `nli_supports`).
+    Dùng cho Phase B phát hiện TRÁI LUẬT có grounding: chỉ chạy trên điều luật THẬT đã retrieve.
+    True = trái luật (có thể vô hiệu), False = không, None = không kết luận (judge offline/lỗi/mơ hồ).
+    BẢO THỦ: nghi ngờ/mơ hồ → coi như KHÔNG trái luật (gắn 'illegal' sai = trách nhiệm pháp lý lớn)."""
+    if not judge.available or not clause.strip() or not article.strip():
+        return None
+    try:
+        out = judge.complete(_CONTRADICT_PROMPT.format(article=article[:max_chars], clause=clause[:500]))
+    except LLMError:
+        return None
+    if _NLI_NO.search(out):           # ưu tiên NO (thận trọng: nghi ngờ → không phải trái luật)
+        return False
+    if _CONTRADICT_YES.search(out):   # CHỈ 'YES' tiếng Anh (bỏ 'CÓ' để tránh 'có thể' → illegal sai)
         return True
     return None
 

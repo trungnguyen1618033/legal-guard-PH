@@ -36,7 +36,7 @@ from legalguard.domain.ports import (
 )
 from legalguard.domain.redaction import redact
 from legalguard.domain.tenants import Organization, get_tenant
-from legalguard.domain.verification import nli_supports, verify_risks
+from legalguard.domain.verification import nli_contradicts, nli_supports, verify_risks
 
 _log = logging.getLogger(__name__)
 
@@ -139,6 +139,40 @@ def _attach_legal_basis(risks: list, fallbacks: list, retriever, judge: LLMPort 
     return grounded
 
 
+def _detect_illegal(risks: list, judge: LLMPort | None) -> int:
+    """Phase B — lớp NLI-mâu-thuẫn có grounding: nâng risk `unfavorable` → `illegal` khi điều khoản
+    THỰC SỰ TRÁI điều luật đã gắn ở `legal_basis` (điều luật THẬT đã retrieve, không hard-code luật).
+
+    Chỉ CHẠY trên risk đã có `legal_basis`; chỉ NÂNG (không hạ illegal của agent). BẢO THỦ: judge phải
+    nói YES rõ ràng (`nli_contradicts` True) mới gắn illegal — nghi ngờ/offline → giữ unfavorable.
+    `violated_law` lấy ĐÚNG điều luật từ legal_basis (vd 'Điều 357'). Mỗi risk 1 round-trip judge → song song."""
+    if judge is None or not getattr(judge, "available", False):
+        return 0
+    cands = [r for r in risks if r.legal_status == "unfavorable" and r.legal_basis]
+    if not cands:
+        return 0
+
+    def _check(r) -> bool:
+        clause = r.evidence or f"{r.clause}: {r.risk}"
+        return nli_contradicts(clause, r.legal_basis, judge) is True
+
+    if len(cands) > 1:
+        with ThreadPoolExecutor(max_workers=min(6, len(cands))) as pool:
+            verdicts = list(pool.map(_check, cands))
+    else:
+        verdicts = [_check(cands[0])]
+
+    upgraded = 0
+    for r, is_illegal in zip(cands, verdicts):
+        if is_illegal:
+            r.legal_status = "illegal"
+            # violated_law = phần điều luật trong legal_basis: 'file#Điều N: ...' → 'Điều N'
+            head = r.legal_basis.split(":", 1)[0]
+            r.violated_law = head.split("#", 1)[1] if "#" in head else head
+            upgraded += 1
+    return upgraded
+
+
 class AnalysisService:
     def __init__(self, reasoner: LLMPort, summarizer: LLMPort, kb: KnowledgeBaseProvider,
                  cases: CaseRepositoryPort | None = None,
@@ -149,7 +183,8 @@ class AnalysisService:
                  nli_verification: bool = True,
                  judge: LLMPort | None = None,
                  lookup_cache_size: int = 256,
-                 lookup_llm: LLMPort | None = None) -> None:
+                 lookup_llm: LLMPort | None = None,
+                 illegal_detection: bool = True) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         self.summarizer = summarizer  # Gemini: >=1 call tóm tắt (ràng buộc XPRIZE)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp). Mặc định = reasoner (giữ tương thích/stub),
@@ -162,6 +197,8 @@ class AnalysisService:
         self.legal_basis_grounding = legal_basis_grounding   # gắn căn cứ điều luật cho risk/fallback
         self.feedback = feedback      # vòng học: phản hồi người dùng (tùy chọn)
         self.nli_verification = nli_verification  # kiểm entailment (nguồn có hậu thuẫn claim) — chống hallucinate
+        # Phase B: lớp NLI-mâu-thuẫn nâng unfavorable→illegal khi điều khoản TRÁI điều luật đã grounding.
+        self.illegal_detection = illegal_detection
         # Cache tra cứu (in-process, bounded LRU): câu hỏi lặp → trả tức thì + tiết kiệm token. KB tĩnh
         # trong 1 phiên deploy nên an toàn; redeploy = process mới = cache mới. 0 = tắt.
         self._lookup_cache_size = lookup_cache_size
@@ -273,7 +310,10 @@ class AnalysisService:
         # Redact PII TRƯỚC khi gửi LLM / lưu / log (data minimization, OWASP LLM02).
         contract_text, redacted_n = redact(contract_text)
 
-        retriever = self.kb.for_org(org)         # KB quốc gia + overlay riêng công ty
+        # Path /analyze: BỎ cross-encoder rerank (rerank=False) — agent chỉ tra chính sách rủi ro/
+        # fallback, hybrid RRF (BM25+embedding) là đủ; cắt ~15% latency + giảm tải/request khi đông
+        # user. Lookup (Q&A pháp lý cần xếp hạng chính xác) vẫn giữ rerank ở for_org mặc định.
+        retriever = self.kb.for_org(org, rerank=False)   # KB quốc gia + overlay riêng công ty
         ctx = AgentContext(retriever=retriever)
 
         # Adaptive routing + chunking hợp đồng dài. Các cửa sổ ĐỘC LẬP → chạy SONG SONG
@@ -367,6 +407,14 @@ class AnalysisService:
         if f_basis is not None and (grounded := f_basis.result()):
             notes.append(f"📎 Gắn căn cứ pháp lý (điều luật còn hiệu lực) cho {grounded} mục.")
         _log.info("post-agent (verify∥summary∥legal_basis) %dms", round((time.monotonic() - t_post) * 1000))
+
+        # Phase B — lớp NLI-mâu-thuẫn: nâng unfavorable→illegal khi điều khoản TRÁI điều luật đã grounding
+        # (CHẠY SAU legal_basis vì cần `legal_basis`). Bảo thủ: judge nói YES rõ mới gắn 'trái luật'.
+        if self.illegal_detection and (upg := _detect_illegal(ctx.risks, self.judge)):
+            notes.append(f"⚖️ Phát hiện {upg} điều khoản có dấu hiệu TRÁI LUẬT (đã đối chiếu điều luật) "
+                         "— cần luật sư đối chiếu bản gốc.")
+            ctx.needs_human_review = True       # illegal là khẳng định mạnh → luôn cần người duyệt
+            ctx.review_reasons.append(f"{upg} điều khoản có dấu hiệu trái luật — luật sư đối chiếu bản gốc.")
 
         if any(not r.verified for r in ctx.risks):
             ctx.needs_human_review = True

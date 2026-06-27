@@ -149,6 +149,103 @@ def legal_changelog(base_dir: str, tenant: str, doc_id: str) -> dict | None:
             "effective_date": self_meta.get("effective_date", ""), "related": related}
 
 
+def _doc_edges(base_dir: str, tenant: str) -> tuple[dict[str, dict], set[tuple[str, str, str]]]:
+    """(by_docid: {DOC_ID→front-matter}, edges: {(from_id, relation, to_id)}) — suy 2 chiều MỘT LẦN.
+    Nền cho lược đồ + map VB mới nhất ở quy mô lớn (O(N), không quét lại mỗi hop như changelog)."""
+    metas = _load_doc_meta(base_dir, tenant)
+    by_docid = {(m.get("doc_id") or "").upper(): m for m in metas.values() if m.get("doc_id")}
+    edges: set[tuple[str, str, str]] = set()
+    for m in metas.values():
+        sid = (m.get("doc_id") or "").upper()
+        if not sid:
+            continue
+        for f in _REL_FIELDS:
+            for tid in re.split(r"[;,]", m.get(f, "")):
+                tid = tid.strip().upper()
+                if tid:
+                    edges.add((sid, f, tid))
+                    edges.add((tid, _REL_INVERSE.get(f, f), sid))   # cạnh nghịch (2 chiều)
+    return by_docid, edges
+
+
+def legal_graph(base_dir: str, tenant: str, doc_id: str, depth: int = 1) -> dict | None:
+    """Lược đồ văn bản (như TVPL): từ `doc_id` mở rộng quan hệ tới `depth` hop → {nodes, edges}.
+    node: {doc_id, title, status, effective_date, in_kb}; edge: {from, relation, to}. None nếu không có VB."""
+    did = doc_id.strip().upper()
+    by_docid, edges = _doc_edges(base_dir, tenant)
+    adj: dict[str, list[tuple[str, str]]] = {}
+    for (s, r, t) in edges:
+        adj.setdefault(s, []).append((r, t))
+    if did not in by_docid and did not in adj:
+        return None
+    seen, frontier, node_ids, out_edges = {did}, [did], {did}, []
+    for _ in range(max(1, depth)):
+        nxt: list[str] = []
+        for s in frontier:
+            for (r, t) in adj.get(s, []):
+                out_edges.append((s, r, t))
+                if t not in seen:
+                    seen.add(t)
+                    node_ids.add(t)
+                    nxt.append(t)
+        frontier = nxt
+
+    def _node(i: str) -> dict:
+        m = by_docid.get(i, {})
+        return {"doc_id": i, "title": m.get("title", ""), "status": m.get("status", "in_force"),
+                "effective_date": m.get("effective_date", ""), "in_kb": i in by_docid}
+
+    uniq = {e: {"from": e[0], "relation": e[1], "to": e[2]} for e in out_edges}
+    edges_sorted = [uniq[e] for e in sorted(uniq)]      # tất định (set adjacency vốn không thứ tự)
+    return {"root": did, "depth": depth, "nodes": [_node(i) for i in sorted(node_ids)],
+            "edges": edges_sorted}
+
+
+def latest_version(base_dir: str, tenant: str, doc_id: str) -> dict | None:
+    """Map tới VĂN BẢN MỚI NHẤT: theo chuỗi `replaced_by` (thay thế toàn bộ) đến VB cuối chưa bị thay.
+    Trả {doc_id, latest, replaced, chain, latest_status, latest_title}. None nếu doc_id không có trong KB.
+    (Sửa đổi `amended_by` KHÔNG coi là thay thế — VB gốc vẫn hiệu lực, chỉ bị sửa vài điều.)"""
+    did = doc_id.strip().upper()
+    by_docid, edges = _doc_edges(base_dir, tenant)
+    if did not in by_docid:
+        return None
+    repl: dict[str, list[str]] = {}
+    for (s, r, t) in edges:
+        if r == "replaced_by":
+            repl.setdefault(s, []).append(t)
+    cur, chain, seen = did, [], {did}
+    while cur in repl:
+        # Nhiều VB thay thế → chọn cái MỚI NHẤT theo effective_date (đúng nghĩa "mới nhất"); chống lặp.
+        cands = [t for t in repl[cur] if t not in seen]
+        if not cands:
+            break
+        cur = max(cands, key=lambda i: by_docid.get(i, {}).get("effective_date", ""))
+        chain.append(cur)
+        seen.add(cur)
+    lm = by_docid.get(cur, {})
+    return {"doc_id": did, "latest": cur, "replaced": cur != did, "chain": chain,
+            "latest_status": lm.get("status", ""), "latest_title": lm.get("title", "")}
+
+
+def amended_articles(base_dir: str, tenant: str, doc_id: str) -> dict | None:
+    """Đọc luật `doc_id`: ĐIỀU nào của nó đã bị VB khác SỬA ĐỔI + bởi VB nào (cho 'bôi vàng' kiểu TVPL).
+    {article: [doc_id VB sửa]} lấy từ `amends_articles` của các VB amends doc_id. None nếu không có VB."""
+    did = doc_id.strip().upper()
+    by_docid, edges = _doc_edges(base_dir, tenant)
+    if did not in by_docid:
+        return None
+    out: dict[str, list[str]] = {}
+    for (s, r, t) in edges:
+        if r == "amends" and t == did and s in by_docid:           # VB s sửa doc_id
+            for a in re.split(r"[;,]", by_docid[s].get("amends_articles", "")):
+                a = a.strip()
+                if a:
+                    out.setdefault(a, [])
+                    if s not in out[a]:
+                        out[a].append(s)
+    return {"doc_id": did, "amended_articles": out}
+
+
 _CHANGE_RELATIONS = ("amends", "replaces", "guides")   # doc_id MỚI tác động LÊN văn bản đích
 
 
@@ -577,13 +674,14 @@ class FileKnowledgeBaseProvider:
         self.rerank_fn = rerank_fn
         self.closure = closure
         self.in_force = in_force
-        self._cache: dict[tuple[str, str], KnowledgeBasePort] = {}
+        self._cache: dict[tuple[str, str, bool], KnowledgeBasePort] = {}
 
-    def for_org(self, org: Organization) -> KnowledgeBasePort:
-        # Cache theo (quốc gia, công ty): KB tĩnh → KHÔNG re-embed mỗi request.
-        key = (org.country, org.id)
+    def for_org(self, org: Organization, *, rerank: bool = True) -> KnowledgeBasePort:
+        # Cache theo (quốc gia, công ty, có-rerank): KB tĩnh → KHÔNG re-embed mỗi request.
+        # rerank=False (path /analyze) bỏ cross-encoder → nhanh hơn, giảm tải/request khi đông user.
+        key = (org.country, org.id, rerank)
         if key not in self._cache:
-            self._cache[key] = self._build(org)
+            self._cache[key] = self._build(org, rerank=rerank)
         return self._cache[key]
 
     def changelog(self, doc_id: str, country: str) -> dict | None:
@@ -592,9 +690,21 @@ class FileKnowledgeBaseProvider:
     def affected_files(self, doc_id: str, country: str) -> dict[str, str]:
         return affected_doc_files(self.base_dir, country, doc_id)
 
-    def _build(self, org: Organization) -> KnowledgeBasePort:
-        base = build_retriever(self.base_dir, org.country, self.embed_fn, self.reranker_llm,
-                               self.strategy, self.rerank_fn, self.closure, self.in_force)
+    def graph(self, doc_id: str, country: str, depth: int = 1) -> dict | None:
+        return legal_graph(self.base_dir, country, doc_id, depth)
+
+    def latest(self, doc_id: str, country: str) -> dict | None:
+        return latest_version(self.base_dir, country, doc_id)
+
+    def amended_articles(self, doc_id: str, country: str) -> dict | None:
+        return amended_articles(self.base_dir, country, doc_id)
+
+    def _build(self, org: Organization, *, rerank: bool = True) -> KnowledgeBasePort:
+        # rerank=False → tắt cả cross-encoder lẫn LLM rerank (giữ hybrid RRF BM25+embedding).
+        rerank_fn = self.rerank_fn if rerank else None
+        reranker_llm = self.reranker_llm if rerank else None
+        base = build_retriever(self.base_dir, org.country, self.embed_fn, reranker_llm,
+                               self.strategy, rerank_fn, self.closure, self.in_force)
         overlay_dir = Path(self.base_dir) / "_orgs" / org.id
         if overlay_dir.exists() and any(overlay_dir.glob("*.md")):
             # Overlay riêng công ty: giữ keyword (nhỏ, khỏi embed) NHƯNG vẫn tôn trọng lọc hiệu lực

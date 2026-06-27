@@ -21,7 +21,8 @@ uv run pytest tests/test_agent.py::test_agent_produces_structured_risks_and_trac
 uv run alembic upgrade head        # apply DB migrations (DATABASE_URL; sqlite default, postgres in prod)
 uv run python -m evaluation.run_eval  # fast eval: precision/recall + groundedness on golden set (offline)
 uv run python -m evaluation.legal_eval # eval TRA CỨU LUẬT: Recall@k/MRR + closure-recall + still-good-law (offline)
-uv run python -m ingestion.hf_to_kb --pages 4 --keyword "hóa đơn" --out knowledge_base/_ingested # ETL: HF dataset luật VN → KB .md (front-matter status)
+uv run python -m ingestion.hf_to_kb --pages 4 --keyword "hóa đơn" --out knowledge_base/_ingested # ETL sample: HF dataset luật VN → KB .md (front-matter status)
+uv run python -m ingestion.hf_to_kb --bulk --limit 2000 --out knowledge_base/_ingested # CON BATCH bulk: ingest toàn bộ th1nhng0 (cần `uv add datasets`) + cạnh đồ thị (amends/replaced_by/guides) + hiệu lực
 uv run python -m evaluation.feedback_to_golden --org default --out evaluation/golden_candidates.json # vòng học: feedback ⚠️/➖ → ứng viên golden + báo lỗ hổng KB
 uv sync --group eval                  # cài lớp eval sâu (RAGAS) — opt-in, không cần cho runtime
 uv run python -m evaluation.ragas_eval  # deep eval: RAGAS LLM-as-judge (cần QWEN_API_KEY; chậm/tốn call)
@@ -34,10 +35,15 @@ uv add <pkg>                       # add a dependency
 AI/RAG quality techniques: grounding+citation+evidence (`tools.py`), verification 2-layer
 (clause-existence + LLM-judge + NLI entailment `nli_supports` — kiểm "nguồn CÓ hậu thuẫn claim không",
 chống citation tồn-tại-nhưng-không-hỗ-trợ, `NLI_VERIFICATION`; áp vào legal_basis grounding + lookup,
-`domain/verification.py`), lexical BM25 (Okapi, length-norm + IDF) +
+`domain/verification.py`), **NLI-mâu-thuẫn `nli_contradicts`** (đảo chiều — "điều khoản CÓ TRÁI điều luật
+không"; Phase B phát hiện TRÁI LUẬT có grounding, parser CHẶT bất-đối-xứng: NO/KHÔNG→False an toàn, chỉ
+'YES' tiếng Anh→True, bỏ 'CÓ' tránh va 'có thể'→illegal sai), lexical BM25 (Okapi, length-norm + IDF) +
 embedding, hybrid retrieval RRF + opt-in LLM reranker
 + opt-in cross-encoder reranker (Qwen `gte-rerank`, `CROSS_ENCODER_RERANK`) + full-context
-(`outbound/knowledge_base.py`, `RERANK_ENABLED`), structure-aware legal chunking + NFC + citation
+(`outbound/knowledge_base.py`, `RERANK_ENABLED`). **Rerank theo path** (đo: chi phí rerank chỉ ~272ms/
+retrieve, latency analyze ~99% là vòng flagship output-bound — KHÔNG nén được ở tầng retrieval): `/analyze`
+gọi `for_org(org, rerank=False)` (hybrid RRF, bỏ rerank — giảm tải quota khi đông user, zero quality cost);
+`/lookup` giữ rerank (Q&A pháp lý cần xếp hạng chính xác). structure-aware legal chunking + NFC + citation
 extraction (`outbound/legal_chunker.py` — chunk theo Điều/Khoản, nhãn gắn vào `Snippet.source` dạng
 `file.md#Điều 5`; Phase 0 hướng mở rộng tra cứu luật VN, xem `docs/internal/legal-search-expansion.md`),
 citation closure document-aware đi theo dẫn chiếu kéo về điều luật liên quan ở ĐÚNG văn bản đích
@@ -68,9 +74,16 @@ Advisory flow (`docs/advisory-flow.md`): `/analyze` nhận vị thế đàm phá
 leverage/urgency/relationship/alternatives + **`protected_party`** "bên mình bảo vệ") → agent gán
 `Risk.priority` (must_fix/negotiate/acceptable) + **`Risk.legal_status`** {illegal (trái luật, có thể vô
 hiệu — kèm `violated_law`) | unfavorable} + sinh `AnalysisResult.strategy` (giữ/nhượng + walk-away/BATNA).
-Lawyer-review (Phase A, `docs/internal/lawyer-review-flow.md`): party-aware + tách TRÁI-LUẬT vs bất-lợi;
+Lawyer-review (Phase A+B, `docs/internal/lawyer-review-flow.md`): party-aware + tách TRÁI-LUẬT vs bất-lợi;
 prompt rỗng protected_party → mặc định "SME client in {country}". Chat reply + web gắn nhãn ⚖️ TRÁI LUẬT.
-Đây là lời hứa "fallback theo thế trận thật". MCP + observability: `inbound/mcp_server.py` expose tool `analyze_contract` qua Model Context Protocol
+**Phase B — phát hiện TRÁI LUẬT có grounding (`_detect_illegal` trong `domain/analysis.py`, `ILLEGAL_DETECTION`)**:
+hậu-agent (sau legal_basis), với mỗi risk `unfavorable` đã có `legal_basis` (điều luật THẬT đã retrieve) →
+`nli_contradicts` hỏi judge "điều khoản CÓ trái điều luật này không"; YES rõ → nâng `unfavorable`→`illegal` +
+`violated_law` trích từ legal_basis (vd "Điều 466"). BẢO THỦ (nghi ngờ→giữ unfavorable, KHÔNG hạ illegal của
+agent), song song mỗi risk, LUÔN ép human-review + note "cần luật sư đối chiếu bản gốc" — định vị là lớp SÀNG
+LỌC cho luật sư, không phán quyết. Phụ thuộc `legal_basis_grounding` (cần legal_basis để có điều luật đối
+chiếu). KB cần điều luật liên quan (đã thêm Đ.466/468 BLDS — trần lãi vay 20%/năm, lãi quá hạn 150%). Đo thật:
+HĐ thương mại phạt 15%→illegal Đ.301; HĐ vay→illegal Đ.466. Đây là lời hứa "fallback theo thế trận thật". MCP + observability: `inbound/mcp_server.py` expose tool `analyze_contract` qua Model Context Protocol
 (`make mcp`); `outbound/observability.py` `ObservabilityPort` (NoOp / Langfuse qua `LANGFUSE_*`) →
 `AnalysisService.observer` emit event mỗi lần analyze.
 
@@ -88,7 +101,9 @@ Web UI: `web/index.html` (landing, `GET /`) + `web/app.html` (demo UI, `GET /app
 upload/dán HĐ + vị thế đàm phán → gọi `/analyze` → bảng risks/fallbacks/strategy/trace +
 **human checkpoint** (english_reply bị khóa tới khi reviewer Approve; Reject = chuyển chuyên gia).
 + `web/lookup.html` (`GET /lookup`): form tra cứu luật → `/ask` → câu trả lời dẫn điều/khoản + nguồn + nút feedback
-(+ section "VB mới ảnh hưởng HĐ nào?" `/impact`, changelog, redline). app.html mỗi fallback có nút "📝 soạn
+(+ section "VB mới ảnh hưởng HĐ nào?" `/impact`, changelog, redline, **🗺️ Lược đồ văn bản** `loadGraph`: gọi
+`/graph`+`/latest`+`/articles-changed` → vẽ nodes tô màu hiệu lực + edges quan hệ + banner bản-mới-nhất +
+bôi-vàng-điều-bị-sửa, kiểu TVPL). app.html mỗi fallback có nút "📝 soạn
 điều khoản phản-đề" (`/counter`). + `web/dashboard.html` (`GET /dashboard`): system-of-record → `/insights/dashboard`
 (HĐ rà soát, phân bố severity, top điều khoản rủi ro, feedback, win-rate chiến thuật).
 
@@ -121,6 +136,21 @@ hỏi/từ-để-hỏi (`_is_question`) ưu tiên lookup dù chứa từ khóa H
 "What changed" (`docs`/#10): `GET /changes/{doc_id}` = changelog cấp văn bản (sửa đổi/thay thế bởi/của VB nào,
 ngày hiệu lực — suy 2 chiều từ front-matter, `legal_changelog`); `POST /redline` {old,new} = diff text 2 phiên
 bản ([+thêm+]/[-bỏ-] + similarity, `domain/redline.py`, difflib tất định, không LLM).
+
+Legal-search (kiểu TVPL — Phase 1, `verified_legal_graphrag_2026_reviewed.md`): **`GET /graph/{doc_id}?depth=`** =
+LƯỢC ĐỒ văn bản {nodes (doc_id/title/status/effective_date/in_kb), edges (from/relation/to)} mở rộng đa-hop
+(BFS 2 chiều từ front-matter, `legal_graph`); **`GET /latest/{doc_id}`** = map tới VĂN BẢN MỚI NHẤT theo chuỗi
+`replaced_by`, chọn bản effective_date lớn nhất khi nhiều (`latest_version`). Ingestion ghi cạnh đồ thị:
+`group_relationships`+`to_kb_markdown(relations=)` (front-matter amends/replaced_by/guides…); CON BATCH bulk
+`run_bulk` join metadata+content+relationships th1nhng0 (`--bulk`, cần `datasets`; đọc content.parquet THẲNG
+bằng pyarrow — `datasets` lỗi cast large_string). HƯỚNG quan hệ đã VERIFY bằng cặp thật (70/2025⇄123/2020):
+"được/bị X"=source làm X cho other; "X"=other làm X cho source (`_REL_FIELD`). Engine (closure/in-force/
+point-in-time/changelog/impact) ĐÃ có — Phase 1 = nạp graph quy mô lớn + endpoint lược đồ/VB-mới-nhất.
+**Phase 2 — article-change ("sửa chỗ nào"/bôi vàng)**: `extract_article_changes` (`legal_chunker.py`, RULE tất
+định: "Sửa đổi, bổ sung Điều N"→amend, "Bãi bỏ…Điều N"→repeal, "Bổ sung Điều Na"→add, "Thay thế…"→replace;
+lấy động từ GẦN điều nhất, cụm "sửa đổi, bổ sung"=amend) → ingestion TỰ điền `amends_articles` từ thân VB sửa
+(thay khai tay). **`GET /articles-changed/{doc_id}`** = đọc luật → ĐIỀU nào đã bị VB nào sửa (`amended_articles`,
+'bôi vàng' kiểu TVPL). Đã verify trên data thật (slice hóa đơn: 04/2014→replaced_by→123/2020, lược đồ 12 nodes).
 
 Regulatory change intelligence (chủ động, moat system-of-record): `GET /impact/{doc_id}` = VB pháp luật MỚI
 ban hành → case nào của công ty viện dẫn văn bản nó vừa sửa đổi/thay thế/hướng dẫn → cần rà soát lại.

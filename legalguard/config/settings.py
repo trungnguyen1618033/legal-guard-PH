@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     in_force_filter: bool = True     # mặc định CHỈ trả văn bản còn hiệu lực (lọc theo front-matter status)
     legal_basis_grounding: bool = True  # gắn căn cứ điều luật (tất định, từ KB) cho mỗi risk/fallback
     nli_verification: bool = True       # kiểm entailment: nguồn có hậu thuẫn claim không (chống hallucinate; tốn thêm LLM call)
+    illegal_detection: bool = True      # Phase B: NLI-mâu-thuẫn nâng unfavorable→illegal khi trái điều luật đã grounding
     lookup_cache_size: int = 256        # cache câu trả lời tra cứu (hỏi lặp → trả tức thì + tiết kiệm token); 0 = tắt
 
     # Chat session store: sql (persist + đa instance) | memory (dev) | redis

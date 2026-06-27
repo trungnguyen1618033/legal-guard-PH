@@ -163,6 +163,48 @@ def extract_article_refs(text: str) -> list[tuple[str, str | None]]:
     return out
 
 
+_KHOAN_RE = re.compile(r"khoản\s+(\d+)", re.IGNORECASE)
+_DIEM_RE = re.compile(r"điểm\s+([a-zđ])\b", re.IGNORECASE)
+# Cụm dài ('sửa đổi, bổ sung') để TRƯỚC để regex ưu tiên khớp trọn (không khớp 'bổ sung' lẻ).
+_ACT_RE = re.compile(r"sửa đổi,?\s*bổ sung|sửa đổi|thay thế|bãi bỏ|hủy bỏ|bổ sung", re.IGNORECASE)
+
+
+def extract_article_changes(text: str) -> list[dict]:
+    """Rút THAY ĐỔI cấp điều từ thân VĂN BẢN SỬA ĐỔI → [{action, article, clause, point}].
+
+    Phục vụ 'bôi vàng điều bị sửa' (TVPL): tự nhận "Sửa đổi, bổ sung Điều 9", "Bãi bỏ khoản 3 Điều 10",
+    "Bổ sung Điều 9a"… action ∈ amend|add|repeal|replace. RULE TẤT ĐỊNH (không LLM — không đoán điều bị sửa).
+    Lấy động từ thay đổi GẦN NHẤT trước 'Điều N' (cửa sổ 70 ký tự) → tránh nhầm động từ của câu trước & dẫn
+    chiếu thường. 'Sửa đổi, bổ sung' khớp trọn cụm = amend (không phải add)."""
+    text = nfc(text)
+    out: list[dict] = []
+    seen: set[tuple] = set()
+    for m in _ARTICLE_POS_RE.finditer(text):
+        art = "Điều " + m.group(1)
+        before = text[max(0, m.start() - 70):m.start()]
+        before = re.split(r"[.;\n]", before)[-1]      # chỉ xét động từ CÙNG CÂU (tránh động từ câu trước)
+        if re.search(r"(vào\s+)?(sau|trước)\s+$", before, re.IGNORECASE):
+            continue                                  # 'Điều N' là MỐC NEO ('vào sau Điều 9') — không bị sửa
+        acts = list(_ACT_RE.finditer(before))
+        if not acts:
+            continue                                  # không có động từ thay đổi → chỉ là dẫn chiếu
+        last = acts[-1]                               # động từ GẦN điều nhất
+        verb = last.group(0).lower()
+        action = ("amend" if "sửa đổi" in verb else "replace" if "thay thế" in verb
+                  else "repeal" if ("bãi bỏ" in verb or "hủy bỏ" in verb) else "add")
+        seg = before[last.start():]                   # đoạn từ động từ → 'Điều N' (khoản/điểm thuộc điều này)
+        kh = _KHOAN_RE.search(seg)
+        di = _DIEM_RE.search(seg)
+        rec = {"action": action, "article": art,
+               "clause": f"khoản {kh.group(1)}" if kh else "",
+               "point": f"điểm {di.group(1)}" if di else ""}
+        key = (action, art, rec["clause"], rec["point"])
+        if key not in seen:
+            seen.add(key)
+            out.append(rec)
+    return out
+
+
 def extract_citations(text: str) -> list[str]:
     """Rút dẫn chiếu (đã chuẩn hóa khoảng trắng, khử trùng giữ thứ tự). Seed cho Phase 2 closure."""
     text = nfc(text)
