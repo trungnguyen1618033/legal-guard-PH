@@ -303,6 +303,30 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             raise HTTPException(status_code=404, detail="Không tìm thấy văn bản trong KB.")
         return cl
 
+    @app.get("/graph/{doc_id:path}")
+    def doc_graph(doc_id: str, depth: int = 1, org: Organization = Depends(require_auth)) -> dict:
+        # Lược đồ văn bản (như TVPL): {nodes, edges} mở rộng quan hệ tới `depth` hop (giới hạn 1-3).
+        g = service.kb.graph(doc_id, org.country, depth=max(1, min(depth, 3)))
+        if g is None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy văn bản trong KB.")
+        return g
+
+    @app.get("/latest/{doc_id:path}")
+    def doc_latest(doc_id: str, org: Organization = Depends(require_auth)) -> dict:
+        # Map tới VĂN BẢN MỚI NHẤT (theo chuỗi replaced_by) — VB cũ → bản thay thế hiện hành.
+        lv = service.kb.latest(doc_id, org.country)
+        if lv is None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy văn bản trong KB.")
+        return lv
+
+    @app.get("/articles-changed/{doc_id:path}")
+    def doc_articles_changed(doc_id: str, org: Organization = Depends(require_auth)) -> dict:
+        # 'Bôi vàng' kiểu TVPL: đọc luật này → ĐIỀU nào đã bị VB khác sửa + bởi VB nào.
+        aa = service.kb.amended_articles(doc_id, org.country)
+        if aa is None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy văn bản trong KB.")
+        return aa
+
     @app.get("/impact/{doc_id:path}")
     def regulatory_impact(doc_id: str, limit: int = 200,
                           org: Organization = Depends(require_auth)) -> dict:

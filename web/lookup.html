@@ -34,6 +34,15 @@
   .timeline li { margin:4px 0; }
   #err { color:#c0392b; }
   a { color:var(--b); }
+  .node { display:inline-block; border:1px solid var(--line); border-radius:14px; padding:3px 10px;
+          margin:3px; font-size:13px; background:#f3f7ff; }
+  .node.exp { background:#ffe9e9; border-color:#f0b3b3; }        /* hết hiệu lực */
+  .node.root { background:#fff3cd; border-color:#e0c14c; font-weight:600; }
+  .edge { font-size:13.5px; margin:3px 0; }
+  .edge b { color:var(--b); }
+  .hl { background:#fff3cd; border-radius:4px; padding:0 4px; }   /* điều bị sửa — bôi vàng */
+  .banner { background:#e8f1ff; border:1px solid #b9d4ff; border-radius:8px; padding:8px 12px;
+            font-size:14px; margin-top:8px; }
 </style>
 </head>
 <body>
@@ -71,6 +80,20 @@
       <button class="ghost" onclick="loadChanges()">Xem</button>
     </div>
     <div id="changes" class="timeline"></div>
+  </details>
+
+  <details>
+    <summary>🗺️ Lược đồ văn bản (quan hệ · hiệu lực · bản mới nhất · điều bị sửa)</summary>
+    <p class="muted" style="margin-top:6px">Nhập số hiệu → xem <b>lược đồ quan hệ</b> (sửa đổi/thay thế/hướng dẫn),
+      <b>map tới bản mới nhất</b>, và <b>điều nào đã bị sửa</b> (bôi vàng) — kiểu Thư Viện Pháp Luật.</p>
+    <div class="row">
+      <input id="graphid" placeholder="Số hiệu, vd 123/2020/NĐ-CP" style="flex:1">
+      <select id="depth" style="width:auto"><option value="1">1 hop</option><option value="2">2 hop</option><option value="3">3 hop</option></select>
+      <button class="ghost" onclick="loadGraph()">Xem lược đồ</button>
+    </div>
+    <div id="latest"></div>
+    <div id="amended"></div>
+    <div id="graph" class="timeline"></div>
   </details>
 
   <details>
@@ -146,6 +169,44 @@ async function loadChanges() {
       (d.effective_date ? `, hiệu lực ${esc(d.effective_date)}` : '') + `</div>` +
       (items ? `<ul>${items}</ul>` : '<p class="muted">Chưa ghi nhận quan hệ sửa đổi/thay thế.</p>');
   } catch (e) { $('changes').textContent = 'Lỗi: ' + e.message; }
+}
+
+async function loadGraph() {
+  const id = $('graphid').value.trim();
+  $('graph').textContent=''; $('latest').textContent=''; $('amended').textContent='';
+  if (!id) return;
+  $('graph').textContent = 'Đang dựng lược đồ…';
+  try {
+    const depth = $('depth').value;
+    const [gR, lR, aR] = await Promise.all([
+      fetch(encodeURI('/graph/' + id + '?depth=' + depth), { headers: authHeaders() }),
+      fetch(encodeURI('/latest/' + id), { headers: authHeaders() }),
+      fetch(encodeURI('/articles-changed/' + id), { headers: authHeaders() }),
+    ]);
+    if (gR.status === 404) { $('graph').textContent = 'Không tìm thấy văn bản trong KB.'; return; }
+    if (!gR.ok) throw new Error('HTTP ' + gR.status);
+    const g = await gR.json();
+    // map tới bản mới nhất
+    if (lR.ok) { const lv = await lR.json();
+      $('latest').innerHTML = lv.replaced
+        ? `<div class="banner">🆕 Văn bản này đã bị thay thế → bản mới nhất: <b>${esc(lv.latest)}</b>` +
+          (lv.latest_title ? ` — ${esc(lv.latest_title)}` : '') + `</div>`
+        : `<div class="banner">✅ Đây là bản mới nhất (chưa bị thay thế).</div>`; }
+    // điều bị sửa (bôi vàng)
+    if (aR.ok) { const aa = (await aR.json()).amended_articles || {};
+      const arts = Object.keys(aa);
+      if (arts.length) $('amended').innerHTML = '<div style="margin-top:8px">✏️ Điều đã bị sửa: ' +
+        arts.map(a => `<span class="hl" title="bởi ${esc(aa[a].join(', '))}">${esc(a)}</span>`).join(' ') +
+        ' <span class="muted">(rê chuột xem VB sửa)</span></div>'; }
+    // nodes + edges
+    const nodes = g.nodes.map(n =>
+      `<span class="node ${n.doc_id===g.root?'root':''} ${n.status==='expired'?'exp':''}" ` +
+      `title="${esc(n.title||'')} ${n.in_kb?'':'(chưa nạp)'}">${esc(n.doc_id)}</span>`).join('');
+    const edges = g.edges.map(e =>
+      `<div class="edge">${esc(e.from)} <b>${esc(_REL_VI[e.relation]||e.relation)}</b> ${esc(e.to)}</div>`).join('');
+    $('graph').innerHTML = `<div style="margin:6px 0">${nodes}</div>` +
+      `<div style="margin-top:6px"><span class="muted">Quan hệ (${g.edges.length}):</span>${edges}</div>`;
+  } catch (e) { $('graph').textContent = 'Lỗi: ' + e.message; }
 }
 
 async function loadImpact() {

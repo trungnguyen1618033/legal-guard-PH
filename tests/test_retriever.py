@@ -115,6 +115,27 @@ def test_cross_encoder_rerank_takes_priority_over_llm():
     assert isinstance(r, CrossEncoderRerankRetriever)  # cross-encoder ưu tiên hơn LLM rerank
 
 
+def test_provider_path_specific_rerank():
+    # Cách A: /lookup (rerank=True mặc định) GIỮ cross-encoder; /analyze (rerank=False) BỎ → nhanh hơn.
+    from legalguard.adapters.outbound.knowledge_base import FileKnowledgeBaseProvider
+    from legalguard.domain.tenants import Organization
+    prov = FileKnowledgeBaseProvider(KB, embed_fn=_fake_embed, rerank_fn=lambda q, d: None)
+    org = Organization(id="acme", country="VN")
+    assert isinstance(prov.for_org(org, rerank=True), CrossEncoderRerankRetriever)    # lookup: có rerank
+    assert not isinstance(prov.for_org(org, rerank=False), CrossEncoderRerankRetriever)  # analyze: không
+    assert isinstance(prov.for_org(org), CrossEncoderRerankRetriever)                 # mặc định = lookup
+
+
+def test_provider_path_rerank_cached_separately():
+    # Hai path cache RIÊNG (không lẫn) — analyze không vô tình nhận retriever đã rerank của lookup.
+    from legalguard.adapters.outbound.knowledge_base import FileKnowledgeBaseProvider
+    from legalguard.domain.tenants import Organization
+    prov = FileKnowledgeBaseProvider(KB, embed_fn=_fake_embed, rerank_fn=lambda q, d: None)
+    org = Organization(id="acme", country="VN")
+    assert prov.for_org(org, rerank=False) is prov.for_org(org, rerank=False)   # cache ổn định/path
+    assert prov.for_org(org, rerank=False) is not prov.for_org(org, rerank=True)  # khác path = khác obj
+
+
 def test_citation_closure_pulls_referenced_article():
     # base top_k=1 chỉ trả Điều 300; Đ.300 dẫn chiếu Đ.294 → closure phải kéo Đ.294 về.
     r = build_retriever(KB, "VN", strategy="keyword", closure=True)

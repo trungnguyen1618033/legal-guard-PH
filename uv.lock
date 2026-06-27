@@ -1219,6 +1219,9 @@ eval = [
     { name = "langchain-openai" },
     { name = "ragas" },
 ]
+ingestion = [
+    { name = "datasets" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1249,6 +1252,7 @@ eval = [
     { name = "langchain-openai", specifier = ">=0.2,<1.0" },
     { name = "ragas", specifier = ">=0.4,<0.5" },
 ]
+ingestion = [{ name = "datasets", specifier = ">=5.0.0" }]
 
 [[package]]
 name = "lxml"

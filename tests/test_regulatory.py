@@ -1,5 +1,10 @@
 """Regulatory change intelligence: VB mới → case nào viện dẫn VB bị tác động → cảnh báo."""
-from legalguard.adapters.outbound.knowledge_base import affected_doc_files
+from legalguard.adapters.outbound.knowledge_base import (
+    affected_doc_files,
+    amended_articles,
+    latest_version,
+    legal_graph,
+)
 from legalguard.domain.models import AnalysisCase
 from legalguard.domain.regulatory import (
     format_impact_alert,
@@ -182,3 +187,45 @@ def test_affected_doc_files_replace_is_doc_level():
     aff = affected_doc_files("knowledge_base", "VN", "123/2020/NĐ-CP")
     info = aff.get("tt_39_2014_hoa_don_HET_HIEU_LUC.md")
     assert info["relation"] == "replaces" and info["articles"] == []
+
+
+# ---- Phase 1 legal-search: lược đồ (graph) + map VB mới nhất ----
+def test_legal_graph_live_kb_nodes_and_edges():
+    # Lược đồ NĐ 123/2020: liên quan TT 39 (replaces) + NĐ 70/2025 (amended_by) — suy 2 chiều.
+    g = legal_graph("knowledge_base", "VN", "123/2020/NĐ-CP", depth=1)
+    assert g["root"] == "123/2020/NĐ-CP"
+    node_ids = {n["doc_id"] for n in g["nodes"]}
+    assert {"123/2020/NĐ-CP", "39/2014/TT-BTC", "70/2025/NĐ-CP"} <= node_ids
+    rels = {(e["from"], e["relation"], e["to"]) for e in g["edges"]}
+    assert ("123/2020/NĐ-CP", "amended_by", "70/2025/NĐ-CP") in rels   # cạnh thuận
+    assert ("123/2020/NĐ-CP", "replaces", "39/2014/TT-BTC") in rels    # suy từ tt_39.replaced_by
+    # node mang trạng thái hiệu lực (cho UI tô màu)
+    assert next(n for n in g["nodes"] if n["doc_id"] == "39/2014/TT-BTC")["status"] == "expired"
+
+
+def test_legal_graph_unknown_doc_returns_none():
+    assert legal_graph("knowledge_base", "VN", "999/9999/NĐ-CP") is None
+
+
+def test_latest_version_maps_expired_to_replacement():
+    # TT 39/2014 (hết hiệu lực) → map tới VB MỚI NHẤT thay thế (NĐ 123/2020, effective 2022 > 78/2021).
+    lv = latest_version("knowledge_base", "VN", "39/2014/TT-BTC")
+    assert lv["replaced"] is True
+    assert lv["latest"] == "123/2020/NĐ-CP" and "123/2020/NĐ-CP" in lv["chain"]
+
+
+def test_latest_version_in_force_doc_is_itself():
+    lv = latest_version("knowledge_base", "VN", "123/2020/NĐ-CP")
+    assert lv["replaced"] is False and lv["latest"] == "123/2020/NĐ-CP" and lv["chain"] == []
+
+
+def test_latest_version_unknown_doc_none():
+    assert latest_version("knowledge_base", "VN", "999/9999/NĐ-CP") is None
+
+
+def test_amended_articles_for_reading_highlight():
+    # Đọc NĐ 123/2020 → Điều 9 (và 4,10,11) đã bị NĐ 70/2025 sửa (bôi vàng).
+    aa = amended_articles("knowledge_base", "VN", "123/2020/NĐ-CP")
+    art = aa["amended_articles"]
+    assert "Điều 9" in art and "70/2025/NĐ-CP" in art["Điều 9"]
+    assert amended_articles("knowledge_base", "VN", "999/9999/NĐ-CP") is None

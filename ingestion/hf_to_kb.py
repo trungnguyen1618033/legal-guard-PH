@@ -97,12 +97,15 @@ def safe_filename(so_ky_hieu: str | None, doc_id: str | int) -> str:
     return f"{base or f'doc-{doc_id}'}.md"
 
 
-def to_kb_markdown(meta: dict, content_html: str) -> tuple[str, str] | None:
-    """1 record (metadata + content_html) → (filename, nội dung .md có front-matter). None nếu rỗng text."""
+def to_kb_markdown(meta: dict, content_html: str,
+                   relations: dict[str, list[str]] | None = None) -> tuple[str, str] | None:
+    """1 record (metadata + content_html [+ relations]) → (filename, nội dung .md có front-matter).
+    None nếu rỗng text. `relations` (từ `group_relationships`) → ghi cạnh đồ thị (amends/replaced_by/...)
+    vào front-matter — CHÍNH là dữ liệu để closure/changelog/impact/lược đồ sáng lên ở quy mô lớn."""
     body = html_to_text(content_html)
     if not body:
         return None
-    fm = {
+    fm: dict[str, str] = {
         "doc_id": meta.get("so_ky_hieu") or f"id-{meta.get('id')}",
         "title": (meta.get("title") or "").strip(),
         "doc_type": doc_type_from(meta.get("loai_van_ban")),
@@ -110,19 +113,59 @@ def to_kb_markdown(meta: dict, content_html: str) -> tuple[str, str] | None:
         "effective_date": iso_date(meta.get("ngay_co_hieu_luc")),
         "expiry_date": iso_date(meta.get("ngay_het_hieu_luc")),
         "issuer": (meta.get("co_quan_ban_hanh") or "").strip(),
-        "source": "th1nhng0/vietnamese-legal-documents (vbpl.vn, CC BY 4.0) — auto-ingest, CẦN luật sư duyệt",
     }
+    for field, refs in (relations or {}).items():     # cạnh đồ thị: 'amends: a; b' (parser đọc dấu ;,)
+        joined = "; ".join(dict.fromkeys(r.strip() for r in refs if r.strip()))
+        if joined:
+            fm[field] = joined
+    # Nếu VB này SỬA ĐỔI VB khác → tự rút điều bị sửa từ thân (article-level scope cho impact + bôi vàng),
+    # thay vì khai tay `amends_articles`. Rule tất định (extract_article_changes), không LLM.
+    if (relations or {}).get("amends"):
+        from legalguard.adapters.outbound.legal_chunker import extract_article_changes
+        arts = "; ".join(dict.fromkeys(c["article"] for c in extract_article_changes(body)))
+        if arts:
+            fm["amends_articles"] = arts
+    fm["source"] = "th1nhng0/vietnamese-legal-documents (vbpl.vn, CC BY 4.0) — auto-ingest, CẦN luật sư duyệt"
     lines = ["---"] + [f"{k}: {v}" for k, v in fm.items() if v != ""] + ["---", ""]
     header = f"{fm['title']} — {fm['doc_id']}. Trạng thái: {meta.get('tinh_trang_hieu_luc') or 'Còn hiệu lực'}."
     return safe_filename(meta.get("so_ky_hieu"), meta.get("id")), "\n".join(lines) + header + "\n\n" + body
 
 
-# Quan hệ trong dataset → field front-matter (nền cho document-aware closure sau này).
+def group_relationships(pairs: list[tuple[str, str]]) -> dict[str, list[str]]:
+    """[(loại_quan_hệ_VN, số_hiệu_VB_liên_quan)] → {front_matter_field: [doc_ref...]} (khử trùng, giữ thứ tự).
+
+    Tách khỏi schema dataset để TEST OFFLINE: batch trích các cặp (loại, số hiệu) từ config `relationships`
+    rồi gom qua hàm này. Bỏ qua loại không map được (vd 'văn bản căn cứ' → based_on vẫn giữ nếu cần)."""
+    out: dict[str, list[str]] = {}
+    for rel_type, ref in pairs:
+        field = relationship_field(rel_type)
+        ref = (ref or "").strip()
+        if field and ref:
+            out.setdefault(field, [])
+            if ref not in out[field]:
+                out[field].append(ref)
+    return out
+
+
+# Quan hệ dataset (config `relationships`) → field front-matter. HƯỚNG ĐÃ VERIFY bằng cặp thật
+# (NĐ 70/2025 ⇄ NĐ 123/2020): nhãn mô tả vai trò của `other_doc_id`; `doc_id` là CHỦ THỂ.
+# Quy luật: "được/bị X" = source làm X cho other; "X" (chủ động) = other làm X cho source.
 _REL_FIELD = {
-    "văn bản được sửa đổi": "amends", "văn bản bị sửa đổi": "amended_by",
-    "văn bản thay thế": "replaces", "văn bản bị thay thế": "replaced_by",
+    "văn bản được sửa đổi": "amends",            # source SỬA other        (VERIFIED)
+    "văn bản được bổ sung": "amends",            # source BỔ SUNG other
+    "văn bản sửa đổi": "amended_by",             # other sửa source        (VERIFIED)
+    "văn bản bổ sung": "amended_by",             # other bổ sung source    (VERIFIED)
+    "văn bản hết hiệu lực": "replaces",          # source làm other hết hiệu lực (thay thế)
+    "văn bản quy định hết hiệu lực": "replaced_by",        # other làm source hết hiệu lực
+    "văn bản bị hết hiệu lực 1 phần": "amends",            # source làm other hết hiệu lực 1 phần
+    "văn bản quy định hết hiệu lực 1 phần": "amended_by",
+    "văn bản được hd, qđ chi tiết": "guides",    # source HƯỚNG DẪN other
+    "văn bản hd, qđ chi tiết": "guided_by",      # other hướng dẫn source
     "văn bản căn cứ": "based_on", "văn bản dẫn chiếu": "references",
-    "văn bản được hướng dẫn": "guides", "văn bản hướng dẫn": "guided_by",
+    # nhãn dạng đầy đủ (nguồn khác có thể dùng) — giữ tương thích:
+    "văn bản bị sửa đổi": "amended_by", "văn bản thay thế": "replaces",
+    "văn bản bị thay thế": "replaced_by", "văn bản được hướng dẫn": "guides",
+    "văn bản hướng dẫn": "guided_by",
 }
 
 
@@ -169,14 +212,99 @@ def fetch_sample(pages: int = 3, page_size: int = 100, keyword: str | None = Non
     return out
 
 
+def rel_pairs_by_source(rel_rows: list[dict], id_to_ref: dict[str, str]
+                        ) -> dict[str, list[tuple[str, str]]]:
+    """Config `relationships` → {source_id: [(loại_quan_hệ, số_hiệu_VB_liên_quan)]} (cho group_relationships).
+
+    PHÒNG THỦ tên cột (schema dataset có thể khác): thử nhiều tên cho source-id / loại / VB-đích; nếu đích
+    chỉ có id thì tra `id_to_ref` (id→số hiệu). Bỏ qua hàng thiếu trường. Tách riêng để TEST OFFLINE."""
+    out: dict[str, list[tuple[str, str]]] = {}
+    for r in rel_rows:
+        # Schema THẬT th1nhng0: doc_id (nguồn, int), other_doc_id (đích, là id), relationship (loại).
+        src = str(r.get("doc_id") or r.get("id") or r.get("source_id") or r.get("from_id") or "")
+        rel_type = (r.get("relationship") or r.get("loai_quan_he") or r.get("relation") or "")
+        ref = (r.get("related_so_ky_hieu") or r.get("so_ky_hieu") or "")
+        if not ref:                                   # đích thường chỉ là id → tra số hiệu
+            rid = str(r.get("other_doc_id") or r.get("related_id") or r.get("to_id") or "")
+            ref = id_to_ref.get(rid, "")
+        if src and rel_type and ref:
+            out.setdefault(src, []).append((str(rel_type), str(ref)))
+    return out
+
+
+def run_bulk(out: str = "knowledge_base/_ingested", limit: int | None = None,
+             keyword: str | None = None) -> int:
+    """CON BATCH bulk: join metadata + content + relationships của th1nhng0 (CC BY 4.0, vbpl.vn) → KB .md
+    KÈM cạnh đồ thị (amends/replaced_by/guides…) + hiệu lực. Cần `uv add datasets`. Trả số file đã ghi.
+
+    `keyword` (tùy chọn): chỉ ingest VB có keyword trong title/loại/ngành/lĩnh vực (slice LIÊN QUAN sản phẩm,
+    tránh nạp 178k VB nhiễu). KHÔNG scrape TVPL (license). Idempotent: ghi đè theo số hiệu (re-run=cập nhật."""
+    try:
+        from datasets import load_dataset
+    except ImportError:
+        raise SystemExit("Cần cài: uv add datasets (chỉ cho ingestion bulk).") from None
+
+    out_dir = Path(out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    kw = (keyword or "").strip().lower()
+    meta = load_dataset(_DATASET, "metadata", split="data")
+    meta_by_id = {str(r["id"]): r for r in meta}
+    id_to_ref = {i: (m.get("so_ky_hieu") or "") for i, m in meta_by_id.items()}
+    try:
+        rel_rows = list(load_dataset(_DATASET, "relationships", split="data"))
+        rels = rel_pairs_by_source(rel_rows, id_to_ref)
+    except Exception:  # noqa: BLE001 — không có config relationships → vẫn ingest nội dung + hiệu lực
+        rels = {}
+        print("⚠️ Không nạp được config relationships — bỏ cạnh đồ thị, vẫn ghi hiệu lực/nội dung.")
+
+    def _match(m: dict) -> bool:
+        if not kw:
+            return True
+        hay = " ".join(str(m.get(f, "") or "") for f in
+                       ("title", "loai_van_ban", "nganh", "linh_vuc", "so_ky_hieu")).lower()
+        return kw in hay
+
+    # content.parquet có cột HTML kiểu large_string → `datasets` cast sang string lỗi (>2GB). Đọc THẲNG
+    # bằng pyarrow theo batch (giữ large_string, nhẹ RAM), bỏ qua lớp cast của datasets.
+    import pyarrow.parquet as pq
+    from huggingface_hub import hf_hub_download
+    cpath = hf_hub_download(_DATASET, "data/content.parquet", repo_type="dataset")
+    written = 0
+    for batch in pq.ParquetFile(cpath).iter_batches(batch_size=256):
+        for r in batch.to_pylist():
+            m = meta_by_id.get(str(r.get("id")))
+            if not m or not _match(m):
+                continue
+            relations = group_relationships(rels.get(str(r.get("id")), []))
+            res = to_kb_markdown(m, r.get("content_html", ""), relations=relations or None)
+            if not res:
+                continue
+            fname, content = res
+            (out_dir / fname).write_text(content, encoding="utf-8")
+            written += 1
+            if written % 200 == 0:
+                print(f"  … {written} file", flush=True)
+            if limit and written >= limit:
+                print(f"\nBulk: đã ghi {written} file vào {out_dir}/ (auto-ingest — CẦN luật sư duyệt).")
+                return written
+    print(f"\nBulk: đã ghi {written} file vào {out_dir}/ (auto-ingest — CẦN luật sư duyệt).")
+    return written
+
+
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Ingest HF legal dataset → KB .md (sample qua HTTP API)")
+    ap = argparse.ArgumentParser(description="Ingest HF legal dataset → KB .md (sample HTTP API hoặc --bulk)")
+    ap.add_argument("--bulk", action="store_true", help="ingest toàn bộ (cần `datasets`) + cạnh đồ thị")
+    ap.add_argument("--limit", type=int, default=None, help="giới hạn số file (cho bulk)")
     ap.add_argument("--pages", type=int, default=3)
     ap.add_argument("--page-size", type=int, default=100)
     ap.add_argument("--start", type=int, default=0)
     ap.add_argument("--keyword", default=None, help="lọc client-side theo title/loại/ngành")
     ap.add_argument("--out", default="knowledge_base/_ingested")
     args = ap.parse_args()
+
+    if args.bulk:
+        run_bulk(args.out, args.limit, args.keyword)
+        return
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -194,12 +322,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-# --- Bulk thật (chạy local, cần `uv add datasets`): -----------------------------------
-#   from datasets import load_dataset
-#   meta = load_dataset(_DATASET, "metadata", split="data")          # 518k, ~125MB
-#   meta_by_id = {str(r["id"]): r for r in meta}                      # index trong RAM
-#   for r in load_dataset(_DATASET, "content", split="data", streaming=True):  # 178k text
-#       m = meta_by_id.get(str(r["id"]))
-#       if m: write to_kb_markdown(m, r["content_html"])
-#   rel = load_dataset(_DATASET, "relationships", split="data")       # đồ thị → edges (closure)

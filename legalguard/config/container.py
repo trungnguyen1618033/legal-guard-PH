@@ -72,7 +72,8 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                            cases=cases, outcomes=outcomes, observer=observer,
                            legal_basis_grounding=cfg.legal_basis_grounding, feedback=feedback,
                            nli_verification=cfg.nli_verification, judge=judge,
-                           lookup_cache_size=cfg.lookup_cache_size, lookup_llm=lookup_llm)
+                           lookup_cache_size=cfg.lookup_cache_size, lookup_llm=lookup_llm,
+                           illegal_detection=cfg.illegal_detection)
 
 
 def build_evidence(cfg: Settings = settings) -> EvidenceService:

@@ -4,6 +4,7 @@ from legalguard.adapters.outbound.knowledge_base import _load_chunks
 from legalguard.adapters.outbound.legal_chunker import (
     article_key,
     chunk_legal,
+    extract_article_changes,
     extract_article_refs,
     extract_citations,
     nfc,
@@ -100,6 +101,46 @@ def test_extract_article_refs_resolves_target_document():
     assert extract_article_refs("theo quy định tại Điều 10 Nghị định này") == [
         ("Điều 10", "self")]
     assert extract_article_refs("xem Điều 5 để biết thêm") == [("Điều 5", None)]  # trống ngữ cảnh
+
+
+def test_extract_article_changes_classifies_actions():
+    # 'Sửa đổi, bổ sung' → amend (KHÔNG phải add dù có 'bổ sung'); bãi bỏ → repeal; bổ sung thuần → add.
+    body = ("Sửa đổi, bổ sung khoản 2 Điều 9 như sau: ... "
+            "Bãi bỏ điểm a khoản 3 Điều 10. "
+            "Bổ sung Điều 9a vào sau Điều 9. "
+            "Thay thế cụm từ tại Điều 11.")
+    chs = extract_article_changes(body)
+    by_art = {(c["article"], c["action"]) for c in chs}
+    assert ("Điều 9", "amend") in by_art
+    assert ("Điều 10", "repeal") in by_art
+    assert ("Điều 9a", "add") in by_art
+    assert ("Điều 11", "replace") in by_art
+    # clause/point bắt được
+    d9 = next(c for c in chs if c["article"] == "Điều 9" and c["action"] == "amend")
+    assert d9["clause"] == "khoản 2"
+    d10 = next(c for c in chs if c["article"] == "Điều 10")
+    assert d10["clause"] == "khoản 3" and d10["point"] == "điểm a"
+
+
+def test_extract_article_changes_ignores_plain_references():
+    # Dẫn chiếu thường (không có động từ thay đổi) → KHÔNG coi là thay đổi.
+    assert extract_article_changes("theo quy định tại Điều 5 và Điều 7 của Luật này") == []
+
+
+def test_extract_article_changes_respects_sentence_boundary():
+    # Bug A: động từ thay đổi của câu TRƯỚC không được lan sang điều ở câu sau (dẫn chiếu thường).
+    chs = extract_article_changes("Bãi bỏ Điều 5. Theo quy định tại Điều 7 thì áp dụng.")
+    arts = {(c["article"], c["action"]) for c in chs}
+    assert ("Điều 5", "repeal") in arts
+    assert not any(a == "Điều 7" for a, _ in arts)     # Điều 7 chỉ là dẫn chiếu
+
+
+def test_extract_article_changes_skips_anchor_article():
+    # Bug B: 'Bổ sung Điều 9a vào sau Điều 9' → chỉ Điều 9a được THÊM; Điều 9 là mốc neo, KHÔNG đổi.
+    chs = extract_article_changes("Bổ sung Điều 9a vào sau Điều 9.")
+    arts = {(c["article"], c["action"]) for c in chs}
+    assert ("Điều 9a", "add") in arts
+    assert not any(a == "Điều 9" for a, _ in arts)
 
 
 def test_real_kb_law_chunks_to_article_units_with_crossrefs():

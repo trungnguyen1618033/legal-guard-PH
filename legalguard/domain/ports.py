@@ -58,12 +58,23 @@ class KnowledgeBasePort(Protocol):
 class KnowledgeBaseProvider(Protocol):
     """Tạo KnowledgeBasePort cho một công ty: KB quốc gia + overlay riêng của công ty."""
 
-    def for_org(self, org: Organization) -> KnowledgeBasePort: ...
+    # rerank=False → bỏ cross-encoder rerank (path /analyze: nhanh hơn, agent chỉ tra chính sách rủi ro);
+    # rerank=True (mặc định) → giữ rerank (path /lookup: Q&A pháp lý cần độ chính xác xếp hạng cao).
+    def for_org(self, org: Organization, *, rerank: bool = True) -> KnowledgeBasePort: ...
 
     def changelog(self, doc_id: str, country: str) -> dict | None: ...   # "what changed" cấp văn bản
 
     # VB mới `doc_id` tác động file nào → {filename: {"relation","articles"}}. {} nếu không có.
     def affected_files(self, doc_id: str, country: str) -> dict[str, dict]: ...
+
+    # Lược đồ văn bản (như TVPL): {nodes, edges} mở rộng tới `depth` hop. None nếu không có VB.
+    def graph(self, doc_id: str, country: str, depth: int = 1) -> dict | None: ...
+
+    # Map tới văn bản MỚI NHẤT (theo chuỗi replaced_by). None nếu doc_id không có trong KB.
+    def latest(self, doc_id: str, country: str) -> dict | None: ...
+
+    # Điều nào của doc_id đã bị VB khác sửa → {article: [doc_id]} (cho 'bôi vàng'). None nếu không có VB.
+    def amended_articles(self, doc_id: str, country: str) -> dict | None: ...
 
 
 @runtime_checkable

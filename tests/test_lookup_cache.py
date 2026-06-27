@@ -27,7 +27,7 @@ class _Ret:
 
 
 class _KB:
-    def for_org(self, org):
+    def for_org(self, org, *, rerank=True):
         return _Ret()
 
 
