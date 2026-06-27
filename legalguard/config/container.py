@@ -125,7 +125,8 @@ def build_app(cfg: Settings = settings) -> FastAPI:
                     default_tenant=cfg.default_tenant, api_orgs=api_orgs,
                     max_upload_bytes=cfg.max_upload_bytes, rate_limit_per_min=cfg.rate_limit_per_min,
                     max_input_chars=cfg.max_input_chars,
-                    senders={"slack": slack_sender, "zalo": zalo_sender})
+                    senders={"slack": slack_sender, "zalo": zalo_sender},
+                    expert_channel=cfg.expert_channel)
     # Kênh nhắn tin (Zalo/Slack) — chỉ mount webhook khi có secret tương ứng.
     handler = ChatHandler(service, parser, build_conversation_store(cfg), cfg.default_tenant)
     app.include_router(build_channels_router(

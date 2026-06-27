@@ -53,6 +53,13 @@ class OutcomeIn(BaseModel):
     result: str = "pending"     # accepted | partial | rejected | pending
 
 
+class EscalateIn(BaseModel):
+    case_id: str = ""           # case cần chuyển (nếu có) — kèm số rủi ro/illegal
+    reason: str = ""            # vì sao escalate (reviewer reject / illegal / nghi ngờ)
+    via: str = "slack"
+    channel: str = ""           # rỗng → dùng kênh chuyên gia cấu hình sẵn (EXPERT_CHANNEL)
+
+
 class AskIn(BaseModel):
     question: str
     lang: str = "vi"            # vi | en
@@ -106,10 +113,11 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
               default_tenant: str = "VN", api_orgs: dict[str, Organization] | None = None,
               max_upload_bytes: int = 10 * 1024 * 1024, rate_limit_per_min: int = 60,
               max_input_chars: int = 50_000,
-              senders: dict | None = None) -> FastAPI:
+              senders: dict | None = None, expert_channel: str = "") -> FastAPI:
     app = FastAPI(title="Legal Guard PH", version="0.7.0")
     orgs = api_orgs or {}
     _senders = senders or {}        # {"slack": ChatSenderPort, "zalo": ChatSenderPort} — gửi cảnh báo chủ động
+    _expert_channel = expert_channel   # kênh chuyên gia nhận case escalation
     _hits: dict[tuple, int] = {}   # rate limit in-process (prod → Redis; per-worker)
     _hits_lock = threading.Lock()
 
@@ -285,6 +293,26 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             created_at=datetime.now(timezone.utc).isoformat(),
         ))
         return {"ok": True}
+
+    @app.post("/escalate")
+    def escalate(body: EscalateIn, org: Organization = Depends(require_auth)) -> dict:
+        # Escalation chuyên gia THẬT: reviewer Reject / có illegal → gửi case cho luật sư qua Slack/Zalo.
+        # Hoàn tất "human checkpoint": không chỉ gắn cờ, mà CHUYỂN tới người thật.
+        channel = (body.channel or _expert_channel).strip()
+        sender = _senders.get(body.via)
+        if not channel or sender is None or not getattr(sender, "available", False):
+            # Không cấu hình kênh → vẫn nhận yêu cầu (đánh dấu) nhưng báo chưa gửi được.
+            return {"ok": True, "sent": False, "reason": "Chưa cấu hình kênh chuyên gia (EXPERT_CHANNEL)."}
+        ref = f" (case {body.case_id})" if body.case_id else ""
+        text = (f"🧑‍⚖️ *Cần luật sư duyệt*{ref} — org {org.id}\n"
+                f"Lý do: {body.reason or 'reviewer chuyển chuyên gia'}\n"
+                f"Xem: /app (case) hoặc /cases/{body.case_id}" if body.case_id else
+                f"🧑‍⚖️ *Cần luật sư duyệt* — org {org.id}\nLý do: {body.reason or 'reviewer chuyển chuyên gia'}")
+        try:
+            sender.send(channel, text)
+        except Exception as exc:  # noqa: BLE001 — gửi lỗi không nên 500
+            raise HTTPException(status_code=502, detail=f"Gửi {body.via} thất bại: {exc}") from exc
+        return {"ok": True, "sent": True, "via": body.via}
 
     @app.get("/insights/tactics")
     def tactic_insights(org: Organization = Depends(require_auth)) -> dict:
