@@ -143,6 +143,24 @@ def test_deal_specific_question_routes_followup():
     assert r.kind == ""                                  # follow-up (ChatReply không gắn kind)
 
 
+def test_counter_offer_in_deal_routes_negotiation():
+    # Trong deal, tin là PHẢN HỒI đối tác (không phải câu hỏi) → vòng ĐÀM PHÁN có cấu trúc.
+    from legalguard.adapters.inbound.channels import _is_counter_offer
+    assert _is_counter_offer("Đối tác đồng ý giảm phạt còn 10% nhưng giữ trọng tài Bắc Kinh.")
+    assert not _is_counter_offer("Mức phạt tối đa là bao nhiêu?")     # câu hỏi → KHÔNG phải counter
+    h = _handler()
+    h.reply("cNego", text=MSG)                                        # analyze → set context
+    r = h.reply_ex("cNego", text="Đối tác đồng ý giảm phạt còn 10%, nhưng từ chối đổi trọng tài.")
+    assert r.kind == "negotiate"                                      # → vòng đàm phán
+
+
+def test_format_negotiation_reply():
+    from legalguard.adapters.inbound.channels import format_negotiation_reply
+    out = format_negotiation_reply({"status": "close", "assessment": "đối tác nhượng đủ",
+                                    "strategy": "chốt", "reply_vi": "Đồng ý", "grounded": True})
+    assert "Nên CHỐT deal" in out and "đối tác nhượng đủ" in out and "Đồng ý" in out
+
+
 def test_chat_history_redacts_pii_before_store():
     # Khách DÁN hợp đồng có PII vào chat → history KHÔNG được giữ email/sđt nguyên văn.
     store = InMemoryConversationStore()

@@ -58,6 +58,18 @@ def _is_legal_lookup(text: str) -> bool:
     """Câu hỏi pháp lý CHUNG (từ-để-hỏi + thuật ngữ luật) → ưu tiên LOOKUP (template + dẫn nguồn) hơn
     follow-up, kể cả đang trong deal. Câu đặc-thù-deal ('nếu đối tác từ chối…') không khớp → follow-up."""
     return bool(_is_question(text) and _LEGAL_TERM_RE.search(text))
+
+
+# Tín hiệu đây là PHẢN HỒI/COUNTER-OFFER của đối tác (đang trong deal) → vòng đàm phán có cấu trúc.
+_COUNTER_RE = re.compile(
+    r"đối tác|đối phương|bên kia|bên bán|bên mua|họ (nói|đề nghị|muốn|đồng ý|từ chối)|phản hồi|phản đề|"
+    r"đồng ý|chấp nhận|từ chối|đề nghị|yêu cầu|giảm (còn|xuống)|tăng|nhượng|chốt|walk|counter|offer|%",
+    re.IGNORECASE)
+
+
+def _is_counter_offer(text: str) -> bool:
+    """Trong deal, tin KHÔNG phải câu hỏi nhưng có tín hiệu phản hồi đối tác → vòng đàm phán đa phiên."""
+    return bool(text and not _is_question(text) and _COUNTER_RE.search(text))
 _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ N lượt gần
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
@@ -95,6 +107,26 @@ def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
 def _context_from_result(result: AnalysisResult) -> str:
     risks = "; ".join(f"{r['clause']} ({r.get('priority', '')})" for r in result.risks)
     return f"Rủi ro: {risks or 'không'}. Chiến lược: {result.strategy[:400]}"
+
+
+_NEGO_STATUS = {"continue": "🔄 Tiếp tục đàm phán", "close": "✅ Nên CHỐT deal",
+                "walk_away": "🚪 Nên RÚT (walk-away)"}
+
+
+def format_negotiation_reply(r: dict, lang: str = "vi") -> str:
+    """Định dạng 1 vòng đàm phán (negotiate_round) cho Slack: status + đánh giá + chiến lược + câu trả lời."""
+    lines = [f"*{_NEGO_STATUS.get(r.get('status'), '🔄 Đàm phán')}*"]
+    if r.get("assessment"):
+        lines.append(f"📊 *Đánh giá phản hồi:* {r['assessment']}")
+    if r.get("strategy"):
+        lines.append(f"🧭 *Vòng tới:* {r['strategy']}")
+    reply = r.get("reply_vi") if lang == "vi" else (r.get("reply_en") or r.get("reply_vi"))
+    if reply:
+        lines.append(f"💬 *Câu trả lời đối tác:*\n{reply}")
+    if not r.get("grounded"):
+        lines.append("_(khung sơ bộ — chưa cấu hình AI)_")
+    out = "\n\n".join(lines)
+    return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
 
 @dataclass
@@ -165,8 +197,10 @@ class ChatHandler:
                 contract = self.parser.extract_text(attachment, filename or "file")
             except ValueError as exc:
                 return ChatReply(f"Không đọc được file: {exc}")
-        elif text and not _is_question(text) and any(s in text.lower() for s in _SIGNALS):
-            contract = text                            # có tín hiệu HĐ & KHÔNG phải câu hỏi → rà soát
+        elif (text and not _is_question(text) and any(s in text.lower() for s in _SIGNALS)
+              and not (conv.context and _is_counter_offer(text))):
+            contract = text                            # tín hiệu HĐ & KHÔNG phải câu hỏi → rà soát
+            # (đang trong deal + là phản hồi đối tác → KHÔNG re-analyze, để rơi xuống nhánh đàm phán)
 
         if contract and contract.strip():                 # → RÀ SOÁT
             try:
@@ -175,6 +209,9 @@ class ChatHandler:
                 return ChatReply(f"Xin lỗi, chưa xử lý được: {exc}")
             conv.context = _context_from_result(result)    # nhớ deal đang bàn
             return ChatReply(format_chat_reply(result, lang), "analysis", result.case_id or "")
+        # Trong deal: tin là PHẢN HỒI/COUNTER của đối tác → VÒNG ĐÀM PHÁN có cấu trúc (không phải Q&A chung).
+        if conv.context and _is_counter_offer(text or ""):
+            return ChatReply(self._negotiate(conv, text or "", lang), "negotiate", "")
         # Follow-up theo deal — TRỪ câu hỏi pháp lý CHUNG (→ ưu tiên lookup template+dẫn nguồn cho nhất quán).
         if conv.context and not _is_legal_lookup(text or ""):
             return ChatReply(self._followup(conv, text or "", lang))
@@ -188,6 +225,17 @@ class ChatHandler:
             return ChatReply(self._followup(conv, text or "", lang))
         return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "
                          "hoặc đặt câu hỏi pháp lý nhé.")
+
+    def _negotiate(self, conv: Conversation, partner_message: str, lang: str) -> str:
+        """Vòng đàm phán đa phiên trên Slack: bối cảnh deal + tin đối tác → round có cấu trúc.
+        NỐI kết quả vào context để vòng sau dựa trên đó (đàm phán nhiều bước trong thread)."""
+        try:
+            r = self.service.negotiate_round(conv.context, partner_message, position=None, lang=lang)
+        except LLMError as exc:
+            return f"Xin lỗi, chưa xử lý được vòng đàm phán: {exc}"
+        nxt = r.get("reply_vi") or r.get("assessment") or ""
+        conv.context = (conv.context + f"\n--- Đối tác: {partner_message}\n--- Ta: {nxt}")[:1800]
+        return format_negotiation_reply(r, lang)
 
     def _followup(self, conv: Conversation, question: str, lang: str) -> str:
         hist = "\n".join(f"{m['role']}: {m['content']}" for m in conv.recent(6))
