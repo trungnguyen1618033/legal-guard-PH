@@ -36,6 +36,12 @@ def test_analyze_requires_input(client):
     assert client.post("/analyze").status_code == 400
 
 
+def test_trust_endpoints(client):
+    assert client.get("/trust").status_code == 200             # trang công bố
+    j = client.get("/trust.json").json()                        # nguồn số liệu (không cần auth)
+    assert j["methodology"] and j["metrics"] and j["disclaimer"]
+
+
 def test_amendments_compile_endpoint(client):
     # Phase C: gộp điều khoản đã chọn → memo markdown (illegal lên đầu).
     r = client.post("/amendments/compile", json={"items": [

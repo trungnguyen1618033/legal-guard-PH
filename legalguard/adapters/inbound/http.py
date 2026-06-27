@@ -36,6 +36,7 @@ _LANDING = Path("web/index.html")
 _APP = Path("web/app.html")
 _LOOKUP = Path("web/lookup.html")
 _DASHBOARD = Path("web/dashboard.html")
+_TRUST = Path("web/trust.html")
 _DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
@@ -177,6 +178,18 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         if _DASHBOARD.exists():
             return FileResponse(_DASHBOARD)
         return HTMLResponse("<h1>Legal Guard PH</h1><p>UI bảng điều khiển chưa cài. API: /insights/dashboard</p>")
+
+    @app.get("/trust", response_class=HTMLResponse)
+    def trust_ui():
+        # Trang CÔNG BỐ ĐỘ TIN CẬY (phương pháp + số đo) — gửi cho luật sư/đối tác/giám khảo.
+        if _TRUST.exists():
+            return FileResponse(_TRUST)
+        return HTMLResponse("<h1>Legal Guard</h1><p>Độ tin cậy: /trust.json</p>")
+
+    @app.get("/trust.json")
+    def trust_data() -> dict:       # nguồn số liệu chung cho trang /trust + Slack (không cần auth)
+        from legalguard.domain.trust import trust_report
+        return trust_report()
 
     @app.get("/health")
     def health() -> dict:           # liveness

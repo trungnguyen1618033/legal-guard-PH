@@ -70,6 +70,16 @@ _COUNTER_RE = re.compile(
 def _is_counter_offer(text: str) -> bool:
     """Trong deal, tin KHÔNG phải câu hỏi nhưng có tín hiệu phản hồi đối tác → vòng đàm phán đa phiên."""
     return bool(text and not _is_question(text) and _COUNTER_RE.search(text))
+
+
+# Meta-câu-hỏi về ĐỘ TIN CẬY của công cụ (khác câu hỏi pháp lý) → trả công bố độ chính xác.
+_TRUST_RE = re.compile(
+    r"độ (chính xác|tin cậy)|đáng tin|tin cậy không|có bịa|có chính xác|chính xác không|"
+    r"\baccuracy\b|\btrust(worthy)?\b|kiểm chứng thế nào|làm sao tin", re.IGNORECASE)
+
+
+def _is_trust_query(text: str) -> bool:
+    return bool(text and _TRUST_RE.search(text))
 _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ N lượt gần
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
@@ -190,6 +200,9 @@ class ChatHandler:
 
     def _handle(self, conv: Conversation, text, attachment, filename, lang) -> ChatReply:
         org = default_org(self.default_tenant)
+        if attachment is None and _is_trust_query(text or ""):     # meta-câu-hỏi về độ tin cậy → công bố
+            from legalguard.domain.trust import format_trust_text
+            return ChatReply(format_trust_text())
         contract, source = None, None
         if attachment is not None:
             source = SourceMeta.of(attachment, filename or "file")   # audit: hash file gốc

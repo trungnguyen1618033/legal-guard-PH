@@ -114,7 +114,9 @@ upload/dán HĐ + vị thế đàm phán → gọi `/analyze` → bảng risks/f
 (+ section "VB mới ảnh hưởng HĐ nào?" `/impact`, changelog, redline, **🗺️ Lược đồ văn bản** `loadGraph`: gọi
 `/graph`+`/latest`+`/articles-changed` → vẽ nodes tô màu hiệu lực + edges quan hệ + banner bản-mới-nhất +
 bôi-vàng-điều-bị-sửa, kiểu TVPL). app.html mỗi fallback có nút "📝 soạn
-điều khoản phản-đề" (`/counter`). + `web/dashboard.html` (`GET /dashboard`): system-of-record → `/insights/dashboard`
+điều khoản phản-đề" (`/counter`). + `web/trust.html` (`GET /trust` + data `GET /trust.json`): **công bố độ tin cậy** (phương pháp đảm bảo +
+số đo eval, nguồn chung `domain/trust.py trust_report`/`format_trust_text` — cho cả web lẫn Slack; câu hỏi
+"độ chính xác/tin cậy" trên Slack `_is_trust_query` → trả tóm tắt). + `web/dashboard.html` (`GET /dashboard`): system-of-record → `/insights/dashboard`
 (HĐ rà soát, phân bố severity, top điều khoản rủi ro, feedback, win-rate chiến thuật).
 
 Upload: `DocumentParserPort` = `OcrFallbackParser(PdfDocxParser, QwenVisionOcr)` — text-PDF/DOCX/TXT
