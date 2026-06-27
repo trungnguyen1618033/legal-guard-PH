@@ -71,6 +71,17 @@ class CounterIn(BaseModel):
     leverage: str = "balanced"  # vị thế đàm phán: strong | balanced | weak
 
 
+class NegotiateIn(BaseModel):
+    deal_context: str               # bối cảnh deal (chiến lược/rủi ro từ /analyze hoặc vòng trước)
+    partner_message: str            # tin nhắn đối tác vừa gửi (counter-offer / phản hồi)
+    lang: str = "vi"
+    leverage: str = "balanced"
+    urgency: str = "low"
+    relationship: str = "new"
+    alternatives: bool = False
+    protected_party: str = ""
+
+
 class AlertIn(BaseModel):
     via: str                    # slack | zalo
     channel: str                # Slack channel ID hoặc Zalo user_id nhận cảnh báo
@@ -394,6 +405,21 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             return await run_in_threadpool(
                 service.draft_counter_clause, body.clause, body.risk, body.suggestion,
                 body.legal_basis, body.leverage)
+        except LLMError as exc:
+            raise HTTPException(status_code=502, detail=f"LLM lỗi: {exc}") from exc
+
+    @app.post("/negotiate")
+    async def negotiate(body: NegotiateIn, _: Organization = Depends(require_auth)) -> dict:
+        # VÒNG đàm phán đa phiên: bối cảnh deal + tin đối tác → đánh giá + chiến lược + câu trả lời + status.
+        if len(body.deal_context) > max_input_chars or len(body.partner_message) > max_input_chars:
+            raise HTTPException(status_code=413, detail="Nội dung quá dài.")
+        pos = NegotiationPosition(leverage=body.leverage, urgency=body.urgency,
+                                  relationship=body.relationship, alternatives=body.alternatives,
+                                  protected_party=body.protected_party[:120])
+        try:
+            return await run_in_threadpool(
+                service.negotiate_round, body.deal_context, body.partner_message, pos,
+                body.lang if body.lang in ("en", "vi") else "vi")
         except LLMError as exc:
             raise HTTPException(status_code=502, detail=f"LLM lỗi: {exc}") from exc
 

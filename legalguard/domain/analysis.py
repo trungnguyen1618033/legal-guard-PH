@@ -276,6 +276,18 @@ class AnalysisService:
             self.observer.event("counter_clause", {"clause": clause, "grounded": cc.grounded})
         return asdict(cc)
 
+    def negotiate_round(self, deal_context: str, partner_message: str,
+                        position: NegotiationPosition | None = None, lang: str = "vi") -> dict:
+        """Một VÒNG đàm phán đa phiên: bối cảnh deal + tin đối tác → đánh giá + chiến lược vòng tới +
+        câu trả lời song ngữ + status (continue/close/walk_away). Lõi 'Autopilot Agent' dẫn đàm phán."""
+        from legalguard.domain.negotiation import negotiate_round as _round
+
+        r = _round(self.reasoner, deal_context=deal_context, partner_message=partner_message,
+                   position=position, lang=lang)
+        if self.observer:
+            self.observer.event("negotiate_round", {"status": r.status, "grounded": r.grounded})
+        return asdict(r)
+
     def get_case(self, case_id: str) -> AnalysisCase | None:
         return self.cases.get(case_id) if self.cases else None
 
