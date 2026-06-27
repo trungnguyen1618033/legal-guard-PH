@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import JSON, Boolean, Integer, String, create_engine, select
+from sqlalchemy import JSON, Boolean, Index, Integer, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from legalguard.domain.models import AnalysisCase
@@ -40,6 +40,8 @@ def get_engine(database_url: str):
 
 class CaseRow(Base):
     __tablename__ = "cases"
+    # Composite cho truy vấn nóng nhất: list_by_org (WHERE org_id=? ORDER BY created_at DESC).
+    __table_args__ = (Index("idx_cases_org_created", "org_id", "created_at"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     org_id: Mapped[str] = mapped_column(String, index=True, default="default")

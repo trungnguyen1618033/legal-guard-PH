@@ -5,7 +5,7 @@ Dùng chung Base/engine kiểu với cases. win_rates() là tín hiệu cho outc
 """
 from __future__ import annotations
 
-from sqlalchemy import String, select
+from sqlalchemy import String, case, func, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from legalguard.adapters.outbound.sql_case_repository import Base, get_engine
@@ -47,16 +47,16 @@ class SqlAlchemyOutcomeRepository:
             return len(rows)
 
     def win_rates(self, org_id: str | None = None) -> dict[str, dict]:
-        stmt = select(OutcomeRow)
+        """Tổng hợp win-rate theo điều khoản. Gộp bằng SQL GROUP BY (chỉ trả mỗi-clause-1-dòng) thay vì
+        load mọi outcome rồi gộp Python — O(số clause) thay vì O(số outcome), nhẹ RAM khi data lớn."""
+        weight = case(*[(OutcomeRow.result == r, w) for r, w in _WEIGHT.items()], else_=0.0)
+        stmt = (select(OutcomeRow.clause, func.sum(weight), func.count())
+                .where(OutcomeRow.result.in_(tuple(_WEIGHT)))   # bỏ qua pending
+                .group_by(OutcomeRow.clause))
         if org_id:
             stmt = stmt.where(OutcomeRow.org_id == org_id)
-        agg: dict[str, list[float]] = {}
         with Session(self.engine) as s:
-            for row in s.scalars(stmt).all():
-                if row.result in _WEIGHT:                       # bỏ qua pending
-                    agg.setdefault(row.clause, []).append(_WEIGHT[row.result])
-        return {
-            clause: {"accepted": round(sum(w), 2), "total": len(w),
-                     "rate": round(sum(w) / len(w), 2)}
-            for clause, w in agg.items()
-        }
+            rows = s.execute(stmt).all()
+        return {clause: {"accepted": round(float(acc), 2), "total": total,
+                         "rate": round(float(acc) / total, 2)}
+                for clause, acc, total in rows if total}
