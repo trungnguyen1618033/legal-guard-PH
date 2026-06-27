@@ -450,6 +450,35 @@ def test_slack_interaction_records_feedback():
     assert r.json().get("replace_original") is True        # thay tin gốc bằng xác nhận
 
 
+def test_record_deal_outcome_per_clause():
+    # Ghi Outcome cho MỌI fallback của case → nuôi win-rate; cô lập org.
+    from legalguard.adapters.inbound.channels import _record_deal_outcome
+    from legalguard.domain.models import AnalysisCase
+
+    case = AnalysisCase(id="c1", org_id="default", tenant="VN", created_at="t", lang="vi",
+                        contract_excerpt="", summary="", needs_human_review=False, risks=[],
+                        fallbacks=[{"clause": "Điều A"}, {"clause": "Điều B"}, {"clause": ""}], trace=[])
+
+    class _Svc:
+        def __init__(self): self.recorded = []
+        def get_case(self, cid): return case if cid == "c1" else None
+        def record_outcome(self, o): self.recorded.append(o)
+
+    svc = _Svc()
+    assert _record_deal_outcome(svc, "default", "c1", "accepted") == 2   # bỏ clause rỗng
+    assert {o.clause for o in svc.recorded} == {"Điều A", "Điều B"}
+    assert all(o.result == "accepted" for o in svc.recorded)
+    assert _record_deal_outcome(svc, "other-org", "c1", "accepted") == 0  # sai org → không ghi
+    assert _record_deal_outcome(svc, "default", "nope", "accepted") == 0   # không có case
+
+
+def test_slack_interaction_records_outcome():
+    c = _client(slack="sek")
+    r = _slack_interaction(c, "sek", "oc_accepted", json.dumps({"c": "case-xyz"}))
+    assert r.status_code == 200 and r.json().get("replace_original") is True
+    assert "kết quả" in r.json()["text"].lower()        # xác nhận ghi kết quả (flywheel)
+
+
 def test_slack_interaction_bad_signature_401():
     c = _client(slack="sek")
     r = c.post("/channels/slack/interactions", content=b"payload=%7B%7D",
