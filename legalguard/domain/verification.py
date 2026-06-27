@@ -73,14 +73,23 @@ def nli_contradicts(clause: str, article: str, judge: LLMPort, max_chars: int = 
     return None
 
 
+_QUOTES = "\"'“”‘’„«»`"   # model hay BỌC evidence trong ngoặc → strip trước khi so (tránh false-negative)
+
+
+def _norm_ev(s: str) -> str:
+    """Chuẩn hóa để so khớp evidence ↔ hợp đồng: gộp khoảng trắng + bỏ ngoặc kép bao quanh + thường hóa.
+    Sửa false-negative: agent trả `\"Điều 2...\"` (có ngoặc/xuống dòng khác) tuy CÓ trong HĐ vẫn bị trượt."""
+    return re.sub(r"\s+", " ", s).strip().strip(_QUOTES).strip().lower()
+
+
 def verify_risks(risks: list[Risk], contract_text: str, retriever: KnowledgeBasePort,
                  judge: LLMPort) -> list[str]:
     notes: list[str] = []
-    contract_low = contract_text.lower()
+    contract_low = _norm_ev(contract_text)
 
-    # Lớp 1: evidence phải có thật trong hợp đồng (miễn phí, language-agnostic).
+    # Lớp 1: evidence phải có thật trong hợp đồng (miễn phí, language-agnostic). So sau khi chuẩn hóa.
     for r in risks:
-        if r.evidence and r.evidence.lower() not in contract_low:
+        if r.evidence and _norm_ev(r.evidence) not in contract_low:
             r.verified = False
 
     if not judge.available:

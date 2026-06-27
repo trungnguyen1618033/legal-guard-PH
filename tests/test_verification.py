@@ -40,6 +40,13 @@ def test_clause_existence_fails_for_hallucinated_evidence():
     assert any("chưa được xác minh" in n for n in notes)
 
 
+def test_clause_existence_tolerates_quotes_and_whitespace():
+    # Bug thật: agent bọc evidence trong ngoặc + xuống dòng khác → VẪN phải khớp (sửa false-negative).
+    r = _risk(evidence='  "Arbitration   in\nBeijing."  ')
+    verify_risks([r], CONTRACT, KB, _Judge(available=False))
+    assert r.verified is True
+
+
 def test_judge_marks_unsupported_risk():
     risks = [_risk()]                            # evidence hợp lệ
     verify_risks(risks, CONTRACT, KB, _Judge(available=True, verdict="1: NO"))
