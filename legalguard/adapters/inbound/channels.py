@@ -21,7 +21,7 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from legalguard.domain.analysis import AnalysisService
-from legalguard.domain.models import AnalysisResult, Conversation, Feedback, SourceMeta
+from legalguard.domain.models import AnalysisResult, Conversation, Feedback, Outcome, SourceMeta
 from legalguard.domain.ports import (
     ChatSenderPort,
     ConversationStorePort,
@@ -309,6 +309,47 @@ def _feedback_blocks(kind: str, ref: str) -> list[dict]:
         btn("➖ Thiếu", "fb_incomplete")]}]
 
 
+# Nút GHI KẾT QUẢ đàm phán (flywheel) — chỉ gắn cho reply phân tích có case_id. value mang case_id.
+_OC_RESULT = {"oc_accepted": "accepted", "oc_partial": "partial", "oc_rejected": "rejected"}
+
+
+def _outcome_blocks(case_id: str) -> list[dict]:
+    val = json.dumps({"c": case_id[:120]}, ensure_ascii=False)
+
+    def btn(txt: str, aid: str, style: str | None = None) -> dict:
+        b = {"type": "button", "text": {"type": "plain_text", "text": txt, "emoji": True},
+             "action_id": aid, "value": val}
+        if style:
+            b["style"] = style
+        return b
+
+    return [{"type": "actions", "block_id": "lg_outcome", "elements": [
+        btn("✓ Chốt được (thắng)", "oc_accepted", "primary"),
+        btn("~ Một phần", "oc_partial"),
+        btn("✗ Không đạt", "oc_rejected", "danger")]}]
+
+
+def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, result: str) -> int:
+    """Ghi Outcome cho MỌI điều khoản (fallback) của 1 case → nuôi win-rate. Trả số điều đã ghi (0 nếu
+    không có case / sai org). Cô lập org để chống ghi chéo công ty."""
+    if not case_id:
+        return 0
+    case = service.get_case(case_id)
+    if case is None or getattr(case, "org_id", None) != org_id:
+        return 0
+    clauses = list(dict.fromkeys(f.get("clause", "") for f in (case.fallbacks or []) if f.get("clause")))
+    n = 0
+    for cl in clauses:
+        try:
+            service.record_outcome(Outcome(
+                id=uuid.uuid4().hex, org_id=org_id, case_id=case_id, clause=cl, tactic="",
+                result=result, created_at=datetime.now(timezone.utc).isoformat()))
+            n += 1
+        except Exception:  # noqa: BLE001 — outcome là phụ; vẫn ack để Slack không retry
+            _log.exception("Không ghi được outcome từ Slack")
+    return n
+
+
 def _mrkdwn_blocks(text: str, limit: int = 2900, max_blocks: int = 12) -> list[dict]:
     """Chia reply thành NHIỀU section block Slack (mỗi block ≤ limit; Slack chặn 3000 ký tự/section).
     Cắt ở ranh giới DÒNG để không vỡ chữ/cụt câu (reply HĐ nhiều rủi ro thường > 2900). Quá dài →
@@ -369,6 +410,8 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         if supports_buttons and res.kind:          # gắn nút feedback (Slack) cho câu trả lời thật
             # Chia reply thành nhiều block (không cụt ở 2900) rồi mới tới nút feedback.
             blocks = [*_mrkdwn_blocks(reply), *_feedback_blocks(res.kind, res.ref)]
+            if res.kind == "analysis" and res.ref:  # reply phân tích (có case_id) → thêm nút ghi kết quả
+                blocks += _outcome_blocks(res.ref)
     except Exception:  # noqa: BLE001 — task nền: lỗi bất ngờ → vẫn báo khách, không sập im lặng
         _log.exception("Lỗi xử lý tin nhắn (%s)", key)
         reply = "Xin lỗi, có lỗi khi xử lý. Vui lòng thử lại sau."
@@ -462,19 +505,26 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             if payload.get("type") != "block_actions":
                 return {"ok": True}
             action = (payload.get("actions") or [{}])[0]
-            rating = _FB_RATING.get(action.get("action_id", ""))
-            if not rating:
-                return {"ok": True}
+            aid = action.get("action_id", "")
             try:
                 ctx = json.loads(action.get("value") or "{}")
             except json.JSONDecodeError:
                 ctx = {}
             org = default_org(handler.default_tenant)
+            user = (payload.get("user") or {}).get("id", "")
+
+            if aid in _OC_RESULT:                  # nút GHI KẾT QUẢ đàm phán → nuôi flywheel
+                n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), _OC_RESULT[aid])
+                return {"replace_original": True,
+                        "text": f"📊 Đã ghi kết quả cho {n} điều khoản — cảm ơn! (nuôi win-rate)"}
+
+            rating = _FB_RATING.get(aid)
+            if not rating:
+                return {"ok": True}
             try:                                   # lỗi DB KHÔNG được làm 500 (Slack sẽ retry-storm)
                 handler.service.record_feedback(Feedback(
                     id=uuid.uuid4().hex, org_id=org.id, kind=ctx.get("k", "lookup"),
-                    ref=ctx.get("r", ""), rating=rating,
-                    note=f"slack:{(payload.get('user') or {}).get('id', '')}",
+                    ref=ctx.get("r", ""), rating=rating, note=f"slack:{user}",
                     created_at=datetime.now(timezone.utc).isoformat()))
             except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
                 _log.exception("Không ghi được feedback từ Slack")
