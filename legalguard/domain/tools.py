@@ -37,6 +37,11 @@ TOOL_SCHEMAS: list[dict] = [
                     "severity": {"type": "string", "enum": ["low", "medium", "high"]},
                     "priority": {"type": "string", "enum": ["must_fix", "negotiate", "acceptable"],
                                  "description": "Ưu tiên theo vị thế đàm phán của khách"},
+                    "legal_status": {"type": "string", "enum": ["illegal", "unfavorable"],
+                                     "description": "illegal = TRÁI LUẬT (vi phạm quy định bắt buộc → có thể "
+                                     "VÔ HIỆU, vd phạt >8% trần Điều 301); unfavorable = bất lợi nhưng hợp pháp"},
+                    "violated_law": {"type": "string", "description": "Điều luật bị vi phạm (khi illegal), "
+                                     "vd 'Điều 301 Luật Thương mại 2005'. Để trống nếu unfavorable."},
                     "source": {"type": "string", "description": "Quote/nguồn KB chính sách rủi ro"},
                     "evidence": {"type": "string", "description": "Trích NGUYÊN VĂN đoạn trong hợp đồng"},
                 },
@@ -110,8 +115,13 @@ def _dispatch(name: str, args: dict, ctx: AgentContext) -> str:
         priority = args.get("priority", "")
         if priority not in ("must_fix", "negotiate", "acceptable"):
             priority = "negotiate"
+        legal_status = args.get("legal_status", "unfavorable")
+        if legal_status not in ("illegal", "unfavorable"):   # QA: ép enum; nghi ngờ → unfavorable (bảo thủ)
+            legal_status = "unfavorable"
+        violated = (args.get("violated_law", "") if legal_status == "illegal" else "")
         ctx.risks.append(Risk(clause=clause, risk=risk, severity=severity, priority=priority,
-                              source=args.get("source", ""), evidence=args.get("evidence", "")))
+                              source=args.get("source", ""), evidence=args.get("evidence", ""),
+                              legal_status=legal_status, violated_law=violated))
         return f"Đã ghi nhận rủi ro: {clause}"
     if name == "propose_fallback":
         clause = (args.get("clause") or "").strip()

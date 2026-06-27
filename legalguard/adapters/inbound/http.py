@@ -165,11 +165,13 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         urgency: str = Form(default="low"),
         relationship: str = Form(default="new"),
         alternatives: bool = Form(default=False),
+        protected_party: str = Form(default=""),
         org: Organization = Depends(require_auth),
     ):
         lang = lang if lang in ("en", "vi") else "en"
         position = NegotiationPosition(leverage=leverage, urgency=urgency,
-                                       relationship=relationship, alternatives=alternatives)
+                                       relationship=relationship, alternatives=alternatives,
+                                       protected_party=protected_party[:120])
 
         source = None
         if file is not None:

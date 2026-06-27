@@ -77,7 +77,12 @@ def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
         return "✅ Không phát hiện điều khoản rủi ro rõ ràng trong nội dung bạn gửi."
     lines = ["📋 *Rà soát hợp đồng:*"]
     for r in result.risks:
-        lines.append(f"{_PRIO_EMOJI.get(r.get('priority'), '•')} {r['clause']}: {r['risk']}")
+        # Đánh dấu TRÁI LUẬT (có thể vô hiệu) — đòn mạnh cho luật sư, khác 'bất lợi nhưng hợp pháp'.
+        tag = ""
+        if r.get("legal_status") == "illegal":
+            vl = r.get("violated_law", "")
+            tag = f" ⚖️ *TRÁI LUẬT{' — vi phạm ' + vl if vl else ''}*"
+        lines.append(f"{_PRIO_EMOJI.get(r.get('priority'), '•')} {r['clause']}: {r['risk']}{tag}")
     if result.strategy:
         lines += ["", f"🧭 {result.strategy}"]
     if result.needs_human_review:

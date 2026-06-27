@@ -50,6 +50,29 @@ def test_reasoning_field_is_first_in_decision_tools():
     assert "reasoning" not in _props("flag_risk")[1:]   # không required, chỉ là gợi ý suy luận
 
 
+def test_flag_risk_legal_status_illegal():
+    ctx = _ctx()
+    execute_tool("flag_risk", {"clause": "Phạt 15%", "risk": "vượt trần", "severity": "high",
+                               "legal_status": "illegal", "violated_law": "Điều 301 LTM 2005",
+                               "source": "s", "evidence": "e"}, ctx)
+    assert ctx.risks[0].legal_status == "illegal" and "301" in ctx.risks[0].violated_law
+
+
+def test_flag_risk_legal_status_defaults_unfavorable():
+    ctx = _ctx()
+    execute_tool("flag_risk", {"clause": "X", "risk": "y", "severity": "low",
+                               "source": "s", "evidence": "e"}, ctx)
+    assert ctx.risks[0].legal_status == "unfavorable" and ctx.risks[0].violated_law == ""
+
+
+def test_flag_risk_coerces_bad_legal_status_and_drops_violated():
+    # legal_status sai enum → bảo thủ 'unfavorable'; violated_law bị bỏ vì không phải illegal.
+    ctx = _ctx()
+    execute_tool("flag_risk", {"clause": "X", "risk": "y", "severity": "low", "legal_status": "bừa",
+                               "violated_law": "Z", "source": "s", "evidence": "e"}, ctx)
+    assert ctx.risks[0].legal_status == "unfavorable" and ctx.risks[0].violated_law == ""
+
+
 def test_dispatch_tolerates_reasoning_field():
     # `reasoning` không phải required → có hay không, kết quả structured vẫn ghi nhận bình thường.
     ctx = _ctx()

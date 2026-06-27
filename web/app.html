@@ -79,6 +79,8 @@
         <select id="relationship"><option value="new">Lần đầu</option><option value="repeat">Đã làm nhiều lần</option></select></div>
       <div><label>Có phương án thay thế (BATNA)?</label>
         <select id="alternatives"><option value="false">Không</option><option value="true">Có</option></select></div>
+      <div><label>Bên mình bảo vệ</label>
+        <input id="protected_party" placeholder="vd: Bên Vay / Bên B / Buyer (trống = mặc định SME)"></div>
       <div><label>Ngôn ngữ báo cáo</label>
         <select id="lang"><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
       <div><label>API key (bỏ trống nếu dev)</label>
@@ -133,7 +135,7 @@ $('go').onclick = async () => {
   if (!text && !file) { $('err').textContent = 'Dán nội dung hoặc chọn file hợp đồng trước đã.'; return; }
   const fd = new FormData();
   if (file) fd.append('file', file); else fd.append('text', text);
-  for (const k of ['lang','leverage','urgency','relationship','alternatives']) fd.append(k, $(k).value);
+  for (const k of ['lang','leverage','urgency','relationship','alternatives','protected_party']) fd.append(k, $(k).value);
   const headers = {};
   const key = $('apikey').value.trim();
   if (key) { headers['X-API-Key'] = key; localStorage.setItem('lg_apikey', key); }
@@ -167,7 +169,8 @@ function render(d) {
   $('strategy').textContent = d.strategy || '(không có)';
 
   $('risks').innerHTML = (d.risks||[]).map(r => `<tr>
-    <td><strong>${esc(r.clause)}</strong>${r.verified===false?' <span class="badge b-medium">chưa verify</span>':''}</td>
+    <td><strong>${esc(r.clause)}</strong>${r.verified===false?' <span class="badge b-medium">chưa verify</span>':''}
+      ${r.legal_status==='illegal'?`<br><span class="badge b-high">⚖️ TRÁI LUẬT</span>${r.violated_law?` <span class="muted">${esc(r.violated_law)}</span>`:''}`:''}</td>
     <td>${esc(r.risk)}</td>
     <td><span class="badge b-${esc(r.severity)}">${esc(r.severity)}</span></td>
     <td>${r.priority?`<span class="badge b-${esc(r.priority)}">${esc(r.priority)}</span>`:''}</td>

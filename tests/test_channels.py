@@ -72,6 +72,17 @@ def test_format_chat_reply():
     assert "Trọng tài: Bất lợi" in out and "🔴" in out and "Giữ điều khoản trọng tài" in out
 
 
+def test_format_chat_reply_marks_illegal():
+    # Điều khoản TRÁI LUẬT được gắn nhãn ⚖️ + điều luật bị vi phạm.
+    res = AnalysisResult(tenant="VN", risks=[{"clause": "Phạt 15%", "risk": "vượt trần",
+                         "severity": "high", "priority": "must_fix",
+                         "legal_status": "illegal", "violated_law": "Điều 301 LTM 2005"}],
+                         fallbacks=[], needs_human_review=False, review_reasons=[],
+                         summary="", trace=[], strategy="")
+    out = format_chat_reply(res)
+    assert "TRÁI LUẬT" in out and "Điều 301" in out
+
+
 def test_handler_empty_prompts_for_input():
     assert "Gửi giúp" in _handler().reply("c1", text="")
 
