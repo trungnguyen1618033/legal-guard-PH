@@ -350,10 +350,19 @@ class KeywordRetriever:
 
 
 class EmbeddingRetriever:
-    def __init__(self, base_dir: str, tenant: str, embed_fn: Callable[[list[str]], list[list[float]]]) -> None:
+    def __init__(self, base_dir: str, tenant: str, embed_fn: Callable[[list[str]], list[list[float]]],
+                 store=None) -> None:
         self._chunks = _load_chunks(base_dir, tenant)
-        self._vectors = embed_fn([c for _, c in self._chunks]) if self._chunks else []
         self._embed_fn = embed_fn
+        # `store` (SqlEmbeddingStore, tùy chọn): embed BỀN — chỉ tính chunk mới, boot không embed lại
+        # (mở khóa corpus lớn). Không có store → embed tất cả tại chỗ (KB nhỏ, hành vi cũ).
+        texts = [c for _, c in self._chunks]
+        if store is not None and self._chunks:
+            self._vectors = store.get_or_embed(texts, embed_fn)
+            if self._vectors is None:                  # embed offline/lỗi → coi như không có embedding
+                self._vectors, self._chunks = [], []
+        else:
+            self._vectors = embed_fn(texts) if self._chunks else []
 
     def retrieve(self, query: str, top_k: int = 4) -> list[Snippet]:
         if not self._chunks:
@@ -623,7 +632,7 @@ class CitationClosureRetriever:
 def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
                     reranker_llm: LLMPort | None = None, strategy: str = "auto",
                     rerank_fn: RerankFn | None = None, closure: bool = False,
-                    in_force: bool = False) -> KnowledgeBasePort:
+                    in_force: bool = False, embed_store=None) -> KnowledgeBasePort:
     """strategy: auto (hybrid nếu có embed, else keyword) | keyword | hybrid | full.
 
     Thứ tự bọc: base → [in_force lọc hiệu lực] → [rerank] → [closure]. rerank_fn (cross-encoder)
@@ -637,7 +646,7 @@ def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
         base = KeywordRetriever(base_dir, tenant)
         if embed_fn is not None:
             try:
-                base = HybridRetriever(base, EmbeddingRetriever(base_dir, tenant, embed_fn))  # type: ignore[arg-type]
+                base = HybridRetriever(base, EmbeddingRetriever(base_dir, tenant, embed_fn, embed_store))  # type: ignore[arg-type]
             except Exception:  # noqa: BLE001 — fallback an toàn khi embedding lỗi
                 _log.warning("Embedding KB lỗi (tenant=%s) — hạ xuống keyword retriever.",
                              tenant, exc_info=True)
@@ -679,7 +688,7 @@ class FileKnowledgeBaseProvider:
     def __init__(self, base_dir: str, embed_fn: EmbedFn | None = None,
                  reranker_llm: LLMPort | None = None, strategy: str = "auto",
                  rerank_fn: RerankFn | None = None, closure: bool = False,
-                 in_force: bool = False) -> None:
+                 in_force: bool = False, embed_store=None) -> None:
         self.base_dir = base_dir
         self.embed_fn = embed_fn
         self.reranker_llm = reranker_llm
@@ -687,6 +696,7 @@ class FileKnowledgeBaseProvider:
         self.rerank_fn = rerank_fn
         self.closure = closure
         self.in_force = in_force
+        self.embed_store = embed_store     # SqlEmbeddingStore (tùy chọn): embed bền → corpus lớn không re-embed
         self._cache: dict[tuple[str, str, bool], KnowledgeBasePort] = {}
 
     def for_org(self, org: Organization, *, rerank: bool = True) -> KnowledgeBasePort:
@@ -720,7 +730,8 @@ class FileKnowledgeBaseProvider:
         rerank_fn = self.rerank_fn if rerank else None
         reranker_llm = self.reranker_llm if rerank else None
         base = build_retriever(self.base_dir, org.country, self.embed_fn, reranker_llm,
-                               self.strategy, rerank_fn, self.closure, self.in_force)
+                               self.strategy, rerank_fn, self.closure, self.in_force,
+                               embed_store=self.embed_store)
         overlay_dir = Path(self.base_dir) / "_orgs" / org.id
         if overlay_dir.exists() and any(overlay_dir.glob("*.md")):
             # Overlay riêng công ty: giữ keyword (nhỏ, khỏi embed) NHƯNG vẫn tôn trọng lọc hiệu lực

@@ -204,8 +204,12 @@ redaction (`domain/redaction.py`), prompt-injection hardening, upload limit, **r
 cá nhân, đúng PDPD/GDPR), rate limiting (`RATE_LIMIT_PER_MIN`), LLM retry/backoff (`adapters/outbound/_http.py`).
 CI: `.github/workflows/ci.yml` (ruff + pytest). Qwen via dashscope-intl (Singapore, no-training).
 DB: SQLAlchemy 2.0, 1 engine/URL (`pool_pre_ping`+`recycle` an toàn Postgres serverless), org_id index khắp;
-migrations Alembic (`migrations/`, head 0007) + `create_all()` cho dev. Prod TODO: encrypt-at-rest (RDS/KMS),
-RLS (cô lập org hiện ở tầng app), win_rates dùng SQL GROUP BY khi data lớn (hiện full-scan + gộp Python).
+migrations Alembic (`migrations/`, head 0009) + `create_all()` cho dev. win_rates SQL GROUP BY; cascade erasure.
+**Embed BỀN cho corpus lớn** (`outbound/embedding_store.py` `SqlEmbeddingStore`, `PERSIST_EMBEDDINGS`): lưu
+vector vào bảng `kb_vectors` theo sha256(text) → `EmbeddingRetriever(store=)` chỉ embed chunk MỚI, boot KHÔNG
+embed lại (giải bài "embed 200 file mỗi boot quá chậm"). embed cũng cắt input ≤6000 ký tự (tránh HTTP 400).
+Quy mô RẤT lớn → nâng `kb_vectors.vector` sang cột pgvector `Vector(dim)` + ANN (`<=>`), cùng bảng/interface.
+Prod TODO: encrypt-at-rest (RDS/KMS), RLS (cô lập org hiện ở tầng app), pgvector ANN khi >chục nghìn chunk.
 
 Docker (Postgres + app): `make up` (build+run+migrate), `make down`, `make logs`, `make psql`,
 `make help`. Compose sets `DATABASE_URL` to the postgres service; app runs `alembic upgrade head`
