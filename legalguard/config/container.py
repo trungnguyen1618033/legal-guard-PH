@@ -59,10 +59,15 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     embed_fn = reasoner.embed if reasoner.available else None
     reranker = reasoner if cfg.rerank_enabled else None
     rerank_fn = reasoner.rerank if (cfg.cross_encoder_rerank and reasoner.available) else None
+    # Embed bền (corpus lớn không re-embed mỗi boot) — opt-in PERSIST_EMBEDDINGS; lưu chung DB.
+    embed_store = None
+    if cfg.persist_embeddings and embed_fn is not None:
+        from legalguard.adapters.outbound.embedding_store import SqlEmbeddingStore
+        embed_store = SqlEmbeddingStore(cfg.database_url)
     kb = FileKnowledgeBaseProvider(cfg.knowledge_base_dir, embed_fn=embed_fn,
                                    reranker_llm=reranker, strategy=kb_strategy,
                                    rerank_fn=rerank_fn, closure=cfg.citation_closure,
-                                   in_force=cfg.in_force_filter)
+                                   in_force=cfg.in_force_filter, embed_store=embed_store)
     cases = SqlAlchemyCaseRepository(cfg.database_url)
     outcomes = SqlAlchemyOutcomeRepository(cfg.database_url)
     feedback = SqlAlchemyFeedbackRepository(cfg.database_url)
