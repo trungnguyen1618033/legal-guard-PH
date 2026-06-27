@@ -42,3 +42,12 @@ class SqlAlchemyFeedbackRepository:
             return [Feedback(id=r.id, org_id=r.org_id, kind=r.kind, ref=r.ref,
                              rating=r.rating, note=r.note, created_at=r.created_at)
                     for r in s.scalars(stmt).all()]
+
+    def delete_by_ref(self, ref: str) -> int:
+        """Cascade right-to-erasure: xóa feedback gắn với 1 ref (vd case_id của analysis bị xóa)."""
+        with Session(self.engine) as s:
+            rows = s.scalars(select(FeedbackRow).where(FeedbackRow.ref == ref)).all()
+            for r in rows:
+                s.delete(r)
+            s.commit()
+            return len(rows)

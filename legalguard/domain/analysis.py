@@ -304,7 +304,17 @@ class AnalysisService:
         return self.cases.list_by_org(org_id, limit) if self.cases else []
 
     def delete_case(self, case_id: str) -> bool:
-        return self.cases.delete(case_id) if self.cases else False
+        """Right-to-erasure (PDPD/GDPR): xóa case + CASCADE outcomes & feedback liên quan (không để
+        orphan dữ liệu cá nhân). Trả True nếu case tồn tại & đã xóa."""
+        if self.cases is None:
+            return False
+        deleted = self.cases.delete(case_id)
+        if deleted:                                  # chỉ cascade khi case thực sự bị xóa
+            if self.outcomes is not None:
+                self.outcomes.delete_by_case(case_id)
+            if self.feedback is not None:
+                self.feedback.delete_by_ref(case_id)   # feedback analysis: ref = case_id
+        return deleted
 
     def health(self) -> dict:
         return {

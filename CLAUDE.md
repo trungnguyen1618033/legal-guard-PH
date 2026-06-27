@@ -199,10 +199,13 @@ UI: section "🤖 Autopilot — quét luật mới" trong `web/lookup.html`. Pro
 khi bạn ngủ" (đúng tinh thần Autopilot Agent). Cô lập org_id.
 
 Security (`docs/security.md`): API-key auth + per-company scoping (`API_KEYS="key:org:VN"`), PII
-redaction (`domain/redaction.py`), prompt-injection hardening, upload limit, right-to-erasure,
-rate limiting (`RATE_LIMIT_PER_MIN`), LLM retry/backoff (`adapters/outbound/_http.py`).
+redaction (`domain/redaction.py`), prompt-injection hardening, upload limit, **right-to-erasure CASCADE**
+(`delete_case` xóa case + outcomes (`delete_by_case`) + feedback (`delete_by_ref`) — không để orphan dữ liệu
+cá nhân, đúng PDPD/GDPR), rate limiting (`RATE_LIMIT_PER_MIN`), LLM retry/backoff (`adapters/outbound/_http.py`).
 CI: `.github/workflows/ci.yml` (ruff + pytest). Qwen via dashscope-intl (Singapore, no-training).
-Prod TODO: encrypt-at-rest (RDS/KMS), RLS, observability.
+DB: SQLAlchemy 2.0, 1 engine/URL (`pool_pre_ping`+`recycle` an toàn Postgres serverless), org_id index khắp;
+migrations Alembic (`migrations/`, head 0007) + `create_all()` cho dev. Prod TODO: encrypt-at-rest (RDS/KMS),
+RLS (cô lập org hiện ở tầng app), win_rates dùng SQL GROUP BY khi data lớn (hiện full-scan + gộp Python).
 
 Docker (Postgres + app): `make up` (build+run+migrate), `make down`, `make logs`, `make psql`,
 `make help`. Compose sets `DATABASE_URL` to the postgres service; app runs `alembic upgrade head`
