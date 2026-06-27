@@ -118,7 +118,10 @@ uv add <package>                  # thêm thư viện (cập nhật pyproject + 
 | GET | `/cases?tenant=VN` | Lịch sử rà soát (mới nhất trước) |
 | GET | `/cases/{id}` | Chi tiết 1 case đã lưu |
 | DELETE | `/cases/{id}` | Xóa case (right-to-erasure PDPD/GDPR) |
-| POST | `/cases/{id}/outcome` | Ghi kết quả đàm phán (flywheel dữ liệu — moat) |
+| POST | `/cases/{id}/outcome` | Ghi kết quả đàm phán (flywheel dữ liệu — moat; UI nút trong /app) |
+| POST | `/escalate` | Chuyển case cho **luật sư** (Reject/illegal) qua kênh chuyên gia (`EXPERT_CHANNEL`) |
+| POST | `/amendments/compile` | **Bản ghi nhớ sửa đổi** (markdown) — gộp điều khoản đã chọn (TRÁI LUẬT đầu) |
+| POST | `/amendments/compile.docx` | Xuất bản ghi nhớ ra **Word** (cần group `export`) |
 | GET | `/insights/tactics` | Win-rate theo điều khoản từ kết quả thực tế |
 | GET | `/insights/dashboard` | System-of-record: HĐ rà soát, top điều khoản rủi ro, feedback, win-rate |
 | POST | `/channels/slack/events` | Webhook Slack (verify chữ ký + challenge) — bật khi có `SLACK_SIGNING_SECRET` |

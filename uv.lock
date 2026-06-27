@@ -1219,6 +1219,9 @@ eval = [
     { name = "langchain-openai" },
     { name = "ragas" },
 ]
+export = [
+    { name = "python-docx" },
+]
 ingestion = [
     { name = "datasets" },
 ]
@@ -1252,6 +1255,7 @@ eval = [
     { name = "langchain-openai", specifier = ">=0.2,<1.0" },
     { name = "ragas", specifier = ">=0.4,<0.5" },
 ]
+export = [{ name = "python-docx", specifier = ">=1.2.0" }]
 ingestion = [{ name = "datasets", specifier = ">=5.0.0" }]
 
 [[package]]

@@ -25,6 +25,8 @@ uv run python -m ingestion.hf_to_kb --pages 4 --keyword "hóa đơn" --out knowl
 uv run python -m ingestion.hf_to_kb --bulk --limit 2000 --out knowledge_base/_ingested # CON BATCH bulk: ingest toàn bộ th1nhng0 (cần `uv add datasets`) + cạnh đồ thị (amends/replaced_by/guides) + hiệu lực
 uv run python -m evaluation.feedback_to_golden --org default --out evaluation/golden_candidates.json # vòng học: feedback ⚠️/➖ → ứng viên golden + báo lỗ hổng KB
 uv sync --group eval                  # cài lớp eval sâu (RAGAS) — opt-in, không cần cho runtime
+uv sync --group export                # cài python-docx cho xuất Word bản-ghi-nhớ (Phase C) — opt-in
+uv sync --group ingestion             # cài datasets cho bulk ingest th1nhng0 (--bulk) — opt-in
 uv run python -m evaluation.ragas_eval  # deep eval: RAGAS LLM-as-judge (cần QWEN_API_KEY; chậm/tốn call)
 uv run python -m evaluation.integration_check  # smoke LLM THẬT (như trên Slack): analyze/lookup/counter… → lưu snapshot.json+md (evaluation/snapshots/) để diff giữa các lần
 uv run python -m evaluation.integration_check --compare evaluation/snapshots/<cũ>/snapshot.json  # so nhanh với lần chạy cũ (định tuyến/#risk/độ dài reply)
@@ -74,7 +76,7 @@ Advisory flow (`docs/advisory-flow.md`): `/analyze` nhận vị thế đàm phá
 leverage/urgency/relationship/alternatives + **`protected_party`** "bên mình bảo vệ") → agent gán
 `Risk.priority` (must_fix/negotiate/acceptable) + **`Risk.legal_status`** {illegal (trái luật, có thể vô
 hiệu — kèm `violated_law`) | unfavorable} + sinh `AnalysisResult.strategy` (giữ/nhượng + walk-away/BATNA).
-Lawyer-review (Phase A+B, `docs/internal/lawyer-review-flow.md`): party-aware + tách TRÁI-LUẬT vs bất-lợi;
+Lawyer-review (Phase A+B+C, `docs/internal/lawyer-review-flow.md`): party-aware + tách TRÁI-LUẬT vs bất-lợi;
 prompt rỗng protected_party → mặc định "SME client in {country}". Chat reply + web gắn nhãn ⚖️ TRÁI LUẬT.
 **Phase B — phát hiện TRÁI LUẬT có grounding (`_detect_illegal` trong `domain/analysis.py`, `ILLEGAL_DETECTION`)**:
 hậu-agent (sau legal_basis), với mỗi risk `unfavorable` đã có `legal_basis` (điều luật THẬT đã retrieve) →
@@ -83,7 +85,12 @@ hậu-agent (sau legal_basis), với mỗi risk `unfavorable` đã có `legal_ba
 agent), song song mỗi risk, LUÔN ép human-review + note "cần luật sư đối chiếu bản gốc" — định vị là lớp SÀNG
 LỌC cho luật sư, không phán quyết. Phụ thuộc `legal_basis_grounding` (cần legal_basis để có điều luật đối
 chiếu). KB cần điều luật liên quan (đã thêm Đ.466/468 BLDS — trần lãi vay 20%/năm, lãi quá hạn 150%). Đo thật:
-HĐ thương mại phạt 15%→illegal Đ.301; HĐ vay→illegal Đ.466. Đây là lời hứa "fallback theo thế trận thật". MCP + observability: `inbound/mcp_server.py` expose tool `analyze_contract` qua Model Context Protocol
+HĐ thương mại phạt 15%→illegal Đ.301; HĐ vay→illegal Đ.466.
+**Phase C — Bản ghi nhớ sửa đổi (`domain/amendments.py` `compile_memo` thuần)**: `POST /amendments/compile`
+{items} → memo markdown (bảng Điều|Vấn đề|Tính chất|Căn cứ|Đề xuất|Ưu tiên, TRÁI LUẬT sắp đầu) +
+`POST /amendments/compile.docx` → tải Word (`outbound/docx_export.py`, group `export`/python-docx; thiếu→501,
+markdown vẫn dùng). UI app.html: card "📄 Bản ghi nhớ sửa đổi" gộp risk+fallback → preview + tải .docx.
+Đây là lời hứa "fallback theo thế trận thật". MCP + observability: `inbound/mcp_server.py` expose tool `analyze_contract` qua Model Context Protocol
 (`make mcp`); `outbound/observability.py` `ObservabilityPort` (NoOp / Langfuse qua `LANGFUSE_*`) →
 `AnalysisService.observer` emit event mỗi lần analyze.
 
