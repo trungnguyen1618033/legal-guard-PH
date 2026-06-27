@@ -37,6 +37,15 @@ class SqlAlchemyOutcomeRepository:
             s.commit()
         return outcome.id
 
+    def delete_by_case(self, case_id: str) -> int:
+        """Cascade right-to-erasure: xóa mọi outcome của 1 case (khi xóa case). Trả số dòng đã xóa."""
+        with Session(self.engine) as s:
+            rows = s.scalars(select(OutcomeRow).where(OutcomeRow.case_id == case_id)).all()
+            for r in rows:
+                s.delete(r)
+            s.commit()
+            return len(rows)
+
     def win_rates(self, org_id: str | None = None) -> dict[str, dict]:
         stmt = select(OutcomeRow)
         if org_id:

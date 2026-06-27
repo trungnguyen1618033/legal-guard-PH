@@ -107,6 +107,26 @@ def test_delete_case_erasure(tmp_path):
     assert c.get(f"/cases/{cid}").status_code == 404
 
 
+def test_delete_case_cascades_outcomes_and_feedback(tmp_path):
+    # Right-to-erasure (PDPD): xóa case → CASCADE outcomes + feedback, không để orphan dữ liệu cá nhân.
+    from legalguard.config.settings import settings
+    from legalguard.domain.models import AnalysisCase, Feedback, Outcome
+
+    svc = build_service(settings.model_copy(
+        update={"database_url": f"sqlite:///{tmp_path / 'erase.db'}"}))
+    svc.cases.save(AnalysisCase(id="c1", org_id="default", tenant="VN", created_at="t", lang="vi",
+                   contract_excerpt="", summary="", needs_human_review=False, risks=[],
+                   fallbacks=[{"clause": "X"}], trace=[]))
+    svc.record_outcome(Outcome(id="o1", org_id="default", case_id="c1", clause="X", tactic="",
+                               result="accepted", created_at="t"))
+    svc.record_feedback(Feedback(id="f1", org_id="default", kind="analysis", ref="c1",
+                                 rating="helpful", note="", created_at="t"))
+    assert svc.tactic_stats("default") and svc.list_feedback("default")   # có dữ liệu trước xóa
+    assert svc.delete_case("c1") is True
+    assert svc.tactic_stats("default") == {} and svc.list_feedback("default") == []  # sạch orphan
+    assert svc.get_case("c1") is None
+
+
 # ---- Rate limiting ----
 def test_rate_limit_returns_429(tmp_path):
     c = _client(tmp_path, rate_limit_per_min=2)

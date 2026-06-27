@@ -157,6 +157,8 @@ class OutcomeRepositoryPort(Protocol):
     # {clause: {"accepted": float, "total": int, "rate": float}}
     def win_rates(self, org_id: str | None = None) -> dict[str, dict]: ...
 
+    def delete_by_case(self, case_id: str) -> int: ...   # cascade right-to-erasure (xóa case → xóa outcomes)
+
 
 @runtime_checkable
 class FeedbackRepositoryPort(Protocol):
@@ -165,3 +167,5 @@ class FeedbackRepositoryPort(Protocol):
     def record(self, feedback: Feedback) -> str: ...
 
     def list_by_org(self, org_id: str, limit: int = 100) -> list[Feedback]: ...
+
+    def delete_by_ref(self, ref: str) -> int: ...   # cascade erasure (xóa feedback của case bị xóa)
