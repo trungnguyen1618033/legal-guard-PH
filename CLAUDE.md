@@ -65,9 +65,12 @@ Correctness khi golden có `reference`), judge = Qwen qua endpoint OpenAI-compat
 OpenAI key. Opt-in qua group `eval` (pin langchain <1.0 — RAGAS 0.4.3 cần `langchain_community.chat_models.vertexai`).
 
 Advisory flow (`docs/advisory-flow.md`): `/analyze` nhận vị thế đàm phán (`NegotiationPosition`:
-leverage/urgency/relationship/alternatives) → agent gán `Risk.priority` (must_fix/negotiate/acceptable)
-+ sinh `AnalysisResult.strategy` (chiến lược giữ/nhượng + walk-away/BATNA). Đây là lời hứa "fallback
-theo thế trận thật". MCP + observability: `inbound/mcp_server.py` expose tool `analyze_contract` qua Model Context Protocol
+leverage/urgency/relationship/alternatives + **`protected_party`** "bên mình bảo vệ") → agent gán
+`Risk.priority` (must_fix/negotiate/acceptable) + **`Risk.legal_status`** {illegal (trái luật, có thể vô
+hiệu — kèm `violated_law`) | unfavorable} + sinh `AnalysisResult.strategy` (giữ/nhượng + walk-away/BATNA).
+Lawyer-review (Phase A, `docs/internal/lawyer-review-flow.md`): party-aware + tách TRÁI-LUẬT vs bất-lợi;
+prompt rỗng protected_party → mặc định "SME client in {country}". Chat reply + web gắn nhãn ⚖️ TRÁI LUẬT.
+Đây là lời hứa "fallback theo thế trận thật". MCP + observability: `inbound/mcp_server.py` expose tool `analyze_contract` qua Model Context Protocol
 (`make mcp`); `outbound/observability.py` `ObservabilityPort` (NoOp / Langfuse qua `LANGFUSE_*`) →
 `AnalysisService.observer` emit event mỗi lần analyze.
 
