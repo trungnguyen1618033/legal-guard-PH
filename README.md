@@ -6,6 +6,21 @@ cảnh báo điều khoản rủi ro, và đề xuất chiến thuật thỏa hi
 > Track **Autopilot Agent** (Qwen Cloud Hackathon) · Category **Professional Services** (Gemini XPRIZE).
 > 📚 **Toàn bộ tài liệu:** [`docs/README.md`](docs/README.md) (chiến lược · kỹ thuật · thị trường · bảo mật).
 
+## 🚀 Quick demo (cho giám khảo)
+
+```bash
+uv sync && uv run uvicorn app:app          # đặt QWEN_API_KEY trong .env để phân tích THẬT
+```
+Mở **http://localhost:8000/app** → bấm **"📄 Dùng hợp đồng mẫu"** → **"🔍 Phân tích hợp đồng"**.
+Agent (xem tab **Trace**) tự: tra KB luật → gắn cờ rủi ro → đối chiếu NLI → soạn fallback theo vị thế.
+Kết quả khoe 3 điểm khác biệt:
+- ⚖️ **Điều 2 phạt 15% → TRÁI LUẬT** (có thể VÔ HIỆU theo Điều 301 Luật TM 2005) — tách khỏi điều chỉ *bất lợi*.
+- ♟️ **Chiến lược đàm phán theo vị thế "Bên Mua yếu"** (giữ / nhượng / walk-away) — không phải mẫu cứng.
+- 🧑‍⚖️ **Human checkpoint**: câu gửi đối tác bị khóa tới khi chuyên gia duyệt.
+
+Không có key Qwen → vẫn chạy offline ở **chế độ stub** (kết quả mô phỏng, đủ để xem luồng).
+Trang khác: **`/lookup`** (tra cứu luật + 🗺️ lược đồ văn bản kiểu TVPL) · **`/dashboard`** · **`/docs`** (API).
+
 ## Kiến trúc — Hexagonal (Ports & Adapters)
 
 ```
