@@ -99,6 +99,7 @@ uv add <package>                  # thêm thư viện (cập nhật pyproject + 
 | GET | `/app` | **UI demo** (`web/app.html`): upload → risk → fallback → **human checkpoint** + nút "📝 soạn điều khoản phản-đề" |
 | GET | `/lookup` | **UI tra cứu luật** (`web/lookup.html`): hỏi đáp pháp lý + "VB mới ảnh hưởng HĐ nào?" + changelog + redline |
 | GET | `/dashboard` | **UI bảng điều khiển** (`web/dashboard.html`): system-of-record tổng hợp công ty |
+| GET | `/trust` · `/trust.json` | **Công bố độ tin cậy** (phương pháp + số đo eval) — gửi cho luật sư/đối tác |
 | GET | `/health` · `/ready` | Liveness · readiness (DB) — cho LB/k8s |
 | POST | `/analyze` | Rà soát HĐ. `format=json`/`report` · `lang=en`/`vi` · **vị thế đàm phán** `leverage`/`urgency`/`relationship`/`alternatives` → priority + chiến lược |
 | POST | `/ask` | Tra cứu luật (RAG có grounding) → câu trả lời dẫn Điều/Khoản **còn hiệu lực** + nguồn |

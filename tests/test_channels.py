@@ -143,6 +143,12 @@ def test_deal_specific_question_routes_followup():
     assert r.kind == ""                                  # follow-up (ChatReply không gắn kind)
 
 
+def test_trust_query_returns_accuracy_publication():
+    # Hỏi về độ tin cậy (meta) → trả công bố độ chính xác, KHÔNG đi lookup/analyze.
+    out = _handler().reply("cT", text="Độ chính xác của hệ thống thế nào, có đáng tin không?")
+    assert "Độ tin cậy" in out and "Groundedness" in out
+
+
 def test_counter_offer_in_deal_routes_negotiation():
     # Trong deal, tin là PHẢN HỒI đối tác (không phải câu hỏi) → vòng ĐÀM PHÁN có cấu trúc.
     from legalguard.adapters.inbound.channels import _is_counter_offer
