@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
@@ -36,6 +36,7 @@ _LANDING = Path("web/index.html")
 _APP = Path("web/app.html")
 _LOOKUP = Path("web/lookup.html")
 _DASHBOARD = Path("web/dashboard.html")
+_DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
 class RevenueIn(BaseModel):
@@ -51,6 +52,12 @@ class OutcomeIn(BaseModel):
     clause: str
     tactic: str = ""
     result: str = "pending"     # accepted | partial | rejected | pending
+
+
+class CompileIn(BaseModel):
+    items: list[dict]           # điều khoản đã chọn (risk/fallback, có thể sửa tay): clause/issue/...
+    title: str = ""
+    protected_party: str = ""
 
 
 class EscalateIn(BaseModel):
@@ -450,6 +457,26 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
                 body.lang if body.lang in ("en", "vi") else "vi")
         except LLMError as exc:
             raise HTTPException(status_code=502, detail=f"LLM lỗi: {exc}") from exc
+
+    @app.post("/amendments/compile")
+    def amendments_compile(body: CompileIn, _: Organization = Depends(require_auth)) -> dict:
+        # Phase C: gộp điều khoản đã chọn → Bản ghi nhớ sửa đổi (markdown + rows) cho luật sư. Tất định.
+        if len(body.items) > 200:
+            raise HTTPException(status_code=413, detail="Quá nhiều mục.")
+        return service.compile_memo(body.items, title=body.title, protected_party=body.protected_party)
+
+    @app.post("/amendments/compile.docx")
+    def amendments_compile_docx(body: CompileIn, _: Organization = Depends(require_auth)):
+        # Phase C: xuất Bản ghi nhớ ra Word .docx (cần group `export`). Thiếu lib → 501 + dùng markdown.
+        from legalguard.adapters.outbound.docx_export import DocxUnavailable, memo_to_docx
+
+        memo = service.compile_memo(body.items, title=body.title, protected_party=body.protected_party)
+        try:
+            data = memo_to_docx(memo)
+        except DocxUnavailable as exc:
+            raise HTTPException(status_code=501, detail=str(exc)) from exc
+        return Response(content=data, media_type=_DOCX_MIME,
+                        headers={"Content-Disposition": 'attachment; filename="ban-ghi-nho-sua-doi.docx"'})
 
     @app.post("/redline")
     def text_redline(body: RedlineIn, _: Organization = Depends(require_auth)) -> dict:

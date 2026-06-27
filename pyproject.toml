@@ -36,6 +36,9 @@ eval = [
     "langchain-openai>=0.2,<1.0",
     "langchain-community>=0.3,<0.4",
 ]
+export = [
+    "python-docx>=1.2.0",
+]
 ingestion = [
     "datasets>=5.0.0",
 ]

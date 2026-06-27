@@ -36,6 +36,16 @@ def test_analyze_requires_input(client):
     assert client.post("/analyze").status_code == 400
 
 
+def test_amendments_compile_endpoint(client):
+    # Phase C: gộp điều khoản đã chọn → memo markdown (illegal lên đầu).
+    r = client.post("/amendments/compile", json={"items": [
+        {"clause": "Điều 2 phạt 15%", "risk": "vượt trần", "legal_status": "illegal",
+         "violated_law": "Điều 301 LTM", "priority": "must_fix"}], "protected_party": "Bên Mua"})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["illegal_count"] == 1 and "TRÁI LUẬT" in d["markdown"] and len(d["rows"]) == 1
+
+
 def test_negotiate_endpoint(client):
     # Vòng đàm phán đa phiên: bối cảnh deal + tin đối tác → round có status hợp lệ.
     r = client.post("/negotiate", json={"deal_context": "phạt 15% trái Điều 301",

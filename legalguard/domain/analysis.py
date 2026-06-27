@@ -288,6 +288,15 @@ class AnalysisService:
             self.observer.event("negotiate_round", {"status": r.status, "grounded": r.grounded})
         return asdict(r)
 
+    def compile_memo(self, items: list[dict], title: str = "", protected_party: str = "") -> dict:
+        """Phase C: gộp điều khoản đã chọn → bản ghi nhớ sửa đổi (markdown + rows) cho luật sư. Thuần."""
+        from legalguard.domain.amendments import compile_memo as _compile
+
+        memo = _compile(items, title=title, protected_party=protected_party)
+        if self.observer:
+            self.observer.event("compile_memo", {"rows": len(memo.rows), "illegal": memo.illegal_count})
+        return asdict(memo)
+
     def get_case(self, case_id: str) -> AnalysisCase | None:
         return self.cases.get(case_id) if self.cases else None
 
