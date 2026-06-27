@@ -233,7 +233,8 @@ def rel_pairs_by_source(rel_rows: list[dict], id_to_ref: dict[str, str]
 
 
 def run_bulk(out: str = "knowledge_base/_ingested", limit: int | None = None,
-             keyword: str | None = None) -> int:
+             keyword: str | None = None, in_force_only: bool = False, min_year: int = 0,
+             central_only: bool = False) -> int:
     """CON BATCH bulk: join metadata + content + relationships của th1nhng0 (CC BY 4.0, vbpl.vn) → KB .md
     KÈM cạnh đồ thị (amends/replaced_by/guides…) + hiệu lực. Cần `uv add datasets`. Trả số file đã ghi.
 
@@ -246,7 +247,7 @@ def run_bulk(out: str = "knowledge_base/_ingested", limit: int | None = None,
 
     out_dir = Path(out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    kw = (keyword or "").strip().lower()
+    kws = [k.strip().lower() for k in (keyword or "").split(",") if k.strip()]   # nhiều keyword = OR
     meta = load_dataset(_DATASET, "metadata", split="data")
     meta_by_id = {str(r["id"]): r for r in meta}
     id_to_ref = {i: (m.get("so_ky_hieu") or "") for i, m in meta_by_id.items()}
@@ -258,11 +259,21 @@ def run_bulk(out: str = "knowledge_base/_ingested", limit: int | None = None,
         print("⚠️ Không nạp được config relationships — bỏ cạnh đồ thị, vẫn ghi hiệu lực/nội dung.")
 
     def _match(m: dict) -> bool:
-        if not kw:
+        if in_force_only and map_status(m.get("tinh_trang_hieu_luc")) != "in_force":
+            return False                           # bỏ VB hết hiệu lực (giữ KB sạch, hiện hành)
+        if central_only:                           # chỉ VB TRUNG ƯƠNG (bỏ VB tỉnh/địa phương nhiễu)
+            sk = (m.get("so_ky_hieu") or "").upper()
+            if "UBND" in sk or "-HĐND" in sk or "/HĐND" in sk:
+                return False
+        if min_year:                               # chỉ luật HIỆN ĐẠI (tránh luật cũ thập niên trước)
+            eff = iso_date(m.get("ngay_co_hieu_luc"))
+            if not eff or int(eff[:4]) < min_year:
+                return False
+        if not kws:
             return True
         hay = " ".join(str(m.get(f, "") or "") for f in
                        ("title", "loai_van_ban", "nganh", "linh_vuc", "so_ky_hieu")).lower()
-        return kw in hay
+        return any(k in hay for k in kws)          # khớp BẤT KỲ keyword (OR)
 
     # content.parquet có cột HTML kiểu large_string → `datasets` cast sang string lỗi (>2GB). Đọc THẲNG
     # bằng pyarrow theo batch (giữ large_string, nhẹ RAM), bỏ qua lớp cast của datasets.
@@ -295,6 +306,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Ingest HF legal dataset → KB .md (sample HTTP API hoặc --bulk)")
     ap.add_argument("--bulk", action="store_true", help="ingest toàn bộ (cần `datasets`) + cạnh đồ thị")
     ap.add_argument("--limit", type=int, default=None, help="giới hạn số file (cho bulk)")
+    ap.add_argument("--in-force-only", action="store_true", help="chỉ VB còn hiệu lực (KB sạch, hiện hành)")
+    ap.add_argument("--min-year", type=int, default=0, help="chỉ VB hiệu lực từ năm này (luật hiện đại)")
+    ap.add_argument("--central-only", action="store_true", help="chỉ VB trung ương (bỏ VB tỉnh/UBND)")
     ap.add_argument("--pages", type=int, default=3)
     ap.add_argument("--page-size", type=int, default=100)
     ap.add_argument("--start", type=int, default=0)
@@ -303,7 +317,9 @@ def main() -> None:
     args = ap.parse_args()
 
     if args.bulk:
-        run_bulk(args.out, args.limit, args.keyword)
+        run_bulk(args.out, args.limit, args.keyword,
+                 in_force_only=args.in_force_only, min_year=args.min_year,
+                 central_only=args.central_only)
         return
 
     out_dir = Path(args.out)

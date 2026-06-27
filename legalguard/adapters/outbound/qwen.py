@@ -101,17 +101,20 @@ class QwenAdapter(LLMPort):
             raise LLMError(self.name, "phản hồi không hợp lệ") from None
         return ChatTurn(content=msg.get("content"), tool_calls=_parse_tool_calls(msg.get("tool_calls")))
 
-    _EMBED_BATCH = 10   # DashScope giới hạn 10 texts / request embeddings
+    _EMBED_BATCH = 10       # DashScope giới hạn 10 texts / request embeddings
+    _EMBED_MAX_CHARS = 6000  # cắt mỗi input (chunk dài/VB không cấu trúc Điều) → tránh vượt token limit (HTTP 400)
 
     def embed(self, texts: list[str]) -> list[list[float]] | None:
         if not self.available:
             return None
+        # Cắt input dài + thay rỗng = ' ' (API từ chối input rỗng / quá token) → bền với corpus lớn auto-ingest.
+        safe = [(t or " ")[: self._EMBED_MAX_CHARS] or " " for t in texts]
         vectors: list[list[float]] = []
-        for i in range(0, len(texts), self._EMBED_BATCH):
+        for i in range(0, len(safe), self._EMBED_BATCH):
             data = post_json(f"{self.base_url}/embeddings", provider=self.name,
                              headers={"Authorization": f"Bearer {self.api_key}"},
                              json={"model": self.embed_model,
-                                   "input": texts[i:i + self._EMBED_BATCH]}, timeout=60)
+                                   "input": safe[i:i + self._EMBED_BATCH]}, timeout=60)
             try:
                 vectors += [item["embedding"] for item in data["data"]]
             except (KeyError, IndexError, TypeError):
