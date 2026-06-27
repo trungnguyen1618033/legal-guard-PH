@@ -28,6 +28,7 @@ app.py                         ASGI entrypoint → build_app()
 legalguard/
   domain/                      lõi nghiệp vụ (không phụ thuộc hạ tầng)
     models · ports · agent (ReAct loop) · tools · analysis (use-case) · tenants
+    verification (NLI) · negotiation (đa phiên) · counter_clause · regulatory · redline · dashboard
   adapters/
     inbound/http.py            FastAPI (driving adapter)
     outbound/                  qwen · gemini · knowledge_base · document_parser · revenue_log · case_repository
@@ -102,10 +103,15 @@ uv add <package>                  # thêm thư viện (cập nhật pyproject + 
 | POST | `/analyze` | Rà soát HĐ. `format=json`/`report` · `lang=en`/`vi` · **vị thế đàm phán** `leverage`/`urgency`/`relationship`/`alternatives` → priority + chiến lược |
 | POST | `/ask` | Tra cứu luật (RAG có grounding) → câu trả lời dẫn Điều/Khoản **còn hiệu lực** + nguồn |
 | POST | `/counter` | Soạn **điều khoản phản-đề song ngữ VN/EN** cho 1 điều khoản rủi ro (bám căn cứ + vị thế) |
+| POST | `/negotiate` | **Đàm phán đa phiên**: bối cảnh deal + tin đối tác → đánh giá + chiến lược vòng tới + reply + status |
 | GET | `/changes/{doc_id}` | "What changed" cấp văn bản: VB này sửa đổi/thay thế/của VB nào |
+| GET | `/graph/{doc_id}` | **Lược đồ văn bản** (nodes+edges, đa-hop) — quan hệ + hiệu lực kiểu TVPL |
+| GET | `/latest/{doc_id}` | Map tới **văn bản mới nhất** (theo chuỗi replaced_by) |
+| GET | `/articles-changed/{doc_id}` | Điều nào của VB đã bị VB khác sửa (**bôi vàng** kiểu TVPL) |
 | POST | `/redline` | Diff 2 phiên bản text (`[+thêm+]`/`[-bỏ-]` + similarity, tất định) |
 | GET | `/impact/{doc_id}` | **Regulatory change intel**: VB mới ảnh hưởng case nào của công ty (article-level) |
 | POST | `/impact/{doc_id}/notify` | Gửi cảnh báo VB mới ảnh hưởng HĐ qua Slack/Zalo (`via`/`channel`) |
+| POST | `/monitor/run` | **Autopilot**: tự quét VB luật MỚI (`since`) → HĐ bị ảnh hưởng → digest Slack/Zalo (cron) |
 | POST · GET | `/feedback` | Ghi · liệt kê phản hồi người dùng (vòng học → golden set) |
 | POST | `/evidence/revenue` | Ghi nhận doanh thu (evidence XPRIZE) |
 | GET | `/evidence/summary` | Tổng doanh thu + breakdown tháng 5–8/2026, tách related-party |

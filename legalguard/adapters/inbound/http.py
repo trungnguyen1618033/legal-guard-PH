@@ -107,7 +107,7 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
               max_upload_bytes: int = 10 * 1024 * 1024, rate_limit_per_min: int = 60,
               max_input_chars: int = 50_000,
               senders: dict | None = None) -> FastAPI:
-    app = FastAPI(title="Legal Guard PH", version="0.6.0")
+    app = FastAPI(title="Legal Guard PH", version="0.7.0")
     orgs = api_orgs or {}
     _senders = senders or {}        # {"slack": ChatSenderPort, "zalo": ChatSenderPort} — gửi cảnh báo chủ động
     _hits: dict[tuple, int] = {}   # rate limit in-process (prod → Redis; per-worker)

@@ -145,7 +145,7 @@ def _detect_illegal(risks: list, judge: LLMPort | None) -> int:
 
     Chỉ CHẠY trên risk đã có `legal_basis`; chỉ NÂNG (không hạ illegal của agent). BẢO THỦ: judge phải
     nói YES rõ ràng (`nli_contradicts` True) mới gắn illegal — nghi ngờ/offline → giữ unfavorable.
-    `violated_law` lấy ĐÚNG điều luật từ legal_basis (vd 'Điều 357'). Mỗi risk 1 round-trip judge → song song."""
+    `violated_law` lấy ĐÚNG điều luật từ legal_basis (vd 'Điều 466'). Mỗi risk 1 round-trip judge → song song."""
     if judge is None or not getattr(judge, "available", False):
         return 0
     cands = [r for r in risks if r.legal_status == "unfavorable" and r.legal_basis]

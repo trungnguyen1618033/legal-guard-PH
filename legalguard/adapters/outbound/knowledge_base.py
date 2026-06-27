@@ -700,7 +700,7 @@ class FileKnowledgeBaseProvider:
     def changelog(self, doc_id: str, country: str) -> dict | None:
         return legal_changelog(self.base_dir, country, doc_id)
 
-    def affected_files(self, doc_id: str, country: str) -> dict[str, str]:
+    def affected_files(self, doc_id: str, country: str) -> dict[str, dict]:
         return affected_doc_files(self.base_dir, country, doc_id)
 
     def graph(self, doc_id: str, country: str, depth: int = 1) -> dict | None:
