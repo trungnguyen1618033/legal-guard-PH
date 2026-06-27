@@ -258,7 +258,12 @@ function render(d) {
     ${f.legal_basis?`<div class="muted">📎 căn cứ: ${esc(f.legal_basis.slice(0,140))}</div>`:''}
     ${f.source?`<div class="muted">nguồn: ${esc(f.source.slice(0,100))}</div>`:''}
     <button class="ghost" style="margin-top:6px" onclick="counter(${i})">📝 Soạn điều khoản phản-đề (VN/EN)</button>
-    <div id="cc-${i}" class="rl" style="margin-top:6px"></div></div>`).join('')
+    <div id="cc-${i}" class="rl" style="margin-top:6px"></div>
+    <div class="muted" style="margin-top:6px;font-size:13px">📊 Kết quả đàm phán thực tế?
+      <button class="ghost" onclick="recordOutcome(${i},'accepted',this)">✓ Chấp nhận</button>
+      <button class="ghost" onclick="recordOutcome(${i},'partial',this)">~ Một phần</button>
+      <button class="ghost" onclick="recordOutcome(${i},'rejected',this)">✗ Từ chối</button>
+      <span id="oc-${i}" class="muted"></span></div></div>`).join('')
     || '<p class="muted">(không có)</p>';
 
   $('trace').innerHTML = (d.trace||[]).map(s => `<div class="trace-step">
@@ -283,11 +288,32 @@ function render(d) {
     banner.className = 'banner approved';
     banner.innerHTML = '<strong>✅ Đã duyệt</strong> — câu đàm phán gửi đối tác đã được mở khóa bên dưới.';
   };
-  $('reject').onclick = () => {
+  $('reject').onclick = async () => {
     banner.className = 'banner rejected';
-    banner.innerHTML = '<strong>⛔ Đã từ chối</strong> — case được chuyển cho chuyên gia pháp lý xử lý thủ công. ' +
-                       'Khuyến nghị AI <em>không</em> được gửi cho đối tác.';
+    banner.innerHTML = '<strong>⛔ Đã từ chối</strong> — đang chuyển case cho chuyên gia pháp lý…';
+    let note = 'Khuyến nghị AI <em>không</em> được gửi cho đối tác.';
+    try {   // escalation THẬT: gửi case cho luật sư qua kênh chuyên gia (nếu cấu hình)
+      const r = await fetch('/escalate', { method:'POST',
+        headers: { 'Content-Type':'application/json', ...authHeaders() },
+        body: JSON.stringify({ case_id:_caseId||'', reason:'Reviewer từ chối khuyến nghị AI' }) });
+      const d = await r.json().catch(()=>({}));
+      note += d.sent ? ' 📨 Đã thông báo kênh chuyên gia.' : ' (chưa cấu hình kênh chuyên gia — đã đánh dấu.)';
+    } catch { note += ' (không gửi được thông báo.)'; }
+    banner.innerHTML = '<strong>⛔ Đã từ chối</strong> — case chuyển cho chuyên gia pháp lý. ' + note;
   };
+}
+
+async function recordOutcome(i, result, btn) {
+  const f = (window._fb || [])[i]; if (!f) return;
+  if (!_caseId) { $('oc-'+i).textContent = ' — cần lưu case trước (chạy phân tích thật).'; return; }
+  $('oc-'+i).textContent = ' đang ghi…';
+  try {
+    const r = await fetch(`/cases/${_caseId}/outcome`, { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ clause: f.clause, tactic: f.suggestion||'', result }) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    $('oc-'+i).textContent = ' ✓ đã ghi — dữ liệu này nuôi win-rate (càng dùng càng khôn).';
+  } catch (e) { $('oc-'+i).textContent = ' — lỗi: ' + e.message; }
 }
 
 async function counter(i) {

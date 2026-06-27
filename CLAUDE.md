@@ -127,7 +127,12 @@ fallback trong `web/app.html`.
 
 Moat/flywheel (`docs/moat.md`): `Outcome` (kết quả đàm phán) → `OutcomeRepositoryPort` →
 `POST /cases/{id}/outcome`, `GET /insights/tactics`; `AnalysisService` gắn `win_rate` vào fallback
-(outcome-aware ranking). Đây là dữ liệu độc quyền — moat thật, không phải tech.
+(outcome-aware ranking). Đây là dữ liệu độc quyền — moat thật, không phải tech. **UI đóng vòng**: mỗi
+fallback trong app.html có nút "📊 Kết quả thực tế" (Chấp nhận/Một phần/Từ chối) → ghi Outcome → nuôi
+win-rate → lần phân tích sau hiện badge `win X%` (càng dùng càng khôn).
+**Escalation chuyên gia THẬT** (`POST /escalate` {case_id, reason, via?, channel?}): reviewer Reject (app.html)
+→ gửi case cho luật sư qua kênh chuyên gia (`EXPERT_CHANNEL` cấu hình sẵn, hoặc channel truyền vào) — hoàn tất
+human-checkpoint (không chỉ gắn cờ mà CHUYỂN tới người thật). Chưa cấu hình kênh → vẫn nhận (ok, sent=False).
 System-of-record dashboard: `GET /insights/dashboard` = tổng hợp 1 org (HĐ đã rà soát, rủi ro hay gặp +
 phân bố severity, top điều khoản rủi ro, tín hiệu feedback + lỗ hổng KB, top chiến thuật theo win-rate).
 `domain/dashboard.build_dashboard` THUẦN (gộp cases/feedback/win_rates). Càng dùng càng nhiều dữ liệu →

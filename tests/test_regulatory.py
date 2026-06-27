@@ -177,6 +177,32 @@ def test_regulatory_notify_endpoint(tmp_path):
     r2 = c.post("/impact/999/9999/NĐ-CP/notify", json={"via": "slack", "channel": "C123"})
     assert r2.json()["sent"] is False and len(fake.sent) == 1
 
+
+def test_escalate_endpoint(tmp_path):
+    # Escalation chuyên gia THẬT: Reject → gửi case cho luật sư qua kênh chuyên gia cấu hình sẵn.
+    from fastapi.testclient import TestClient
+
+    from legalguard.adapters.inbound.http import build_api
+    from legalguard.adapters.outbound.document_parser import PdfDocxParser
+    from legalguard.adapters.outbound.revenue_log import CsvRevenueLog
+    from legalguard.config.container import build_service
+    from legalguard.config.settings import settings
+    from legalguard.domain.evidence import EvidenceService
+
+    svc = build_service(settings.model_copy(update={"database_url": f"sqlite:///{tmp_path/'c.db'}"}))
+    fake = _FakeSender()
+    ev = EvidenceService(CsvRevenueLog(str(tmp_path / "r.csv")))
+    c = TestClient(build_api(svc, PdfDocxParser(), ev, api_orgs={},
+                             senders={"slack": fake}, expert_channel="C-LAW"))
+    r = c.post("/escalate", json={"case_id": "case-1", "reason": "reviewer reject"})
+    assert r.status_code == 200 and r.json()["sent"] is True
+    assert fake.sent[0][0] == "C-LAW" and "case-1" in fake.sent[0][1]
+
+    # Không cấu hình kênh → vẫn nhận (ok) nhưng sent=False (đánh dấu, không gửi).
+    c2 = TestClient(build_api(svc, PdfDocxParser(), ev, api_orgs={}))
+    r2 = c2.post("/escalate", json={"reason": "x"})
+    assert r2.json()["ok"] is True and r2.json()["sent"] is False
+
     # Kênh chưa cấu hình → 400.
     assert c.post("/impact/70/2025/NĐ-CP/notify",
                   json={"via": "zalo", "channel": "U1"}).status_code == 400

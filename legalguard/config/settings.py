@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     slack_bot_token: str = ""        # gửi reply Slack (chat.postMessage) + tải file
     zalo_oa_secret: str = ""
     zalo_app_id: str = ""
+    expert_channel: str = ""         # kênh Slack chuyên gia pháp lý nhận case escalation (Reject/illegal)
     zalo_access_token: str = ""      # gửi reply Zalo OA + tải ảnh
     revenue_log_path: str = "data/revenue.csv"
     # SQLite cho local/dev; prod đổi sang postgresql+psycopg://user:pass@host:5432/legalguard
