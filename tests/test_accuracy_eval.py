@@ -37,3 +37,18 @@ def test_golden_set_valid():
     assert len(cases) >= 5
     assert all("question" in c and "abstain" in c for c in cases)
     assert any(c["abstain"] for c in cases)        # có ca kiểm TỪ CHỐI (chống bịa)
+    # PHÂN LOẠI để luật sư duyệt theo chuyên môn: mỗi ca có lĩnh vực + loại hợp lệ.
+    assert all(c.get("category") for c in cases)
+    valid_types = {"tra_cuu", "diem_thoi_gian", "phan_biet", "tu_choi"}
+    assert all(c.get("type") in valid_types for c in cases)
+    assert len({c["category"] for c in cases}) >= 4   # phủ nhiều lĩnh vực
+
+
+def test_golden_review_sheet_generates(tmp_path, monkeypatch):
+    # golden_to_review sinh phiếu nhóm theo lĩnh vực (CSV + Markdown).
+    import evaluation.golden_to_review as g
+    monkeypatch.setattr(g, "_OUT_DIR", tmp_path)
+    csv_p, md_p = g.write_review()
+    assert csv_p.exists() and md_p.exists()
+    md = md_p.read_text(encoding="utf-8")
+    assert "## Chế tài thương mại" in md and "## Ngoài phạm vi KB" in md   # nhóm theo lĩnh vực

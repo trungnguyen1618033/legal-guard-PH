@@ -41,15 +41,26 @@ def run(write: bool = True) -> dict:
     cases = json.loads(_GOLDEN.read_text(encoding="utf-8"))["cases"]
     svc, org = build_service(), default_org("VN")
     results, passed = [], 0
+    cat: dict[str, list[int]] = {}                       # lĩnh vực → [passed, total]
     for c in cases:
         ans, snips = svc.lookup(c["question"], org, lang="vi")
         ok, why = judge_case(c, ans, [s.source for s in snips])
         passed += ok
-        results.append({"q": c["question"], "ok": ok, "why": why,
+        cc = c.get("category", "Khác")
+        cat.setdefault(cc, [0, 0])
+        cat[cc][0] += ok
+        cat[cc][1] += 1
+        results.append({"q": c["question"], "category": cc, "ok": ok, "why": why,
                         "sources": [s.source for s in snips[:2]], "answer": ans[:160]})
-        print(f"[{'✅' if ok else '❌'}] {c['question'][:54]}\n     {why} | {results[-1]['sources']}")
+        print(f"[{'✅' if ok else '❌'}] ({cc}) {c['question'][:48]}\n     {why} | {results[-1]['sources']}")
     acc = round(passed / len(cases), 3) if cases else 0.0
-    report = {"answer_accuracy": acc, "passed": passed, "total": len(cases), "cases": results}
+    by_category = {k: {"passed": v[0], "total": v[1], "accuracy": round(v[0] / v[1], 3)}
+                   for k, v in cat.items()}
+    report = {"answer_accuracy": acc, "passed": passed, "total": len(cases),
+              "by_category": by_category, "cases": results}
+    print("\n--- Theo lĩnh vực ---")
+    for k, v in by_category.items():
+        print(f"  {k}: {v['passed']}/{v['total']} = {v['accuracy']:.0%}")
     print(f"\n=== ĐỘ CHÍNH XÁC CÂU TRẢ LỜI: {passed}/{len(cases)} = {acc:.0%} ===")
     if write:
         _REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

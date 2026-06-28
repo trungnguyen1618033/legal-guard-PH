@@ -2,9 +2,37 @@
   "answer_accuracy": 1.0,
   "passed": 18,
   "total": 18,
+  "by_category": {
+    "Chế tài thương mại (LTM 2005)": {
+      "passed": 5,
+      "total": 5,
+      "accuracy": 1.0
+    },
+    "Hợp đồng dân sự (BLDS 2015)": {
+      "passed": 3,
+      "total": 3,
+      "accuracy": 1.0
+    },
+    "Lãi suất vay (BLDS 2015)": {
+      "passed": 4,
+      "total": 4,
+      "accuracy": 1.0
+    },
+    "Hóa đơn – chứng từ (NĐ 123/2020)": {
+      "passed": 4,
+      "total": 4,
+      "accuracy": 1.0
+    },
+    "Ngoài phạm vi KB": {
+      "passed": 2,
+      "total": 2,
+      "accuracy": 1.0
+    }
+  },
   "cases": [
     {
       "q": "Phạt vi phạm hợp đồng thương mại tối đa bao nhiêu phần trăm?",
+      "category": "Chế tài thương mại (LTM 2005)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -15,6 +43,7 @@
     },
     {
       "q": "Khi nào bên bị vi phạm được yêu cầu phạt vi phạm trong thương mại?",
+      "category": "Chế tài thương mại (LTM 2005)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -25,6 +54,7 @@
     },
     {
       "q": "Bồi thường thiệt hại trong thương mại bao gồm những khoản nào?",
+      "category": "Chế tài thương mại (LTM 2005)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -35,16 +65,18 @@
     },
     {
       "q": "Có được vừa phạt vi phạm vừa đòi bồi thường thiệt hại trong thương mại không?",
+      "category": "Chế tài thương mại (LTM 2005)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
         "luat_thuong_mai_2005_che_tai.md#Điều 307",
         "blds_2015_hop_dong.md#Điều 418"
       ],
-      "answer": "**Trả lời:** Có, nếu các bên có thỏa thuận phạt vi phạm và đồng thời thỏa thuận rõ việc vừa chịu phạt vi phạm vừa bồi thường thiệt hại; nếu chỉ thỏa thuận phạt "
+      "answer": "**Trả lời:** Có, nếu các bên có thỏa thuận phạt vi phạm và đồng thời thỏa thuận về việc vừa chịu phạt vi phạm vừa bồi thường thiệt hại; nếu chỉ thỏa thuận phạt "
     },
     {
       "q": "Các trường hợp được miễn trách nhiệm khi vi phạm hợp đồng thương mại?",
+      "category": "Chế tài thương mại (LTM 2005)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -55,16 +87,18 @@
     },
     {
       "q": "Mức phạt vi phạm trong hợp đồng DÂN SỰ có bị giới hạn 8% không?",
+      "category": "Hợp đồng dân sự (BLDS 2015)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
         "luat_thuong_mai_2005_che_tai.md#Điều 301",
         "blds_2015_hop_dong.md"
       ],
-      "answer": "**Trả lời:** Không bị giới hạn 8%; mức phạt vi phạm trong hợp đồng dân sự do các bên thỏa thuận theo Điều 418 Bộ luật Dân sự 2015, trừ trường hợp luật liên quan"
+      "answer": "**Trả lời:** Không bị giới hạn 8%; mức phạt vi phạm trong hợp đồng dân sự do các bên thỏa thuận, trừ trường hợp luật liên quan có quy định khác.  \n**Căn cứ:**  "
     },
     {
       "q": "Thiệt hại được bồi thường do vi phạm hợp đồng dân sự gồm những gì?",
+      "category": "Hợp đồng dân sự (BLDS 2015)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -75,6 +109,7 @@
     },
     {
       "q": "Đặt cọc là gì và nếu bên nhận đặt cọc từ chối giao kết thì phải trả gì?",
+      "category": "Hợp đồng dân sự (BLDS 2015)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -85,6 +120,7 @@
     },
     {
       "q": "Trần lãi suất cho vay theo Bộ luật Dân sự là bao nhiêu một năm?",
+      "category": "Lãi suất vay (BLDS 2015)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -95,6 +131,7 @@
     },
     {
       "q": "Lãi trên nợ gốc quá hạn tối đa bằng bao nhiêu phần trăm lãi suất trong hợp đồng?",
+      "category": "Lãi suất vay (BLDS 2015)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -105,6 +142,7 @@
     },
     {
       "q": "Vay KHÔNG có lãi mà đến hạn không trả thì có phải trả lãi không?",
+      "category": "Lãi suất vay (BLDS 2015)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -115,16 +153,18 @@
     },
     {
       "q": "Chậm thực hiện nghĩa vụ trả tiền thì lãi suất chậm trả xác định thế nào?",
+      "category": "Lãi suất vay (BLDS 2015)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
         "blds_2015_hop_dong.md#Điều 357",
         "luat_thuong_mai_2005_che_tai.md#Điều 306"
       ],
-      "answer": "**Trả lời:** Lãi suất chậm trả được xác định theo thỏa thuận của các bên nhưng không vượt quá 20%/năm; nếu không có thỏa thuận, áp dụng mức 50% lãi suất giới hạ"
+      "answer": "**Trả lời:** Lãi suất chậm trả được xác định theo thỏa thuận của các bên nhưng không vượt quá 20%/năm; nếu không có thỏa thuận, áp dụng mức 10%/năm (50% mức trầ"
     },
     {
       "q": "Thời điểm lập hóa đơn khi bán hàng hóa quy định thế nào?",
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -135,6 +175,7 @@
     },
     {
       "q": "Hóa đơn điện tử phải có những nội dung bắt buộc nào?",
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
@@ -145,26 +186,29 @@
     },
     {
       "q": "Năm 2020 thì văn bản nào hướng dẫn về hóa đơn bán hàng?",
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
         "tt_39_2014_hoa_don_HET_HIEU_LUC.md",
         "tt_39_2014_hoa_don_HET_HIEU_LUC.md#Điều 16"
       ],
-      "answer": "**Trả lời:** Trong năm 2020, Thông tư 39/2014/TT-BTC là văn bản đang có hiệu lực hướng dẫn về hóa đơn bán hàng hóa, cung ứng dịch vụ (do văn bản này đến ngày 01"
+      "answer": "**Trả lời:** Trong năm 2020, văn bản hướng dẫn về hóa đơn bán hàng hóa, cung ứng dịch vụ là Thông tư 39/2014/TT-BTC. Văn bản này có hiệu lực xuyên suốt năm 2020"
     },
     {
       "q": "Hiện nay (sau 2022) văn bản nào quy định về hóa đơn, chứng từ?",
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "sources": [
         "nd_123_2020_hoa_don.md",
         "nd_70_2025_sua_doi_hoa_don.md"
       ],
-      "answer": "**Trả lời:** Hiện nay, văn bản quy định về hóa đơn, chứng từ là Nghị định 123/2020/NĐ-CP (có hiệu lực từ 01/07/2022) và Nghị định 70/2025/NĐ-CP sửa đổi, bổ sung"
+      "answer": "**Trả lời:** Hiện nay, văn bản quy định về hóa đơn, chứng từ là Nghị định 123/2020/NĐ-CP (hiệu lực từ 01/07/2022) và Nghị định 70/2025/NĐ-CP sửa đổi, bổ sung (h"
     },
     {
       "q": "Quy định về đăng ký bảo hộ nhãn hiệu và sáng chế độc quyền thế nào?",
+      "category": "Ngoài phạm vi KB",
       "ok": true,
       "why": "từ chối đúng (ngoài KB)",
       "sources": [
@@ -175,13 +219,14 @@
     },
     {
       "q": "Thủ tục ly hôn đơn phương tại tòa án gồm những bước nào?",
+      "category": "Ngoài phạm vi KB",
       "ok": true,
       "why": "từ chối đúng (ngoài KB)",
       "sources": [
         "fallback_matrix.md",
         "fallback_matrix.md"
       ],
-      "answer": "**Trả lời:** Thủ tục ly hôn đơn phương không được quy định trong các căn cứ cung cấp.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời "
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
     }
   ]
 }
