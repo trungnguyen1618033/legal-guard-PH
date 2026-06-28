@@ -39,9 +39,11 @@ def test_golden_set_valid():
     assert any(c["abstain"] for c in cases)        # có ca kiểm TỪ CHỐI (chống bịa)
     # PHÂN LOẠI để luật sư duyệt theo chuyên môn: mỗi ca có lĩnh vực + loại hợp lệ.
     assert all(c.get("category") for c in cases)
-    valid_types = {"tra_cuu", "diem_thoi_gian", "phan_biet", "tu_choi"}
+    valid_types = {"tra_cuu", "diem_thoi_gian", "phan_biet", "tu_choi",
+                   "ap_dung", "bay_tien_de", "closure", "cap_nhat"}
     assert all(c.get("type") in valid_types for c in cases)
-    assert len({c["category"] for c in cases}) >= 4   # phủ nhiều lĩnh vực
+    assert len({c["category"] for c in cases}) >= 5   # phủ nhiều lĩnh vực
+    assert len({c["type"] for c in cases}) >= 6        # phủ nhiều LOẠI test
 
 
 def test_golden_review_sheet_generates(tmp_path, monkeypatch):

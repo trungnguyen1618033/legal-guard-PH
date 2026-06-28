@@ -12,8 +12,9 @@ from pathlib import Path
 
 _GOLDEN = Path("evaluation/accuracy_golden.json")
 _OUT_DIR = Path("docs/internal")
-_TYPE_VI = {"tra_cuu": "Tra cứu", "diem_thoi_gian": "Điểm thời gian",
-            "phan_biet": "Phân biệt", "tu_choi": "Từ chối (chống bịa)"}
+_TYPE_VI = {"tra_cuu": "Tra cứu", "diem_thoi_gian": "Điểm thời gian", "phan_biet": "Phân biệt",
+            "tu_choi": "Từ chối (chống bịa)", "ap_dung": "Áp dụng tình huống",
+            "bay_tien_de": "Bẫy tiền đề sai", "closure": "Dẫn chiếu chéo", "cap_nhat": "Cập nhật văn bản"}
 _HEADERS = ["STT", "Lĩnh vực", "Loại", "Câu hỏi", "Đáp án kỳ vọng (hệ thống)", "Căn cứ pháp lý",
             "Luật sư duyệt (Đúng/Sai)", "Sửa lại / Ghi chú"]
 
