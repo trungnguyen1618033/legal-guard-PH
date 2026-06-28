@@ -1,36 +1,81 @@
 {
   "answer_accuracy": 1.0,
-  "passed": 28,
-  "total": 28,
+  "passed": 52,
+  "total": 52,
   "by_category": {
     "Chế tài thương mại (LTM 2005)": {
+      "passed": 14,
+      "total": 14,
+      "accuracy": 1.0
+    },
+    "Hợp đồng dân sự (BLDS 2015)": {
       "passed": 8,
       "total": 8,
       "accuracy": 1.0
     },
-    "Hợp đồng dân sự (BLDS 2015)": {
-      "passed": 5,
-      "total": 5,
-      "accuracy": 1.0
-    },
     "Lãi suất vay (BLDS 2015)": {
-      "passed": 6,
-      "total": 6,
+      "passed": 7,
+      "total": 7,
       "accuracy": 1.0
     },
     "Hóa đơn – chứng từ (NĐ 123/2020)": {
-      "passed": 5,
-      "total": 5,
+      "passed": 7,
+      "total": 7,
       "accuracy": 1.0
     },
-    "Ngoài phạm vi KB": {
+    "Lao động (CHƯA có KB)": {
+      "passed": 3,
+      "total": 3,
+      "accuracy": 1.0
+    },
+    "Doanh nghiệp (CHƯA có KB)": {
       "passed": 2,
       "total": 2,
       "accuracy": 1.0
     },
-    "Lao động (CHƯA có trong KB)": {
+    "Đầu tư (CHƯA có KB)": {
+      "passed": 1,
+      "total": 1,
+      "accuracy": 1.0
+    },
+    "Sở hữu trí tuệ (CHƯA có KB)": {
       "passed": 2,
       "total": 2,
+      "accuracy": 1.0
+    },
+    "Thuế (CHƯA có KB)": {
+      "passed": 2,
+      "total": 2,
+      "accuracy": 1.0
+    },
+    "Trọng tài thương mại (CHƯA có KB)": {
+      "passed": 1,
+      "total": 1,
+      "accuracy": 1.0
+    },
+    "Bảo vệ dữ liệu cá nhân (CHƯA có KB)": {
+      "passed": 1,
+      "total": 1,
+      "accuracy": 1.0
+    },
+    "Đất đai (CHƯA có KB)": {
+      "passed": 1,
+      "total": 1,
+      "accuracy": 1.0
+    },
+    "Hôn nhân & gia đình (CHƯA có KB)": {
+      "passed": 1,
+      "total": 1,
+      "accuracy": 1.0
+    },
+    "Hình sự (CHƯA có KB)": {
+      "passed": 1,
+      "total": 1,
+      "accuracy": 1.0
+    },
+    "Thương mại quốc tế (CHƯA có KB)": {
+      "passed": 1,
+      "total": 1,
       "accuracy": 1.0
     }
   },
@@ -44,7 +89,7 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 301",
         "blds_2015_hop_dong.md"
       ],
-      "answer": "**Trả lời:** Tối đa 8% giá trị phần nghĩa vụ hợp đồng bị vi phạm.  \n**Căn cứ:** Điều 301 Luật Thương mại 2005 – mức phạt vi phạm không quá 8% giá trị phần nghĩa"
+      "answer": "**Trả lời:** Tối đa 8% giá trị phần nghĩa vụ hợp đồng bị vi phạm.  \n**Căn cứ:** Điều 301 Luật Thương mại 2005 – Mức phạt vi phạm không quá 8% giá trị phần nghĩa"
     },
     {
       "q": "Khi nào bên bị vi phạm được yêu cầu phạt vi phạm trong thương mại?",
@@ -77,7 +122,7 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 307",
         "blds_2015_hop_dong.md#Điều 418"
       ],
-      "answer": "**Trả lời:** Có, nếu các bên có thỏa thuận phạt vi phạm và đồng thời thỏa thuận rõ việc vừa phạt vi phạm vừa bồi thường thiệt hại; nếu chỉ thỏa thuận phạt vi ph"
+      "answer": "**Trả lời:** Có, nếu các bên có thỏa thuận phạt vi phạm và đồng thời thỏa thuận rõ việc vừa chịu phạt vi phạm vừa bồi thường thiệt hại; nếu chỉ thỏa thuận phạt "
     },
     {
       "q": "Các trường hợp được miễn trách nhiệm khi vi phạm hợp đồng thương mại?",
@@ -91,6 +136,94 @@
       "answer": "**Trả lời:** Các trường hợp miễn trách nhiệm khi vi phạm hợp đồng thương mại gồm: (a) có thỏa thuận miễn trừ; (b) xảy ra sự kiện bất khả kháng; (c) hành vi vi p"
     },
     {
+      "q": "Các loại chế tài trong thương mại gồm những gì?",
+      "category": "Chế tài thương mại (LTM 2005)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 292",
+        "luat_thuong_mai_2005_che_tai.md"
+      ],
+      "answer": "**Trả lời:** Các loại chế tài trong thương mại gồm: (1) Buộc thực hiện đúng hợp đồng; (2) Phạt vi phạm; (3) Buộc bồi thường thiệt hại; (4) Tạm ngừng thực hiện h"
+    },
+    {
+      "q": "Buộc thực hiện đúng hợp đồng nghĩa là gì?",
+      "category": "Chế tài thương mại (LTM 2005)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 297 khoản 1",
+        "luat_thuong_mai_2005_che_tai.md#Điều 297 khoản 5"
+      ],
+      "answer": "**Trả lời:** Buộc thực hiện đúng hợp đồng là việc bên bị vi phạm yêu cầu bên vi phạm thực hiện đúng nghĩa vụ theo hợp đồng hoặc áp dụng các biện pháp thay thế đ"
+    },
+    {
+      "q": "Khi gặp bất khả kháng, bên vi phạm có phải thông báo cho bên kia không?",
+      "category": "Chế tài thương mại (LTM 2005)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 295",
+        "luat_thuong_mai_2005_che_tai.md#Điều 294"
+      ],
+      "answer": "**Trả lời:** Có, bên vi phạm phải thông báo ngay bằng văn bản cho bên kia về trường hợp miễn trách nhiệm và những hậu quả có thể xảy ra; nếu không thông báo hoặ"
+    },
+    {
+      "q": "Bên mua chậm thanh toán thì bên bán được yêu cầu gì?",
+      "category": "Chế tài thương mại (LTM 2005)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 297 khoản 5",
+        "luat_thuong_mai_2005_che_tai.md#Điều 306"
+      ],
+      "answer": "**Trả lời:** Bên bán được yêu cầu bên mua trả tiền chậm thanh toán và lãi trên số tiền chậm trả theo lãi suất nợ quá hạn trung bình trên thị trường tương ứng vớ"
+    },
+    {
+      "q": "Hợp đồng mua bán quy định phạt 12% giá trị nếu giao chậm. Mức này có hợp lệ theo luật Việt Nam không?",
+      "category": "Chế tài thương mại (LTM 2005)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 301",
+        "fallback_matrix.md"
+      ],
+      "answer": "**Trả lời:** Mức phạt 12% không hợp lệ vì vượt trần 8% giá trị phần nghĩa vụ bị vi phạm.  \n**Căn cứ:** Điều 301 Luật Thương mại 2005 – mức phạt vi phạm không qu"
+    },
+    {
+      "q": "Đối tác đòi bồi thường cả thiệt hại gián tiếp do vi phạm hợp đồng thương mại. Luật cho phép không?",
+      "category": "Chế tài thương mại (LTM 2005)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "blds_2015_hop_dong.md#Điều 419",
+        "luat_thuong_mai_2005_che_tai.md#Điều 307"
+      ],
+      "answer": "**Trả lời:** Không được bồi thường thiệt hại gián tiếp; chỉ bồi thường tổn thất thực tế, trực tiếp và khoản lợi trực tiếp đáng lẽ được hưởng.  \n**Căn cứ:** Điều"
+    },
+    {
+      "q": "Có phải mức phạt vi phạm hợp đồng thương mại tối đa là 20% không?",
+      "category": "Chế tài thương mại (LTM 2005)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 301",
+        "blds_2015_hop_dong.md"
+      ],
+      "answer": "**Trả lời:** Không, mức phạt vi phạm hợp đồng thương mại tối đa là 8% giá trị phần nghĩa vụ bị vi phạm.  \n**Căn cứ:** Điều 301 Luật Thương mại 2005 — mức phạt v"
+    },
+    {
+      "q": "Gặp sự kiện bất khả kháng thì bên vi phạm có bị phạt vi phạm không?",
+      "category": "Chế tài thương mại (LTM 2005)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "blds_2015_hop_dong.md#Điều 351",
+        "luat_thuong_mai_2005_che_tai.md#Điều 294"
+      ],
+      "answer": "**Trả lời:** Không bị phạt vi phạm nếu chứng minh được sự kiện bất khả kháng xảy ra và thuộc trường hợp miễn trách nhiệm theo Điều 294 Luật Thương mại 2005.  \n*"
+    },
+    {
       "q": "Mức phạt vi phạm trong hợp đồng DÂN SỰ có bị giới hạn 8% không?",
       "category": "Hợp đồng dân sự (BLDS 2015)",
       "ok": true,
@@ -99,7 +232,18 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 301",
         "blds_2015_hop_dong.md"
       ],
-      "answer": "**Trả lời:** Không bị giới hạn 8%; mức phạt vi phạm trong hợp đồng dân sự do các bên thỏa thuận, trừ trường hợp luật liên quan có quy định khác.  \n**Căn cứ:**  "
+      "answer": "**Trả lời:** Không bị giới hạn 8%; mức phạt vi phạm trong hợp đồng dân sự do các bên thỏa thuận theo Điều 418 Bộ luật Dân sự 2015, trừ trường hợp luật liên quan"
+    },
+    {
+      "q": "Hợp đồng dân sự (không phải thương mại) thỏa thuận phạt 30%. Có hợp lệ không?",
+      "category": "Hợp đồng dân sự (BLDS 2015)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "blds_2015_hop_dong.md",
+        "luat_thuong_mai_2005_che_tai.md#Điều 301"
+      ],
+      "answer": "**Trả lời:** Hợp đồng dân sự thỏa thuận phạt 30% là hợp lệ, không bị giới hạn mức trần.  \n**Căn cứ:**  \nĐiều 418 Bộ luật Dân sự 2015 — Mức phạt vi phạm do các b"
     },
     {
       "q": "Thiệt hại được bồi thường do vi phạm hợp đồng dân sự gồm những gì?",
@@ -113,6 +257,17 @@
       "answer": "**Trả lời:** Thiệt hại được bồi thường gồm lợi ích mà lẽ ra bên có quyền sẽ được hưởng do hợp đồng mang lại và chi phí phát sinh do không hoàn thành nghĩa vụ hợ"
     },
     {
+      "q": "Nguyên tắc bồi thường thiệt hại do vi phạm nghĩa vụ là gì?",
+      "category": "Hợp đồng dân sự (BLDS 2015)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "blds_2015_hop_dong.md#Điều 419",
+        "blds_2015_hop_dong.md#Điều 360"
+      ],
+      "answer": "**Trả lời:** Nguyên tắc bồi thường thiệt hại do vi phạm nghĩa vụ là bồi thường toàn bộ thiệt hại thực tế, trực tiếp và khoản lợi trực tiếp mà bên bị vi phạm đán"
+    },
+    {
       "q": "Đặt cọc là gì và nếu bên nhận đặt cọc từ chối giao kết thì phải trả gì?",
       "category": "Hợp đồng dân sự (BLDS 2015)",
       "ok": true,
@@ -124,6 +279,28 @@
       "answer": "**Trả lời:** Đặt cọc là việc bên đặt cọc giao tài sản cho bên nhận đặt cọc để bảo đảm giao kết hoặc thực hiện hợp đồng; nếu bên nhận đặt cọc từ chối giao kết th"
     },
     {
+      "q": "Trách nhiệm dân sự do vi phạm nghĩa vụ phát sinh khi nào?",
+      "category": "Hợp đồng dân sự (BLDS 2015)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "blds_2015_hop_dong.md#Điều 351",
+        "blds_2015_hop_dong.md#Điều 360"
+      ],
+      "answer": "**Trả lời:** Trách nhiệm dân sự do vi phạm nghĩa vụ phát sinh khi bên có nghĩa vụ không thực hiện đúng nghĩa vụ về thời hạn, nội dung hoặc mức độ đầy đủ.  \n**Că"
+    },
+    {
+      "q": "Hợp đồng dân sự cũng bị giới hạn mức phạt 8% như hợp đồng thương mại đúng không?",
+      "category": "Hợp đồng dân sự (BLDS 2015)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "blds_2015_hop_dong.md",
+        "luat_thuong_mai_2005_che_tai.md#Điều 301"
+      ],
+      "answer": "**Trả lời:** Không, hợp đồng dân sự không bị giới hạn mức phạt 8%; mức phạt do các bên thỏa thuận, trừ trường hợp luật liên quan có quy định khác.  \n**Căn cứ:**"
+    },
+    {
       "q": "Trần lãi suất cho vay theo Bộ luật Dân sự là bao nhiêu một năm?",
       "category": "Lãi suất vay (BLDS 2015)",
       "ok": true,
@@ -132,7 +309,7 @@
         "blds_2015_hop_dong.md",
         "blds_2015_hop_dong.md#Điều 468"
       ],
-      "answer": "**Trả lời:** Trần lãi suất cho vay theo Bộ luật Dân sự 2015 là 20%/năm của khoản tiền vay.  \n**Căn cứ:** Điều 468 Khoản 1 Bộ luật Dân sự 2015 — Lãi suất thỏa th"
+      "answer": "**Trả lời:** Trần lãi suất cho vay theo Bộ luật Dân sự 2015 là 20%/năm của khoản tiền vay.  \n**Căn cứ:** Điều 468 Khoản 1 Bộ luật Dân sự 2015 — quy định lãi suấ"
     },
     {
       "q": "Lãi trên nợ gốc quá hạn tối đa bằng bao nhiêu phần trăm lãi suất trong hợp đồng?",
@@ -143,7 +320,7 @@
         "blds_2015_hop_dong.md#Điều 466",
         "blds_2015_hop_dong.md#Điều 468"
       ],
-      "answer": "**Trả lời:** Lãi trên nợ gốc quá hạn tối đa bằng 150% lãi suất vay theo hợp đồng.  \n**Căn cứ:** Điều 466 khoản 5 điểm b Bộ luật Dân sự năm 2015 – quy định lãi t"
+      "answer": "**Trả lời:** Lãi trên nợ gốc quá hạn tối đa bằng 150% lãi suất vay theo hợp đồng.  \n**Căn cứ:** Điều 466 khoản 5 điểm b Bộ luật Dân sự năm 2015 — quy định lãi t"
     },
     {
       "q": "Vay KHÔNG có lãi mà đến hạn không trả thì có phải trả lãi không?",
@@ -168,127 +345,6 @@
       "answer": "**Trả lời:** Lãi suất chậm trả được xác định theo thỏa thuận của các bên nhưng không vượt quá 20%/năm; nếu không có thỏa thuận, áp dụng mức 50% lãi suất giới hạ"
     },
     {
-      "q": "Thời điểm lập hóa đơn khi bán hàng hóa quy định thế nào?",
-      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
-      "ok": true,
-      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
-      "sources": [
-        "nd_123_2020_hoa_don.md#Điều 9",
-        "nd_70_2025_sua_doi_hoa_don.md#Điều 1"
-      ],
-      "answer": "**Trả lời:** Thời điểm lập hóa đơn khi bán hàng hóa là thời điểm chuyển giao quyền sở hữu hoặc quyền sử dụng hàng hóa cho người mua, không phân biệt đã thu được"
-    },
-    {
-      "q": "Hóa đơn điện tử phải có những nội dung bắt buộc nào?",
-      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
-      "ok": true,
-      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
-      "sources": [
-        "nd_123_2020_hoa_don.md#Điều 4 khoản 1",
-        "nd_123_2020_hoa_don.md#Điều 10"
-      ],
-      "answer": "**Trả lời:** Hóa đơn điện tử phải có tên hóa đơn, ký hiệu hóa đơn, ký hiệu mẫu số hóa đơn; tên liên hóa đơn (nếu áp dụng); số hóa đơn là số thứ tự gồm tối đa 8 "
-    },
-    {
-      "q": "Năm 2020 thì văn bản nào hướng dẫn về hóa đơn bán hàng?",
-      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
-      "ok": true,
-      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
-      "sources": [
-        "tt_39_2014_hoa_don_HET_HIEU_LUC.md",
-        "tt_39_2014_hoa_don_HET_HIEU_LUC.md#Điều 16"
-      ],
-      "answer": "**Trả lời:** Năm 2020, Thông tư 39/2014/TT-BTC là văn bản hướng dẫn về hóa đơn bán hàng hóa, cung ứng dịch vụ (do đến ngày 01/07/2022 văn bản này mới hết hiệu l"
-    },
-    {
-      "q": "Hiện nay (sau 2022) văn bản nào quy định về hóa đơn, chứng từ?",
-      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
-      "ok": true,
-      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
-      "sources": [
-        "nd_123_2020_hoa_don.md",
-        "nd_70_2025_sua_doi_hoa_don.md"
-      ],
-      "answer": "**Trả lời:** Hiện nay, văn bản quy định về hóa đơn, chứng từ là Nghị định 123/2020/NĐ-CP (hiệu lực từ 01/07/2022) và Nghị định 70/2025/NĐ-CP sửa đổi, bổ sung (h"
-    },
-    {
-      "q": "Quy định về đăng ký bảo hộ nhãn hiệu và sáng chế độc quyền thế nào?",
-      "category": "Ngoài phạm vi KB",
-      "ok": true,
-      "why": "từ chối đúng (ngoài KB)",
-      "sources": [
-        "fallback_matrix.md",
-        "nd_123_2020_hoa_don.md#Điều 4 khoản 3"
-      ],
-      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
-    },
-    {
-      "q": "Thủ tục ly hôn đơn phương tại tòa án gồm những bước nào?",
-      "category": "Ngoài phạm vi KB",
-      "ok": true,
-      "why": "từ chối đúng (ngoài KB)",
-      "sources": [
-        "fallback_matrix.md",
-        "nd_123_2020_hoa_don.md#Điều 4"
-      ],
-      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
-    },
-    {
-      "q": "Hợp đồng mua bán quy định phạt 12% giá trị nếu giao chậm. Mức này có hợp lệ theo luật Việt Nam không?",
-      "category": "Chế tài thương mại (LTM 2005)",
-      "ok": true,
-      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
-      "sources": [
-        "luat_thuong_mai_2005_che_tai.md#Điều 301",
-        "fallback_matrix.md"
-      ],
-      "answer": "**Trả lời:** Mức phạt 12% không hợp lệ vì vượt trần 8% giá trị phần nghĩa vụ bị vi phạm.  \n**Căn cứ:** Điều 301. Mức phạt vi phạm – Luật Thương mại 2005 – mức p"
-    },
-    {
-      "q": "Có phải mức phạt vi phạm hợp đồng thương mại tối đa là 20% không?",
-      "category": "Chế tài thương mại (LTM 2005)",
-      "ok": true,
-      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
-      "sources": [
-        "luat_thuong_mai_2005_che_tai.md#Điều 301",
-        "blds_2015_hop_dong.md"
-      ],
-      "answer": "**Trả lời:** Không, mức phạt vi phạm hợp đồng thương mại tối đa là 8% giá trị phần nghĩa vụ bị vi phạm.  \n**Căn cứ:** Điều 301 Luật Thương mại 2005 — mức phạt k"
-    },
-    {
-      "q": "Các loại chế tài trong thương mại gồm những gì?",
-      "category": "Chế tài thương mại (LTM 2005)",
-      "ok": true,
-      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
-      "sources": [
-        "luat_thuong_mai_2005_che_tai.md#Điều 292",
-        "luat_thuong_mai_2005_che_tai.md"
-      ],
-      "answer": "**Trả lời:** Các loại chế tài trong thương mại gồm: (1) Buộc thực hiện đúng hợp đồng; (2) Phạt vi phạm; (3) Buộc bồi thường thiệt hại; (4) Tạm ngừng thực hiện h"
-    },
-    {
-      "q": "Hợp đồng dân sự cũng bị giới hạn mức phạt 8% như hợp đồng thương mại đúng không?",
-      "category": "Hợp đồng dân sự (BLDS 2015)",
-      "ok": true,
-      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
-      "sources": [
-        "blds_2015_hop_dong.md",
-        "luat_thuong_mai_2005_che_tai.md#Điều 301"
-      ],
-      "answer": "**Trả lời:** Không, hợp đồng dân sự không bị giới hạn mức phạt 8%; mức phạt do các bên thỏa thuận, trừ trường hợp luật liên quan có quy định khác.  \n**Căn cứ:**"
-    },
-    {
-      "q": "Trách nhiệm dân sự do vi phạm nghĩa vụ phát sinh khi nào?",
-      "category": "Hợp đồng dân sự (BLDS 2015)",
-      "ok": true,
-      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
-      "sources": [
-        "blds_2015_hop_dong.md#Điều 351",
-        "blds_2015_hop_dong.md#Điều 360"
-      ],
-      "answer": "**Trả lời:** Trách nhiệm dân sự do vi phạm nghĩa vụ phát sinh khi bên có nghĩa vụ không thực hiện đúng nghĩa vụ về thời hạn, nội dung hoặc mức độ đầy đủ.  \n**Că"
-    },
-    {
       "q": "Hợp đồng vay thỏa thuận lãi suất 25%/năm. Có hợp lệ không?",
       "category": "Lãi suất vay (BLDS 2015)",
       "ok": true,
@@ -308,7 +364,73 @@
         "blds_2015_hop_dong.md#Điều 357",
         "blds_2015_hop_dong.md#Điều 466"
       ],
-      "answer": "**Trả lời:** Mức lãi do chậm trả tiền tối đa là 20%/năm đối với lãi suất thỏa thuận; nếu không có thỏa thuận, lãi suất chậm trả được xác định theo khoản 2 Điều "
+      "answer": "**Trả lời:** Mức lãi do chậm trả tiền tối đa là 20%/năm đối với khoản tiền vay có thỏa thuận lãi suất; nếu không có thỏa thuận, lãi suất chậm trả được xác định "
+    },
+    {
+      "q": "Thời điểm lập hóa đơn khi bán hàng hóa quy định thế nào?",
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "nd_123_2020_hoa_don.md#Điều 9",
+        "nd_70_2025_sua_doi_hoa_don.md#Điều 1"
+      ],
+      "answer": "**Trả lời:** Thời điểm lập hóa đơn khi bán hàng hóa là thời điểm chuyển giao quyền sở hữu hoặc quyền sử dụng hàng hóa cho người mua, không phân biệt đã thu được"
+    },
+    {
+      "q": "Hóa đơn điện tử phải có những nội dung bắt buộc nào?",
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "nd_123_2020_hoa_don.md#Điều 4 khoản 1",
+        "nd_123_2020_hoa_don.md#Điều 10"
+      ],
+      "answer": "**Trả lời:** Hóa đơn điện tử phải có tên hóa đơn, ký hiệu hóa đơn, ký hiệu mẫu số hóa đơn; tên liên hóa đơn (nếu áp dụng); số hóa đơn là số thứ tự bằng chữ số Ả"
+    },
+    {
+      "q": "Công ty tặng hàng mẫu/khuyến mại cho khách, có phải lập hóa đơn không?",
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "nd_123_2020_hoa_don.md#Điều 4 khoản 1",
+        "nd_123_2020_hoa_don.md#Điều 9"
+      ],
+      "answer": "**Trả lời:** Có, phải lập hóa đơn khi tặng hàng mẫu/khuyến mại cho khách.  \n**Căn cứ:** Điều 4 khoản 1 Nghị định số 123/2020/NĐ-CP — Khi bán hàng hóa, cung cấp "
+    },
+    {
+      "q": "Đã giao hàng nhưng khách chưa thanh toán, đã phải xuất hóa đơn chưa?",
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "nd_123_2020_hoa_don.md#Điều 9",
+        "nd_123_2020_hoa_don.md#Điều 4 khoản 1"
+      ],
+      "answer": "**Trả lời:** Đã phải xuất hóa đơn ngay khi giao hàng, bất kể khách chưa thanh toán.  \n**Căn cứ:** Điều 9 khoản 1 Nghị định số 123/2020/NĐ-CP — Thời điểm lập hóa"
+    },
+    {
+      "q": "Năm 2020 thì văn bản nào hướng dẫn về hóa đơn bán hàng?",
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "tt_39_2014_hoa_don_HET_HIEU_LUC.md",
+        "tt_39_2014_hoa_don_HET_HIEU_LUC.md#Điều 16"
+      ],
+      "answer": "**Trả lời:** Trong năm 2020, văn bản đang có hiệu lực hướng dẫn về hóa đơn bán hàng hóa, cung ứng dịch vụ là Thông tư 39/2014/TT-BTC. Nghị định 123/2020/NĐ-CP t"
+    },
+    {
+      "q": "Hiện nay (sau 2022) văn bản nào quy định về hóa đơn, chứng từ?",
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "nd_123_2020_hoa_don.md",
+        "nd_70_2025_sua_doi_hoa_don.md"
+      ],
+      "answer": "**Trả lời:** Hiện nay, văn bản quy định về hóa đơn, chứng từ là Nghị định 123/2020/NĐ-CP (hiệu lực từ 01/07/2022) và Nghị định 70/2025/NĐ-CP sửa đổi, bổ sung (h"
     },
     {
       "q": "Văn bản nào sửa đổi, bổ sung Nghị định 123/2020 về hóa đơn?",
@@ -319,11 +441,44 @@
         "nd_70_2025_sua_doi_hoa_don.md",
         "nd_123_2020_hoa_don.md"
       ],
-      "answer": "**Trả lời:** Nghị định 70/2025/NĐ-CP là văn bản sửa đổi, bổ sung một số điều của Nghị định 123/2020/NĐ-CP về hóa đơn, chứng từ. Nghị định này được ban hành ngày"
+      "answer": "**Trả lời:** Nghị định 70/2025/NĐ-CP là văn bản sửa đổi, bổ sung một số điều của Nghị định số 123/2020/NĐ-CP về hóa đơn, chứng từ. Văn bản này được ban hành ngà"
+    },
+    {
+      "q": "Đối tác nước ngoài đòi phạt 10% do mình chậm nhận hàng. Mình có thể yêu cầu hạ xuống mức nào theo luật VN?",
+      "category": "Chế tài thương mại (LTM 2005)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 301",
+        "fallback_matrix.md"
+      ],
+      "answer": "**Trả lời:** Mức phạt vi phạm không được vượt quá 8% giá trị phần nghĩa vụ hợp đồng bị vi phạm.  \n**Căn cứ:** Điều 301 Luật Thương mại 2005 – mức phạt vi phạm k"
+    },
+    {
+      "q": "Bên đặt cọc từ chối giao kết hợp đồng thì mất gì?",
+      "category": "Hợp đồng dân sự (BLDS 2015)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "blds_2015_hop_dong.md#Điều 328",
+        "fallback_matrix.md"
+      ],
+      "answer": "**Trả lời:** Bên đặt cọc từ chối giao kết hợp đồng thì tài sản đặt cọc thuộc về bên nhận đặt cọc.  \n**Căn cứ:** Điều 328 Khoản 2 Bộ luật Dân sự năm 2015 – quy đ"
+    },
+    {
+      "q": "Vay CÓ lãi mà đến hạn không trả thì phải trả những loại lãi nào?",
+      "category": "Lãi suất vay (BLDS 2015)",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "sources": [
+        "blds_2015_hop_dong.md#Điều 466",
+        "blds_2015_hop_dong.md#Điều 357"
+      ],
+      "answer": "**Trả lời:** Bên vay phải trả (a) lãi trên nợ gốc theo lãi suất thỏa thuận tương ứng với thời hạn vay chưa trả; và (b) lãi trên nợ gốc quá hạn bằng 150% lãi suấ"
     },
     {
       "q": "Số giờ làm thêm tối đa trong một năm theo Bộ luật Lao động là bao nhiêu?",
-      "category": "Lao động (CHƯA có trong KB)",
+      "category": "Lao động (CHƯA có KB)",
       "ok": true,
       "why": "từ chối đúng (ngoài KB)",
       "sources": [
@@ -334,14 +489,168 @@
     },
     {
       "q": "Mức lương tối thiểu vùng hiện nay là bao nhiêu?",
-      "category": "Lao động (CHƯA có trong KB)",
+      "category": "Lao động (CHƯA có KB)",
       "ok": true,
       "why": "từ chối đúng (ngoài KB)",
       "sources": [
         "luat_thuong_mai_2005_che_tai.md#Điều 297",
         "luat_thuong_mai_2005_che_tai.md#Điều 302"
       ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
+    },
+    {
+      "q": "Trợ cấp thôi việc được tính như thế nào?",
+      "category": "Lao động (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 302",
+        "fallback_matrix.md"
+      ],
       "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy "
+    },
+    {
+      "q": "Điều kiện và thủ tục thành lập công ty TNHH một thành viên?",
+      "category": "Doanh nghiệp (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "nd_123_2020_hoa_don.md#Điều 4 khoản 3",
+        "fallback_matrix.md"
+      ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
+    },
+    {
+      "q": "Đại hội đồng cổ đông công ty cổ phần có những quyền gì?",
+      "category": "Doanh nghiệp (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 297 khoản 3",
+        "luat_thuong_mai_2005_che_tai.md#Điều 297 khoản 5"
+      ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
+    },
+    {
+      "q": "Dự án FDI được hưởng những ưu đãi đầu tư nào?",
+      "category": "Đầu tư (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "fallback_matrix.md",
+        "luat_thuong_mai_2005_che_tai.md#Điều 302"
+      ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy "
+    },
+    {
+      "q": "Quy định về đăng ký bảo hộ nhãn hiệu thế nào?",
+      "category": "Sở hữu trí tuệ (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "nd_123_2020_hoa_don.md#Điều 4 khoản 3",
+        "nd_123_2020_hoa_don.md#Điều 4 khoản 5"
+      ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
+    },
+    {
+      "q": "Thời hạn bảo hộ độc quyền sáng chế là bao lâu?",
+      "category": "Sở hữu trí tuệ (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "fallback_matrix.md",
+        "fallback_matrix.md"
+      ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy "
+    },
+    {
+      "q": "Thuế suất thuế GTGT đối với hàng hóa xuất khẩu là bao nhiêu?",
+      "category": "Thuế (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "nd_70_2025_sua_doi_hoa_don.md",
+        "nd_70_2025_sua_doi_hoa_don.md#Điều 1"
+      ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
+    },
+    {
+      "q": "Thuế suất thuế thu nhập doanh nghiệp phổ thông hiện nay?",
+      "category": "Thuế (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "nd_123_2020_hoa_don.md#Điều 4 khoản 2",
+        "nd_70_2025_sua_doi_hoa_don.md#Điều 1"
+      ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
+    },
+    {
+      "q": "Điều kiện để thỏa thuận trọng tài có hiệu lực là gì?",
+      "category": "Trọng tài thương mại (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "fallback_matrix.md",
+        "blds_2015_hop_dong.md#Điều 418"
+      ],
+      "answer": "**Trả lời:** Thỏa thuận trọng tài có hiệu lực khi được lập thành văn bản, thể hiện rõ ý chí tự nguyện của các bên và không vi phạm điều cấm của pháp luật.  \n**C"
+    },
+    {
+      "q": "Nguyên tắc xử lý dữ liệu cá nhân theo pháp luật Việt Nam?",
+      "category": "Bảo vệ dữ liệu cá nhân (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "nd_123_2020_hoa_don.md#Điều 4 khoản 2",
+        "nd_123_2020_hoa_don.md#Điều 4 khoản 6"
+      ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
+    },
+    {
+      "q": "Thời hạn thuê đất trong khu công nghiệp tối đa bao lâu?",
+      "category": "Đất đai (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "fallback_matrix.md",
+        "fallback_matrix.md"
+      ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy "
+    },
+    {
+      "q": "Thủ tục ly hôn đơn phương tại tòa án gồm những bước nào?",
+      "category": "Hôn nhân & gia đình (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "fallback_matrix.md",
+        "fallback_matrix.md"
+      ],
+      "answer": "**Trả lời:** Chưa đủ căn cứ trong cơ sở tri thức.  \n**Căn cứ:** Chưa đủ căn cứ trong cơ sở tri thức.\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy"
+    },
+    {
+      "q": "Tội lừa đảo chiếm đoạt tài sản bị xử phạt thế nào?",
+      "category": "Hình sự (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 301",
+        "luat_thuong_mai_2005_che_tai.md#Điều 300"
+      ],
+      "answer": "**Trả lời:** Câu hỏi không liên quan đến các căn cứ pháp lý về chế tài thương mại đã cung cấp; đây là vấn đề hình sự, thuộc phạm vi Bộ luật Hình sự, không được "
+    },
+    {
+      "q": "Điều kiện giao hàng FOB theo Incoterms quy định nghĩa vụ các bên thế nào?",
+      "category": "Thương mại quốc tế (CHƯA có KB)",
+      "ok": true,
+      "why": "từ chối đúng (ngoài KB)",
+      "sources": [
+        "luat_thuong_mai_2005_che_tai.md#Điều 297 khoản 4",
+        "fallback_matrix.md"
+      ],
+      "answer": "**Trả lời:** Theo điều kiện FOB, người bán giao hàng qua mạn tàu tại cảng xếp hàng; rủi ro và chi phí chuyển từ thời điểm hàng vượt qua lan can tàu.  \n**Căn cứ:"
     }
   ]
 }
