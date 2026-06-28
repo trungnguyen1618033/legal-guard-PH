@@ -73,6 +73,34 @@ def nli_contradicts(clause: str, article: str, judge: LLMPort, max_chars: int = 
     return None
 
 
+_RELEVANCE_PROMPT = (
+    "Câu hỏi: {question}\n\nCác đoạn căn cứ từ cơ sở tri thức:\n{sources}\n\n"
+    "Các đoạn căn cứ TRÊN có chứa thông tin để trả lời TRỰC TIẾP câu hỏi không? "
+    "Trả lời YES nếu có đủ căn cứ liên quan để trả lời; trả lời NO nếu các đoạn này nói về "
+    "vấn đề KHÁC / không liên quan tới câu hỏi. Chỉ trả đúng một từ: YES hoặc NO."
+)
+
+
+def sources_answer_question(question: str, sources: str, judge: LLMPort,
+                            max_chars: int = 3000) -> bool | None:
+    """Cổng RELEVANCE cho tra cứu: các `sources` đã retrieve có THỰC SỰ trả lời được `question` không?
+    Chống over-reach khi KB lớn trả về đoạn cùng từ-vựng nhưng KHÁC chủ đề (vd hỏi 'ưu đãi đầu tư FDI'
+    → vớ điều về xã hội hóa nhà trẻ). True = trả lời được, False = không liên quan (nên TỪ CHỐI),
+    None = không kết luận (judge offline/lỗi/mơ hồ). BẢO THỦ ngược nli_supports: chỉ TỪ CHỐI khi judge
+    nói NO RÕ — mơ hồ thì vẫn cho trả lời (tránh over-abstain giết câu hỏi grounded hợp lệ)."""
+    if not judge.available or not question.strip() or not sources.strip():
+        return None
+    try:
+        out = judge.complete(_RELEVANCE_PROMPT.format(question=question[:500], sources=sources[:max_chars]))
+    except LLMError:
+        return None
+    if _NLI_NO.search(out):           # CHỈ NO rõ → không liên quan (abstain); else cho trả lời
+        return False
+    if _NLI_YES.search(out):
+        return True
+    return None
+
+
 _QUOTES = "\"'“”‘’„«»`"   # model hay BỌC evidence trong ngoặc → strip trước khi so (tránh false-negative)
 
 

@@ -1,6 +1,8 @@
 from legalguard.adapters.outbound.knowledge_base import KeywordRetriever
 from legalguard.domain.models import Risk
-from legalguard.domain.verification import nli_contradicts, verify_risks
+from legalguard.domain.verification import (
+    nli_contradicts, sources_answer_question, verify_risks,
+)
 
 KB = KeywordRetriever("knowledge_base", "VN")
 CONTRACT = "Arbitration in Beijing. T/T payment after 60 days."
@@ -93,3 +95,26 @@ def test_contradicts_prefers_no_when_both_words_present():
 def test_contradicts_none_on_empty_inputs():
     assert nli_contradicts("", "điều luật", _Judge(True, "YES")) is None
     assert nli_contradicts("clause", "", _Judge(True, "YES")) is None
+
+
+# ---- Cổng RELEVANCE tra cứu: sources_answer_question ----
+def test_relevance_false_when_judge_says_no():
+    # Nguồn KHÁC chủ đề (judge NO) → False → lookup sẽ TỪ CHỐI (chống over-reach KB lớn).
+    assert sources_answer_question("ưu đãi đầu tư FDISmc", "điều về xã hội hóa nhà trẻ",
+                                   _Judge(True, "NO")) is False
+
+
+def test_relevance_true_when_judge_says_yes():
+    assert sources_answer_question("phạt vi phạm", "Điều 301 — phạt tối đa 8%",
+                                   _Judge(True, "YES")) is True
+
+
+def test_relevance_none_when_offline_or_ambiguous():
+    # BẢO THỦ ngược: mơ hồ/offline → None → KHÔNG abstain (giữ câu hỏi grounded hợp lệ).
+    assert sources_answer_question("q", "src", _Judge(False)) is None
+    assert sources_answer_question("q", "src", _Judge(True, "tùy trường hợp")) is None
+
+
+def test_relevance_none_on_empty_inputs():
+    assert sources_answer_question("", "src", _Judge(True, "NO")) is None
+    assert sources_answer_question("q", "", _Judge(True, "NO")) is None

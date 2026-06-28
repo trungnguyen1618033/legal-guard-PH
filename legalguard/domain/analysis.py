@@ -36,7 +36,9 @@ from legalguard.domain.ports import (
 )
 from legalguard.domain.redaction import redact
 from legalguard.domain.tenants import Organization, get_tenant
-from legalguard.domain.verification import nli_contradicts, nli_supports, verify_risks
+from legalguard.domain.verification import (
+    nli_contradicts, nli_supports, sources_answer_question, verify_risks,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -537,6 +539,13 @@ class AnalysisService:
                     if lang == "vi" else
                     "Not enough grounding in the knowledge base to answer this."), []
         sources = "\n---\n".join(f"[nguồn: {s.source}] {s.text}" for s in snippets)
+        # Cổng RELEVANCE (chống over-reach khi KB lớn): nguồn retrieve có THỰC SỰ trả lời câu hỏi không?
+        # Judge nói NO rõ → TỪ CHỐI ngay (đừng để LLM "với" sang đoạn cùng từ-vựng nhưng khác chủ đề).
+        # Bảo thủ: chỉ abstain khi NO rõ; mơ hồ vẫn trả lời (không giết câu hỏi grounded hợp lệ).
+        if self.nli_verification and sources_answer_question(q, sources, self.judge) is False:
+            return (("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
+                     if lang == "vi" else
+                     "Not enough grounding in the knowledge base to answer this."), [])
         if lang == "vi":
             prompt = (
                 "Bạn là LUẬT SƯ tư vấn. CHỈ dùng các đoạn căn cứ dưới đây, KHÔNG bịa. Giọng CHUYÊN NGHIỆP, "
