@@ -22,6 +22,7 @@ uv run alembic upgrade head        # apply DB migrations (DATABASE_URL; sqlite d
 uv run python -m evaluation.run_eval  # fast eval: precision/recall + groundedness on golden set (offline)
 uv run python -m evaluation.legal_eval # eval TRA CỨU LUẬT: Recall@k/MRR + closure-recall + still-good-law (offline)
 uv run python -m evaluation.accuracy_eval # eval ĐỘ CHÍNH XÁC CÂU TRẢ LỜI (golden đáp-án-đã-biết: dẫn đúng điều+dữ kiện+biết từ chối; cần QWEN key) → ghi accuracy_report.json cho trang /trust
+uv run python -m evaluation.golden_to_review # sinh PHIẾU LUẬT SƯ DUYỆT từ golden → docs/internal/golden-set-lawyer-review.{csv,md} (gửi luật sư xác nhận)
 uv run python -m ingestion.hf_to_kb --pages 4 --keyword "hóa đơn" --out knowledge_base/_ingested # ETL sample: HF dataset luật VN → KB .md (front-matter status)
 uv run python -m ingestion.hf_to_kb --bulk --limit 2000 --out knowledge_base/_ingested # CON BATCH bulk: ingest toàn bộ th1nhng0 (cần `uv add datasets`) + cạnh đồ thị (amends/replaced_by/guides) + hiệu lực
 uv run python -m evaluation.feedback_to_golden --org default --out evaluation/golden_candidates.json # vòng học: feedback ⚠️/➖ → ứng viên golden + báo lỗ hổng KB
