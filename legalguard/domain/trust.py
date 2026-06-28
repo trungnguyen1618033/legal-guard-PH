@@ -27,11 +27,32 @@ _DISCLAIMER = ("Số đo trên GOLDEN SET NỘI BỘ đang mở rộng (cần lu
                "văn bản luật cần luật sư đối chiếu bản gốc trước khi sử dụng.")
 
 
+def _live_accuracy() -> dict | None:
+    """Đọc số ĐO THẬT từ accuracy_eval (nếu đã chạy) → /trust hiện số sống, không phải snapshot tay."""
+    import json
+    from pathlib import Path
+    p = Path("evaluation/accuracy_report.json")
+    if not p.exists():
+        return None
+    try:
+        r = json.loads(p.read_text(encoding="utf-8"))
+        return {"name": "Độ chính xác câu trả lời (golden set)",
+                "value": f"{r['answer_accuracy']:.0%} ({r['passed']}/{r['total']})",
+                "note": "Dẫn đúng điều luật + dữ kiện + biết từ chối khi ngoài KB — accuracy_eval"}
+    except (json.JSONDecodeError, KeyError, OSError):
+        return None
+
+
 def trust_report() -> dict:
-    """Báo cáo độ tin cậy có cấu trúc: phương pháp đo + số đo + disclaimer. Dùng cho /trust + Slack."""
+    """Báo cáo độ tin cậy có cấu trúc: phương pháp đo + số đo + disclaimer. Dùng cho /trust + Slack.
+    Nếu đã chạy `accuracy_eval` → chèn số ĐO THẬT lên đầu (sống), không thì dùng số nền."""
+    metrics = [{"name": n, "value": val, "note": note} for n, val, note in _METRICS]
+    live = _live_accuracy()
+    if live:
+        metrics.insert(0, live)
     return {
         "methodology": [{"layer": k, "desc": v} for k, v in _METHODOLOGY],
-        "metrics": [{"name": n, "value": val, "note": note} for n, val, note in _METRICS],
+        "metrics": metrics,
         "disclaimer": _DISCLAIMER,
     }
 

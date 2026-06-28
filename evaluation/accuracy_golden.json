@@ -1,0 +1,12 @@
+{
+  "_note": "Golden set ĐỘ CHÍNH XÁC CÂU TRẢ LỜI (tra cứu luật) — đáp án đã biết từ KB. CẦN luật sư mở rộng + duyệt. must_cite=chuỗi phải có trong nguồn (số điều/tên file); must_say=chuỗi phải có trong câu trả lời; abstain=câu NGOÀI KB phải từ chối (không bịa).",
+  "cases": [
+    {"question": "Phạt vi phạm hợp đồng thương mại tối đa bao nhiêu phần trăm?", "must_cite": ["301"], "must_say": ["8%"], "abstain": false},
+    {"question": "Trần lãi suất cho vay theo Bộ luật Dân sự là bao nhiêu một năm?", "must_cite": ["468"], "must_say": ["20%"], "abstain": false},
+    {"question": "Lãi quá hạn tối đa bằng bao nhiêu phần trăm lãi suất trong hợp đồng?", "must_cite": ["466"], "must_say": ["150%"], "abstain": false},
+    {"question": "Thời điểm lập hóa đơn khi bán hàng hóa quy định thế nào?", "must_cite": ["123_2020"], "must_say": ["hóa đơn"], "abstain": false},
+    {"question": "Nếu bên nhận đặt cọc từ chối giao kết hợp đồng thì phải trả lại gì?", "must_cite": ["328"], "must_say": ["đặt cọc"], "abstain": false},
+    {"question": "Năm 2020 thì văn bản nào hướng dẫn về hóa đơn bán hàng?", "must_cite": ["39_2014"], "must_say": ["39/2014"], "abstain": false},
+    {"question": "Quy định về đăng ký bảo hộ nhãn hiệu và sáng chế độc quyền thế nào?", "must_cite": [], "must_say": [], "abstain": true}
+  ]
+}
