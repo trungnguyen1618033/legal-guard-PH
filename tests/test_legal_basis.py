@@ -50,7 +50,8 @@ def test_legal_basis_grounds_fallback_topic():
 
 def test_legal_basis_skips_irrelevant_no_spurious_citation():
     # Không có điều luật khớp trong KB → KHÔNG gắn căn cứ bừa (tránh "căn cứ lạc" = sai như bịa).
-    assert _legal_citation("trọng tài tại Bắc Kinh nước ngoài", _r()) == ""
+    # Chủ đề thực sự ngoài KB (KB không có luật đăng kiểm phương tiện giao thông).
+    assert _legal_citation("đăng kiểm ô tô chở khách", _r()) == ""
 
 
 def test_legal_basis_only_law_articles_in_force():
