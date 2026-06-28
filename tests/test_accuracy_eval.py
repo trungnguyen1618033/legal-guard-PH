@@ -53,4 +53,4 @@ def test_golden_review_sheet_generates(tmp_path, monkeypatch):
     csv_p, md_p = g.write_review()
     assert csv_p.exists() and md_p.exists()
     md = md_p.read_text(encoding="utf-8")
-    assert "## Chế tài thương mại" in md and "## Ngoài phạm vi KB" in md   # nhóm theo lĩnh vực
+    assert "## Chế tài thương mại" in md and "## Lao động" in md           # nhóm theo lĩnh vực
