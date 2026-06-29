@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legal Guard — Hồ sơ tài liệu</title>
+<style>
+  :root{
+    --paper:#F4F6F7; --surface:#FFFFFF; --ink:#15212B; --muted:#5C6B77;
+    --accent:#0E6E5B; --accent-d:#0A5446; --tint:#E6F1ED; --line:#E1E7EA;
+    --warn:#9A6A12; --crit:#B3261E;
+    --serif:Georgia,'Iowan Old Style','Times New Roman',serif;
+    --sans:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    line-height:1.62;-webkit-font-smoothing:antialiased;font-size:16px}
+  .wrap{max-width:840px;margin:0 auto;padding:40px 22px 80px}
+  /* header */
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);
+    font-weight:600;margin:0 0 10px}
+  h1{font-family:var(--serif);font-weight:600;font-size:38px;line-height:1.1;margin:0 0 12px;
+    text-wrap:balance;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--muted);margin:0 0 20px;max-width:62ch}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 28px}
+  .chip{font-size:13px;font-weight:500;padding:5px 11px;border-radius:999px;background:var(--tint);
+    color:var(--accent-d);border:1px solid #cfe4dd}
+  .chip.live::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:var(--accent);margin-right:7px;vertical-align:1px}
+  .rule{height:2px;background:linear-gradient(90deg,var(--accent),transparent);border:0;margin:0 0 30px}
+  /* summary card */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:24px 26px;margin:0 0 26px}
+  .card h2{font-family:var(--serif);font-size:21px;margin:0 0 12px;font-weight:600}
+  .card p{margin:0 0 14px;color:#2c3a44}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:18px 0 4px}
+  .stat{background:var(--surface);padding:16px 14px;text-align:center}
+  .stat .n{font-family:var(--serif);font-size:27px;font-weight:600;color:var(--accent-d);
+    font-variant-numeric:tabular-nums;display:block;line-height:1}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:6px;display:block;letter-spacing:.02em}
+  .toc-hint{font-size:14px;color:var(--muted);font-style:italic;margin:16px 0 6px}
+  /* accordions */
+  .section-label{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+    font-weight:600;margin:34px 0 12px}
+  details{background:var(--surface);border:1px solid var(--line);border-radius:6px;margin:0 0 12px;
+    overflow:hidden}
+  details[open]{border-color:#c8d6cf;box-shadow:0 1px 0 rgba(14,110,91,.04)}
+  summary{list-style:none;cursor:pointer;padding:18px 22px;display:flex;align-items:baseline;
+    gap:14px;outline:none}
+  summary::-webkit-details-marker{display:none}
+  summary:hover{background:#fafcfb}
+  summary:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+  .s-title{font-family:var(--serif);font-size:19px;font-weight:600;flex:0 0 auto}
+  .s-teaser{font-size:14px;color:var(--muted);flex:1 1 auto}
+  .chev{flex:0 0 auto;color:var(--accent);font-size:13px;transition:transform .2s;align-self:center}
+  details[open] .chev{transform:rotate(90deg)}
+  @media (prefers-reduced-motion:reduce){.chev{transition:none}}
+  .body{padding:4px 24px 26px;border-top:1px solid var(--line);margin-top:-1px}
+  .body h3{font-family:var(--serif);font-size:17px;margin:22px 0 8px;font-weight:600;color:var(--accent-d)}
+  .body h4{font-size:14px;margin:16px 0 4px;font-weight:600}
+  .body p{margin:0 0 12px;color:#2c3a44}
+  .body ul,.body ol{margin:0 0 12px;padding-left:22px;color:#2c3a44}
+  .body li{margin:0 0 6px}
+  .body strong{color:var(--ink)}
+  code,.ref{font-family:var(--mono);font-size:.88em;background:var(--tint);color:var(--accent-d);
+    padding:1px 6px;border-radius:4px}
+  .quote{border-left:3px solid var(--accent);background:#f7faf9;padding:10px 16px;margin:0 0 14px;
+    border-radius:0 4px 4px 0;color:#2c3a44}
+  table{width:100%;border-collapse:collapse;margin:6px 0 16px;font-size:14.5px}
+  .tbl-wrap{overflow-x:auto}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td .num{font-variant-numeric:tabular-nums;font-weight:600;color:var(--accent-d)}
+  .pill{font-size:12px;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap}
+  .pill.ok{background:var(--tint);color:var(--accent-d)}
+  .pill.warn{background:#f6edda;color:var(--warn)}
+  .pill.crit{background:#fae7e5;color:var(--crit)}
+  .callout{background:#f7faf9;border:1px solid #d6e6e0;border-radius:6px;padding:14px 18px;margin:14px 0}
+  .callout.warn{background:#fbf6ea;border-color:#ecdcb6}
+  .callout .t{font-weight:600;margin-bottom:4px}
+  .foot{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+  a{color:var(--accent-d)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <p class="eyebrow">Hồ sơ tài liệu · cập nhật 30/06/2026</p>
+  <h1>Legal Guard</h1>
+  <p class="lede">Trợ lý AI rà soát hợp đồng &amp; tra cứu pháp luật Việt Nam cho doanh nghiệp — dẫn đúng điều luật còn hiệu lực, từ chối khi không đủ căn cứ, không bịa.</p>
+  <div class="chips">
+    <span class="chip live">Live trên ECS</span>
+    <span class="chip">12 lĩnh vực grounded</span>
+    <span class="chip">Độ chính xác 98% (53/54)</span>
+    <span class="chip">Slack 9 chức năng</span>
+    <span class="chip">Bảo mật siết</span>
+  </div>
+  <hr class="rule">
+
+  <div class="card">
+    <h2>Tóm tắt</h2>
+    <p>Legal Guard phân tích điều khoản rủi ro, tách <strong>trái luật</strong> với <strong>bất lợi</strong>, và đề xuất chiến thuật đàm phán theo vị thế của doanh nghiệp. Toàn bộ câu trả lời được <strong>neo vào văn bản luật truy xuất được</strong> (grounding) và dẫn đúng Điều/Khoản; văn bản đã hết hiệu lực bị tự động loại.</p>
+    <p>Hệ thống đang chạy thật trên máy chủ (ECS), kênh chính là <strong>Slack</strong>, đã vượt bộ kiểm thử nội bộ <strong>53/54 câu (98%)</strong> trải 12 lĩnh vực pháp luật.</p>
+    <div class="stats">
+      <div class="stat"><span class="n">12</span><span class="l">Lĩnh vực grounded</span></div>
+      <div class="stat"><span class="n">54</span><span class="l">Câu kiểm thử</span></div>
+      <div class="stat"><span class="n">98%</span><span class="l">Đúng (nội bộ)</span></div>
+      <div class="stat"><span class="n">9</span><span class="l">Chức năng Slack</span></div>
+    </div>
+    <p class="toc-hint">Bấm vào từng mục dưới đây để mở chi tiết.</p>
+  </div>
+
+  <p class="section-label">Mục lục</p>
+
+  <!-- 1. LAWYER PACKAGE -->
+  <details open>
+    <summary><span class="s-title">1 · Gói gửi luật sư</span><span class="s-teaser">Lời mời + việc cần duyệt (54 câu) + phân tích mẫu + cam kết trung thực</span><span class="chev">▶</span></summary>
+    <div class="body">
+      <h3>Lời mời thẩm định</h3>
+      <p>Nguyên tắc cốt lõi: <strong>AI không được bịa luật</strong>. Để chứng minh khách quan, chúng tôi xây bộ kiểm thử (golden set) 54 câu hỏi pháp lý, mỗi câu có sẵn đáp án + căn cứ điều luật do hệ thống tạo. Hệ thống tự chấm đạt 98% — nhưng đây là <strong>con số nội bộ, chưa được chuyên gia xác nhận</strong>.</p>
+      <p>Rất mong Luật sư giúp thẩm định (file Excel <code>golden-set-lawyer-review.csv</code> đính kèm):</p>
+      <ol>
+        <li>Với mỗi câu: <strong>đáp án + căn cứ điều luật</strong> đã đúng chưa? (đánh dấu Đúng/Sai; sai thì sửa)</li>
+        <li>Có câu nào <strong>dẫn sai điều luật</strong>, <strong>trích sai nội dung</strong>, hay <strong>dựa trên văn bản đã hết hiệu lực</strong> không?</li>
+        <li>5 câu hệ thống <strong>từ chối trả lời</strong> (ngoài phạm vi dữ liệu) — việc từ chối có hợp lý không?</li>
+      </ol>
+
+      <h3>49 câu có đáp án — phân bố theo lĩnh vực</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Lĩnh vực</th><th>Số câu</th><th>Văn bản nền</th></tr></thead>
+        <tbody>
+          <tr><td>Chế tài thương mại</td><td><span class="num">14</span></td><td>Luật Thương mại 2005 (36/2005/QH11)</td></tr>
+          <tr><td>Hợp đồng dân sự</td><td><span class="num">8</span></td><td>Bộ luật Dân sự 2015 (91/2015/QH13)</td></tr>
+          <tr><td>Lãi suất vay</td><td><span class="num">7</span></td><td>BLDS 2015 — Điều 466, 468</td></tr>
+          <tr><td>Hóa đơn – chứng từ</td><td><span class="num">7</span></td><td>NĐ 123/2020 + NĐ 70/2025</td></tr>
+          <tr><td>Trọng tài thương mại</td><td><span class="num">3</span></td><td>Luật TTTM 2010 (54/2010/QH12)</td></tr>
+          <tr><td>Lao động</td><td><span class="num">2</span></td><td>NĐ 145/2020 (hướng dẫn BLLĐ 2019)</td></tr>
+          <tr><td>Doanh nghiệp</td><td><span class="num">2</span></td><td>Luật Doanh nghiệp 2020 (59/2020/QH14)</td></tr>
+          <tr><td>Sở hữu trí tuệ</td><td><span class="num">2</span></td><td>Luật SHTT 2005 (50/2005/QH11)</td></tr>
+          <tr><td>Đầu tư</td><td><span class="num">1</span></td><td>Luật Đầu tư 2025 (143/2025/QH15)</td></tr>
+          <tr><td>Bảo vệ dữ liệu cá nhân</td><td><span class="num">1</span></td><td>NĐ 13/2023</td></tr>
+          <tr><td>Đất đai</td><td><span class="num">1</span></td><td>Luật Đất đai 2024 (31/2024/QH15)</td></tr>
+          <tr><td>Hôn nhân &amp; gia đình</td><td><span class="num">1</span></td><td>Luật HN&amp;GĐ 2014 (52/2014/QH13)</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>5 câu hệ thống từ chối</strong> (xác nhận từ chối là đúng — lĩnh vực chưa nạp dữ liệu): Thuế GTGT/TNDN, Hình sự, Thương mại quốc tế (Incoterms — tập quán quốc tế, không phải VBQPPL Việt Nam), Lao động (lương tối thiểu vùng — do Nghị định riêng, đổi hằng năm).</p>
+
+      <h3>Phân tích mẫu</h3>
+      <h4>Câu 1 — Phạt vi phạm HĐ thương mại tối đa?</h4>
+      <div class="quote">Đáp án: <strong>Tối đa 8%</strong> giá trị phần nghĩa vụ hợp đồng bị vi phạm. — Căn cứ: <span class="ref">Điều 301 Luật Thương mại 2005</span>.</div>
+      <p>Luật sư kiểm: mức 8% + đúng Điều 301 + có cần nêu ngoại lệ (Đ.266 giám định) không?</p>
+      <h4>Câu 2 (rà hợp đồng) — Điều khoản "phạt 15%"</h4>
+      <div class="quote"><span class="pill crit">⚖ TRÁI LUẬT</span> — "15% vượt trần 8% theo Điều 301; phần vượt có thể bị tuyên vô hiệu."</div>
+      <p>Luật sư kiểm: việc quy "có thể vô hiệu phần vượt 8%" có chuẩn không (đây là nhãn mạnh, cần chính xác).</p>
+      <h4>Câu 3 — Hợp đồng vô hiệu thì thỏa thuận trọng tài còn hiệu lực?</h4>
+      <div class="quote">Đáp án: <strong>Còn hiệu lực</strong> — thỏa thuận trọng tài độc lập với hợp đồng. — Căn cứ: <span class="ref">Điều 19 Luật TTTM 2010</span>.</div>
+
+      <div class="callout">
+        <div class="t">Cách duyệt (file Excel đính kèm)</div>
+        Mở <code>golden-set-lawyer-review.csv</code> bằng Excel (đã nhóm theo lĩnh vực). Đọc cột “Đáp án” + “Căn cứ” → điền cột <strong>“Luật sư duyệt (Đúng/Sai)”</strong>; nếu Sai → ghi đáp án/căn cứ đúng ở cột <strong>“Sửa lại / Ghi chú”</strong>.
+      </div>
+    </div>
+  </details>
+
+  <!-- 2. METHOD -->
+  <details>
+    <summary><span class="s-title">2 · Phương pháp đảm bảo không bịa</span><span class="s-teaser">5 lớp kiểm soát chống "AI chế luật"</span><span class="chev">▶</span></summary>
+    <div class="body">
+      <p>Khác chatbot thông thường (hay "chế" luật), Legal Guard có 5 lớp kiểm soát:</p>
+      <h4>1. Grounding bắt buộc + trích dẫn</h4>
+      <p>AI chỉ dùng các đoạn luật <strong>truy xuất được từ cơ sở dữ liệu</strong>; mỗi câu trả lời nêu Điều/Khoản + tên văn bản. Không có căn cứ khớp → để trống / từ chối.</p>
+      <h4>2. Lọc hiệu lực — chống "luật chết"</h4>
+      <p>Mặc định chỉ trả văn bản <strong>còn hiệu lực</strong>. Luật đã bị thay (vd Luật Đầu tư 2020 → 2025) bị tự động loại — đây là lỗi RAG pháp lý phổ biến nhất mà hệ thống chủ động chặn. Câu hỏi có mốc thời gian ("năm 2020") → trả văn bản đúng hiệu lực tại thời điểm đó.</p>
+      <h4>3. Đối chiếu 2 lớp (NLI)</h4>
+      <p>Một mô hình thứ hai kiểm "nguồn dẫn có <strong>thực sự hậu thuẫn</strong> câu trả lời không" — chống "trích dẫn tồn tại nhưng không liên quan".</p>
+      <h4>4. Phát hiện trái luật thận trọng</h4>
+      <p>Chỉ gắn nhãn "trái luật / có thể vô hiệu" khi đối chiếu <strong>đúng điều luật cụ thể</strong> + mô hình xác nhận mâu thuẫn rõ. Nghi ngờ → chỉ ghi "bất lợi". Luôn kèm "cần luật sư đối chiếu bản gốc".</p>
+      <h4>5. Chốt chặn con người</h4>
+      <p>Khi rà hợp đồng, câu nhắn gửi đối tác bị <strong>khóa</strong> tới khi người duyệt bấm Duyệt. AI làm phần nặng, con người quyết.</p>
+      <div class="callout"><strong>Backend kiểm soát</strong> nguồn / điều luật / hiệu lực; LLM chỉ diễn giải — không tự bịa số hiệu hay điều luật.</div>
+    </div>
+  </details>
+
+  <!-- 3. STATUS & TESTS -->
+  <details>
+    <summary><span class="s-title">3 · Trạng thái &amp; kiểm thử</span><span class="s-teaser">Triển khai, độ chính xác, các test đã vượt</span><span class="chev">▶</span></summary>
+    <div class="body">
+      <h3>Triển khai</h3>
+      <ul>
+        <li>Chạy thật trên <strong>Alibaba Cloud ECS</strong> (Docker: app + Postgres + Redis + Caddy HTTPS).</li>
+        <li>Bảo mật: API khóa bằng key, SSH chỉ IP tin cậy, DB không lộ internet, có script sao lưu.</li>
+        <li>Embeddings lưu bền (3.437 vector) → khởi động lại tức thì, không phân tích lại.</li>
+      </ul>
+      <h3>Độ chính xác (nội bộ)</h3>
+      <p><span class="num">53/54 = 98%</span>. Câu duy nhất chưa đạt là một câu tra cứu theo mốc thời gian — hệ thống <strong>từ chối quá thận trọng</strong> (an toàn: không trả sai), đang cải thiện.</p>
+      <h3>Đã kiểm thử (vượt)</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Hạng mục</th><th>Kết quả</th></tr></thead>
+        <tbody>
+          <tr><td>9 chức năng Slack (tra cứu, phân tích, đàm phán, nút feedback/kết quả, autopilot…)</td><td><span class="pill ok">Pass</span></td></tr>
+          <tr><td>Tải đồng thời (4 truy vấn song song)</td><td><span class="pill ok">Pass</span></td></tr>
+          <tr><td>Upload hợp đồng .doc &amp; ảnh scan (OCR)</td><td><span class="pill ok">Pass</span></td></tr>
+          <tr><td>Hợp đồng dài (xử lý nền, không timeout)</td><td><span class="pill ok">Pass</span></td></tr>
+          <tr><td>Tiếng Việt + tiếng Anh · Cô lập đa-công-ty</td><td><span class="pill ok">Pass</span></td></tr>
+        </tbody>
+      </table></div>
+      <h3>Nguồn dữ liệu luật</h3>
+      <p>vbpl.vn (Cổng TTPL Bộ Tư pháp, CC BY) + corpus mã nguồn mở UTS_VLC (MIT, bản còn-hiệu-lực đã đối chiếu vbpl.vn). Trích nguyên văn, mọi đoạn gắn nhãn "cần luật sư đối chiếu bản gốc".</p>
+    </div>
+  </details>
+
+  <!-- 4. DEMO -->
+  <details>
+    <summary><span class="s-title">4 · Kịch bản demo</span><span class="s-teaser">Luồng trình diễn Slack-first</span><span class="chev">▶</span></summary>
+    <div class="body">
+      <ol>
+        <li><strong>Mở đầu</strong>: SME Việt đàm phán HĐ quốc tế không có phòng pháp chế → ký điều khoản bất lợi/trái luật mà không biết.</li>
+        <li><strong>Tra cứu</strong> (Slack): hỏi "phạt vi phạm tối đa?" → trả lời + dẫn <span class="ref">Điều 301</span> + nguồn + nút phản hồi.</li>
+        <li><strong>Phân tích hợp đồng</strong>: dán/đính HĐ → bảng rủi ro, nổi bật <span class="pill crit">⚖ TRÁI LUẬT</span> "phạt 15% vượt trần 8%".</li>
+        <li><strong>Đàm phán đa phiên</strong>: dán phản hồi đối tác → vòng đàm phán mới, nhớ bối cảnh.</li>
+        <li><strong>Chốt</strong>: moat = đàm phán theo vị thế + dữ liệu kết quả tích lũy (win-rate), không phải RAG đơn thuần.</li>
+      </ol>
+      <div class="callout warn"><div class="t">Trước demo</div>Dán API key vào ô (web) · TẮT "Stop when quota used" để không đứt giữa chừng · chụp sẵn 1 ảnh kết quả phòng mạng lỗi.</div>
+    </div>
+  </details>
+
+  <!-- 5. LIMITS -->
+  <details>
+    <summary><span class="s-title">5 · Giới hạn &amp; cam kết trung thực</span><span class="s-teaser">Những điều nói rõ ngay từ đầu</span><span class="chev">▶</span></summary>
+    <div class="body">
+      <ul>
+        <li><strong>"98%" là số nội bộ</strong> (tự chấm trên golden tự tạo) — nhờ luật sư duyệt chính là để biến nó thành con số có chuyên gia xác nhận.</li>
+        <li><strong>Văn bản luật là bản tự-động-trích</strong> từ nguồn mở; đã lọc hiệu lực nhưng cần đối chiếu bản chính thức trước khi dùng tư vấn.</li>
+        <li><strong>1 câu từ chối quá thận trọng</strong> (điểm-thời-gian) — an toàn, không trả sai, đang sửa.</li>
+        <li><strong>Phạm vi đang mở rộng</strong>: 12 lĩnh vực hiện tập trung hợp đồng thương mại; bổ sung dần.</li>
+        <li><strong>Legal Guard là công cụ HỖ TRỢ</strong> — không thay thế tư vấn pháp lý chính thức.</li>
+      </ul>
+    </div>
+  </details>
+
+  <p class="foot">Sau khi luật sư duyệt → cập nhật đáp án theo góp ý + công bố độ chính xác "đã được luật sư xác nhận" trên trang minh bạch (/trust). Tài liệu nội bộ — không công bố công khai.</p>
+</div>
+
+</body>
+</html>
