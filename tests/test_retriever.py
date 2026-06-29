@@ -175,7 +175,8 @@ def test_in_force_filter_surfaces_expired_on_historical_query(tmp_path):
 def test_citation_closure_document_aware_cross_doc():
     # NĐ 70/2025 dẫn chiếu "Điều 9 của Nghị định 123/2020" → closure phải kéo Điều 9 từ ĐÚNG file NĐ 123.
     r = build_retriever(KB, "VN", strategy="keyword", closure=True)
-    hits = r.retrieve("gia công xuất khẩu thông quan hải quan ngày làm việc tiếp theo", top_k=1)
+    # Query có "hóa đơn" để đặc-trưng cho NĐ hóa đơn (KB lớn dần có VB khác cùng từ 'hải quan/thông quan').
+    hits = r.retrieve("thời điểm lập hóa đơn xuất khẩu hàng hóa gia công", top_k=1)
     srcs = [h.source for h in hits]
     assert any(s.startswith("nd_70_2025") for s in srcs)                 # hit gốc = NĐ sửa đổi
     assert any(s == "nd_123_2020_hoa_don.md#Điều 9" for s in srcs)       # kéo đúng văn bản đích
