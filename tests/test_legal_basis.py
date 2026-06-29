@@ -28,9 +28,9 @@ def test_nli_supports_yes_no_none():
 def test_legal_citation_nli_rejects_unsupported():
     r = build_retriever("knowledge_base", "VN", strategy="keyword", in_force=True)
     # judge nói NO → KHÔNG gắn dù có điều luật khớp thuật ngữ (chống citation không hậu thuẫn)
-    assert _legal_citation("phạt vi phạm 15% giá trị", r, _Judge("NO")) == ""
+    assert _legal_citation("phạt vi phạm hợp đồng thương mại 15% giá trị", r, _Judge("NO")) == ""
     # judge nói YES → vẫn gắn Điều 301
-    assert "Điều 301" in _legal_citation("phạt vi phạm 15% giá trị", r, _Judge("YES"))
+    assert "Điều 301" in _legal_citation("phạt vi phạm hợp đồng thương mại 15% giá trị", r, _Judge("YES"))
 
 
 def _r():
