@@ -203,6 +203,7 @@ $('go').onclick = async () => {
   const fd = new FormData();
   if (file) fd.append('file', file); else fd.append('text', text);
   for (const k of ['lang','leverage','urgency','relationship','alternatives','protected_party']) fd.append(k, $(k).value);
+  fd.append('async_mode', 'true');   // HĐ dài → chạy nền + poll, không vỡ ở trình duyệt/proxy timeout
   const headers = {};
   const key = $('apikey').value.trim();
   if (key) { headers['X-API-Key'] = key; localStorage.setItem('lg_apikey', key); }
@@ -211,7 +212,18 @@ $('go').onclick = async () => {
   try {
     const r = await fetch('/analyze', { method:'POST', body:fd, headers });
     if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
-    render(await r.json());
+    const job = await r.json();
+    // Phân tích nền: poll kết quả tới khi xong (HĐ dài có thể ~vài phút, không bị timeout kết nối).
+    let res = null;
+    for (let i = 0; i < 150; i++) {                       // tối đa ~12 phút (5s × 150)
+      await new Promise(s => setTimeout(s, 5000));
+      const p = await fetch('/analyze/result/' + encodeURIComponent(job.case_id), { headers });
+      if (p.status === 200) { res = await p.json(); break; }
+      if (p.status === 502) throw new Error((await p.json().catch(()=>({}))).detail || 'Phân tích lỗi');
+      // 404 = đang xử lý → chờ tiếp
+    }
+    if (!res) throw new Error('Quá thời gian chờ phân tích — thử lại.');
+    render(res);
   } catch (e) { $('err').textContent = '❌ ' + e.message + ' — thử lại (LLM có thể quá tải tạm thời).'; }
   finally { $('go').disabled = false; $('spinner').style.display = 'none'; stopProgress(); }
 };

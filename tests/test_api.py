@@ -150,6 +150,22 @@ def test_get_unknown_case_404(client):
     assert client.get("/cases/doesnotexist").status_code == 404
 
 
+def test_analyze_async_mode_returns_case_id_then_pollable(client, sample_contract):
+    # HĐ dài → async_mode: trả case_id + status 'processing' NGAY (không chờ phân tích);
+    # chạy nền → poll GET /cases/{id} ra 200. (TestClient chạy BackgroundTask sau response.)
+    r = client.post("/analyze", data={"text": sample_contract, "async_mode": "true"},
+                    headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["status"] == "processing" and d["case_id"]
+    # poll /analyze/result/{id} → full result shape (risks + strategy...). TestClient chạy BG sau response.
+    got = client.get(f"/analyze/result/{d['case_id']}")
+    assert got.status_code == 200
+    assert got.json()["case_id"] == d["case_id"] and "risks" in got.json()
+    # case cũng lưu DB với ĐÚNG case_id (audit)
+    assert client.get(f"/cases/{d['case_id']}").status_code == 200
+
+
 def test_landing_page(client):
     r = client.get("/")
     assert r.status_code == 200
