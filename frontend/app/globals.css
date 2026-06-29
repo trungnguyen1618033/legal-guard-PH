@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    line-height: 1.62;
+  }
+  h1, h2, h3 { @apply font-serif; text-wrap: balance; }
+  a { @apply text-accent-d; }
+}

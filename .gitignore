@@ -238,3 +238,8 @@ evaluation/golden_candidates.json
 
 # Snapshot integration check (gọi LLM thật, không tất định) — artifact local để đối chiếu
 evaluation/snapshots/
+
+# Next.js FE
+frontend/node_modules/
+frontend/.next/
+frontend/.env
