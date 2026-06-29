@@ -61,6 +61,7 @@ _APP = Path("web/app.html")
 _LOOKUP = Path("web/lookup.html")
 _DASHBOARD = Path("web/dashboard.html")
 _TRUST = Path("web/trust.html")
+_DOCS = Path("web/docs.html")
 _DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
@@ -209,6 +210,14 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         if _TRUST.exists():
             return FileResponse(_TRUST)
         return HTMLResponse("<h1>Legal Guard</h1><p>Độ tin cậy: /trust.json</p>")
+
+    @app.get("/tai-lieu", response_class=HTMLResponse)
+    def docs_page():
+        # Hồ sơ tài liệu (tóm tắt + mục lục gập-mở) — gửi luật sư/đồng đội xem trên trình duyệt.
+        # Path /tai-lieu (KHÔNG /docs — /docs là Swagger UI mặc định của FastAPI).
+        if _DOCS.exists():
+            return FileResponse(_DOCS)
+        raise HTTPException(status_code=404, detail="Chưa có trang tài liệu.")
 
     @app.get("/trust.json")
     def trust_data() -> dict:       # nguồn số liệu chung cho trang /trust + Slack (không cần auth)

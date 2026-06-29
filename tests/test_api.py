@@ -236,3 +236,8 @@ def test_analyze_llm_error_returns_502_without_leaking_key(tmp_path, sample_cont
     detail = r.json()["detail"].lower()
     assert "qwen" in detail and "http" in detail
     assert "key" not in detail  # KHÔNG lộ key/URL
+
+
+def test_docs_page_served(client):
+    r = client.get("/tai-lieu")
+    assert r.status_code == 200 and "Legal Guard" in r.text
