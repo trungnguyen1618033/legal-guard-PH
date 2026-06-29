@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "title": "Legal Guard — AI legal assistant for businesses",
+    "description": "Contract review & Vietnamese law lookup — cites in-force articles, never fabricates."
+  },
+  "nav": { "home": "Home", "trust": "Trust", "try": "Try it" },
+  "home": {
+    "eyebrow": "AI legal assistant · Vietnamese businesses",
+    "h1": "An outsourced legal department, run by AI.",
+    "lede": "Legal Guard reviews international contracts for Vietnamese SMEs — flagging unfavorable and illegal clauses, and proposing how to renegotiate from your real position. Every answer is grounded in in-force law, never fabricated.",
+    "ctaTrust": "See our reliability",
+    "ctaTry": "Try it →",
+    "f1t": "Contract review",
+    "f1d": "Detects risky clauses, separates illegal from merely unfavorable, suggests tactics for your position.",
+    "f2t": "Law lookup",
+    "f2d": "Answers cite the exact Article/Clause of in-force documents — no fabrication, no dead law.",
+    "f3t": "Multi-round negotiation",
+    "f3d": "Paste the counterparty's reply → a new negotiation round, context-aware, with bilingual counter-clauses.",
+    "foot": "12 legal domains · 98% internal accuracy · grounded in in-force law · a support tool, not a substitute for legal advice."
+  },
+  "trust": {
+    "back": "← Home",
+    "h1": "Reliability",
+    "lede": "How we keep the AI from fabricating law — with metrics on our internal test set.",
+    "metrics": "Metrics",
+    "methodology": "Methodology",
+    "error": "Couldn't load metrics from the server. Try again later."
+  },
+  "footer": { "tagline": "A legal support tool — not a substitute for formal advice.", "rights": "Internal" }
+}

@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "title": "Legal Guard — Trợ lý AI pháp lý cho doanh nghiệp",
+    "description": "Rà soát hợp đồng & tra cứu pháp luật Việt Nam — dẫn đúng điều luật còn hiệu lực, không bịa."
+  },
+  "nav": { "home": "Trang chủ", "trust": "Độ tin cậy", "try": "Dùng thử" },
+  "home": {
+    "eyebrow": "Trợ lý AI pháp lý · doanh nghiệp Việt Nam",
+    "h1": "Phòng pháp chế thuê ngoài, vận hành bằng AI.",
+    "lede": "Legal Guard rà soát hợp đồng quốc tế cho SME Việt — bắt điều khoản bất lợi và trái luật, đề xuất cách đàm phán lại theo đúng vị thế. Mọi câu trả lời neo vào điều luật còn hiệu lực, không bịa.",
+    "ctaTrust": "Xem độ tin cậy",
+    "ctaTry": "Dùng thử →",
+    "f1t": "Rà soát hợp đồng",
+    "f1d": "Phát hiện điều khoản rủi ro, tách trái luật vs bất lợi, đề xuất chiến thuật theo vị thế của bạn.",
+    "f2t": "Tra cứu pháp luật",
+    "f2d": "Trả lời dẫn đúng Điều/Khoản văn bản còn hiệu lực — không bịa, không dẫn luật đã hết hiệu lực.",
+    "f3t": "Đàm phán đa phiên",
+    "f3d": "Dán phản hồi đối tác → vòng đàm phán mới, nhớ bối cảnh, soạn điều khoản phản-đề song ngữ.",
+    "foot": "12 lĩnh vực pháp luật · độ chính xác nội bộ 98% · neo điều luật còn hiệu lực · công cụ hỗ trợ, không thay tư vấn pháp lý."
+  },
+  "trust": {
+    "back": "← Trang chủ",
+    "h1": "Độ tin cậy",
+    "lede": "Cách chúng tôi đảm bảo AI không bịa luật — kèm số đo trên bộ kiểm thử nội bộ.",
+    "metrics": "Số đo",
+    "methodology": "Phương pháp",
+    "error": "Chưa lấy được số liệu từ máy chủ. Thử lại sau."
+  },
+  "footer": { "tagline": "Công cụ hỗ trợ pháp lý — không thay thế tư vấn chính thức.", "rights": "Nội bộ" }
+}
