@@ -243,3 +243,4 @@ evaluation/snapshots/
 frontend/node_modules/
 frontend/.next/
 frontend/.env
+frontend/next-env.d.ts
