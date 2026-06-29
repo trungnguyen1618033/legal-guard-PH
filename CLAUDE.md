@@ -228,6 +228,35 @@ contracts, flags risky clauses, and proposes flexible fallback negotiation tacti
 real bargaining position. Built for two hackathons: Qwen Cloud (deadline 8 Jul 2026, Autopilot
 Agent track) and Gemini XPRIZE (deadline 17 Aug 2026, Professional Services).
 
+## Knowledge base & legal data (cập nhật 29/6/2026)
+
+**Nguồn data (2, BỔ TRỢ — đều license OK, repo open-source được):**
+- **`th1nhng0/vietnamese-legal-documents`** (vbpl.vn, CC BY 4.0) — NĐ/TT + **status + graph quan hệ**
+  (amends/replaced_by) → engine in-force/closure/point-in-time DỰA vào front-matter này. Ingest:
+  `ingestion/hf_to_kb.py`. NHƯNG **code lớn + luật 2024/2025 thường content RỖNG** (BLHS, BLLĐ, Đất đai
+  2024, ĐT 143/2025, GTGT 48/2024).
+- **`undertheseanlp/UTS_VLC`** split `2026` (**MIT**, in-force verified, đối chiếu vbpl.vn) — Bộ luật/Luật
+  full-text, bù code lớn th1nhng0 rỗng. Schema id/title/type/content, KHÔNG có status/graph → set
+  `status: in_force` + thêm `effective_date` thủ công khi promote.
+- ⚠️ **TRÁNH** dataset scrape **thuvienphapluat.vn** (vohuutridung/minhdoan17/crawler): vi phạm ToS TVPL
+  (dù text public-domain) + thiếu status/graph (mất bộ lọc luật-chết). Chi tiết: memory `vn-legal-data-sources`.
+
+**Quy tắc NẠP (bắt buộc theo, tránh phạm lại — đã trả giá):**
+1. **Check `status` + `replaced_by`** trước khi promote. KHÔNG nạp luật đã bị thay (vd ĐT 61/2020 →
+   143/2025; GTGT 13/2008 → 48/2024). KHÔNG ép `status=in_force` (sẽ dẫn luật hết hiệu lực — in-force filter
+   là tính năng AN TOÀN chống "inapplicable authority", không phải bug).
+2. **Code lớn vocab-trùng NUỐT domain lõi** → nạp CHỌN LỌC. Đã BỎ: BLHS ('phạt/vi phạm' nuốt chế tài),
+   GTGT ('hóa đơn/xuất khẩu' nuốt hóa đơn), TNDN (rate ở luật gốc). **Đo regression bằng eval MỖI lần nạp.**
+3. Sau mỗi đổi KB: chạy `accuracy_eval` lại → cập nhật `/trust` (đừng để số stale).
+
+**Hiện trạng**: **12 lĩnh vực grounded** (chế tài·hợp đồng·lãi vay·hóa đơn·trọng tài·lao động·doanh
+nghiệp·SHTT·PDPD·hôn nhân-GĐ·đất đai·đầu tư). Golden 54 ca (`evaluation/accuracy_golden.json`),
+**accuracy THẬT 53/54 = 98%** — 1 fail = hóa-đơn-point-in-time (relevance gate cùn over-abstain khi corpus
+lớn trộn nhiễu; **fail an toàn = abstain**). **Trần kiến trúc retrieval hiện tại** (keyword+embedding+
+gte-rerank+gate đã đụng trần — per-snippet judge-filter đo THẤY TỆ HƠN 50/54, đã bỏ). Vượt trần cần
+**reranker tốt hơn** (self-host AITeamVN/GPU) hoặc domain-aware retrieval — xem `docs/internal/
+retrieval-rerank-investigation.md`. KB ~2.2MB/15 file → `PERSIST_EMBEDDINGS=1` bắt buộc; pgvector khi corpus rất lớn.
+
 ## Architecture — Hexagonal (Ports & Adapters)
 
 Full write-up: **`docs/architecture.md`**. Key rule: dependencies point inward; `legalguard/domain/`

@@ -172,14 +172,28 @@ def test_in_force_filter_surfaces_expired_on_historical_query(tmp_path):
     assert any(s.startswith("cu.md") for s in srcs)          # ý định lịch sử → hiện bản cũ
 
 
-def test_citation_closure_document_aware_cross_doc():
+def _closure_kb(tmp_path):
+    """Mini-KB 2 doc cho test closure — CÔ LẬP khỏi KB thật (KB lớn dần làm lệch ranking → test mong manh)."""
+    vn = tmp_path / "VN"
+    vn.mkdir()
+    (vn / "nd_70_2025.md").write_text(
+        "---\ndoc_id: 70/2025/NĐ-CP\nstatus: in_force\n---\n"
+        "Điều 1. Sửa đổi\nSửa đổi, bổ sung khoản 4 Điều 9 của Nghị định số 123/2020/NĐ-CP về thời điểm "
+        "lập hóa đơn xuất khẩu hàng hóa gia công.", encoding="utf-8")
+    (vn / "nd_123_2020.md").write_text(
+        "---\ndoc_id: 123/2020/NĐ-CP\nstatus: in_force\n---\n"
+        "Điều 9. Thời điểm lập hóa đơn\nThời điểm lập hóa đơn khi bán hàng hóa là khi chuyển giao quyền sở hữu.",
+        encoding="utf-8")
+    return str(tmp_path)
+
+
+def test_citation_closure_document_aware_cross_doc(tmp_path):
     # NĐ 70/2025 dẫn chiếu "Điều 9 của Nghị định 123/2020" → closure phải kéo Điều 9 từ ĐÚNG file NĐ 123.
-    r = build_retriever(KB, "VN", strategy="keyword", closure=True)
-    # Query có "hóa đơn" để đặc-trưng cho NĐ hóa đơn (KB lớn dần có VB khác cùng từ 'hải quan/thông quan').
-    hits = r.retrieve("thời điểm lập hóa đơn xuất khẩu hàng hóa gia công", top_k=1)
-    srcs = [h.source for h in hits]
-    assert any(s.startswith("nd_70_2025") for s in srcs)                 # hit gốc = NĐ sửa đổi
-    assert any(s == "nd_123_2020_hoa_don.md#Điều 9" for s in srcs)       # kéo đúng văn bản đích
+    # Mini-KB cô lập → không vỡ khi corpus thật lớn dần (đã từng vỡ 2 lần vì lý do đó).
+    r = build_retriever(_closure_kb(tmp_path), "VN", strategy="keyword", closure=True)
+    srcs = [h.source for h in r.retrieve("thời điểm lập hóa đơn xuất khẩu hàng hóa gia công", top_k=1)]
+    assert any(s.startswith("nd_70_2025") for s in srcs)             # hit gốc = NĐ sửa đổi
+    assert any(s == "nd_123_2020.md#Điều 9" for s in srcs)           # closure kéo đúng văn bản đích
 
 
 def test_extract_as_of_and_valid_at():
