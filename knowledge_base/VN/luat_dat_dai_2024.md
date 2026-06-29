@@ -3,6 +3,7 @@ doc_id: 31/2024/QH15
 title: Luật Đất đai 2024 (31/2024/QH15)
 doc_type: luat
 status: in_force
+effective_date: 2024-08-01
 source: undertheseanlp/UTS_VLC (split 2026 in-force verified, MIT) — CẦN luật sư duyệt
 ---
 # Luật Đất đai
