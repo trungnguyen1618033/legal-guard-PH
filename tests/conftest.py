@@ -9,6 +9,10 @@ from pathlib import Path
 
 os.environ["QWEN_API_KEY"] = ""
 os.environ["GEMINI_API_KEY"] = ""
+# Auth: test chạy chế độ MỞ — KHÔNG phụ thuộc `.env` (vd .env prod bật REQUIRE_AUTH + API_KEYS
+# sẽ khiến test app đòi key → 401 hàng loạt / fail-closed). Cô lập để test luôn ổn định.
+os.environ["API_KEYS"] = ""
+os.environ["REQUIRE_AUTH"] = "false"
 # DB cases ghi vào thư mục tạm → test không đụng data/ thật.
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(tempfile.mkdtemp()) / 'cases.db'}"
 
