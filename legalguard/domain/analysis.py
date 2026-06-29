@@ -350,7 +350,7 @@ class AnalysisService:
 
     def analyze(self, contract_text: str, org: Organization, lang: str = "en",
                 position: NegotiationPosition | None = None,
-                source: SourceMeta | None = None) -> AnalysisResult:
+                source: SourceMeta | None = None, case_id: str | None = None) -> AnalysisResult:
         t0 = time.monotonic()
         jurisdiction = get_tenant(org.country)   # quốc gia → KB luật + bối cảnh
 
@@ -491,7 +491,7 @@ class AnalysisService:
         # Persist case (audit + lịch sử + evidence). Lỗi DB không làm hỏng phân tích.
         if self.cases is not None:
             case = AnalysisCase(
-                id=uuid.uuid4().hex,
+                id=case_id or uuid.uuid4().hex,   # case_id truyền sẵn (async mode) → client poll /cases/{id}
                 org_id=org.id,
                 tenant=jurisdiction.id,
                 created_at=datetime.now(timezone.utc).isoformat(),

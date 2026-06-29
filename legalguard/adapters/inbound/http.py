@@ -6,14 +6,16 @@ khi đó dùng org "default" (quốc gia lấy từ header X-Tenant-Id).
 """
 from __future__ import annotations
 
+import logging
 import threading
 import time
 import uuid
+from collections import OrderedDict
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
@@ -31,6 +33,28 @@ from legalguard.domain.ports import DocumentParserPort, LLMError
 from legalguard.domain.redline import change_ratio, redline
 from legalguard.domain.reporting import render_markdown_report
 from legalguard.domain.tenants import Organization, default_org, get_tenant
+
+_log = logging.getLogger(__name__)
+
+# Cache KẾT QUẢ phân tích nền (async_mode) — {case_id: (org_id, result_dict)} để client poll lấy FULL
+# result shape (strategy/english_reply/notes — case DB không lưu). In-memory: hợp 1 instance (deploy hiện
+# tại); mất khi restart (case vẫn ở DB cho audit). Đa-instance/bền → chuyển Redis.
+_async_results: "OrderedDict[str, tuple]" = OrderedDict()
+_async_lock = threading.Lock()
+
+
+def _async_put(cid: str, org_id: str, result: dict) -> None:
+    with _async_lock:
+        _async_results[cid] = (org_id, result)
+        while len(_async_results) > 50:          # cap — giữ 50 job gần nhất
+            _async_results.popitem(last=False)
+
+
+def _async_get(cid: str, org_id: str) -> dict | None:
+    with _async_lock:
+        v = _async_results.get(cid)
+    return v[1] if v and v[0] == org_id else None   # cô lập theo org
+
 
 _LANDING = Path("web/index.html")
 _APP = Path("web/app.html")
@@ -212,6 +236,8 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         relationship: str = Form(default="new"),
         alternatives: bool = Form(default=False),
         protected_party: str = Form(default=""),
+        async_mode: bool = Form(default=False),   # HĐ dài → chạy NỀN, trả case_id ngay, client poll /cases/{id}
+        background: BackgroundTasks = None,
         org: Organization = Depends(require_auth),
     ):
         lang = lang if lang in ("en", "vi") else "en"
@@ -240,6 +266,25 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             raise HTTPException(status_code=413,
                                 detail=f"Nội dung quá dài (>{max_input_chars} ký tự).")
 
+        # Async mode: HĐ dài (~vài phút flagship) vượt timeout HTTP/proxy/client → chạy NỀN, trả case_id
+        # NGAY, client poll GET /cases/{case_id} (404=đang xử lý, 200=xong). BackgroundTask chạy threadpool
+        # (analyze đồng bộ) → không chặn worker + hoàn tất dù client ngắt.
+        if async_mode:
+            cid = uuid.uuid4().hex
+
+            def _bg():
+                try:
+                    res = service.analyze(contract_text, org, lang=lang, position=position,
+                                          source=source, case_id=cid)
+                    _async_put(cid, org.id, res.__dict__)        # full result shape cho UI poll
+                except Exception as exc:  # noqa: BLE001 — lỗi nền: lưu để client poll thấy, vẫn log
+                    _async_put(cid, org.id, {"error": str(exc)})
+                    _log.exception("Phân tích nền lỗi (case=%s)", cid)
+
+            background.add_task(_bg)
+            return {"case_id": cid, "status": "processing",
+                    "message": "Đang phân tích nền — poll GET /analyze/result/{case_id} tới khi trả 200."}
+
         try:
             # service.analyze ĐỒNG BỘ (HTTP blocking + ThreadPool) → đẩy sang threadpool để KHÔNG
             # chặn event loop (handler async vì phải await file.read()). 1 phân tích chậm không treo worker.
@@ -255,6 +300,17 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             return PlainTextResponse(render_markdown_report(result, tenant, lang),
                                      media_type="text/markdown")
         return result.__dict__
+
+    @app.get("/analyze/result/{case_id}")
+    def analyze_result(case_id: str, org: Organization = Depends(require_auth)) -> dict:
+        """Poll kết quả phân tích NỀN (async_mode): 404 = đang xử lý / không thấy; 200 = full result;
+        502 = lỗi phân tích. Client gọi lặp tới khi 200. (Kết quả đầy đủ — khác /cases/{id} chỉ có core.)"""
+        res = _async_get(case_id, org.id)
+        if res is None:
+            raise HTTPException(status_code=404, detail="Đang xử lý hoặc không tìm thấy kết quả.")
+        if res.get("error"):
+            raise HTTPException(status_code=502, detail=f"Phân tích lỗi: {res['error']}")
+        return res
 
     @app.post("/ask")
     def ask(body: AskIn, org: Organization = Depends(require_auth)) -> dict:
