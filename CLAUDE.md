@@ -121,6 +121,15 @@ số đo eval, nguồn chung `domain/trust.py trust_report`/`format_trust_text` 
 "độ chính xác/tin cậy" trên Slack `_is_trust_query` → trả tóm tắt). + `web/dashboard.html` (`GET /dashboard`): system-of-record → `/insights/dashboard`
 (HĐ rà soát, phân bố severity, top điều khoản rủi ro, feedback, win-rate chiến thuật).
 
+**Frontend Next.js** (`frontend/`, xem `frontend/README.md` — TÁCH KHỎI `web/*.html`, CHƯA deploy; ECS
+vẫn chạy `web/*.html`): Next 14 App Router + TS + Tailwind + `next-intl` (SSG song ngữ `/vi` `/en`). Mọi
+call API qua **BFF** (`app/api/*` route handler giữ `LG_API_KEY` server-side — KHÔNG lộ browser; helper
+`lib/bff.ts`). Trang: `/`·`/app` (analyze async+poll, human-checkpoint, counter, outcome, đàm phán đa phiên,
+memo+docx, feedback)·`/lookup` (ask + feedback + Autopilot monitor + impact + lược đồ/lịch sử VB + redline)·
+`/dashboard` (client fetch, authed)·`/trust` (SSG/ISR). Component dùng chung ở `components/ui/`
+(Card·Section·Badge·Note·PageShell·Button). Quy tắc: không lộ key (BFF), tái dùng ui/, i18n vi/en đối xứng,
+authed→`no-store`, `strict:true` không `any`. Ngang tính năng với vanilla; contract verify LIVE.
+
 Upload: `DocumentParserPort` = `OcrFallbackParser(PdfDocxParser, QwenVisionOcr)` — text-PDF/DOCX/TXT
 dùng base; scan/ảnh (.png/.jpg/PDF-scan rỗng text) → OCR Qwen-VL (`QWEN_VL_MODEL`), fallback lỗi rõ
 khi chưa có key. Còn thiếu (next): escalation chuyên gia thật (hiện chỉ gắn cờ needs_human_review); Zalo
