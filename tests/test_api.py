@@ -150,6 +150,26 @@ def test_get_unknown_case_404(client):
     assert client.get("/cases/doesnotexist").status_code == 404
 
 
+def test_analyze_returns_execution_summary(client, sample_contract):
+    # Evidence AI-Native: phản hồi /analyze kèm đếm tool-call agent đã gọi.
+    d = client.post("/analyze", data={"text": sample_contract}, headers={"x-tenant-id": "VN"}).json()
+    es = d["execution_summary"]
+    assert es["total_tool_calls"] >= 1
+    assert es["risks_flagged"] == 3                 # 3 risk → 3 lần gọi flag_risk
+    assert es["total_tool_calls"] == len(d["trace"])  # khớp số bước trong trace
+
+
+def test_runs_feed_lists_agent_activity(client, sample_contract):
+    # /runs = feed hoạt động agent (cho giám khảo NHÌN THẤY agent chạy & ra quyết định).
+    case_id = client.post("/analyze", data={"text": sample_contract},
+                          headers={"x-tenant-id": "VN"}).json()["case_id"]
+    runs = client.get("/runs").json()
+    assert runs["totals"]["runs"] >= 1
+    assert runs["totals"]["tool_calls"] >= 1
+    assert runs["totals"]["by_tool"]["risks_flagged"] >= 3
+    assert any(r["case_id"] == case_id and r["tool_calls"] >= 1 for r in runs["runs"])
+
+
 def test_analyze_async_mode_returns_case_id_then_pollable(client, sample_contract):
     # HĐ dài → async_mode: trả case_id + status 'processing' NGAY (không chờ phân tích);
     # chạy nền → poll GET /cases/{id} ra 200. (TestClient chạy BackgroundTask sau response.)

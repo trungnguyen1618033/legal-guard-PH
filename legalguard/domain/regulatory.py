@@ -136,3 +136,47 @@ def scan_cases(cases: list, affected: dict[str, dict], new_doc_id: str = "") -> 
                         affected_article=art if changed else ""))
                     break       # mục này đã trúng → khỏi xét field còn lại
     return out
+
+
+# --- Vòng phản hồi Autopilot (#3): "báo nhầm" → digest lần sau tự lọc, chống alert fatigue ---
+# Tái dùng Feedback repo sẵn có (không thêm bảng): kind="monitor", ref="<doc_id>|<case_id>",
+# rating="wrong" = báo nhầm. Logic THUẦN, test offline.
+MONITOR_FEEDBACK_KIND = "monitor"
+
+
+def monitor_ref(doc_id: str, case_id: str) -> str:
+    """Khóa ref cho 1 cặp (văn bản mới, case) — dùng khi GHI và khi ĐỌC để khớp nhau."""
+    return f"{(doc_id or '').strip()}|{(case_id or '').strip()}"
+
+
+def dismissed_pairs(feedbacks: list) -> set[tuple[str, str]]:
+    """Tập (new_doc_id, case_id) đã bị người dùng đánh 'báo nhầm' (monitor + rating=wrong).
+    `feedbacks` = list[Feedback]. An toàn với ref méo (thiếu '|' → bỏ qua)."""
+    out: set[tuple[str, str]] = set()
+    for f in feedbacks or []:
+        if getattr(f, "kind", "") != MONITOR_FEEDBACK_KIND or getattr(f, "rating", "") != "wrong":
+            continue
+        ref = getattr(f, "ref", "") or ""
+        if "|" not in ref:
+            continue
+        doc, case = ref.split("|", 1)
+        if doc.strip() and case.strip():
+            out.add((doc.strip(), case.strip()))
+    return out
+
+
+def filter_affected(affected: list[dict], dismissed: set[tuple[str, str]]) -> tuple[list[dict], int]:
+    """Lọc digest monitor: bỏ impact thuộc cặp (doc_id, case_id) đã 'báo nhầm'; bỏ luôn VB nếu hết impact.
+    Trả (affected_đã_lọc, số_impact_bị_chặn). THUẦN — không sửa input."""
+    if not dismissed:
+        return affected, 0
+    kept_affected, suppressed = [], 0
+    for a in affected or []:
+        doc = (a.get("doc_id") or "").strip()
+        impacts = a.get("impacts") or []
+        kept = [i for i in impacts if (doc, (i.get("case_id") or "").strip()) not in dismissed]
+        suppressed += len(impacts) - len(kept)
+        if kept:
+            kept_affected.append({**a, "impacts": kept,
+                                  "cases": sorted({i["case_id"] for i in kept})})
+    return kept_affected, suppressed

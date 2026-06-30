@@ -28,6 +28,12 @@ export type AnalyzeLabels = {
   analyzing: string;
   error: string;
   summary: string;
+  agentWork: string;
+  esCalls: string;
+  esSearches: string;
+  esRisks: string;
+  esFallbacks: string;
+  esReview: string;
   strategy: string;
   risks: string;
   fallbacks: string;
@@ -36,6 +42,7 @@ export type AnalyzeLabels = {
   legalBasis: string;
   illegal: string;
   unfavorable: string;
+  unverified: string;
   reply: string;
   replyLocked: string;
   checkpoint: string;
@@ -234,6 +241,19 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
         <div className="mt-10 flex flex-col gap-8">
           {result.summary && <Section title={L.summary}><p className="whitespace-pre-wrap leading-relaxed">{result.summary}</p></Section>}
 
+          {result.execution_summary && result.execution_summary.total_tool_calls > 0 && (
+            <Section title={`🤖 ${L.agentWork}`}>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="neutral">{result.execution_summary.total_tool_calls} {L.esCalls}</Badge>
+                <Badge variant="neutral">{result.execution_summary.searches} {L.esSearches}</Badge>
+                <Badge variant="neutral">{result.execution_summary.risks_flagged} {L.esRisks}</Badge>
+                <Badge variant="neutral">{result.execution_summary.fallbacks_proposed} {L.esFallbacks}</Badge>
+                {result.execution_summary.human_review_requested > 0 &&
+                  <Badge variant="warn">{result.execution_summary.human_review_requested} {L.esReview}</Badge>}
+              </div>
+            </Section>
+          )}
+
           {result.needs_human_review && (
             <div className={`rounded-md border p-4 ${
               review === "approved" ? "border-green-300 bg-green-50"
@@ -332,6 +352,7 @@ function RiskCard({ r, L }: { r: RiskDTO; L: AnalyzeLabels }) {
           <Badge variant="neutral">{L.unfavorable}</Badge>
         )}
         {r.priority && <Badge variant="neutral">{r.priority}</Badge>}
+        {r.verified === false && <Badge variant="warn">⚠ {L.unverified}</Badge>}
         <strong className="text-ink">{r.clause}</strong>
       </div>
       <p className="mt-2 text-sm leading-relaxed">{r.risk}</p>

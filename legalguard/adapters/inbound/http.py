@@ -142,6 +142,12 @@ class FeedbackIn(BaseModel):
     note: str = ""
 
 
+class MonitorFeedbackIn(BaseModel):
+    doc_id: str                 # VB mới gây cảnh báo
+    case_id: str                # case bị cảnh báo nhầm
+    reason: str = ""            # vì sao là báo nhầm (tùy chọn)
+
+
 def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: EvidenceService,
               default_tenant: str = "VN", api_orgs: dict[str, Organization] | None = None,
               max_upload_bytes: int = 10 * 1024 * 1024, rate_limit_per_min: int = 60,
@@ -349,6 +355,21 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
     def list_cases(limit: int = 20, org: Organization = Depends(require_auth)) -> list[dict]:
         return [asdict(c) for c in service.list_cases(org.id, limit)]
 
+    @app.get("/runs")
+    def list_runs(limit: int = 50, org: Organization = Depends(require_auth)) -> dict:
+        # Feed hoạt động agent (evidence AI-Native cho track Autopilot Agent): mỗi run = 1 case +
+        # số tool-call agent đã gọi + risk + cờ cần-duyệt. Cô lập org. Tổng hợp cho giám khảo NHÌN THẤY.
+        from legalguard.domain.runs import execution_summary, runs_feed
+
+        cases = service.list_cases(org.id, limit)
+        feed = runs_feed(cases, limit)
+        totals = {"runs": len(feed), "tool_calls": sum(r["tool_calls"] for r in feed),
+                  "risks": sum(r["risks"] for r in feed),
+                  "needs_review": sum(1 for r in feed if r["needs_human_review"])}
+        # đếm gộp tool-call theo loại (toàn bộ run đang hiển thị)
+        agg = execution_summary([s for c in cases for s in (getattr(c, "trace", None) or [])])
+        return {"totals": {**totals, "by_tool": agg}, "runs": feed}
+
     @app.get("/cases/{case_id}")
     def get_case(case_id: str, org: Organization = Depends(require_auth)) -> dict:
         case = service.get_case(case_id)
@@ -508,6 +529,19 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             except Exception as exc:  # noqa: BLE001 — gửi lỗi không nên 500
                 raise HTTPException(status_code=502, detail=f"Gửi {body.via} thất bại: {exc}") from exc
         return res
+
+    @app.post("/monitor/feedback")
+    def monitor_feedback(body: MonitorFeedbackIn, org: Organization = Depends(require_auth)) -> dict:
+        # Vòng phản hồi Autopilot (#3): user báo cảnh báo monitor là NHẦM → ghi lại để digest sau tự lọc
+        # (chống alert fatigue). Tái dùng Feedback repo: kind=monitor, ref=<doc>|<case>, rating=wrong.
+        from legalguard.domain.regulatory import monitor_ref
+
+        fid = service.record_feedback(Feedback(
+            id=uuid.uuid4().hex, org_id=org.id, kind="monitor",
+            ref=monitor_ref(body.doc_id, body.case_id), rating="wrong", note=body.reason[:1000],
+            created_at=datetime.now(timezone.utc).isoformat(),
+        ))
+        return {"recorded": fid is not None, "id": fid}
 
     @app.post("/counter")
     async def counter_clause(body: CounterIn, _: Organization = Depends(require_auth)) -> dict:

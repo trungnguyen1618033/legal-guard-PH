@@ -8,8 +8,11 @@ from legalguard.adapters.outbound.knowledge_base import (
 )
 from legalguard.domain.models import AnalysisCase
 from legalguard.domain.regulatory import (
+    dismissed_pairs,
+    filter_affected,
     format_impact_alert,
     format_monitor_digest,
+    monitor_ref,
     norm_article,
     parse_basis,
     parse_basis_file,
@@ -285,3 +288,72 @@ def test_format_monitor_digest():
     txt = format_monitor_digest(affected, since="2025-01-01")
     assert "70/2025/NĐ-CP" in txt and "2 hợp đồng" in txt and "case-x" in txt
     assert format_monitor_digest([]) == ""           # rỗng → không gửi gì
+
+
+# --- #3 Vòng phản hồi Autopilot: 'báo nhầm' → digest sau tự lọc ---
+class _FB:
+    def __init__(self, kind, ref, rating):
+        self.kind, self.ref, self.rating = kind, ref, rating
+
+
+def test_dismissed_pairs_only_monitor_wrong():
+    fbs = [
+        _FB("monitor", monitor_ref("70/2025/NĐ-CP", "c1"), "wrong"),   # ✓ báo nhầm
+        _FB("monitor", monitor_ref("70/2025/NĐ-CP", "c2"), "helpful"), # bỏ: không phải wrong
+        _FB("lookup", "câu hỏi|c1", "wrong"),                          # bỏ: không phải monitor
+        _FB("monitor", "ref-méo-không-có-gạch", "wrong"),              # bỏ: ref méo
+    ]
+    assert dismissed_pairs(fbs) == {("70/2025/NĐ-CP", "c1")}
+    assert dismissed_pairs([]) == set()
+
+
+def test_filter_affected_drops_dismissed_and_empty_laws():
+    affected = [
+        {"doc_id": "70/2025/NĐ-CP", "title": "X", "effective_date": "2025-06-01",
+         "cases": ["c1", "c2"], "impacts": [{"case_id": "c1"}, {"case_id": "c2"}]},
+        {"doc_id": "48/2024/QH15", "title": "Y", "effective_date": "2024-07-01",
+         "cases": ["c1"], "impacts": [{"case_id": "c1"}]},
+    ]
+    dismissed = {("70/2025/NĐ-CP", "c1"), ("48/2024/QH15", "c1")}
+    out, suppressed = filter_affected(affected, dismissed)
+    assert suppressed == 2                              # c1 ở cả 2 VB bị chặn
+    assert len(out) == 1 and out[0]["doc_id"] == "70/2025/NĐ-CP"   # VB 48/2024 hết impact → biến mất
+    assert out[0]["cases"] == ["c2"]                   # cases tính lại còn c2
+
+
+def test_filter_affected_noop_when_no_dismissed():
+    affected = [{"doc_id": "d", "cases": ["c1"], "impacts": [{"case_id": "c1"}]}]
+    out, suppressed = filter_affected(affected, set())
+    assert out == affected and suppressed == 0
+
+
+def test_monitor_feedback_suppresses_next_digest(tmp_path):
+    # End-to-end #3: /monitor/run cảnh báo case-x; user POST /monitor/feedback (báo nhầm) →
+    # lần quét sau case-x bị LỌC khỏi digest (autopilot tự hiệu chỉnh, chống alert fatigue).
+    from fastapi.testclient import TestClient
+
+    from legalguard.adapters.inbound.http import build_api
+    from legalguard.adapters.outbound.document_parser import PdfDocxParser
+    from legalguard.adapters.outbound.revenue_log import CsvRevenueLog
+    from legalguard.config.container import build_service
+    from legalguard.config.settings import settings
+    from legalguard.domain.evidence import EvidenceService
+
+    cfg = settings.model_copy(update={"database_url": f"sqlite:///{tmp_path / 'cases.db'}"})
+    service = build_service(cfg)
+    service.cases.save(_case(cid="case-x", org="default", risks=[
+        {"clause": "Hóa đơn", "risk": "...", "severity": "low",
+         "legal_basis": "nd_123_2020_hoa_don.md#Điều 9: …"}]))
+    evidence = EvidenceService(CsvRevenueLog(str(tmp_path / "r.csv")))
+    c = TestClient(build_api(service, PdfDocxParser(), evidence, api_orgs={}))
+
+    before = c.post("/monitor/run", json={"since": "2025-01-01"}).json()
+    assert any("case-x" in a["cases"] for a in before["affected"])   # ban đầu CÓ cảnh báo
+
+    fb = c.post("/monitor/feedback", json={"doc_id": "70/2025/NĐ-CP", "case_id": "case-x",
+                                           "reason": "không liên quan"})
+    assert fb.status_code == 200 and fb.json()["recorded"] is True
+
+    after = c.post("/monitor/run", json={"since": "2025-01-01"}).json()
+    assert all("case-x" not in a["cases"] for a in after["affected"])  # đã LỌC
+    assert after["suppressed"] >= 1
