@@ -53,9 +53,9 @@ fi
 find "$BACKUP_DIR" -name 'legalguard_*.sql.gz' -mtime "+$KEEP_DAYS" -delete
 echo "[$(date)] xong (giữ local $KEEP_DAYS ngày)."
 
-# --- KHÔI PHỤC (khi cần) ---
-#   gunzip -c legalguard_<stamp>.sql.gz | \
-#     docker compose -f docker-compose.ecs.yml exec -T db psql -U legalguard -d legalguard
+# --- KHÔI PHỤC (khi cần) — dùng scripts/pg-restore.sh ---
+#   ./scripts/pg-restore.sh --latest              # khôi phục bản mới nhất (hỏi xác nhận)
+#   ./scripts/pg-restore.sh --verify --latest     # KIỂM TRA khôi phục được (DB tạm, không đụng DB thật)
 #
 # --- Cài ossutil + cấu hình (1 lần, nếu muốn đẩy OSS) ---
 #   curl -o /usr/local/bin/ossutil https://gosspublic.alicdn.com/ossutil/<ver>/ossutil64 && chmod +x ...
