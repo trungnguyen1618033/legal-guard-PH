@@ -357,3 +357,43 @@ def test_monitor_feedback_suppresses_next_digest(tmp_path):
     after = c.post("/monitor/run", json={"since": "2025-01-01"}).json()
     assert all("case-x" not in a["cases"] for a in after["affected"])  # đã LỌC
     assert after["suppressed"] >= 1
+
+
+# --- B: scan_cases khớp thêm căn cứ VĂN XUÔI nêu SỐ HIỆU (an toàn, không fuzzy tên luật) ---
+from legalguard.domain.regulatory import _doc_number  # noqa: E402
+
+
+def test_doc_number_extraction():
+    assert _doc_number("123/2020/NĐ-CP") == "123/2020"
+    assert _doc_number("70/2025/NĐ-CP") == "70/2025"
+    assert _doc_number("BLDS 2015") == ""           # tên viết tắt, không có số/năm → không trích
+
+
+def _affd(relation, doc_id, *articles):
+    return {"relation": relation, "articles": list(articles), "doc_id": doc_id}
+
+
+def test_scan_cases_matches_docnum_in_prose():
+    # legal_basis RỖNG, source là VĂN XUÔI nêu số hiệu '123/2020' + Điều 9 → khớp file qua số hiệu.
+    affected = {"nd_123_2020_hoa_don.md": _affd("amends", "123/2020/NĐ-CP", "Điều 9")}
+    case = _case(risks=[{"clause": "Hóa đơn", "legal_basis": "",
+                         "source": "Theo Nghị định 123/2020/NĐ-CP, Điều 9 về thời điểm lập hóa đơn"}])
+    impacts = scan_cases([case], affected, new_doc_id="70/2025/NĐ-CP")
+    assert len(impacts) == 1
+    assert impacts[0].affected_file == "nd_123_2020_hoa_don.md"
+    assert impacts[0].affected_article == "điều 9"      # trích đúng điều từ văn xuôi (article-level)
+
+
+def test_scan_cases_docnum_no_false_positive_on_abbreviation():
+    # source nêu 'BLDS 2015' (viết tắt, KHÔNG có số hiệu khớp) → KHÔNG khớp file số hiệu khác.
+    affected = {"nd_123_2020_hoa_don.md": _affd("amends", "123/2020/NĐ-CP", "Điều 9")}
+    case = _case(risks=[{"clause": "Vay", "legal_basis": "", "source": "Điều 466 BLDS 2015 về trả nợ"}])
+    assert scan_cases([case], affected) == []          # không báo giả từ tên luật viết tắt
+
+
+def test_scan_cases_docnum_respects_article_level():
+    # Văn xuôi nêu đúng số hiệu nhưng Điều KHÁC điều bị sửa → vẫn lọc (article-level giữ nguyên).
+    affected = {"nd_123_2020_hoa_don.md": _affd("amends", "123/2020/NĐ-CP", "Điều 9")}
+    case = _case(risks=[{"clause": "Hóa đơn", "legal_basis": "",
+                         "source": "Nghị định 123/2020/NĐ-CP Điều 5"}])  # Điều 5 ≠ Điều 9 bị sửa
+    assert scan_cases([case], affected) == []

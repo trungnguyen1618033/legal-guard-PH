@@ -286,7 +286,8 @@ def affected_doc_files(base_dir: str, tenant: str, doc_id: str) -> dict[str, dic
                 # CHỈ "amends" mới lọc theo điều (sửa một số Điều). "replaces" = thay cả văn bản →
                 # mọi viện dẫn đều lỗi thời (articles rỗng = doc-level). "guides" cũng doc-level.
                 arts = articles if rel["relation"] == "amends" else []
-                out[fn] = {"relation": rel["relation"], "articles": arts}
+                # doc_id của VB cũ BỊ tác động — để scan_cases khớp được cả căn cứ văn xuôi nêu số hiệu.
+                out[fn] = {"relation": rel["relation"], "articles": arts, "doc_id": rel["doc_id"]}
     return out
 
 
