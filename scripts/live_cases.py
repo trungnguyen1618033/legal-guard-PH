@@ -53,6 +53,8 @@ def post(path: str, body: dict, timeout: int):
             return r.status, json.loads(r.read() or b"{}")
     except urllib.error.HTTPError as e:
         return e.code, {"_err": e.read().decode("utf-8", "replace")[:120]}
+    except Exception as e:  # noqa: BLE001 — timeout/URLError → FAIL chứ KHÔNG crash cả suite
+        return 0, {"_err": "timeout/conn: " + str(e)[:80]}
 
 
 def check(text: str, c: dict) -> tuple[bool, str]:
@@ -114,11 +116,39 @@ LOOKUP = [
     # --- point-in-time có mốc HỢP LỆ (2023 → NĐ 123/2020 đã hiệu lực 2022, KHÔNG phải TT39) ---
     {"id": "pit-2023", "q": "Tính đến năm 2023, văn bản nào quy định về hóa đơn điện tử?",
      "any": ["123/2020", "hóa đơn"], "none": ["39/2014"]},
-    # --- ca biên: NGOÀI KB → phải TỪ CHỐI (không bịa) ---
+    # --- thêm phrasing/độ phủ (đảm bảo) ---
+    {"id": "mien-trach", "q": "Khi nào bên vi phạm được miễn trách nhiệm theo Luật Thương mại?",
+     "any": ["miễn", "bất khả kháng", "294"]},
+    {"id": "phat-thoa-thuan", "q": "Phạt vi phạm có bắt buộc phải thỏa thuận trước trong hợp đồng không?",
+     "any": ["thỏa thuận", "301", "phải"]},
+    {"id": "vay-khong-lai", "q": "Bên vay tiền không có lãi thì có nghĩa vụ gì khi đến hạn?",
+     "any": ["466", "trả", "đúng hạn"]},
+    {"id": "hoa-don-dichvu", "q": "Khi cung cấp dịch vụ thì lập hóa đơn vào thời điểm nào?",
+     "any": ["hoàn thành", "dịch vụ", "Điều 9", "thu tiền"]},
+    {"id": "nd70-sua", "q": "Nghị định 70/2025 liên quan gì đến hóa đơn?",
+     "any": ["70/2025", "123/2020", "hóa đơn", "sửa"]},
+    {"id": "lam-them-nam", "q": "Tổng số giờ làm thêm tối đa trong một năm là bao nhiêu?",
+     "any": ["200", "300", "năm", "giờ"]},
+    {"id": "tnhh-1tv", "q": "Công ty trách nhiệm hữu hạn một thành viên do ai làm chủ sở hữu?",
+     "any": ["một thành viên", "tổ chức", "cá nhân", "chủ sở hữu"]},
+    {"id": "ket-hon", "q": "Điều kiện kết hôn theo Luật Hôn nhân và Gia đình?",
+     "any": ["kết hôn", "tự nguyện", "tuổi", "nam", "nữ"]},
+    {"id": "dau-tu-cam", "q": "Ngành nghề bị cấm đầu tư kinh doanh gồm những gì?",
+     "any": ["cấm", "đầu tư", "kinh doanh", "ma túy"]},
+    {"id": "pit-2025", "q": "Tính đến năm 2025, văn bản hiện hành quy định về hóa đơn?",
+     "any": ["70/2025", "123/2020", "hóa đơn"], "none": ["39/2014"]},
+    # --- NEGATIVE: chủ đề CHẮC CHẮN ngoài KB → phải TỪ CHỐI (không bịa). Giá trị cao nhất cho lòng tin. ---
     {"id": "edge-out-of-kb", "q": "Quy định đăng kiểm ô tô chở khách như thế nào?",
      "any": ["chưa đủ", "không đủ", "không tìm", "ngoài phạm vi", "không có"]},
     {"id": "edge-out-of-kb-2", "q": "Mức xử phạt vi phạm giao thông khi vượt đèn đỏ?",
      "any": ["chưa đủ", "không đủ", "không tìm", "ngoài phạm vi", "không có"]},
+    {"id": "edge-tndn", "q": "Thuế suất thuế thu nhập doanh nghiệp hiện nay là bao nhiêu?",
+     "any": ["chưa đủ", "không đủ", "không tìm", "ngoài phạm vi", "không có"]},
+    {"id": "edge-gtgt", "q": "Các mức thuế suất thuế giá trị gia tăng?",
+     "any": ["chưa đủ", "không đủ", "không tìm", "ngoài phạm vi", "không có"]},
+    {"id": "edge-chungkhoan", "q": "Điều kiện để doanh nghiệp IPO theo Luật Chứng khoán?",
+     "any": ["chưa đủ", "không đủ", "không tìm", "ngoài phạm vi", "không có"]},
+    # (gỡ edge-visa: giấy phép lao động được KB lao động phủ → KHÔNG phải ca abstain sạch)
     # --- ca biên: luật CHẾT (không mốc thời gian) → phải trả VB còn hiệu lực, không dẫn TT 39/2014 ---
     {"id": "edge-in-force", "q": "Văn bản nào quy định về hóa đơn điện tử hiện hành?",
      "none": ["39/2014"], "any": ["123/2020", "70/2025", "hóa đơn"]},
@@ -153,7 +183,7 @@ NEGOTIATE = [
 def run_lookup(limit, recs):
     print("\n— LOOKUP (gọi /ask thật) —")
     for c in LOOKUP[:limit]:
-        s, d = post("/ask", {"question": c["q"], "lang": "vi"}, 90)
+        s, d = post("/ask", {"question": c["q"], "lang": "vi"}, 120)   # 120s: ca point-in-time route flagship (chậm)
         if s != 200:
             recs.append((False, "lookup:" + c["id"], f"HTTP {s} {d.get('_err','')}"))
             continue
