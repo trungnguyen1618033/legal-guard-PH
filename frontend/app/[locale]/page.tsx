@@ -18,9 +18,9 @@ export default async function Home({ params: { locale } }: { params: { locale: s
         <Link href="/trust" className="rounded-md bg-accent px-5 py-2.5 font-medium text-white no-underline hover:bg-accent-d">
           {t("ctaTrust")}
         </Link>
-        <a href="https://legalguard.duckdns.org/app" className="rounded-md border border-line bg-surface px-5 py-2.5 font-medium text-ink no-underline hover:border-accent-d">
+        <Link href="/app" className="rounded-md border border-line bg-surface px-5 py-2.5 font-medium text-ink no-underline hover:border-accent-d">
           {t("ctaTry")}
-        </a>
+        </Link>
       </div>
       <div className="mt-16 grid gap-4 sm:grid-cols-3">
         {features.map((f) => (
