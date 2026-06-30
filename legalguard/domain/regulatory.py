@@ -98,6 +98,30 @@ def parse_basis_file(basis: str) -> str:
     return parse_basis(basis)[0]
 
 
+_DOCNUM_RE = re.compile(r"\b(\d{1,4}/\d{4})\b")   # số hiệu VB: '123/2020', '70/2025'…
+
+
+def _doc_number(doc_id: str) -> str:
+    """Trích số hiệu lõi từ doc_id ('123/2020/NĐ-CP' → '123/2020'). '' nếu không có dạng số/năm."""
+    m = _DOCNUM_RE.search(doc_id or "")
+    return m.group(1) if m else ""
+
+
+def _match_docnum(text: str, docnum_by_file: dict[str, str]) -> tuple[str, str]:
+    """DỰ PHÒNG khớp căn cứ VĂN XUÔI: nếu số hiệu VB bị tác động xuất hiện NGUYÊN VĂN trong `text`
+    → khớp file đó + trích 'Điều N' từ text (cho article-level). Chỉ khớp số hiệu (định danh duy nhất),
+    KHÔNG đoán theo tên luật viết tắt → không tạo báo động giả. ('','') nếu không khớp."""
+    if not text:
+        return "", ""
+    nums = set(_DOCNUM_RE.findall(text))
+    if not nums:
+        return "", ""
+    for fn, num in docnum_by_file.items():
+        if num and num in nums:
+            return fn, norm_article(text)      # norm_article quét 'Điều N' trong text (rỗng nếu không có)
+    return "", ""
+
+
 def scan_cases(cases: list, affected: dict[str, dict], new_doc_id: str = "") -> list[RegulatoryImpact]:
     """Quét case (dict đã lưu) → mục viện dẫn file trong `affected`.
 
@@ -109,6 +133,8 @@ def scan_cases(cases: list, affected: dict[str, dict], new_doc_id: str = "") -> 
     # Chuẩn hóa danh sách điều bị tác động về set canonical để khớp nhanh.
     arts_by_file = {fn: {norm_article(a) for a in (info.get("articles") or []) if norm_article(a)}
                     for fn, info in affected.items()}
+    # Số hiệu VB (vd '123/2020') của mỗi file bị tác động — để khớp căn cứ VĂN XUÔI nêu số hiệu.
+    docnum_by_file = {fn: _doc_number(info.get("doc_id", "")) for fn, info in affected.items()}
     out: list[RegulatoryImpact] = []
     seen: set[tuple] = set()
     for case in cases:
@@ -119,7 +145,12 @@ def scan_cases(cases: list, affected: dict[str, dict], new_doc_id: str = "") -> 
             for it in items:
                 clause = it.get("clause", "")
                 for basis_field in ("legal_basis", "source"):
-                    fn, art = parse_basis(it.get(basis_field, ""))
+                    text = it.get(basis_field, "")
+                    fn, art = parse_basis(text)
+                    if not fn or fn not in affected:
+                        # DỰ PHÒNG văn xuôi: số hiệu VB bị tác động (vd '123/2020') có nguyên văn trong
+                        # căn cứ → khớp file đó (định danh duy nhất; KHÔNG đoán theo tên luật viết tắt).
+                        fn, art = _match_docnum(text, docnum_by_file)
                     if not fn or fn not in affected:
                         continue
                     changed = arts_by_file[fn]
