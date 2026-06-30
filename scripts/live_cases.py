@@ -99,6 +99,21 @@ LOOKUP = [
     # --- hôn nhân gia đình / đất đai / đầu tư ---
     {"id": "dat-dai", "q": "Thời hạn sử dụng đất nông nghiệp là bao lâu?", "any": ["đất", "năm", "50"]},
     {"id": "dau-tu", "q": "Ưu đãi đầu tư theo Luật Đầu tư gồm những hình thức nào?", "any": ["ưu đãi", "đầu tư"]},
+    # --- thêm: phrasing khác + lĩnh vực phủ thêm ---
+    {"id": "phat-va-boithuong", "q": "Có được vừa phạt vi phạm vừa yêu cầu bồi thường thiệt hại không?",
+     "any": ["307", "vừa", "đồng thời", "cả phạt"]},
+    {"id": "lai-qua-han", "q": "Lãi suất nợ quá hạn được tính thế nào?", "any": ["quá hạn", "468", "357", "150%"]},
+    {"id": "hn-gd-taisan", "q": "Tài sản chung của vợ chồng gồm những gì?",
+     "any": ["tài sản chung", "vợ chồng", "hôn nhân"]},
+    {"id": "trong-tai-vien", "q": "Trọng tài viên phải đáp ứng tiêu chuẩn gì?",
+     "any": ["trọng tài viên", "tiêu chuẩn", "điều kiện"]},
+    {"id": "dn-von", "q": "Vốn điều lệ công ty cổ phần được quy định thế nào?",
+     "any": ["vốn điều lệ", "cổ phần", "cổ phiếu"]},
+    {"id": "shtt-cn", "q": "Quyền sở hữu công nghiệp gồm những đối tượng nào?",
+     "any": ["sở hữu công nghiệp", "nhãn hiệu", "sáng chế", "kiểu dáng"]},
+    # --- point-in-time có mốc HỢP LỆ (2023 → NĐ 123/2020 đã hiệu lực 2022, KHÔNG phải TT39) ---
+    {"id": "pit-2023", "q": "Tính đến năm 2023, văn bản nào quy định về hóa đơn điện tử?",
+     "any": ["123/2020", "hóa đơn"], "none": ["39/2014"]},
     # --- ca biên: NGOÀI KB → phải TỪ CHỐI (không bịa) ---
     {"id": "edge-out-of-kb", "q": "Quy định đăng kiểm ô tô chở khách như thế nào?",
      "any": ["chưa đủ", "không đủ", "không tìm", "ngoài phạm vi", "không có"]},
@@ -117,6 +132,21 @@ ANALYZE = [
      "min_risks": 1, "answer_any": ["trọng tài", "singapore", "tòa", "thi hành"]},
     {"id": "an-datcoc-50", "text": "Bên B đặt cọc trước 50% giá trị hợp đồng ngay khi ký.",
      "min_risks": 1, "answer_any": ["đặt cọc", "cọc", "rủi ro"]},
+    {"id": "an-vay-laicao", "text": "Hợp đồng vay: lãi suất 30%/năm; phạt chậm trả 50% số tiền vay.",
+     "min_risks": 1, "answer_any": ["466", "468", "20%", "lãi"], "expect_illegal": True},
+    {"id": "an-baomat-rong", "text": "Bên B không được tiết lộ bất kỳ thông tin nào về Bên A, vĩnh viễn, kể cả sau khi chấm dứt.",
+     "min_risks": 1, "answer_any": ["bảo mật", "thông tin", "vĩnh viễn", "phạm vi"]},
+]
+
+# Counter-clause + Negotiate (LLM, ~30s/ca) — chạy với --kind counter|negotiate|all.
+COUNTER = [
+    {"id": "ct-phat", "clause": "Phạt 15% giá trị hợp đồng", "risk": "vượt trần 8%",
+     "suggestion": "giảm về 8%, áp dụng hai chiều", "legal_basis": "Điều 301 Luật Thương mại 2005",
+     "leverage": "strong", "any": ["8%", "301", "phạt", "penalty"]},
+]
+NEGOTIATE = [
+    {"id": "ng-counter", "deal_context": "Phạt 15% trái Điều 301; cần giảm về 8%.",
+     "partner_message": "Chúng tôi chỉ giảm xuống 12%, không thấp hơn.", "leverage": "strong"},
 ]
 
 
@@ -159,6 +189,27 @@ def run_analyze(limit, recs):
         _p(ok, "analyze:" + c["id"], f"risks={len(risks)}" if ok else "; ".join(problems))
 
 
+def run_counter(limit, recs):
+    print("\n— COUNTER (gọi /counter thật) —")
+    for c in COUNTER[:limit]:
+        s, d = post("/counter", {"clause": c["clause"], "risk": c["risk"], "suggestion": c["suggestion"],
+                                 "legal_basis": c["legal_basis"], "leverage": c["leverage"]}, 90)
+        blob = json.dumps(d, ensure_ascii=False).lower()
+        ok = s == 200 and bool(d.get("vi")) and any(x.lower() in blob for x in c["any"])
+        recs.append((ok, "counter:" + c["id"], "ok" if ok else f"HTTP {s} grounded={d.get('grounded')}"))
+        _p(ok, "counter:" + c["id"], (d.get("vi", "")[:60] if ok else f"HTTP {s}"))
+
+
+def run_negotiate(limit, recs):
+    print("\n— NEGOTIATE (gọi /negotiate thật) —")
+    for c in NEGOTIATE[:limit]:
+        s, d = post("/negotiate", {"deal_context": c["deal_context"], "partner_message": c["partner_message"],
+                                   "lang": "vi", "leverage": c["leverage"]}, 90)
+        ok = s == 200 and d.get("status") in ("continue", "close", "walk_away") and bool(d.get("assessment"))
+        recs.append((ok, "negotiate:" + c["id"], f"status={d.get('status')}" if ok else f"HTTP {s}"))
+        _p(ok, "negotiate:" + c["id"], f"status={d.get('status')}" if ok else f"HTTP {s}")
+
+
 def _mp(fields):
     b = "----lc"
     parts = "".join(f"--{b}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n" for k, v in fields.items())
@@ -171,7 +222,7 @@ def _p(ok, name, detail):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--kind", choices=["lookup", "analyze", "all"], default="lookup")
+    ap.add_argument("--kind", choices=["lookup", "analyze", "counter", "negotiate", "all"], default="lookup")
     ap.add_argument("--limit", type=int, default=999)
     args = ap.parse_args()
     print(f"== Live functional cases @ {BASE} (key={'set' if KEY else 'none'}) ==")
@@ -180,6 +231,10 @@ def main():
         run_lookup(args.limit, recs)
     if args.kind in ("analyze", "all"):
         run_analyze(args.limit, recs)
+    if args.kind in ("counter", "all"):
+        run_counter(args.limit, recs)
+    if args.kind in ("negotiate", "all"):
+        run_negotiate(args.limit, recs)
     npass = sum(1 for r in recs if r[0])
     fails = [r for r in recs if not r[0]]
     print(f"\n== TỔNG: {npass}/{len(recs)} pass ==")
