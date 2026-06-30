@@ -21,6 +21,8 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
 | Tài liệu | Nội dung |
 |---|---|
 | [architecture.md](architecture.md) | Hexagonal (Ports & Adapters) · agentic RAG · multi-tenancy 2 trục · kỹ thuật chất lượng AI |
+| [architecture.en.md](architecture.en.md) | 🌐 EN — agent/autopilot showcase cho giám khảo quốc tế (ReAct · self-critique · /runs evidence · right-sizing) |
+| [OPEN-CORE.md](OPEN-CORE.md) | Ranh giới Public (MIT) vs Private (moat) — engine mở, dữ liệu sâu private overlay (song ngữ) |
 | [advisory-flow.md](advisory-flow.md) | Luồng tư vấn thật: vị thế đàm phán (BATNA/leverage) → ưu tiên giữ/nhượng → chiến lược |
 | [conversation.md](conversation.md) | Chat session/memory: working memory + deal context · intent routing · follow-up |
 | [slack-guide.md](slack-guide.md) | Cài đặt bot Slack (admin): app/scopes/events · env · troubleshooting |
@@ -37,7 +39,8 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
 ## 🚀 Phát triển & Vận hành
 | Tài liệu | Nội dung |
 |---|---|
-| [/README.md](../README.md) | Quickstart (uv + Docker) · endpoints · kiến trúc tóm tắt |
+| [/README.md](../README.md) | **English-first** (cửa chính cuộc thi quốc tế) — agent framing · quickstart · endpoints · open-core |
+| [/README.vi.md](../README.vi.md) | Bản tiếng Việt đầy đủ (endpoints chi tiết · channels · security · persistence) |
 | [/CLAUDE.md](../CLAUDE.md) | Hướng dẫn cho Claude Code: lệnh, kiến trúc, kỹ thuật AI, bảo mật |
 
 ## Trạng thái dự án (25/6/2026)
