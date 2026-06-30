@@ -57,6 +57,12 @@
     "analyzing": "Đang phân tích…",
     "error": "Phân tích thất bại hoặc hết thời gian. Thử lại sau.",
     "summary": "Tóm tắt",
+    "agentWork": "Agent đã thực thi",
+    "esCalls": "bước gọi tool",
+    "esSearches": "tra cứu KB",
+    "esRisks": "gắn rủi ro",
+    "esFallbacks": "đề xuất",
+    "esReview": "yêu cầu duyệt",
     "strategy": "Chiến lược đàm phán",
     "risks": "Điều khoản rủi ro",
     "fallbacks": "Chiến thuật thỏa hiệp",
@@ -65,6 +71,7 @@
     "legalBasis": "Căn cứ",
     "illegal": "TRÁI LUẬT",
     "unfavorable": "Bất lợi",
+    "unverified": "chưa xác minh",
     "reply": "Câu gửi đối tác",
     "replyLocked": "Sẽ hiện sau khi chuyên gia duyệt.",
     "checkpoint": "Cần chuyên gia duyệt",
@@ -186,7 +193,9 @@
     "newVersion": "Phiên bản mới…",
     "compare": "So sánh",
     "comparing": "Đang so sánh…",
-    "similarity": "Giống nhau: {pct}%"
+    "similarity": "Giống nhau: {pct}%",
+    "falseAlarm": "Báo nhầm",
+    "dismissed": "đã bỏ"
   },
   "footer": {
     "tagline": "Công cụ hỗ trợ pháp lý — không thay thế tư vấn chính thức.",

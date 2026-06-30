@@ -165,6 +165,7 @@ class AnalysisResult:
     strategy: str = ""           # chiến lược đàm phán tổng thể (ưu tiên + BATNA/walk-away)
     notes: list[str] = field(default_factory=list)
     case_id: str = ""            # id bản ghi đã lưu (nếu có persistence)
+    execution_summary: dict = field(default_factory=dict)  # đếm tool-call (evidence AI-Native, xem domain/runs.py)
 
 
 @dataclass

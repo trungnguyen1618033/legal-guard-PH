@@ -35,6 +35,8 @@ from legalguard.domain.ports import (
     OutcomeRepositoryPort,
 )
 from legalguard.domain.redaction import redact
+from legalguard.domain.regulatory import dismissed_pairs, filter_affected
+from legalguard.domain.runs import execution_summary
 from legalguard.domain.tenants import Organization, get_tenant
 from legalguard.domain.verification import (
     nli_contradicts, nli_supports, sources_answer_question, verify_risks,
@@ -253,10 +255,14 @@ class AnalysisService:
                 affected.append({"doc_id": law["doc_id"], "title": law["title"],
                                  "effective_date": law["effective_date"],
                                  "cases": sorted({i["case_id"] for i in impacts}), "impacts": impacts})
+        # Vòng phản hồi (#3): bỏ cảnh báo đã bị 'báo nhầm' trước đó → chống alert fatigue (autopilot tự hiệu chỉnh).
+        dismissed = dismissed_pairs(self.feedback.list_by_org(org_id, 500)) if self.feedback else set()
+        affected, suppressed = filter_affected(affected, dismissed)
         if self.observer:
-            self.observer.event("monitor", {"org_id": org_id, "since": since,
-                                            "scanned": len(laws), "affected": len(affected)})
-        return {"since": since, "new_laws_scanned": len(laws), "affected": affected}
+            self.observer.event("monitor", {"org_id": org_id, "since": since, "scanned": len(laws),
+                                            "affected": len(affected), "suppressed": suppressed})
+        return {"since": since, "new_laws_scanned": len(laws), "affected": affected,
+                "suppressed": suppressed}
 
     def dashboard(self, org_id: str, limit: int = 200) -> dict:
         """System-of-record: tổng hợp hoạt động pháp lý của công ty (cases/feedback/outcome). Cô lập org."""
@@ -487,6 +493,7 @@ class AnalysisService:
             strategy=strategy,
             notes=notes,
         )
+        result.execution_summary = execution_summary(result.trace)   # bằng chứng agent gọi tool (AI-Native)
 
         # Persist case (audit + lịch sử + evidence). Lỗi DB không làm hỏng phân tích.
         if self.cases is not None:

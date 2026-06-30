@@ -57,6 +57,12 @@
     "analyzing": "Analyzing…",
     "error": "Analysis failed or timed out. Try again later.",
     "summary": "Summary",
+    "agentWork": "What the agent did",
+    "esCalls": "tool calls",
+    "esSearches": "KB searches",
+    "esRisks": "risks flagged",
+    "esFallbacks": "fallbacks",
+    "esReview": "review requested",
     "strategy": "Negotiation strategy",
     "risks": "Risky clauses",
     "fallbacks": "Compromise tactics",
@@ -65,6 +71,7 @@
     "legalBasis": "Basis",
     "illegal": "ILLEGAL",
     "unfavorable": "Unfavorable",
+    "unverified": "unverified",
     "reply": "Message to counterparty",
     "replyLocked": "Shown after an expert approves.",
     "checkpoint": "Expert review required",
@@ -186,7 +193,9 @@
     "newVersion": "New version…",
     "compare": "Compare",
     "comparing": "Comparing…",
-    "similarity": "Similarity: {pct}%"
+    "similarity": "Similarity: {pct}%",
+    "falseAlarm": "False alarm",
+    "dismissed": "dismissed"
   },
   "footer": {
     "tagline": "A legal support tool — not a substitute for formal advice.",

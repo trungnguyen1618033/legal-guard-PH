@@ -83,6 +83,11 @@ function Monitor({ t }: { t: T }) {
                     <p className="mt-1 text-sm text-muted">
                       {t("affectedCases", { n: Array.isArray(a.cases) ? a.cases.length : Number(a.cases) || 0 })}
                     </p>
+                    {Array.isArray(a.cases) && a.cases.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {a.cases.map((cid) => <DismissCase key={cid} t={t} docId={a.doc_id} caseId={cid} />)}
+                      </div>
+                    )}
                   </Card>
                 </li>
               ))}
@@ -91,6 +96,36 @@ function Monitor({ t }: { t: T }) {
         </div>
       )}
     </Section>
+  );
+}
+
+// Vòng phản hồi Autopilot (#3): chip case + nút "báo nhầm" → /api/monitor-feedback → digest sau tự lọc.
+function DismissCase({ t, docId, caseId }: { t: T; docId: string; caseId: string }) {
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function dismiss() {
+    if (busy || done) return;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/monitor-feedback", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ doc_id: docId, case_id: caseId }),
+      });
+      if (r.ok) setDone(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) return <Badge variant="ok">{caseId} · {t("dismissed")}</Badge>;
+  return (
+    <span className="inline-flex items-center gap-1 rounded border border-line px-2 py-0.5 text-xs">
+      {caseId}
+      <button onClick={dismiss} disabled={busy} className="text-muted hover:text-red-600" title={t("falseAlarm")}>
+        ✕ {t("falseAlarm")}
+      </button>
+    </span>
   );
 }
 
