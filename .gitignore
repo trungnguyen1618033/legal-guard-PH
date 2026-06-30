@@ -233,6 +233,14 @@ file/
 # Auto-ingested KB (bulk, unverified) — không commit
 knowledge_base/_ingested/
 
+# === OPEN-CORE: ranh giới moat (xem docs/OPEN-CORE.md) ===
+# Lõi engine + KB luật công khai + matrix/golden mẫu = MIT (public, deliverable cuộc thi).
+# Lớp PRIVATE dưới đây phủ lên qua overlay khi deploy startup — KHÔNG commit (moat).
+#   Overlay KB/tactic SÂU theo công ty: knowledge_base/_orgs/<org_id>/*.md (auto-load qua for_org).
+knowledge_base/_orgs/
+#   Golden lawyer-verified ĐẦY ĐỦ + benchmark riêng (mẫu vẫn public ở evaluation/*_golden.json).
+evaluation/_private/
+
 # Ứng viên golden sinh từ feedback — luật sư review rồi mới merge thủ công
 evaluation/golden_candidates.json
 

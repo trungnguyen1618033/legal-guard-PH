@@ -1,163 +1,118 @@
-# Legal Guard PH
+# Legal Guard — Autopilot Agent for Cross-Border Contract Risk
 
-AI "phòng pháp chế thuê ngoài" cho SME Việt Nam: phân tích hợp đồng thương mại quốc tế,
-cảnh báo điều khoản rủi ro, và đề xuất chiến thuật thỏa hiệp (fallback) theo luật thương mại VN.
+An AI agent that acts as an **outsourced legal department**: it reads an international commercial
+contract, **flags risky and illegal clauses**, and proposes **position-aware negotiation tactics** —
+then keeps a human in the loop before anything goes to the counterparty.
 
-> Track **Autopilot Agent** (Qwen Cloud Hackathon) · Category **Professional Services** (Gemini XPRIZE).
-> 📚 **Toàn bộ tài liệu:** [`docs/README.md`](docs/README.md) (chiến lược · kỹ thuật · thị trường · bảo mật).
+> 🏆 Built for the **Qwen Cloud Hackathon — Autopilot Agent track**. Powered by Qwen models on Qwen
+> Cloud, deployed on Alibaba Cloud. Proving ground: Vietnamese SMEs negotiating cross-border deals.
+> 🇻🇳 Vietnamese readme: [`README.vi.md`](README.vi.md) · 🏗️ Architecture: [`docs/architecture.en.md`](docs/architecture.en.md) · ⚖️ Open-core boundary: [`docs/OPEN-CORE.md`](docs/OPEN-CORE.md)
 
-## 🚀 Quick demo (cho giám khảo)
+## Why it fits "Autopilot Agent"
+
+The track asks for an agent that **automates a real workflow end-to-end, handles ambiguous input,
+invokes external tools, and incorporates human-in-the-loop checkpoints.** Legal Guard does exactly that:
+
+- **End-to-end autonomy** — upload/paste a contract → the agent runs a **ReAct loop**, deciding which
+  tools to call (`search_legal_knowledge`, `flag_risk`, `propose_fallback`, `request_human_review`)
+  until it reaches a grounded conclusion, recording every step in a `trace`.
+- **Self-critique** — after flagging risks the agent verifies its own findings (evidence must exist in
+  the contract + a judge confirms each risk is supported by retrieved law) and marks unverified ones.
+- **Proactive autopilot** — `POST /monitor/run` scans newly-issued laws and tells you which of your
+  past contracts are now affected — *"the agent works while you sleep"* (built for a daily cron). It
+  even **self-tunes**: dismissed false alarms are suppressed next run.
+- **Human-in-the-loop** — the message-to-counterparty stays **locked** until a reviewer approves;
+  rejecting escalates the case to a real lawyer channel.
+- **AI-Native evidence** — `GET /runs` exposes a live feed of what the agent did (tool calls, risks
+  flagged, items escalated) so judges can *see* the agent making decisions, not just its output.
+
+## 🚀 Quick demo (no API key needed)
 
 ```bash
-uv sync && uv run uvicorn app:app          # đặt QWEN_API_KEY trong .env để phân tích THẬT
+uv sync && uv run uvicorn app:app          # runs in STUB mode offline (simulated LLM output)
 ```
-Mở **http://localhost:8000/app** → bấm **"📄 Dùng hợp đồng mẫu"** → **"🔍 Phân tích hợp đồng"**.
-Agent (xem tab **Trace**) tự: tra KB luật → gắn cờ rủi ro → đối chiếu NLI → soạn fallback theo vị thế.
-Kết quả khoe 3 điểm khác biệt:
-- ⚖️ **Điều 2 phạt 15% → TRÁI LUẬT** (có thể VÔ HIỆU theo Điều 301 Luật TM 2005) — tách khỏi điều chỉ *bất lợi*.
-- ♟️ **Chiến lược đàm phán theo vị thế "Bên Mua yếu"** (giữ / nhượng / walk-away) — không phải mẫu cứng.
-- 🧑‍⚖️ **Human checkpoint**: câu gửi đối tác bị khóa tới khi chuyên gia duyệt.
+Open **http://localhost:8000/app** → paste the sample below (or `examples/sample_contract_en.txt`) →
+**Analyze**. Watch the **Trace** tab: the agent searches the legal KB → flags risks → checks each via
+NLI → drafts position-aware fallbacks. Set `QWEN_API_KEY` in `.env` for real analysis.
 
-Không có key Qwen → vẫn chạy offline ở **chế độ stub** (kết quả mô phỏng, đủ để xem luồng).
-Trang khác: **`/lookup`** (tra cứu luật + 🗺️ lược đồ văn bản kiểu TVPL) · **`/dashboard`** · **`/docs`** (API).
+What the demo shows:
+- ⚖️ A **15% penalty clause flagged as *illegal*** (voidable under Art. 301 of Vietnam's Commercial
+  Law 2005, which caps it at 8%) — separated from merely *unfavorable* terms.
+- ♟️ A **negotiation strategy tuned to your bargaining position** (keep / concede / walk-away) — not a
+  rigid template.
+- 🧑‍⚖️ A **human checkpoint** gating the outbound message until an expert approves.
 
-## Kiến trúc — Hexagonal (Ports & Adapters)
+Other pages: **`/lookup`** (grounded legal Q&A + a TVPL-style document graph) · **`/dashboard`**
+(system-of-record) · **`/runs`** (agent activity feed) · **`/docs`** (OpenAPI).
+
+## Architecture — Hexagonal (Ports & Adapters)
 
 ```
-app.py                         ASGI entrypoint → build_app()
+app.py                         ASGI entrypoint
 legalguard/
-  domain/                      lõi nghiệp vụ (không phụ thuộc hạ tầng)
-    models · ports · agent (ReAct loop) · tools · analysis (use-case) · tenants
-    verification (NLI) · negotiation (đa phiên) · counter_clause · regulatory · redline · dashboard
+  domain/                      business core (no framework/infra imports)
+    agent (ReAct loop) · tools · analysis (use-case) · verification (NLI self-critique)
+    negotiation (multi-round) · counter_clause · regulatory (autopilot) · runs (AI evidence)
   adapters/
-    inbound/http.py            FastAPI (driving adapter)
-    outbound/                  qwen · gemini · knowledge_base · document_parser · revenue_log · case_repository
-  config/                      settings · container (composition root)
-knowledge_base/VN/             ma trận fallback (12 nhóm điều khoản) — xem knowledge_base/_README.md
+    inbound/http.py            FastAPI driving adapter · inbound/mcp_server.py (Model Context Protocol)
+    outbound/                  qwen · gemini · knowledge_base (hybrid RAG) · document_parser (+OCR)
+  config/container.py          composition root — the only place adapters are wired in
+knowledge_base/VN/             in-force Vietnamese law (verbatim) + a 12-situation fallback matrix
 ```
 
-**Song ngữ:** output `lang=en` (mặc định) / `vi`; câu gửi đối tác luôn tiếng Anh. KB là nguồn
-tiếng Việt (ngôn ngữ KB ≠ ngôn ngữ output). Thiết kế & độ phủ KB: [`knowledge_base/_README.md`](knowledge_base/_README.md).
+**Dependencies point inward**: the domain defines ports, adapters implement them. Swapping a provider
+is one line in `container.py`; the core never changes. **Model right-sizing**: hard reasoning uses the
+flagship Qwen model; cheap yes/no checks (NLI verify) use a fast model — ~23s → ~0.5s with no quality loss.
 
-**Domain định nghĩa port, adapter implement, `config/container.py` ráp lại.**
-Lõi là **agentic ReAct loop**: LLM tự quyết định gọi tool — `search_legal_knowledge` (RAG) ·
-`flag_risk` · `propose_fallback` · `request_human_review` — lặp tới khi ra kết luận, ghi `trace`.
+**RAG quality:** grounding + citation (every risk carries a deterministic article reference) ·
+2-layer verification (LLM-judge + **NLI entailment** to catch "citation exists but doesn't support the
+claim") · hybrid retrieval (BM25 + embeddings, RRF) + optional rerank · **in-force filtering** (only
+returns law valid at the relevant point in time) + **citation closure**. Provider errors degrade to a
+safe `LLMError` instead of crashing. Full write-up: [`docs/architecture.en.md`](docs/architecture.en.md).
 
-Kỹ thuật chất lượng: **grounding + citation** (mỗi rủi ro gắn `source` + căn cứ điều luật tất định) ·
-**verification 2 tầng** (LLM-judge + **NLI entailment** chống citation "tồn tại nhưng không hỗ trợ") ·
-**hybrid retrieval RRF** (BM25 + embedding) + reranker opt-in · **lọc hiệu lực** (chỉ trả VB còn hiệu lực,
-point-in-time) + **citation closure** (đi theo dẫn chiếu chéo) · **reason-then-format** (model suy luận trước
-khi điền structured output) · **eval harness + A/B** (`evaluation/`). Lỗi provider → `LLMError` → degrade, không crash.
-
-**Khác biệt (moat):** không chỉ soi HĐ mà đàm phán **theo vị thế thật** (leverage/urgency/BATNA → priority
-+ chiến lược + **điều khoản phản-đề song ngữ** `/counter`) · **regulatory change intel** (`/impact`: VB mới
-ảnh hưởng HĐ nào, article-level, cảnh báo Slack/Zalo) · **system-of-record** (`/dashboard`) · **living flywheel**
-(feedback → golden set). Phân tích sâu: `docs/internal/moat-and-differentiation.md`.
-
-👉 Chi tiết: [`docs/architecture.md`](docs/architecture.md) · lộ trình scale: `docs/internal/legal-guard.md` §5b.
-
-## Chạy bằng Docker (Postgres + app)
+## Run with Docker
 
 ```bash
-make up            # build + chạy app (http://localhost:8000) + postgres + tự migrate
-make logs          # xem log
-make psql          # mở psql
-make down          # dừng (giữ data) · make clean (xóa luôn volume DB)
-make help          # tất cả lệnh
+make up      # build + run app (http://localhost:8000) + Postgres + Redis, auto-migrates
+make logs    # tail logs   ·   make down (stop)   ·   make help (all commands)
 ```
 
-`docker-compose.yml`: `db` (postgres:16) + `redis` (7) + `app` (FastAPI, healthcheck `/ready`).
-App tự đặt `DATABASE_URL` (postgres), `CONVERSATION_BACKEND=redis` + `REDIS_URL` (chat session trên
-Redis), và chạy `alembic upgrade head` trước khi serve. API key đọc từ `.env` (`make env`).
-Lệnh: `make psql` · `make redis-cli` · `make logs`.
-
-## Chạy local không Docker (dùng [uv](https://docs.astral.sh/uv/))
+## Run locally with [uv](https://docs.astral.sh/uv/)
 
 ```bash
-uv sync                       # tạo .venv + cài deps theo pyproject.toml / uv.lock
-cp .env.example .env          # điền QWEN_API_KEY (và GEMINI_API_KEY)
-uv run uvicorn app:app --reload
-# → http://localhost:8000/docs
+uv sync
+cp .env.example .env          # optional: add QWEN_API_KEY / GEMINI_API_KEY for real analysis
+uv run uvicorn app:app --reload          # → http://localhost:8000/docs
+uv run pytest                            # full offline test suite
+uv run ruff check .                      # lint
 ```
 
-Không có API key vẫn chạy được ở **chế độ stub** (trả response có nhãn `[..._STUB]`) để
-dựng/demo luồng. Cấu hình key thật để có phân tích thật.
+## Key endpoints
 
-### Lệnh thường dùng
-```bash
-uv run uvicorn app:app --reload   # chạy server
-uv run ruff check .               # lint
-uv run pytest                     # test
-uv add <package>                  # thêm thư viện (cập nhật pyproject + lock)
-```
-
-## Endpoints
-
-| Method | Path | Mục đích |
+| Method | Path | Purpose |
 |---|---|---|
-| GET | `/` | Landing one-pager (`web/index.html`) |
-| GET | `/app` | **UI demo** (`web/app.html`): upload → risk → fallback → **human checkpoint** + nút "📝 soạn điều khoản phản-đề" |
-| GET | `/lookup` | **UI tra cứu luật** (`web/lookup.html`): hỏi đáp pháp lý + "VB mới ảnh hưởng HĐ nào?" + changelog + redline |
-| GET | `/dashboard` | **UI bảng điều khiển** (`web/dashboard.html`): system-of-record tổng hợp công ty |
-| GET | `/trust` · `/trust.json` | **Công bố độ tin cậy** (phương pháp + số đo eval) — gửi cho luật sư/đối tác |
-| GET | `/health` · `/ready` | Liveness · readiness (DB) — cho LB/k8s |
-| POST | `/analyze` | Rà soát HĐ. `format=json`/`report` · `lang=en`/`vi` · **vị thế đàm phán** `leverage`/`urgency`/`relationship`/`alternatives` → priority + chiến lược |
-| POST | `/ask` | Tra cứu luật (RAG có grounding) → câu trả lời dẫn Điều/Khoản **còn hiệu lực** + nguồn |
-| POST | `/counter` | Soạn **điều khoản phản-đề song ngữ VN/EN** cho 1 điều khoản rủi ro (bám căn cứ + vị thế) |
-| POST | `/negotiate` | **Đàm phán đa phiên**: bối cảnh deal + tin đối tác → đánh giá + chiến lược vòng tới + reply + status |
-| GET | `/changes/{doc_id}` | "What changed" cấp văn bản: VB này sửa đổi/thay thế/của VB nào |
-| GET | `/graph/{doc_id}` | **Lược đồ văn bản** (nodes+edges, đa-hop) — quan hệ + hiệu lực kiểu TVPL |
-| GET | `/latest/{doc_id}` | Map tới **văn bản mới nhất** (theo chuỗi replaced_by) |
-| GET | `/articles-changed/{doc_id}` | Điều nào của VB đã bị VB khác sửa (**bôi vàng** kiểu TVPL) |
-| POST | `/redline` | Diff 2 phiên bản text (`[+thêm+]`/`[-bỏ-]` + similarity, tất định) |
-| GET | `/impact/{doc_id}` | **Regulatory change intel**: VB mới ảnh hưởng case nào của công ty (article-level) |
-| POST | `/impact/{doc_id}/notify` | Gửi cảnh báo VB mới ảnh hưởng HĐ qua Slack/Zalo (`via`/`channel`) |
-| POST | `/monitor/run` | **Autopilot**: tự quét VB luật MỚI (`since`) → HĐ bị ảnh hưởng → digest Slack/Zalo (cron) |
-| POST · GET | `/feedback` | Ghi · liệt kê phản hồi người dùng (vòng học → golden set) |
-| POST | `/evidence/revenue` | Ghi nhận doanh thu (evidence XPRIZE) |
-| GET | `/evidence/summary` | Tổng doanh thu + breakdown tháng 5–8/2026, tách related-party |
-| GET | `/cases?tenant=VN` | Lịch sử rà soát (mới nhất trước) |
-| GET | `/cases/{id}` | Chi tiết 1 case đã lưu |
-| DELETE | `/cases/{id}` | Xóa case (right-to-erasure PDPD/GDPR) |
-| POST | `/cases/{id}/outcome` | Ghi kết quả đàm phán (flywheel dữ liệu — moat; UI nút trong /app) |
-| POST | `/escalate` | Chuyển case cho **luật sư** (Reject/illegal) qua kênh chuyên gia (`EXPERT_CHANNEL`) |
-| POST | `/amendments/compile` | **Bản ghi nhớ sửa đổi** (markdown) — gộp điều khoản đã chọn (TRÁI LUẬT đầu) |
-| POST | `/amendments/compile.docx` | Xuất bản ghi nhớ ra **Word** (cần group `export`) |
-| GET | `/insights/tactics` | Win-rate theo điều khoản từ kết quả thực tế |
-| GET | `/insights/dashboard` | System-of-record: HĐ rà soát, top điều khoản rủi ro, feedback, win-rate |
-| POST | `/channels/slack/events` | Webhook Slack (verify chữ ký + challenge) — bật khi có `SLACK_SIGNING_SECRET` |
-| POST | `/channels/slack/interactions` | Nút feedback Slack 👍/⚠️/➖ (verify chữ ký raw body) |
-| POST | `/channels/zalo/webhook` | Webhook Zalo OA (verify `X-ZEvent-Signature`) — bật khi có `ZALO_OA_SECRET` |
+| POST | `/analyze` | Review a contract. `lang=en`/`vi` + bargaining position (`leverage`/`urgency`/`relationship`/`alternatives`) → risks, fallbacks, strategy, trace, `execution_summary`. Long docs: `async_mode=true` → poll `/analyze/result/{id}`. |
+| GET | `/runs` | **Agent activity feed** (AI-Native evidence): tool calls, risks, escalations per run. |
+| POST | `/ask` | Grounded legal Q&A → answer citing in-force Article/Clause + sources. |
+| POST | `/counter` | Draft a bilingual VN/EN **counter-clause** for a risky term. |
+| POST | `/negotiate` | **Multi-round negotiation**: deal context + counterparty reply → assessment + next-round strategy + bilingual reply + status. |
+| POST | `/monitor/run` | **Autopilot**: scan newly-issued laws (`since`) → which contracts are affected → digest. |
+| POST | `/monitor/feedback` | Mark a monitor alert as a false alarm → suppressed next run (self-tuning). |
+| GET | `/graph/{doc_id}` · `/latest/{doc_id}` · `/articles-changed/{doc_id}` | Document relationship graph / latest version / amended articles (TVPL-style). |
+| GET | `/impact/{doc_id}` | Regulatory-change intelligence: which stored contracts a new law affects (article-level). |
+| POST | `/escalate` | Hand a case to a **lawyer** channel (human checkpoint reject). |
+| GET | `/trust` · `/trust.json` | Published reliability: methodology + eval metrics. |
+| — | MCP | `make mcp` exposes `analyze_contract` via Model Context Protocol (Qwen-Agent / Claude / IDE). |
 
-**MCP server:** `make mcp` (hoặc `uv run python -m legalguard.adapters.inbound.mcp_server`) expose tool
-`analyze_contract` cho **Qwen-Agent / Claude / IDE** qua Model Context Protocol (chuẩn agent-tool 2026).
+(Full endpoint list, channels, security, persistence: [`README.vi.md`](README.vi.md).)
 
-**Observability:** đặt `LANGFUSE_*` để gửi traces/evals (evidence AI-Native cho XPRIZE); rỗng = NoOp.
+## Open-core
 
-**Kênh nhắn tin (khép kín):** SME chat qua **Zalo/Slack** → bot verify chữ ký → (ack nhanh, xử lý nền)
-tải file → rà soát → **gửi reply về chat** (rủi ro + ưu tiên + chiến lược, tiếng Việt). Cần secret + token
-(`SLACK_BOT_TOKEN`/`ZALO_ACCESS_TOKEN`); thiếu token thì trả reply trong response (fallback). Hexagonal:
-inbound (`channels.py`) + outbound sender (`chat_senders.py`), domain không đổi.
+The **engine is MIT-licensed and fully open** (this repo) — it runs end-to-end on the included public
+legal corpus + a 12-situation sample fallback matrix. Proprietary depth (party-aware tactic library,
+lawyer-verified evaluation set, deal-outcome flywheel data) layers on at deploy time via a private
+overlay and is **not** in this repo. See [`docs/OPEN-CORE.md`](docs/OPEN-CORE.md). License: [`LICENSE`](LICENSE) (MIT).
 
-**Multi-tenancy 2 trục:** Quốc gia (jurisdiction → KB luật) × Công ty (Organization → cô lập dữ liệu
-+ KB overlay riêng `knowledge_base/_orgs/<org_id>/`). Cô lập **theo công ty**, không theo quốc gia.
-
-**Bảo mật:** đặt `API_KEYS="key:org_id:VN,..."` để bật xác thực (header `X-API-Key`) — mọi truy vấn
-`cases` bị ràng theo `org_id` của key → công ty A không đọc được dữ liệu công ty B. PII (email/điện thoại/
-số dài) được **redact trước khi gửi LLM/lưu/log**; hợp đồng được bọc như **dữ liệu không tin cậy**
-(chống prompt injection); upload giới hạn `MAX_UPLOAD_BYTES`. Thiết kế đầy đủ: [`docs/security.md`](docs/security.md).
-
-**Upload file:** `/analyze` field `file` nhận **PDF/DOCX/TXT (text)** + **PDF scan/ảnh (.png/.jpg) → OCR
-bằng Qwen-VL** (tự kích hoạt khi không bóc được text; cần `QWEN_API_KEY`). Giới hạn `MAX_UPLOAD_BYTES`.
-
-`/analyze` tự lưu mỗi lần rà soát vào DB và trả `case_id`. Persistence dùng **SQLAlchemy** —
-cùng code chạy **SQLite** (mặc định, `DATABASE_URL=sqlite:///data/cases.db`) và **PostgreSQL**
-(prod, đổi `DATABASE_URL`). Migrations bằng **Alembic** (`uv run alembic upgrade head`).
-Thiết kế DB + lộ trình Postgres/pgvector: [`docs/data-model.md`](docs/data-model.md).
-
-**Luồng concierge:** nhận HĐ khách → `POST /analyze?format=report` → giao báo cáo Markdown →
-thu phí → `POST /evidence/revenue`. Sổ doanh thu lưu ở `data/revenue.csv` (đã gitignore).
-
-## Yêu cầu
-- Python ≥ 3.11
-- Qwen API (LLM phân tích chính) · Gemini API (≥1 call, ràng buộc XPRIZE)
+## Requirements
+- Python ≥ 3.11 · Qwen API (primary LLM) · Gemini API (optional, ≥1 call for the XPRIZE track)
+- Runs fully offline in **stub mode** without any API key.

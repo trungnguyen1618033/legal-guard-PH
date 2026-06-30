@@ -10,6 +10,14 @@ scope/strategy (in `docs/internal/`, gitignored — not in the public repo):
 `docs/internal/phan-tich-kha-thi.md` (feasibility + judge's-eye analysis),
 `docs/internal/pitch-presell.md` (sales playbook).
 
+**Open-core boundary** (`docs/OPEN-CORE.md`): engine = MIT public (contest deliverable). MOAT stays
+PRIVATE/gitignored — do NOT commit: `knowledge_base/_orgs/<org_id>/*` (deep party-aware tactics, auto-
+overlaid by `for_org` in /analyze), `evaluation/_private/` (full lawyer-verified golden), `docs/internal/`,
+runtime flywheel data. Public face is **English-first** `README.md` (agent framing for the international
+Qwen contest); `README.vi.md` = Vietnamese; `docs/architecture.en.md` = EN agent showcase. The committed
+KB (public VN law) + 12-situation `fallback_matrix.md` + sample golden are the PUBLIC baseline. Business
+build (post-contest) = a separate private repo: engine + moat data + closed features.
+
 ## Commands (managed with `uv`)
 
 ```bash

@@ -1,0 +1,32 @@
+INTERNATIONAL SALE OF GOODS AGREEMENT (EXCERPT)
+
+This Agreement is made between Pacific Components Ltd. ("Buyer", a Vietnamese SME) and
+Apex Global Trading GmbH ("Seller").
+
+Article 1 — Payment
+The Buyer shall pay 50% of the total contract value in advance upon signing, with the
+remaining balance due within 7 days of the bill of lading date, by T/T to the Seller's account.
+
+Article 2 — Penalty for Breach
+If the Buyer delays acceptance or payment for any reason, the Buyer shall pay a penalty of
+15% of the total contract value. The Seller shall bear no penalty for late delivery.
+
+Article 3 — Governing Law and Disputes
+This Agreement shall be governed by the laws of Germany. Any dispute shall be finally settled
+by arbitration administered in Frankfurt, in the German language.
+
+Article 4 — Inspection
+Goods shall be deemed accepted unless the Buyer notifies defects within 3 days of arrival at
+the destination port. The Seller's quality certificate shall be conclusive and binding.
+
+Article 5 — Termination
+The Seller may terminate this Agreement at any time with 7 days' notice. The Buyer may
+terminate only upon a material breach by the Seller that remains uncured for 60 days.
+
+Article 6 — Confidentiality
+The Buyer shall not disclose any information relating to the Seller, its products, or this
+Agreement to any third party, indefinitely, including after termination.
+
+[Sample for demo/testing only. Paste into /app or upload to POST /analyze. Risky/one-sided
+clauses are intentional — the agent should flag the 15% penalty, foreign arbitration seat,
+one-sided termination, and overbroad confidentiality, and propose position-aware fallbacks.]
