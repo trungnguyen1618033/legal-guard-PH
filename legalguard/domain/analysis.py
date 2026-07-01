@@ -540,7 +540,9 @@ class AnalysisService:
         if self._lookup_cache_size and ckey in self._lookup_cache:
             self._lookup_cache.move_to_end(ckey)        # LRU: vừa dùng → mới nhất
             return self._lookup_cache[ckey]
-        snippets = self.kb.for_org(org).retrieve(q, top_k)
+        # overlay=False: /lookup là Q&A DẪN LUẬT → dùng KB quốc gia (điều luật), KHÔNG để lớp tactics moat
+        # (premium_tactics.md, phục vụ /analyze) đè điều luật ra khỏi top_k làm hỏng citation accuracy.
+        snippets = self.kb.for_org(org, overlay=False).retrieve(q, top_k)
         if not snippets:
             return ("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
                     if lang == "vi" else
