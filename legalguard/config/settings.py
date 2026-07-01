@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     qwen_vl_model: str = "qwen3.7-plus"   # multimodal — OCR HĐ scan/ảnh (thay Qwen-VL, chính xác hơn)
     qwen_rerank_model: str = "qwen3-rerank"  # cross-encoder rerank (Model Studio: Qwen-Rerank, 100+ ngôn ngữ)
     llm_temperature: float = 0.1          # thấp = nhất quán/ổn định (legal cần xác định)
+    lookup_temperature: float = 0.0       # TRA CỨU (lookup) dùng temp 0 → câu trả lời TẤT ĐỊNH (hết flaky must_say)
 
     # Gemini (>=1 call cho XPRIZE)
     gemini_api_key: str = ""

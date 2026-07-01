@@ -205,6 +205,7 @@ class AnalysisService:
                  judge: LLMPort | None = None,
                  lookup_cache_size: int = 256,
                  lookup_llm: LLMPort | None = None,
+                 lookup_pit_llm: LLMPort | None = None,
                  illegal_detection: bool = True,
                  coverage_gated_abstain: bool = True) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
@@ -229,6 +230,9 @@ class AnalysisService:
         self._lookup_cache: OrderedDict[str, tuple] = OrderedDict()
         # Model trả lời tra cứu: mặc định = reasoner (flagship); prod có thể dùng qwen-plus cho nhanh.
         self.lookup_llm = lookup_llm or reasoner
+        # Model tra cứu point-in-time (câu có năm/ngày): flagship (suy luận thời điểm). Container dựng ở
+        # temperature=0 → câu trả lời TRA CỨU tất định (hết flaky must_say do sampling). Mặc định = reasoner.
+        self.lookup_pit_llm = lookup_pit_llm or reasoner
 
     def record_outcome(self, outcome: Outcome) -> str | None:
         return self.outcomes.record(outcome) if self.outcomes else None
@@ -601,7 +605,7 @@ class AnalysisService:
                 f"Sources:\n{sources}\n\nQuestion: {q}\nAnswer in English.")     # q = redacted (PII)
         # HYBRID: câu có mốc thời gian (point-in-time) → flagship (chính xác); còn lại → model nhanh.
         # Dùng q (đã redact); năm/ngày KHÔNG bị redact (redact chỉ xóa email + số ≥9 chữ số) nên vẫn nhận.
-        llm = self.reasoner if _PIT_RE.search(q) else self.lookup_llm
+        llm = self.lookup_pit_llm if _PIT_RE.search(q) else self.lookup_llm
         try:
             answer = llm.complete(prompt)
         except LLMError as exc:
