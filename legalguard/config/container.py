@@ -50,11 +50,17 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                            rerank_model=cfg.qwen_rerank_model)
     # Judge NHANH (qwen-flash) cho việc phụ yes/no (NLI, verify) — ~0.5s/call thay vì ~40s của flagship,
     # cắt mạnh latency khâu hậu-agent mà không bỏ bước kiểm. Cùng key/endpoint, chỉ khác model.
+    # Judge chỉ phân loại yes/no (NLI, cổng relevance) → temp 0 cho TẤT ĐỊNH (quyết định abstain/verify không
+    # dao động giữa các lần → eval ổn định, hành vi legal nhất quán).
     judge = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_fast_model,
-                        temperature=cfg.llm_temperature)
+                        temperature=cfg.lookup_temperature)
     # Model tra cứu (tùy chọn): rỗng = dùng flagship reasoner; đặt qwen-plus để nhanh hơn.
+    # temperature=lookup_temperature (0) → câu trả lời tra cứu TẤT ĐỊNH (hết flaky must_say do sampling).
     lookup_llm = (QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_lookup_model,
-                              temperature=cfg.llm_temperature) if cfg.qwen_lookup_model else None)
+                              temperature=cfg.lookup_temperature) if cfg.qwen_lookup_model else None)
+    # Point-in-time lookup dùng flagship (suy luận thời điểm) nhưng cũng temp 0 → tất định.
+    lookup_pit_llm = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_model,
+                                 temperature=cfg.lookup_temperature)
     summarizer = GeminiAdapter(cfg.gemini_api_key, cfg.gemini_model, temperature=cfg.llm_temperature)
     embed_fn = reasoner.embed if reasoner.available else None
     reranker = reasoner if cfg.rerank_enabled else None
@@ -79,6 +85,7 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                            legal_basis_grounding=cfg.legal_basis_grounding, feedback=feedback,
                            nli_verification=cfg.nli_verification, judge=judge,
                            lookup_cache_size=cfg.lookup_cache_size, lookup_llm=lookup_llm,
+                           lookup_pit_llm=lookup_pit_llm,
                            illegal_detection=cfg.illegal_detection,
                            coverage_gated_abstain=cfg.coverage_gated_abstain)
 
