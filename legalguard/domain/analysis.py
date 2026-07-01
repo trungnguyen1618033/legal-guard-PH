@@ -576,17 +576,18 @@ class AnalysisService:
         # Cổng RELEVANCE (chống over-reach khi KB lớn): nguồn retrieve có THỰC SỰ trả lời câu hỏi không?
         # Judge nói NO rõ → TỪ CHỐI ngay (đừng để LLM "với" sang đoạn cùng từ-vựng nhưng khác chủ đề).
         # Bảo thủ: chỉ abstain khi NO rõ; mơ hồ vẫn trả lời (không giết câu hỏi grounded hợp lệ).
-        # COVERAGE-GATED: cho gate quyết trên cụm evidence TẬP TRUNG (elbow) — không để đoạn nhiễu đuôi pha
-        # loãng gây over-abstain (ca point-in-time). Answer vẫn dùng full `sources` (không mất citation).
-        if self.nli_verification and self.coverage_gated_abstain:
-            keep = elbow_cutoff([s.score for s in snippets])
-            gate_sources = "\n---\n".join(f"[nguồn: {s.source}] {s.text}" for s in snippets[:keep])
-        else:
-            gate_sources = sources
-        if self.nli_verification and sources_answer_question(q, gate_sources, self.judge) is False:
-            return (("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
-                     if lang == "vi" else
-                     "Not enough grounding in the knowledge base to answer this."), [])
+        # COVERAGE-GATED: gate quyết trên cụm evidence TẬP TRUNG (elbow) — không để đoạn nhiễu đuôi pha loãng
+        # gây over-abstain (ca point-in-time). Answer vẫn dùng full `sources` (không mất citation).
+        if self.nli_verification:
+            if self.coverage_gated_abstain:
+                keep = elbow_cutoff([s.score for s in snippets])
+                gate_sources = "\n---\n".join(f"[nguồn: {s.source}] {s.text}" for s in snippets[:keep])
+            else:
+                gate_sources = sources
+            if sources_answer_question(q, gate_sources, self.judge) is False:
+                return (("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
+                         if lang == "vi" else
+                         "Not enough grounding in the knowledge base to answer this."), [])
         if lang == "vi":
             prompt = (
                 "Bạn là LUẬT SƯ tư vấn. CHỈ dùng các đoạn căn cứ dưới đây, KHÔNG bịa. Giọng CHUYÊN NGHIỆP, "

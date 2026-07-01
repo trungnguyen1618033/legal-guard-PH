@@ -48,10 +48,9 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     reasoner = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_model,
                            embed_model=cfg.qwen_embed_model, temperature=cfg.llm_temperature,
                            rerank_model=cfg.qwen_rerank_model)
-    # Judge NHANH (qwen-flash) cho việc phụ yes/no (NLI, verify) — ~0.5s/call thay vì ~40s của flagship,
-    # cắt mạnh latency khâu hậu-agent mà không bỏ bước kiểm. Cùng key/endpoint, chỉ khác model.
-    # Judge chỉ phân loại yes/no (NLI, cổng relevance) → temp 0 cho TẤT ĐỊNH (quyết định abstain/verify không
-    # dao động giữa các lần → eval ổn định, hành vi legal nhất quán).
+    # Judge NHANH (qwen-flash) cho việc phụ yes/no (NLI, verify, cổng relevance) — ~0.5s/call thay vì ~40s
+    # flagship, cắt mạnh latency hậu-agent mà không bỏ bước kiểm. temp 0: yes/no cần TẤT ĐỊNH (quyết định
+    # abstain/verify không dao động giữa các lần → eval ổn định, hành vi legal nhất quán). Cùng key/endpoint.
     judge = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_fast_model,
                         temperature=cfg.lookup_temperature)
     # Model tra cứu (tùy chọn): rỗng = dùng flagship reasoner; đặt qwen-plus để nhanh hơn.
