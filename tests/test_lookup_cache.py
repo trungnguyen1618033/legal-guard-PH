@@ -27,7 +27,7 @@ class _Ret:
 
 
 class _KB:
-    def for_org(self, org, *, rerank=True):
+    def for_org(self, org, *, rerank=True, overlay=True):
         return _Ret()
 
 

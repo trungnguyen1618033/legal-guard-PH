@@ -60,7 +60,8 @@ class KnowledgeBaseProvider(Protocol):
 
     # rerank=False → bỏ cross-encoder rerank (path /analyze: nhanh hơn, agent chỉ tra chính sách rủi ro);
     # rerank=True (mặc định) → giữ rerank (path /lookup: Q&A pháp lý cần độ chính xác xếp hạng cao).
-    def for_org(self, org: Organization, *, rerank: bool = True) -> KnowledgeBasePort: ...
+    def for_org(self, org: Organization, *, rerank: bool = True,
+                overlay: bool = True) -> KnowledgeBasePort: ...
 
     def changelog(self, doc_id: str, country: str) -> dict | None: ...   # "what changed" cấp văn bản
 

@@ -6,6 +6,7 @@ from legalguard.adapters.outbound.knowledge_base import (
     InForceRetriever,
     KeywordRetriever,
     RerankRetriever,
+    TemporalTypedRerankRetriever,
     _extract_as_of,
     _valid_at,
     build_retriever,
@@ -229,3 +230,57 @@ def test_citation_closure_skips_self_and_absent_targets():
     hits = r.retrieve("mức phạt không quá 8% giá trị phần nghĩa vụ hợp đồng bị vi phạm", top_k=1)
     assert any(s.source.endswith("#Điều 301") for s in hits)
     assert not any(s.source.endswith("#Điều 266") for s in hits)   # đích vắng → bỏ qua êm
+
+
+# ---- TT-SAR (Temporal Typed-edge Structure-Aware Reranking) ----
+
+def _replaced_kb(tmp_path, *, eff_new: str = "2022-07-01"):
+    """Mini-KB cô lập: VB cũ bị VB mới THAY THẾ (replaced_by), cùng chủ đề. Có doc_id + ngày hiệu lực."""
+    vn = tmp_path / "VN"
+    vn.mkdir()
+    (vn / "cu.md").write_text(
+        "---\ndoc_id: 39/2014/TT-BTC\nstatus: expired\nreplaced_by: 123/2020/NĐ-CP\n"
+        "effective_date: 2014-06-01\nexpiry_date: 2022-07-01\n---\n"
+        "Điều 1. Thời điểm lập hóa đơn\nQuy định cũ về thời điểm lập hóa đơn bán hàng hóa.",
+        encoding="utf-8")
+    (vn / "moi.md").write_text(
+        f"---\ndoc_id: 123/2020/NĐ-CP\nstatus: in_force\nreplaces: 39/2014/TT-BTC\n"
+        f"effective_date: {eff_new}\n---\n"
+        "Điều 1. Thời điểm lập hóa đơn\nQuy định mới về thời điểm lập hóa đơn bán hàng hóa.",
+        encoding="utf-8")
+    return str(tmp_path)
+
+
+def test_tt_sar_wires_and_passthrough_when_no_edges():
+    # KB thật + không cạnh trúng → passthrough an toàn (vẫn trả kết quả liên quan).
+    r = build_retriever(KB, "VN", strategy="keyword", tt_sar=True)
+    assert isinstance(r, TemporalTypedRerankRetriever)
+    hits = r.retrieve("trọng tài Bắc Kinh", top_k=3)
+    assert hits and any("trọng tài" in h.text.lower() for h in hits)
+
+
+def test_tt_sar_suppresses_replaced_doc_and_boosts_replacement(tmp_path):
+    # Cả 2 VB cùng trúng query; TT-SAR phải đẩy bản THAY THẾ (moi) lên trên bản BỊ THAY (cu).
+    kb = _replaced_kb(tmp_path)
+    base = build_retriever(kb, "VN", strategy="keyword")
+    tt = build_retriever(kb, "VN", strategy="keyword", tt_sar=True)
+    q = "thời điểm lập hóa đơn bán hàng hóa"
+    order = [h.source.split("#")[0] for h in tt.retrieve(q, top_k=2)]
+    assert order and order[0] == "moi.md"          # bản thay thế lên đầu
+    assert order.index("moi.md") < order.index("cu.md")  # bản bị thay bị đẩy xuống
+    # base (không TT-SAR) không đảm bảo thứ tự này — chứng minh TT-SAR tạo ra khác biệt
+    assert base.retrieve(q, top_k=2)               # base vẫn trả kết quả (không crash)
+
+
+def test_tt_sar_temporal_gate_does_not_suppress_old_law_at_historical_date(tmp_path):
+    # Point-in-time: hỏi "năm 2020" (TRƯỚC khi bản mới 2022 hiệu lực) → KHÔNG được suppress bản cũ.
+    kb = _replaced_kb(tmp_path, eff_new="2022-07-01")
+    tt = build_retriever(kb, "VN", strategy="keyword", tt_sar=True)
+    scored = {h.source.split("#")[0]: h.score
+              for h in tt.retrieve("thời điểm lập hóa đơn bán hàng hóa năm 2020", top_k=2)}
+    # bản mới chưa hiệu lực 2020 → không đảo hướng; bản cũ không bị suppress (điểm không âm hóa)
+    assert "cu.md" in scored
+    base = build_retriever(kb, "VN", strategy="keyword")
+    cu_base = {h.source.split("#")[0]: h.score for h in base.retrieve(
+        "thời điểm lập hóa đơn bán hàng hóa năm 2020", top_k=2)}.get("cu.md", 0.0)
+    assert scored["cu.md"] >= cu_base * 0.99       # cổng thời gian: bản cũ giữ điểm (không bị phạt)

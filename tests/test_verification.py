@@ -1,8 +1,32 @@
 from legalguard.adapters.outbound.knowledge_base import KeywordRetriever
 from legalguard.domain.models import Risk
 from legalguard.domain.verification import (
-    nli_contradicts, sources_answer_question, verify_risks,
+    elbow_cutoff, nli_contradicts, sources_answer_question, verify_risks,
 )
+
+
+def test_elbow_cutoff_denoises_after_clear_gap():
+    # PIT hóa-đơn: 2 chunk luật đúng (điểm cao) rồi tụt sang nhiễu → giữ đúng cụm 2.
+    assert elbow_cutoff([28.7, 26.2, 19.7, 19.3, 19.1]) == 2
+
+
+def test_elbow_cutoff_keeps_all_when_scores_decline_smoothly():
+    # Giảm đều → không có khuỷu rõ → giữ hết (không over-cut evidence hợp lệ).
+    assert elbow_cutoff([20.0, 19.0, 18.0, 17.0]) == 4
+
+
+def test_elbow_cutoff_edge_cases():
+    assert elbow_cutoff([]) == 0
+    assert elbow_cutoff([5.0]) == 1
+    assert elbow_cutoff([50.0, 10.0, 9.0, 8.0]) == 1        # khuỷu rất sớm → giữ 1
+    assert elbow_cutoff([20.0, 19.0], min_keep=2) == 2      # tôn trọng min_keep
+
+
+def test_expand_abbrev_adds_full_form_for_retrieval():
+    from legalguard.domain.analysis import _expand_abbrev
+    out = _expand_abbrev("thành lập công ty TNHH một thành viên")
+    assert "trách nhiệm hữu hạn" in out and out.startswith("thành lập")   # cộng thêm, giữ câu gốc
+    assert _expand_abbrev("mức phạt hợp đồng") == "mức phạt hợp đồng"      # không viết tắt → không đổi
 
 KB = KeywordRetriever("knowledge_base", "VN")
 CONTRACT = "Arbitration in Beijing. T/T payment after 60 days."

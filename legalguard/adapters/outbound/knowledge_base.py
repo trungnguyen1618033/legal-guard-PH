@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import math
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Callable
 
@@ -630,14 +630,122 @@ class CitationClosureRetriever:
         return out
 
 
+class TemporalTypedRerankRetriever:
+    """TT-SAR — Temporal Typed-edge Structure-Aware Reranking (kỹ thuật tự phát triển, opt-in).
+
+    Mở rộng SAR (Structure-Aware Reranking, arXiv:2604.06173): lan truyền điểm dense theo cạnh đồ thị
+    luật, NHƯNG dùng thông tin SAR gốc KHÔNG có — **loại quan hệ (typed)** + **hiệu lực theo thời điểm
+    (temporal)** — vốn có sẵn trong front-matter của KB này (amends/replaced_by/guides + effective_date).
+
+    Với mỗi ứng viên (theo doc_id của file), một seed điểm cao lan truyền bonus/penalty tới các văn bản
+    liên quan:
+      • `guides/amends/replaces` (+): VB hướng dẫn/sửa đổi/thay-thế củng cố → boost đích.
+      • `replaced_by` (đặc biệt): KHÔNG boost bản CŨ; **đảo hướng** — boost bản THAY THẾ và **suppress**
+        bản bị thay. Nhưng CỔNG THỜI GIAN: nếu câu hỏi hỏi ở mốc lịch sử TRƯỚC khi bản mới có hiệu lực
+        (`as_of`), bản cũ khi đó CÒN đúng → KHÔNG suppress (tránh phá point-in-time).
+    Dual log-degree penalty (SAR) chống hub cite bừa (out-degree) và super-hub bị trỏ tràn (in-degree).
+    Residual Fusion: `S = S_dense_norm + β·adj·(1 − S_dense_norm)` cho bonus dương; suppression trừ thẳng.
+
+    An toàn: thiếu doc_id/cạnh → passthrough (giữ thứ tự base). Không LLM, không train, tất định.
+    """
+
+    # Trọng số lan truyền theo loại quan hệ. Cạnh lưu 2 chiều (xem `_doc_edges`); `replaced_by` xử lý riêng.
+    _W = {"guides": 0.5, "guided_by": 0.3, "amends": 0.4, "amended_by": 0.3, "replaces": 0.5}
+    _W_REPLACED_BOOST = 0.6   # boost bản thay thế (theo cạnh nghịch replaces)
+    _W_REPLACED_SUPPRESS = 0.6  # suppress bản bị thay khi bản mới đã hiệu lực tại as_of
+
+    def __init__(self, base: KnowledgeBasePort, base_dir: str, tenant: str,
+                 beta: float = 0.5, fetch_mult: int = 3) -> None:
+        self.base = base
+        self.beta = beta
+        self.fetch_mult = fetch_mult
+        by_docid, edges = _doc_edges(base_dir, tenant)
+        self._file_by_docid = {d: f for d, f in _load_doc_ids(base_dir, tenant).items()}
+        self._docid_by_file = {f: d for d, f in self._file_by_docid.items()}
+        self._dates = _load_doc_dates(base_dir, tenant)
+        self._adj: dict[str, list[tuple[str, str]]] = {}
+        self._outdeg: Counter = Counter()
+        self._indeg: Counter = Counter()
+        for (s, r, t) in edges:
+            self._adj.setdefault(s, []).append((r, t))
+            self._outdeg[s] += 1
+            self._indeg[t] += 1
+
+    def _valid_target(self, docid: str, as_of: str | None) -> bool:
+        """Đích còn hiệu lực tại as_of (nếu có mốc) — chỉ lan truyền BOOST tới VB đúng-thời-điểm.
+        Target lạ (không trong KB) → True: boost tới doc_id vắng mặt vô hại (không có trong ứng viên)."""
+        fn = self._file_by_docid.get(docid)
+        if not fn or as_of is None:
+            return True
+        eff, exp = self._dates.get(fn, ("", ""))
+        return _valid_at(eff, exp, as_of)
+
+    def _replacement_active(self, docid: str, as_of: str | None) -> bool:
+        """Bản THAY THẾ `docid` có đang hiệu lực (để suppress bản bị thay)? BẢO THỦ cho point-in-time:
+        - as_of=None (hiện tại): bản mới đang hiệu lực → cho suppress bản cũ.
+        - as_of có mốc: CHỈ suppress nếu bản mới CÓ trong KB và ĐÃ hiệu lực tại mốc đó. Không biết ngày
+          (target vắng KB) → KHÔNG suppress (giữ bản cũ — có thể là câu trả lời đúng-thời-điểm)."""
+        if as_of is None:
+            return True
+        fn = self._file_by_docid.get(docid)
+        if not fn:
+            return False
+        eff, exp = self._dates.get(fn, ("", ""))
+        return _valid_at(eff, exp, as_of)
+
+    def _penalty(self, s: str, t: str) -> float:
+        """Dual log-degree: hạ seed cite bừa (out-degree cao) và target super-hub (in-degree cao)."""
+        return 1.0 / (math.log(self._outdeg.get(s, 0) + 1) + 1) / (math.log(self._indeg.get(t, 0) + 1) + 1)
+
+    def retrieve(self, query: str, top_k: int = 4) -> list[Snippet]:
+        fetch = max(top_k * self.fetch_mult, 12)
+        cands = self.base.retrieve(query, fetch)
+        if len(cands) <= 1 or not self._adj:
+            return cands[:top_k]
+        as_of = _extract_as_of(query)
+        smax = max((c.score for c in cands), default=1.0) or 1.0
+        # Điểm dense chuẩn hóa cao nhất theo doc_id (một VB có thể có nhiều chunk trúng).
+        best_norm: dict[str, float] = {}
+        for c in cands:
+            did = self._docid_by_file.get(c.source.split("#", 1)[0])
+            if did:
+                best_norm[did] = max(best_norm.get(did, 0.0), c.score / smax)
+        adj: dict[str, float] = defaultdict(float)   # doc_id → điều chỉnh (dương boost, âm suppress)
+        for did, snorm in best_norm.items():
+            for (r, t) in self._adj.get(did, []):
+                if r == "replaced_by":
+                    # did bị thay bởi t. Chỉ đảo hướng khi bản mới t đang hiệu lực tại thời điểm hỏi.
+                    if self._replacement_active(t, as_of):
+                        adj[t] += self._W_REPLACED_BOOST * snorm * self._penalty(did, t)
+                        adj[did] -= self._W_REPLACED_SUPPRESS * snorm
+                    continue
+                w = self._W.get(r, 0.0)
+                if w and self._valid_target(t, as_of):
+                    adj[t] += w * snorm * self._penalty(did, t)
+        if not adj:
+            return cands[:top_k]
+
+        def _score(c: Snippet) -> float:
+            did = self._docid_by_file.get(c.source.split("#", 1)[0])
+            a = adj.get(did, 0.0) if did else 0.0
+            snorm = c.score / smax
+            if a >= 0:
+                return snorm + self.beta * a * (1 - snorm)   # Residual Fusion (bonus)
+            return snorm + self.beta * a                     # suppression trừ thẳng
+
+        ranked = sorted(cands, key=_score, reverse=True)
+        return [Snippet(c.source, c.text, _score(c) * smax) for c in ranked[:top_k]]
+
+
 def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
                     reranker_llm: LLMPort | None = None, strategy: str = "auto",
                     rerank_fn: RerankFn | None = None, closure: bool = False,
-                    in_force: bool = False, embed_store=None) -> KnowledgeBasePort:
+                    in_force: bool = False, embed_store=None,
+                    tt_sar: bool = False) -> KnowledgeBasePort:
     """strategy: auto (hybrid nếu có embed, else keyword) | keyword | hybrid | full.
 
-    Thứ tự bọc: base → [in_force lọc hiệu lực] → [rerank] → [closure]. rerank_fn (cross-encoder)
-    ưu tiên hơn reranker_llm.
+    Thứ tự bọc: base → [in_force lọc hiệu lực] → [tt_sar rerank đồ-thị] → [rerank] → [closure].
+    rerank_fn (cross-encoder) ưu tiên hơn reranker_llm.
     """
     if strategy == "keyword":
         base: KnowledgeBasePort = KeywordRetriever(base_dir, tenant)
@@ -653,6 +761,8 @@ def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
                              tenant, exc_info=True)
     if in_force:
         base = InForceRetriever(base, base_dir, tenant)
+    if tt_sar:
+        base = TemporalTypedRerankRetriever(base, base_dir, tenant)
     if rerank_fn is not None:
         base = CrossEncoderRerankRetriever(base, rerank_fn)
     elif reranker_llm is not None:
@@ -663,20 +773,29 @@ def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
 
 
 class OverlayRetriever:
-    """KB tùy biến theo công ty: ưu tiên overlay riêng, rồi tới KB quốc gia."""
+    """KB tùy biến theo công ty: hợp nhất overlay riêng + KB quốc gia bằng Reciprocal Rank Fusion (RRF).
+
+    Trước đây prepend overlay LÊN TRƯỚC (overlay luôn chiếm top_k) → lớp tactics moat (`premium_tactics.md`)
+    đè điều luật thật ở /lookup Q&A pháp lý, phá citation accuracy (đo THẤY: 5-6/7 ca fail). RRF (theo RANK,
+    không lệ thuộc thang điểm khác nhau của 2 retriever) để overlay chỉ nổi KHI thật sự liên quan hơn — câu
+    hỏi luật thuần → điều luật nổi; câu hỏi tactics/clause → tactics vẫn nổi. Cùng cơ chế HybridRetriever.
+    """
 
     def __init__(self, primary: KnowledgeBasePort, overlay: KnowledgeBasePort) -> None:
         self.primary = primary
         self.overlay = overlay
 
     def retrieve(self, query: str, top_k: int = 4) -> list[Snippet]:
-        seen, out = set(), []
-        for h in self.overlay.retrieve(query, top_k) + self.primary.retrieve(query, top_k):
-            key = (h.source, h.text)
-            if key not in seen:
-                seen.add(key)
-                out.append(h)
-        return out[:top_k]
+        fetch = max(top_k * 2, 8)
+        scores: dict[tuple, float] = {}
+        snippets: dict[tuple, Snippet] = {}
+        for lst in (self.overlay.retrieve(query, fetch), self.primary.retrieve(query, fetch)):
+            for rank, s in enumerate(lst):
+                key = (s.source, s.text)
+                scores[key] = scores.get(key, 0.0) + 1.0 / (60 + rank + 1)   # RRF, k=60
+                snippets[key] = s
+        ranked = sorted(scores, key=lambda k: scores[k], reverse=True)
+        return [snippets[k] for k in ranked[:top_k]]
 
 
 class FileKnowledgeBaseProvider:
@@ -689,7 +808,7 @@ class FileKnowledgeBaseProvider:
     def __init__(self, base_dir: str, embed_fn: EmbedFn | None = None,
                  reranker_llm: LLMPort | None = None, strategy: str = "auto",
                  rerank_fn: RerankFn | None = None, closure: bool = False,
-                 in_force: bool = False, embed_store=None) -> None:
+                 in_force: bool = False, embed_store=None, tt_sar: bool = False) -> None:
         self.base_dir = base_dir
         self.embed_fn = embed_fn
         self.reranker_llm = reranker_llm
@@ -697,15 +816,18 @@ class FileKnowledgeBaseProvider:
         self.rerank_fn = rerank_fn
         self.closure = closure
         self.in_force = in_force
+        self.tt_sar = tt_sar               # TT-SAR: rerank đồ-thị typed+temporal (opt-in)
         self.embed_store = embed_store     # SqlEmbeddingStore (tùy chọn): embed bền → corpus lớn không re-embed
-        self._cache: dict[tuple[str, str, bool], KnowledgeBasePort] = {}
+        self._cache: dict[tuple[str, str, bool, bool], KnowledgeBasePort] = {}
 
-    def for_org(self, org: Organization, *, rerank: bool = True) -> KnowledgeBasePort:
-        # Cache theo (quốc gia, công ty, có-rerank): KB tĩnh → KHÔNG re-embed mỗi request.
+    def for_org(self, org: Organization, *, rerank: bool = True,
+                overlay: bool = True) -> KnowledgeBasePort:
+        # Cache theo (quốc gia, công ty, có-rerank, có-overlay): KB tĩnh → KHÔNG re-embed mỗi request.
         # rerank=False (path /analyze) bỏ cross-encoder → nhanh hơn, giảm tải/request khi đông user.
-        key = (org.country, org.id, rerank)
+        # overlay=False (path /lookup) bỏ lớp tactics moat → Q&A dẫn luật không bị tactics đè điều luật.
+        key = (org.country, org.id, rerank, overlay)
         if key not in self._cache:
-            self._cache[key] = self._build(org, rerank=rerank)
+            self._cache[key] = self._build(org, rerank=rerank, overlay=overlay)
         return self._cache[key]
 
     def changelog(self, doc_id: str, country: str) -> dict | None:
@@ -726,15 +848,16 @@ class FileKnowledgeBaseProvider:
     def recent(self, country: str, since: str) -> list[dict]:
         return recent_laws(self.base_dir, country, since)
 
-    def _build(self, org: Organization, *, rerank: bool = True) -> KnowledgeBasePort:
+    def _build(self, org: Organization, *, rerank: bool = True,
+               overlay: bool = True) -> KnowledgeBasePort:
         # rerank=False → tắt cả cross-encoder lẫn LLM rerank (giữ hybrid RRF BM25+embedding).
         rerank_fn = self.rerank_fn if rerank else None
         reranker_llm = self.reranker_llm if rerank else None
         base = build_retriever(self.base_dir, org.country, self.embed_fn, reranker_llm,
                                self.strategy, rerank_fn, self.closure, self.in_force,
-                               embed_store=self.embed_store)
+                               embed_store=self.embed_store, tt_sar=self.tt_sar)
         overlay_dir = Path(self.base_dir) / "_orgs" / org.id
-        if overlay_dir.exists() and any(overlay_dir.glob("*.md")):
+        if overlay and overlay_dir.exists() and any(overlay_dir.glob("*.md")):
             # Overlay riêng công ty: giữ keyword (nhỏ, khỏi embed) NHƯNG vẫn tôn trọng lọc hiệu lực
             # để không trả văn bản nội bộ đã hết hiệu lực.
             overlay = build_retriever(self.base_dir, f"_orgs/{org.id}",
