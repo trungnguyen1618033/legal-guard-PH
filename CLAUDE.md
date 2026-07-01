@@ -268,11 +268,24 @@ Agent track) and Gemini XPRIZE (deadline 17 Aug 2026, Professional Services).
 
 **Hiện trạng**: **12 lĩnh vực grounded** (chế tài·hợp đồng·lãi vay·hóa đơn·trọng tài·lao động·doanh
 nghiệp·SHTT·PDPD·hôn nhân-GĐ·đất đai·đầu tư). Golden 54 ca (`evaluation/accuracy_golden.json`),
-**accuracy THẬT 53/54 = 98%** — 1 fail = hóa-đơn-point-in-time (relevance gate cùn over-abstain khi corpus
-lớn trộn nhiễu; **fail an toàn = abstain**). **Trần kiến trúc retrieval hiện tại** (keyword+embedding+
-gte-rerank+gate đã đụng trần — per-snippet judge-filter đo THẤY TỆ HƠN 50/54, đã bỏ). Vượt trần cần
-**reranker tốt hơn** (self-host AITeamVN/GPU) hoặc domain-aware retrieval — xem `docs/internal/
-retrieval-rerank-investigation.md`. KB ~2.2MB/15 file → `PERSIST_EMBEDDINGS=1` bắt buộc; pgvector khi corpus rất lớn.
+**accuracy THẬT ~98% (53-54/54)** đo với config closure+rerank (`accuracy_report.json` → `/trust`). Đợt nâng
+cấp 1/7/2026 (`docs/internal/qwen-tech-upgrades.md`): baseline thực 87% → **98.1%** nhờ (1) **fix moat-overlay
+đè điều luật ở /lookup** — `OverlayRetriever` fuse RRF thay vì prepend + `/lookup` dùng `for_org(overlay=False)`
+(tactics `premium_tactics.md` chỉ cho /analyze); (2) **Coverage-Gated Abstention** (`elbow_cutoff` cho cổng
+relevance quyết trên cụm evidence tập trung → chống over-abstain point-in-time); (3) fix eval brittleness
+(`_vn_num_to_digits` số-chữ Việt) + `_expand_abbrev` mở rộng viết tắt (TNHH→trách nhiệm hữu hạn) cho query
+retrieval; (4) **lookup+judge temp 0** (determinism — hết flaky must_say). ⚠️ **Dải ~52-54 do LLM hosted
+stochastic** (rerank API + judge + answer không byte-deterministic ngay ở temp 0) — 1 ca borderline dao động,
+là NHIỄU ĐO không phải regression. **Đã thử + BỎ**: tuning cổng relevance (whack-a-mole, regress ca khác);
+per-snippet judge-filter (50/54); PageIndex tree-nav spike (`docs/internal/pageindex-research-plan.md` §4b:
+52/54 vs hybrid 54/54, thua point-in-time — NO-GO cho KB hiện tại, revisit khi corpus lớn). **Vượt trần** cần
+reranker tốt hơn (self-host AITeamVN/GPU) hoặc domain-aware/paradigm khác. KB ~2.2MB/15 file →
+`PERSIST_EMBEDDINGS=1` bắt buộc; pgvector khi corpus rất lớn.
+
+**TT-SAR** (`TemporalTypedRerankRetriever`, `TT_SAR_RERANK` opt-in OFF): rerank đồ-thị lan truyền điểm theo
+cạnh CÓ LOẠI + THỜI GIAN (guides/amends boost, replaced_by suppress+redirect có cổng point-in-time, dual
+log-degree penalty — mở rộng SAR `arXiv:2604.06173`). Trung tính accuracy trên golden hiện tại → giữ OFF cho
+Qwen; là đóng góp creativity dành cho cuộc thi CockroachDB (`docs/internal/cockroachdb-hackathon-research.md`).
 
 ## Architecture — Hexagonal (Ports & Adapters)
 
