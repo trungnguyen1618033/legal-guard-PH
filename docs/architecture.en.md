@@ -76,9 +76,11 @@ liability guardrail: the AI screens and drafts; a human authorizes.
 
 ## 8. Right-sizing & resilience
 
-Hard reasoning (analysis, strategy) uses the flagship Qwen model; cheap yes/no checks (NLI verify) use a
-fast model — measured ~23s → ~0.5s with matching verdicts. Post-agent verify ∥ summarize ∥ ground run in
-parallel. Any provider failure degrades to a typed `LLMError` and a safe fallback rather than a crash.
+Hard reasoning (analysis, strategy) uses the flagship **`qwen3.7-max`**; cheap yes/no checks (NLI verify)
+use **`qwen-flash`** — measured ~23s → ~0.5s with matching verdicts; legal lookup uses **`qwen-plus`**;
+retrieval uses **`text-embedding-v4`** (+ opt-in **`qwen3-rerank`**); OCR uses **`qwen3.7-plus`**. All via
+Qwen Cloud / DashScope (Alibaba Model Studio). Post-agent verify ∥ summarize ∥ ground run in parallel.
+Any provider failure degrades to a typed `LLMError` and a safe fallback rather than a crash.
 
 ## 9. Tenancy & isolation
 

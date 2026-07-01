@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 jobs:
@@ -22,3 +22,8 @@ jobs:
         run: uv run ruff check .
       - name: Test (pytest)
         run: uv run pytest -q
+      # Eval gate offline (keyword precision/recall + groundedness trên golden set) — KHÔNG chặn build,
+      # để thấy regression retrieval sớm mà không cần API key.
+      - name: Eval (offline, non-blocking)
+        continue-on-error: true
+        run: uv run python -m evaluation.run_eval

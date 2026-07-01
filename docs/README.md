@@ -33,6 +33,8 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
 | [deploy-ecs-selfhosted.md](deploy-ecs-selfhosted.md) | **Deploy ECS self-contained** (app+Caddy+PG+Redis 1 VM, DuckDNS, $0 ngoài) + backup DB + log/debug + SSH tunnel chọc DB từ local |
 | [deploy-ecs.md](deploy-ecs.md) | Deploy ECS + HTTPS bản dùng **Neon + Upstash** (DB/Redis ngoài) |
 | [architecture-diagram.md](architecture-diagram.md) | Sơ đồ kiến trúc (Mermaid) cho Devpost — tô đậm Alibaba Cloud |
+| [architecture-diagram.en.md](architecture-diagram.en.md) | 🌐 EN — sơ đồ + sequence cho giám khảo quốc tế (đúng deploy hiện tại + đủ 6 model Qwen) |
+| [DEVPOST.md](DEVPOST.md) | 🌐 EN — bản nộp Devpost (Inspiration/What/How/Challenges/Next) + block Qwen+Alibaba + script video |
 | [capacity.md](capacity.md) | Ước tính năng lực: nghẽn ở quota LLM · ~8–10k công ty/account standard · đòn bẩy |
 | [knowledge_base/_README.md](../knowledge_base/_README.md) | Thiết kế & độ phủ KB · cách mở rộng tình huống/quốc gia |
 
