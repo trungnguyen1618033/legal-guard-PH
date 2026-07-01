@@ -2,7 +2,21 @@
 import json
 from pathlib import Path
 
-from evaluation.accuracy_eval import judge_case
+from evaluation.accuracy_eval import _vn_num_to_digits, judge_case
+
+
+def test_vn_number_words_normalize_to_digits():
+    assert _vn_num_to_digits("hết hai mươi năm kể từ ngày nộp đơn") == "hết 20 năm kể từ ngày nộp đơn"
+    assert _vn_num_to_digits("chín mươi ngày") == "90 ngày"
+    assert "20 năm" not in _vn_num_to_digits("hai mươi lăm năm")   # 25 KHÔNG false-match '20 năm'
+
+
+def test_judge_accepts_spelled_number_matching_digit_must_say():
+    # Luật viết CHỮ ("hai mươi năm") nhưng golden ghi SỐ ("20 năm") → vẫn phải PASS (không brittle).
+    case = {"must_cite": ["93"], "must_say": ["20 năm"], "abstain": False}
+    ans = "Thời hạn bảo hộ sáng chế là hai mươi năm kể từ ngày nộp đơn."
+    ok, _ = judge_case(case, ans, ["luat_shtt_2005.md#Điều 93"])
+    assert ok
 
 
 def test_judge_correct_when_cite_and_fact_present():

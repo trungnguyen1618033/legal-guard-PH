@@ -10,11 +10,25 @@ Chạy (cần QWEN key): uv run python -m evaluation.accuracy_eval
 from __future__ import annotations
 
 import json
+import re
 import unicodedata
 from pathlib import Path
 
 _GOLDEN = Path("evaluation/accuracy_golden.json")
 _REPORT = Path("evaluation/accuracy_report.json")
+
+
+# Dấu-hàng-chục tiếng Việt → số (KHÔNG nhập nhằng: 'mươi/mười' luôn là hàng chục, khác 'năm'=year).
+# Văn bản luật hay viết CHỮ ("hết hai mươi năm") trong khi golden ghi SỐ ("20 năm") → chuẩn hóa để so công bằng.
+_VN_TENS = {"mười": "10", "hai mươi": "20", "ba mươi": "30", "bốn mươi": "40", "năm mươi": "50",
+            "sáu mươi": "60", "bảy mươi": "70", "tám mươi": "80", "chín mươi": "90"}
+
+
+def _vn_num_to_digits(s: str) -> str:
+    """'hai mươi năm' → '20 năm' (đủ cho số-chữ pháp lý phổ biến); 'hai mươi' trước 'mười' (dài trước)."""
+    for word in sorted(_VN_TENS, key=len, reverse=True):
+        s = re.sub(rf"\b{word}\b", _VN_TENS[word], s)
+    return s
 
 
 def _norm(s: str) -> str:
@@ -28,7 +42,8 @@ def judge_case(case: dict, answer: str, sources: list[str]) -> tuple[bool, str]:
         ok = ("chưa đủ căn cứ" in a or "không đủ" in a or not sources)
         return ok, ("từ chối đúng (ngoài KB)" if ok else "BỊA — lẽ ra phải từ chối")
     has_cite = all(_norm(c) in src for c in case.get("must_cite", []))
-    has_fact = all(_norm(f) in a for f in case.get("must_say", []))
+    a_num = _vn_num_to_digits(a)   # 'hai mươi năm' ↔ '20 năm': so dữ-kiện số công bằng dù luật viết chữ
+    has_fact = all(_norm(f) in a or _norm(f) in a_num for f in case.get("must_say", []))
     why = (f"dẫn-nguồn={'✓' if has_cite else '✗ '+str(case.get('must_cite'))} "
            f"dữ-kiện={'✓' if has_fact else '✗ '+str(case.get('must_say'))}")
     return (has_cite and has_fact), why

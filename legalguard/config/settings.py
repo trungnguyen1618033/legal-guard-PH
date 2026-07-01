@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     qwen_vl_model: str = "qwen3.7-plus"   # multimodal — OCR HĐ scan/ảnh (thay Qwen-VL, chính xác hơn)
     qwen_rerank_model: str = "qwen3-rerank"  # cross-encoder rerank (Model Studio: Qwen-Rerank, 100+ ngôn ngữ)
     llm_temperature: float = 0.1          # thấp = nhất quán/ổn định (legal cần xác định)
+    lookup_temperature: float = 0.0       # TRA CỨU (lookup) dùng temp 0 → câu trả lời TẤT ĐỊNH (hết flaky must_say)
 
     # Gemini (>=1 call cho XPRIZE)
     gemini_api_key: str = ""
@@ -32,10 +33,12 @@ class Settings(BaseSettings):
     rerank_enabled: bool = False     # bật LLM rerank (tốn thêm call); mặc định dùng hybrid RRF
     cross_encoder_rerank: bool = False  # bật cross-encoder rerank (Qwen gte-rerank) — ưu tiên hơn LLM rerank
     citation_closure: bool = False   # bật citation closure: đi theo dẫn chiếu kéo về điều luật liên quan (Phase 2)
+    tt_sar_rerank: bool = False      # TT-SAR: rerank đồ-thị theo cạnh typed+temporal (arXiv:2604.06173 mở rộng); opt-in, đo A/B trước khi bật prod
     in_force_filter: bool = True     # mặc định CHỈ trả văn bản còn hiệu lực (lọc theo front-matter status)
     persist_embeddings: bool = False  # lưu embedding bền trong DB (chỉ embed chunk mới) → mở khóa corpus lớn
     legal_basis_grounding: bool = True  # gắn căn cứ điều luật (tất định, từ KB) cho mỗi risk/fallback
     nli_verification: bool = True       # kiểm entailment: nguồn có hậu thuẫn claim không (chống hallucinate; tốn thêm LLM call)
+    coverage_gated_abstain: bool = True  # cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain lookup
     illegal_detection: bool = True      # Phase B: NLI-mâu-thuẫn nâng unfavorable→illegal khi trái điều luật đã grounding
     lookup_cache_size: int = 256        # cache câu trả lời tra cứu (hỏi lặp → trả tức thì + tiết kiệm token); 0 = tắt
 

@@ -39,7 +39,7 @@ from legalguard.domain.regulatory import dismissed_pairs, filter_affected
 from legalguard.domain.runs import execution_summary
 from legalguard.domain.tenants import Organization, get_tenant
 from legalguard.domain.verification import (
-    nli_contradicts, nli_supports, sources_answer_question, verify_risks,
+    elbow_cutoff, nli_contradicts, nli_supports, sources_answer_question, verify_risks,
 )
 
 _log = logging.getLogger(__name__)
@@ -50,6 +50,23 @@ _SIMPLE_MAX = 1500   # ngưỡng "đơn giản" cho adaptive routing
 # Câu hỏi point-in-time (có năm 19xx/20xx hoặc ngày d/m/y) cần suy luận thời điểm → dùng flagship,
 # không dùng model nhanh (qwen-plus yếu hơn ở reasoning thời điểm — đã đo). Hybrid lookup.
 _PIT_RE = re.compile(r"\b(?:19|20)\d{2}\b|\b\d{1,2}/\d{1,2}/\d{2,4}\b")
+
+# Viết tắt pháp lý phổ biến (người dùng gõ) → cụm đầy đủ (văn bản luật viết). Chỉ các viết tắt KHÔNG
+# nhập nhằng. Mở rộng CỘNG THÊM vào query retrieval (không thay) → tăng recall (vd "TNHH" khớp Điều
+# "công ty trách nhiệm hữu hạn"), rủi ro regression thấp. Không dùng cho prompt/gate (giữ câu gốc).
+_LEGAL_ABBREV = {
+    "tnhh": "trách nhiệm hữu hạn", "shtt": "sở hữu trí tuệ", "gtgt": "giá trị gia tăng",
+    "tndn": "thu nhập doanh nghiệp", "bhxh": "bảo hiểm xã hội", "sxkd": "sản xuất kinh doanh",
+    "vphc": "vi phạm hành chính", "blds": "bộ luật dân sự", "bllđ": "bộ luật lao động",
+}
+_ABBREV_RE = re.compile(r"\b(" + "|".join(_LEGAL_ABBREV) + r")\b", re.IGNORECASE)
+
+
+def _expand_abbrev(query: str) -> str:
+    """Cộng thêm cụm đầy đủ cho mỗi viết tắt pháp lý có trong query (chỉ để RETRIEVAL, không đổi câu gốc)."""
+    seen = {m.group(1).lower() for m in _ABBREV_RE.finditer(query)}
+    extra = " ".join(_LEGAL_ABBREV[a] for a in seen)
+    return f"{query} {extra}" if extra else query
 
 
 def _windows(text: str) -> list[str]:
@@ -188,7 +205,9 @@ class AnalysisService:
                  judge: LLMPort | None = None,
                  lookup_cache_size: int = 256,
                  lookup_llm: LLMPort | None = None,
-                 illegal_detection: bool = True) -> None:
+                 lookup_pit_llm: LLMPort | None = None,
+                 illegal_detection: bool = True,
+                 coverage_gated_abstain: bool = True) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         self.summarizer = summarizer  # Gemini: >=1 call tóm tắt (ràng buộc XPRIZE)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp). Mặc định = reasoner (giữ tương thích/stub),
@@ -203,12 +222,17 @@ class AnalysisService:
         self.nli_verification = nli_verification  # kiểm entailment (nguồn có hậu thuẫn claim) — chống hallucinate
         # Phase B: lớp NLI-mâu-thuẫn nâng unfavorable→illegal khi điều khoản TRÁI điều luật đã grounding.
         self.illegal_detection = illegal_detection
+        # Coverage-Gated Abstention: cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain.
+        self.coverage_gated_abstain = coverage_gated_abstain
         # Cache tra cứu (in-process, bounded LRU): câu hỏi lặp → trả tức thì + tiết kiệm token. KB tĩnh
         # trong 1 phiên deploy nên an toàn; redeploy = process mới = cache mới. 0 = tắt.
         self._lookup_cache_size = lookup_cache_size
         self._lookup_cache: OrderedDict[str, tuple] = OrderedDict()
         # Model trả lời tra cứu: mặc định = reasoner (flagship); prod có thể dùng qwen-plus cho nhanh.
         self.lookup_llm = lookup_llm or reasoner
+        # Model tra cứu point-in-time (câu có năm/ngày): flagship (suy luận thời điểm). Container dựng ở
+        # temperature=0 → câu trả lời TRA CỨU tất định (hết flaky must_say do sampling). Mặc định = reasoner.
+        self.lookup_pit_llm = lookup_pit_llm or reasoner
 
     def record_outcome(self, outcome: Outcome) -> str | None:
         return self.outcomes.record(outcome) if self.outcomes else None
@@ -540,7 +564,10 @@ class AnalysisService:
         if self._lookup_cache_size and ckey in self._lookup_cache:
             self._lookup_cache.move_to_end(ckey)        # LRU: vừa dùng → mới nhất
             return self._lookup_cache[ckey]
-        snippets = self.kb.for_org(org).retrieve(q, top_k)
+        # overlay=False: /lookup là Q&A DẪN LUẬT → dùng KB quốc gia (điều luật), KHÔNG để lớp tactics moat
+        # (premium_tactics.md, phục vụ /analyze) đè điều luật ra khỏi top_k làm hỏng citation accuracy.
+        # Mở rộng viết tắt (TNHH→trách nhiệm hữu hạn…) CHỈ cho query retrieval → tăng recall khi luật viết đầy đủ.
+        snippets = self.kb.for_org(org, overlay=False).retrieve(_expand_abbrev(q), top_k)
         if not snippets:
             return ("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
                     if lang == "vi" else
@@ -549,7 +576,14 @@ class AnalysisService:
         # Cổng RELEVANCE (chống over-reach khi KB lớn): nguồn retrieve có THỰC SỰ trả lời câu hỏi không?
         # Judge nói NO rõ → TỪ CHỐI ngay (đừng để LLM "với" sang đoạn cùng từ-vựng nhưng khác chủ đề).
         # Bảo thủ: chỉ abstain khi NO rõ; mơ hồ vẫn trả lời (không giết câu hỏi grounded hợp lệ).
-        if self.nli_verification and sources_answer_question(q, sources, self.judge) is False:
+        # COVERAGE-GATED: cho gate quyết trên cụm evidence TẬP TRUNG (elbow) — không để đoạn nhiễu đuôi pha
+        # loãng gây over-abstain (ca point-in-time). Answer vẫn dùng full `sources` (không mất citation).
+        if self.nli_verification and self.coverage_gated_abstain:
+            keep = elbow_cutoff([s.score for s in snippets])
+            gate_sources = "\n---\n".join(f"[nguồn: {s.source}] {s.text}" for s in snippets[:keep])
+        else:
+            gate_sources = sources
+        if self.nli_verification and sources_answer_question(q, gate_sources, self.judge) is False:
             return (("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
                      if lang == "vi" else
                      "Not enough grounding in the knowledge base to answer this."), [])
@@ -571,7 +605,7 @@ class AnalysisService:
                 f"Sources:\n{sources}\n\nQuestion: {q}\nAnswer in English.")     # q = redacted (PII)
         # HYBRID: câu có mốc thời gian (point-in-time) → flagship (chính xác); còn lại → model nhanh.
         # Dùng q (đã redact); năm/ngày KHÔNG bị redact (redact chỉ xóa email + số ≥9 chữ số) nên vẫn nhận.
-        llm = self.reasoner if _PIT_RE.search(q) else self.lookup_llm
+        llm = self.lookup_pit_llm if _PIT_RE.search(q) else self.lookup_llm
         try:
             answer = llm.complete(prompt)
         except LLMError as exc:
