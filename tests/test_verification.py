@@ -15,6 +15,15 @@ def test_elbow_cutoff_keeps_all_when_scores_decline_smoothly():
     assert elbow_cutoff([20.0, 19.0, 18.0, 17.0]) == 4
 
 
+def test_elbow_cutoff_robust_to_non_descending_input():
+    # citation-closure APPEND đoạn đã decay ở cuối → list KHÔNG giảm dần. Elbow phải ước lượng cụm mạnh
+    # trên bản sắp giảm dần (không cắt theo khe âm ở thứ tự gốc).
+    # sorted desc = [0.9,0.8,0.1,0.1,0.1]: khe lớn nhất 0.8→0.1 → giữ 2 (cụm mạnh {0.9,0.8}).
+    assert elbow_cutoff([0.9, 0.1, 0.1, 0.1, 0.8]) == 2
+    # giảm-dần-đều dù xáo trộn → vẫn giữ hết (không over-cut)
+    assert elbow_cutoff([17.0, 20.0, 18.0, 19.0]) == 4
+
+
 def test_elbow_cutoff_edge_cases():
     assert elbow_cutoff([]) == 0
     assert elbow_cutoff([5.0]) == 1

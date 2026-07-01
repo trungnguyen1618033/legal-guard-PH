@@ -102,22 +102,26 @@ def sources_answer_question(question: str, sources: str, judge: LLMPort,
 
 
 def elbow_cutoff(scores: list[float], min_keep: int = 1) -> int:
-    """Số phần tử GIỮ theo 'khuỷu' (elbow) trên list điểm GIẢM DẦN: cắt tại khe hụt lớn nhất → tách cụm
-    evidence tập trung khỏi đuôi nhiễu. CHỈ cắt khi khe đủ rõ (> 1.5× khe trung bình); điểm giảm đều →
-    giữ hết (không over-cut). Luôn giữ >= min_keep. THUẦN (test offline).
+    """SỐ phần tử thuộc cụm điểm mạnh (elbow): cắt tại khe hụt lớn nhất → tách cụm evidence tập trung khỏi
+    đuôi nhiễu. CHỈ cắt khi khe đủ rõ (> 1.5× khe trung bình); điểm giảm đều/không có khuỷu rõ → giữ hết
+    (không over-cut). Luôn giữ >= min_keep. THUẦN (test offline).
+
+    ƯỚC LƯỢNG cỡ cụm trên điểm ĐÃ SẮP GIẢM DẦN — bền với input KHÔNG đơn điệu (vd citation-closure APPEND
+    đoạn dẫn-chiếu đã decay ở cuối list → không còn giảm dần; nếu tính gap theo thứ tự gốc sẽ ra khe âm/cắt
+    sai). Caller lấy `snippets[:keep]` theo thứ tự HẠNG (top-first) — dùng cỡ cụm này là số đoạn mạnh cần giữ.
 
     Dùng cho Coverage-Gated Abstention: cho cổng relevance quyết trên cụm evidence tập trung, không để đoạn
-    nhiễu cùng-từ-vựng pha loãng gây over-abstain (ca point-in-time hóa-đơn: TT 39/2014 top-1 nhưng 3/5 slot
-    là nhiễu SHTT → gate cùn nói NO). Ca ngoài-KB: điểm yếu/rải đều → không cắt → gate vẫn thấy nhiễu → abstain."""
+    nhiễu cùng-từ-vựng pha loãng gây over-abstain (ca point-in-time). Ca ngoài-KB: điểm yếu/rải đều → không cắt."""
     n = len(scores)
     if n <= min_keep:
         return n
-    gaps = [scores[i] - scores[i + 1] for i in range(n - 1)]
+    ordered = sorted(scores, reverse=True)           # bền input không-đơn-điệu: gap có nghĩa trên bản giảm dần
+    gaps = [ordered[i] - ordered[i + 1] for i in range(n - 1)]
     max_gap = max(gaps)
     avg_gap = sum(gaps) / len(gaps)
-    if max_gap <= 0 or max_gap < 1.5 * avg_gap:      # giảm đều → không có khuỷu rõ → giữ hết
+    if avg_gap <= 0 or max_gap < 1.5 * avg_gap:      # điểm bằng nhau / không có khuỷu rõ → giữ hết
         return n
-    return max(min_keep, gaps.index(max_gap) + 1)    # giữ tới TRƯỚC khe lớn nhất
+    return max(min_keep, gaps.index(max_gap) + 1)    # số phần tử tới TRƯỚC khe lớn nhất
 
 
 _QUOTES = "\"'“”‘’„«»`"   # model hay BỌC evidence trong ngoặc → strip trước khi so (tránh false-negative)
