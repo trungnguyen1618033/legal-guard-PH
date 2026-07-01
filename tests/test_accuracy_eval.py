@@ -9,6 +9,12 @@ def test_vn_number_words_normalize_to_digits():
     assert _vn_num_to_digits("hết hai mươi năm kể từ ngày nộp đơn") == "hết 20 năm kể từ ngày nộp đơn"
     assert _vn_num_to_digits("chín mươi ngày") == "90 ngày"
     assert "20 năm" not in _vn_num_to_digits("hai mươi lăm năm")   # 25 KHÔNG false-match '20 năm'
+    # số ghép 11-99 (review #5): trước đây 'hai mươi lăm' ra '20 lăm', giờ đúng '25'
+    assert _vn_num_to_digits("hai mươi lăm năm") == "25 năm"
+    assert _vn_num_to_digits("hai mươi mốt") == "21"
+    assert _vn_num_to_digits("chín mươi chín") == "99"
+    assert _vn_num_to_digits("mười lăm ngày") == "15 ngày"
+    assert _vn_num_to_digits("năm mươi năm") == "50 năm"          # 50 (năm=hàng chục) + năm (year)
 
 
 def test_judge_accepts_spelled_number_matching_digit_must_say():

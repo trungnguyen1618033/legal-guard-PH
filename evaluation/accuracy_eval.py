@@ -18,17 +18,25 @@ _GOLDEN = Path("evaluation/accuracy_golden.json")
 _REPORT = Path("evaluation/accuracy_report.json")
 
 
-# Dấu-hàng-chục tiếng Việt → số (KHÔNG nhập nhằng: 'mươi/mười' luôn là hàng chục, khác 'năm'=year).
-# Văn bản luật hay viết CHỮ ("hết hai mươi năm") trong khi golden ghi SỐ ("20 năm") → chuẩn hóa để so công bằng.
-_VN_TENS = {"mười": "10", "hai mươi": "20", "ba mươi": "30", "bốn mươi": "40", "năm mươi": "50",
-            "sáu mươi": "60", "bảy mươi": "70", "tám mươi": "80", "chín mươi": "90"}
+# Số-chữ tiếng Việt 10-99 → số. Văn bản luật viết CHỮ ("hết hai mươi năm") còn golden ghi SỐ ("20 năm")
+# → chuẩn hóa để so công bằng. Điểm tinh tế: sau 'mươi', 5 viết là 'lăm/nhăm' (25='hai mươi lăm'), nên 'năm'
+# đứng sau 'mươi' là ĐƠN VỊ THỜI GIAN (year), KHÔNG phải 5 → 'hai mươi năm' = '20 năm' (không nhầm thành 25).
+_VN_TENS_W = {"hai": "2", "ba": "3", "bốn": "4", "năm": "5", "sáu": "6", "bảy": "7", "tám": "8", "chín": "9"}
+# Đơn vị SAU 'mươi/mười' (CỐ Ý loại 'năm' để tránh nuốt 'năm'=year; 5 chỉ nhận qua 'lăm/nhăm').
+_VN_UNIT = {"một": "1", "mốt": "1", "hai": "2", "ba": "3", "bốn": "4", "tư": "4", "lăm": "5", "nhăm": "5",
+            "sáu": "6", "bảy": "7", "tám": "8", "chín": "9"}
+_TENS = "|".join(_VN_TENS_W)
+_UNIT = "|".join(_VN_UNIT)
 
 
 def _vn_num_to_digits(s: str) -> str:
-    """'hai mươi năm' → '20 năm' (đủ cho số-chữ pháp lý phổ biến); 'hai mươi' trước 'mười' (dài trước)."""
-    for word in sorted(_VN_TENS, key=len, reverse=True):
-        s = re.sub(rf"\b{word}\b", _VN_TENS[word], s)
-    return s
+    """Số-chữ VN → số. 21-99 ('X mươi Y') → trước 10,20..90 ('X mươi') → 11-19 ('mười Y') → 10 ('mười').
+    'hai mươi năm'→'20 năm' (không thành 25); 'hai mươi lăm'→'25'; 'chín mươi chín'→'99'; 'mười lăm'→'15'."""
+    s = re.sub(rf"\b({_TENS})\s+mươi\s+({_UNIT})\b",
+               lambda m: _VN_TENS_W[m.group(1)] + _VN_UNIT[m.group(2)], s)   # 21-99
+    s = re.sub(rf"\b({_TENS})\s+mươi\b", lambda m: _VN_TENS_W[m.group(1)] + "0", s)  # 20,30..90
+    s = re.sub(rf"\bmười\s+({_UNIT})\b", lambda m: "1" + _VN_UNIT[m.group(1)], s)    # 11-19
+    return re.sub(r"\bmười\b", "10", s)                                             # 10
 
 
 def _norm(s: str) -> str:
