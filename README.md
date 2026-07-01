@@ -68,7 +68,26 @@ flagship Qwen model; cheap yes/no checks (NLI verify) use a fast model — ~23s 
 2-layer verification (LLM-judge + **NLI entailment** to catch "citation exists but doesn't support the
 claim") · hybrid retrieval (BM25 + embeddings, RRF) + optional rerank · **in-force filtering** (only
 returns law valid at the relevant point in time) + **citation closure**. Provider errors degrade to a
-safe `LLMError` instead of crashing. Full write-up: [`docs/architecture.en.md`](docs/architecture.en.md).
+safe `LLMError` instead of crashing. Full write-up: [`docs/architecture.en.md`](docs/architecture.en.md)
+· diagram: [`docs/architecture-diagram.en.md`](docs/architecture-diagram.en.md).
+
+## Powered by Qwen models on Qwen Cloud, deployed on Alibaba Cloud
+
+All LLM calls go to **Qwen models via Qwen Cloud / DashScope (Alibaba Cloud Model Studio)** — endpoint
+`https://dashscope-intl.aliyuncs.com`. Model right-sizing per task:
+
+| Qwen model | Role in the agent |
+|---|---|
+| `qwen3.7-max` | Flagship reasoner — the ReAct analysis/strategy agent |
+| `qwen-flash` | Fast judge — NLI verify / self-critique (~0.5s vs ~23s, no quality loss) |
+| `qwen-plus` | Legal lookup Q&A (`/ask`) |
+| `text-embedding-v4` | Embeddings for hybrid retrieval |
+| `qwen3-rerank` | Cross-encoder reranking (opt-in) |
+| `qwen3.7-plus` | Multimodal OCR for scanned/image contracts |
+
+**Deployment: Alibaba Cloud ECS** — Docker (Caddy HTTPS + FastAPI app + Postgres + Redis), `alembic
+upgrade head` on start. Embeddings persist in Postgres (`kb_vectors`). One Gemini call (`gemini-2.5-flash`)
+is wired for the XPRIZE track's ≥1-Gemini-call rule; swapping a provider is one line in `config/container.py`.
 
 ## Run with Docker
 
