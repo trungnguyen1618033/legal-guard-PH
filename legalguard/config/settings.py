@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     persist_embeddings: bool = False  # lưu embedding bền trong DB (chỉ embed chunk mới) → mở khóa corpus lớn
     legal_basis_grounding: bool = True  # gắn căn cứ điều luật (tất định, từ KB) cho mỗi risk/fallback
     nli_verification: bool = True       # kiểm entailment: nguồn có hậu thuẫn claim không (chống hallucinate; tốn thêm LLM call)
+    coverage_gated_abstain: bool = True  # cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain lookup
     illegal_detection: bool = True      # Phase B: NLI-mâu-thuẫn nâng unfavorable→illegal khi trái điều luật đã grounding
     lookup_cache_size: int = 256        # cache câu trả lời tra cứu (hỏi lặp → trả tức thì + tiết kiệm token); 0 = tắt
 

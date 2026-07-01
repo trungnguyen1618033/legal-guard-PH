@@ -39,7 +39,7 @@ from legalguard.domain.regulatory import dismissed_pairs, filter_affected
 from legalguard.domain.runs import execution_summary
 from legalguard.domain.tenants import Organization, get_tenant
 from legalguard.domain.verification import (
-    nli_contradicts, nli_supports, sources_answer_question, verify_risks,
+    elbow_cutoff, nli_contradicts, nli_supports, sources_answer_question, verify_risks,
 )
 
 _log = logging.getLogger(__name__)
@@ -188,7 +188,8 @@ class AnalysisService:
                  judge: LLMPort | None = None,
                  lookup_cache_size: int = 256,
                  lookup_llm: LLMPort | None = None,
-                 illegal_detection: bool = True) -> None:
+                 illegal_detection: bool = True,
+                 coverage_gated_abstain: bool = True) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         self.summarizer = summarizer  # Gemini: >=1 call tóm tắt (ràng buộc XPRIZE)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp). Mặc định = reasoner (giữ tương thích/stub),
@@ -203,6 +204,8 @@ class AnalysisService:
         self.nli_verification = nli_verification  # kiểm entailment (nguồn có hậu thuẫn claim) — chống hallucinate
         # Phase B: lớp NLI-mâu-thuẫn nâng unfavorable→illegal khi điều khoản TRÁI điều luật đã grounding.
         self.illegal_detection = illegal_detection
+        # Coverage-Gated Abstention: cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain.
+        self.coverage_gated_abstain = coverage_gated_abstain
         # Cache tra cứu (in-process, bounded LRU): câu hỏi lặp → trả tức thì + tiết kiệm token. KB tĩnh
         # trong 1 phiên deploy nên an toàn; redeploy = process mới = cache mới. 0 = tắt.
         self._lookup_cache_size = lookup_cache_size
@@ -551,7 +554,14 @@ class AnalysisService:
         # Cổng RELEVANCE (chống over-reach khi KB lớn): nguồn retrieve có THỰC SỰ trả lời câu hỏi không?
         # Judge nói NO rõ → TỪ CHỐI ngay (đừng để LLM "với" sang đoạn cùng từ-vựng nhưng khác chủ đề).
         # Bảo thủ: chỉ abstain khi NO rõ; mơ hồ vẫn trả lời (không giết câu hỏi grounded hợp lệ).
-        if self.nli_verification and sources_answer_question(q, sources, self.judge) is False:
+        # COVERAGE-GATED: cho gate quyết trên cụm evidence TẬP TRUNG (elbow) — không để đoạn nhiễu đuôi pha
+        # loãng gây over-abstain (ca point-in-time). Answer vẫn dùng full `sources` (không mất citation).
+        if self.nli_verification and self.coverage_gated_abstain:
+            keep = elbow_cutoff([s.score for s in snippets])
+            gate_sources = "\n---\n".join(f"[nguồn: {s.source}] {s.text}" for s in snippets[:keep])
+        else:
+            gate_sources = sources
+        if self.nli_verification and sources_answer_question(q, gate_sources, self.judge) is False:
             return (("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
                      if lang == "vi" else
                      "Not enough grounding in the knowledge base to answer this."), [])

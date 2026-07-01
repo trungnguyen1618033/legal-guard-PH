@@ -101,6 +101,25 @@ def sources_answer_question(question: str, sources: str, judge: LLMPort,
     return None
 
 
+def elbow_cutoff(scores: list[float], min_keep: int = 1) -> int:
+    """Số phần tử GIỮ theo 'khuỷu' (elbow) trên list điểm GIẢM DẦN: cắt tại khe hụt lớn nhất → tách cụm
+    evidence tập trung khỏi đuôi nhiễu. CHỈ cắt khi khe đủ rõ (> 1.5× khe trung bình); điểm giảm đều →
+    giữ hết (không over-cut). Luôn giữ >= min_keep. THUẦN (test offline).
+
+    Dùng cho Coverage-Gated Abstention: cho cổng relevance quyết trên cụm evidence tập trung, không để đoạn
+    nhiễu cùng-từ-vựng pha loãng gây over-abstain (ca point-in-time hóa-đơn: TT 39/2014 top-1 nhưng 3/5 slot
+    là nhiễu SHTT → gate cùn nói NO). Ca ngoài-KB: điểm yếu/rải đều → không cắt → gate vẫn thấy nhiễu → abstain."""
+    n = len(scores)
+    if n <= min_keep:
+        return n
+    gaps = [scores[i] - scores[i + 1] for i in range(n - 1)]
+    max_gap = max(gaps)
+    avg_gap = sum(gaps) / len(gaps)
+    if max_gap <= 0 or max_gap < 1.5 * avg_gap:      # giảm đều → không có khuỷu rõ → giữ hết
+        return n
+    return max(min_keep, gaps.index(max_gap) + 1)    # giữ tới TRƯỚC khe lớn nhất
+
+
 _QUOTES = "\"'“”‘’„«»`"   # model hay BỌC evidence trong ngoặc → strip trước khi so (tránh false-negative)
 
 
