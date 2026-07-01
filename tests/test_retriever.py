@@ -284,3 +284,46 @@ def test_tt_sar_temporal_gate_does_not_suppress_old_law_at_historical_date(tmp_p
     cu_base = {h.source.split("#")[0]: h.score for h in base.retrieve(
         "thời điểm lập hóa đơn bán hàng hóa năm 2020", top_k=2)}.get("cu.md", 0.0)
     assert scored["cu.md"] >= cu_base * 0.99       # cổng thời gian: bản cũ giữ điểm (không bị phạt)
+
+
+def test_tt_sar_no_suppress_when_replacement_absent_from_kb(tmp_path):
+    # #6: bản cũ replaced_by một doc_id KHÔNG có trong KB (luật 2024/2025 hay ingest rỗng) →
+    # KHÔNG được suppress bản cũ (nó là đáp án đúng duy nhất còn truy được).
+    vn = tmp_path / "VN"
+    vn.mkdir()
+    (vn / "cu.md").write_text(
+        "---\ndoc_id: 39/2014/TT-BTC\nstatus: in_force\nreplaced_by: 999/9999/QH-ABSENT\n---\n"
+        "Điều 1. Thời điểm lập hóa đơn\nQuy định về thời điểm lập hóa đơn bán hàng hóa.\n\n"
+        "Điều 2. Nội dung hóa đơn\nNội dung bắt buộc trên hóa đơn bán hàng hóa.", encoding="utf-8")
+    kb = str(tmp_path)
+    q = "thời điểm lập hóa đơn bán hàng hóa"
+    base = {h.source: h.score for h in build_retriever(kb, "VN", strategy="keyword").retrieve(q, 4)}
+    tt = {h.source: h.score for h in build_retriever(kb, "VN", strategy="keyword", tt_sar=True).retrieve(q, 4)}
+    assert tt == base                              # target vắng KB → không suppress → passthrough y hệt
+
+
+def test_tt_sar_wrapped_after_reranker_not_before(tmp_path):
+    # #7: bật cả tt_sar + rerank → TT-SAR là lớp NGOÀI (bọc reranker), rerank KHÔNG ghi đè tín hiệu đồ-thị.
+    r = build_retriever(_replaced_kb(tmp_path), "VN", strategy="keyword",
+                        rerank_fn=lambda q, d: [1.0] * len(d), tt_sar=True)
+    assert isinstance(r, TemporalTypedRerankRetriever)          # TT-SAR ngoài cùng
+    assert isinstance(r.base, CrossEncoderRerankRetriever)      # bọc reranker (rerank chạy TRƯỚC)
+
+
+def test_tt_sar_scores_never_negative(tmp_path):
+    # #8: suppression không đẩy điểm âm (âm sẽ đảo hạng + rò thang-điểm-âm sang elbow của caller).
+    tt = build_retriever(_replaced_kb(tmp_path), "VN", strategy="keyword", tt_sar=True)
+    assert all(h.score >= 0 for h in tt.retrieve("thời điểm lập hóa đơn bán hàng hóa", top_k=4))
+
+
+def test_tt_sar_passthrough_when_base_scores_nonpositive(tmp_path):
+    # #8: base trả điểm ≤0 (vd cosine âm) → không chuẩn hóa nổi → passthrough (không đảo hạng).
+    from legalguard.domain.models import Snippet
+
+    class _NegBase:
+        def retrieve(self, query, top_k=4):
+            return [Snippet("cu.md#Điều 1", "x", -0.1), Snippet("moi.md#Điều 1", "y", -0.5)]
+
+    tt = TemporalTypedRerankRetriever(_NegBase(), _replaced_kb(tmp_path), "VN")
+    out = tt.retrieve("bất kỳ", top_k=4)
+    assert [h.source for h in out] == ["cu.md#Điều 1", "moi.md#Điều 1"]   # giữ nguyên thứ tự base

@@ -681,15 +681,16 @@ class TemporalTypedRerankRetriever:
         return _valid_at(eff, exp, as_of)
 
     def _replacement_active(self, docid: str, as_of: str | None) -> bool:
-        """Bản THAY THẾ `docid` có đang hiệu lực (để suppress bản bị thay)? BẢO THỦ cho point-in-time:
-        - as_of=None (hiện tại): bản mới đang hiệu lực → cho suppress bản cũ.
-        - as_of có mốc: CHỈ suppress nếu bản mới CÓ trong KB và ĐÃ hiệu lực tại mốc đó. Không biết ngày
-          (target vắng KB) → KHÔNG suppress (giữ bản cũ — có thể là câu trả lời đúng-thời-điểm)."""
-        if as_of is None:
-            return True
+        """Bản THAY THẾ `docid` có đang hiệu lực (để suppress bản bị thay)? BẢO THỦ:
+        - Target VẮNG KB → KHÔNG suppress (không xác nhận được bản mới có thật/hiệu lực; nhiều luật 2024/2025
+          ingest rỗng → tránh dìm mất bản cũ là đáp án đúng duy nhất còn truy được). Kiểm TRƯỚC mọi nhánh.
+        - as_of=None (hiện tại): bản mới CÓ trong KB → cho suppress bản cũ.
+        - as_of có mốc: chỉ suppress nếu bản mới ĐÃ hiệu lực tại mốc đó (point-in-time giữ bản cũ đúng thời điểm)."""
         fn = self._file_by_docid.get(docid)
         if not fn:
             return False
+        if as_of is None:
+            return True
         eff, exp = self._dates.get(fn, ("", ""))
         return _valid_at(eff, exp, as_of)
 
@@ -703,7 +704,9 @@ class TemporalTypedRerankRetriever:
         if len(cands) <= 1 or not self._adj:
             return cands[:top_k]
         as_of = _extract_as_of(query)
-        smax = max((c.score for c in cands), default=1.0) or 1.0
+        smax = max((c.score for c in cands), default=0.0)
+        if smax <= 0:                    # điểm base ≤0 (vd cosine âm) → không chuẩn hóa nổi → passthrough an toàn
+            return cands[:top_k]
         # Điểm dense chuẩn hóa cao nhất theo doc_id (một VB có thể có nhiều chunk trúng).
         best_norm: dict[str, float] = {}
         for c in cands:
@@ -731,7 +734,9 @@ class TemporalTypedRerankRetriever:
             snorm = c.score / smax
             if a >= 0:
                 return snorm + self.beta * a * (1 - snorm)   # Residual Fusion (bonus)
-            return snorm + self.beta * a                     # suppression trừ thẳng
+            # suppression trừ thẳng NHƯNG floor ≥0: nhiều cạnh replaced_by cộng dồn không đẩy điểm âm
+            # (âm sẽ đảo hạng dưới cả nhiễu + rò thang-điểm-âm sang elbow_cutoff của caller).
+            return max(0.0, snorm + self.beta * a)
 
         ranked = sorted(cands, key=_score, reverse=True)
         return [Snippet(c.source, c.text, _score(c) * smax) for c in ranked[:top_k]]
@@ -744,8 +749,9 @@ def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
                     tt_sar: bool = False) -> KnowledgeBasePort:
     """strategy: auto (hybrid nếu có embed, else keyword) | keyword | hybrid | full.
 
-    Thứ tự bọc: base → [in_force lọc hiệu lực] → [tt_sar rerank đồ-thị] → [rerank] → [closure].
-    rerank_fn (cross-encoder) ưu tiên hơn reranker_llm.
+    Thứ tự bọc: base → [in_force lọc hiệu lực] → [rerank] → [tt_sar rerank đồ-thị] → [closure].
+    tt_sar đặt SAU rerank để cross-encoder KHÔNG ghi đè tín hiệu đồ-thị (typed/temporal) của TT-SAR — nếu
+    đặt trước, reranker re-score thuần theo liên quan và xóa suppression replaced_by. rerank_fn ưu tiên hơn reranker_llm.
     """
     if strategy == "keyword":
         base: KnowledgeBasePort = KeywordRetriever(base_dir, tenant)
@@ -761,12 +767,12 @@ def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
                              tenant, exc_info=True)
     if in_force:
         base = InForceRetriever(base, base_dir, tenant)
-    if tt_sar:
-        base = TemporalTypedRerankRetriever(base, base_dir, tenant)
     if rerank_fn is not None:
         base = CrossEncoderRerankRetriever(base, rerank_fn)
     elif reranker_llm is not None:
         base = RerankRetriever(base, reranker_llm)
+    if tt_sar:                          # SAU rerank: giữ tín hiệu đồ-thị, không bị cross-encoder ghi đè
+        base = TemporalTypedRerankRetriever(base, base_dir, tenant)
     if closure:
         base = CitationClosureRetriever(base, base_dir, tenant)
     return base
