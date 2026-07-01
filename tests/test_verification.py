@@ -21,6 +21,13 @@ def test_elbow_cutoff_edge_cases():
     assert elbow_cutoff([50.0, 10.0, 9.0, 8.0]) == 1        # khuỷu rất sớm → giữ 1
     assert elbow_cutoff([20.0, 19.0], min_keep=2) == 2      # tôn trọng min_keep
 
+
+def test_expand_abbrev_adds_full_form_for_retrieval():
+    from legalguard.domain.analysis import _expand_abbrev
+    out = _expand_abbrev("thành lập công ty TNHH một thành viên")
+    assert "trách nhiệm hữu hạn" in out and out.startswith("thành lập")   # cộng thêm, giữ câu gốc
+    assert _expand_abbrev("mức phạt hợp đồng") == "mức phạt hợp đồng"      # không viết tắt → không đổi
+
 KB = KeywordRetriever("knowledge_base", "VN")
 CONTRACT = "Arbitration in Beijing. T/T payment after 60 days."
 
