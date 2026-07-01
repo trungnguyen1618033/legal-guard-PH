@@ -51,6 +51,23 @@ _SIMPLE_MAX = 1500   # ngưỡng "đơn giản" cho adaptive routing
 # không dùng model nhanh (qwen-plus yếu hơn ở reasoning thời điểm — đã đo). Hybrid lookup.
 _PIT_RE = re.compile(r"\b(?:19|20)\d{2}\b|\b\d{1,2}/\d{1,2}/\d{2,4}\b")
 
+# Viết tắt pháp lý phổ biến (người dùng gõ) → cụm đầy đủ (văn bản luật viết). Chỉ các viết tắt KHÔNG
+# nhập nhằng. Mở rộng CỘNG THÊM vào query retrieval (không thay) → tăng recall (vd "TNHH" khớp Điều
+# "công ty trách nhiệm hữu hạn"), rủi ro regression thấp. Không dùng cho prompt/gate (giữ câu gốc).
+_LEGAL_ABBREV = {
+    "tnhh": "trách nhiệm hữu hạn", "shtt": "sở hữu trí tuệ", "gtgt": "giá trị gia tăng",
+    "tndn": "thu nhập doanh nghiệp", "bhxh": "bảo hiểm xã hội", "sxkd": "sản xuất kinh doanh",
+    "vphc": "vi phạm hành chính", "blds": "bộ luật dân sự", "bllđ": "bộ luật lao động",
+}
+_ABBREV_RE = re.compile(r"\b(" + "|".join(_LEGAL_ABBREV) + r")\b", re.IGNORECASE)
+
+
+def _expand_abbrev(query: str) -> str:
+    """Cộng thêm cụm đầy đủ cho mỗi viết tắt pháp lý có trong query (chỉ để RETRIEVAL, không đổi câu gốc)."""
+    seen = {m.group(1).lower() for m in _ABBREV_RE.finditer(query)}
+    extra = " ".join(_LEGAL_ABBREV[a] for a in seen)
+    return f"{query} {extra}" if extra else query
+
 
 def _windows(text: str) -> list[str]:
     if len(text) <= _CHUNK:
@@ -545,7 +562,8 @@ class AnalysisService:
             return self._lookup_cache[ckey]
         # overlay=False: /lookup là Q&A DẪN LUẬT → dùng KB quốc gia (điều luật), KHÔNG để lớp tactics moat
         # (premium_tactics.md, phục vụ /analyze) đè điều luật ra khỏi top_k làm hỏng citation accuracy.
-        snippets = self.kb.for_org(org, overlay=False).retrieve(q, top_k)
+        # Mở rộng viết tắt (TNHH→trách nhiệm hữu hạn…) CHỈ cho query retrieval → tăng recall khi luật viết đầy đủ.
+        snippets = self.kb.for_org(org, overlay=False).retrieve(_expand_abbrev(q), top_k)
         if not snippets:
             return ("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
                     if lang == "vi" else
