@@ -24,7 +24,7 @@ URL lấy động từ `settings.database_url` trong `migrations/env.py`. Migrat
 ## Bảng `cases` (đang dùng)
 
 Mỗi lần `/analyze` lưu 1 case — vừa là **lịch sử cho khách**, vừa là **AI execution evidence**
-cho XPRIZE (AI-Native Operations).
+(AI-Native Operations).
 
 | Cột | Kiểu | Ghi chú |
 |---|---|---|

@@ -1,6 +1,6 @@
 """Adapter Gemini (REST) → implement LLMPort.
 
-Dùng cho >=1 LLM call trong production (ràng buộc XPRIZE). Lỗi → LLMError sạch (có retry).
+Provider thứ hai (tóm tắt). Lỗi → LLMError sạch (có retry).
 """
 from __future__ import annotations
 

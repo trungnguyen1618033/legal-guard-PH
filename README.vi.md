@@ -3,7 +3,7 @@
 AI "phòng pháp chế thuê ngoài" cho SME Việt Nam: phân tích hợp đồng thương mại quốc tế,
 cảnh báo điều khoản rủi ro, và đề xuất chiến thuật thỏa hiệp (fallback) theo luật thương mại VN.
 
-> Track **Autopilot Agent** (Qwen Cloud Hackathon) · Category **Professional Services** (Gemini XPRIZE).
+> Track **Autopilot Agent** (Qwen Cloud Hackathon).
 > 📚 **Toàn bộ tài liệu:** [`docs/README.md`](docs/README.md) (chiến lược · kỹ thuật · thị trường · bảo mật).
 
 ## 🚀 Quick demo (cho giám khảo)
@@ -114,7 +114,7 @@ uv add <package>                  # thêm thư viện (cập nhật pyproject + 
 | POST | `/impact/{doc_id}/notify` | Gửi cảnh báo VB mới ảnh hưởng HĐ qua Slack/Zalo (`via`/`channel`) |
 | POST | `/monitor/run` | **Autopilot**: tự quét VB luật MỚI (`since`) → HĐ bị ảnh hưởng → digest Slack/Zalo (cron) |
 | POST · GET | `/feedback` | Ghi · liệt kê phản hồi người dùng (vòng học → golden set) |
-| POST | `/evidence/revenue` | Ghi nhận doanh thu (evidence XPRIZE) |
+| POST | `/evidence/revenue` | Ghi nhận doanh thu (evidence vận hành) |
 | GET | `/evidence/summary` | Tổng doanh thu + breakdown tháng 5–8/2026, tách related-party |
 | GET | `/cases?tenant=VN` | Lịch sử rà soát (mới nhất trước) |
 | GET | `/cases/{id}` | Chi tiết 1 case đã lưu |
@@ -132,7 +132,7 @@ uv add <package>                  # thêm thư viện (cập nhật pyproject + 
 **MCP server:** `make mcp` (hoặc `uv run python -m legalguard.adapters.inbound.mcp_server`) expose tool
 `analyze_contract` cho **Qwen-Agent / Claude / IDE** qua Model Context Protocol (chuẩn agent-tool 2026).
 
-**Observability:** đặt `LANGFUSE_*` để gửi traces/evals (evidence AI-Native cho XPRIZE); rỗng = NoOp.
+**Observability:** đặt `LANGFUSE_*` để gửi traces/evals (evidence AI-Native); rỗng = NoOp.
 
 **Kênh nhắn tin (khép kín):** SME chat qua **Zalo/Slack** → bot verify chữ ký → (ack nhanh, xử lý nền)
 tải file → rà soát → **gửi reply về chat** (rủi ro + ưu tiên + chiến lược, tiếng Việt). Cần secret + token
@@ -160,4 +160,4 @@ thu phí → `POST /evidence/revenue`. Sổ doanh thu lưu ở `data/revenue.csv
 
 ## Yêu cầu
 - Python ≥ 3.11
-- Qwen API (LLM phân tích chính) · Gemini API (≥1 call, ràng buộc XPRIZE)
+- Qwen API (LLM phân tích chính) · Gemini API (tùy chọn — provider thứ hai)

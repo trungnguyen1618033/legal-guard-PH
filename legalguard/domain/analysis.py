@@ -209,7 +209,7 @@ class AnalysisService:
                  illegal_detection: bool = True,
                  coverage_gated_abstain: bool = True) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
-        self.summarizer = summarizer  # Gemini: >=1 call tóm tắt (ràng buộc XPRIZE)
+        self.summarizer = summarizer  # Gemini: tóm tắt (provider thứ hai)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp). Mặc định = reasoner (giữ tương thích/stub),
         # prod truyền qwen-flash → cắt mạnh latency khâu hậu-agent mà KHÔNG giảm bước kiểm nào.
         self.judge = judge or reasoner
