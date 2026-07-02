@@ -13,11 +13,15 @@ Lưu ý: qwen3.7-max ~23s/call → ~7 phút cho cả bộ; flash/plus ~0.5s.
 from __future__ import annotations
 
 import argparse
+import json
 import time
+from pathlib import Path
 
 from legalguard.adapters.outbound.qwen import QwenAdapter
 from legalguard.config.settings import settings
 from legalguard.domain.verification import nli_supports
+
+_REPORT = Path("evaluation/nli_report.json")
 
 # Evidence = nguyên văn điều luật (KB). gold=True: evidence HẬU THUẪN claim; False: không/ngược lại.
 _E301 = ("Điều 301. Mức phạt vi phạm. Mức phạt đối với vi phạm nghĩa vụ hợp đồng hoặc tổng mức phạt đối "
@@ -108,6 +112,11 @@ def main() -> None:
             print(f"\nCa lệch ({first['model']} vs {ref['model']}; gold):")
             for cid, a, b, gold in diffs:
                 print(f"  {cid:18} {first['model']}={a}  {ref['model']}={b}  gold={gold}")
+
+    # Lưu report để công bố (DEVPOST/trust) — số đo phải trích được, không chỉ in ra console.
+    _REPORT.write_text(json.dumps({"total_cases": n, "results": results}, ensure_ascii=False, indent=2),
+                       encoding="utf-8")
+    print(f"\nĐã ghi {_REPORT}")
 
 
 if __name__ == "__main__":

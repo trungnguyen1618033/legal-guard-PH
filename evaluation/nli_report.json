@@ -1,0 +1,55 @@
+{
+  "total_cases": 16,
+  "results": [
+    {
+      "model": "qwen-flash",
+      "correct": 16,
+      "wrong": 0,
+      "abstain": 0,
+      "ms_per_call": 3153,
+      "verdicts": {
+        "301-cap-yes": true,
+        "301-total-yes": true,
+        "301-free-no": false,
+        "301-offtopic-no": false,
+        "301-num-no": false,
+        "294-fm-yes": true,
+        "294-otherfault-yes": true,
+        "294-proof-no": false,
+        "294-finance-no": false,
+        "302-scope-yes": true,
+        "302-indirect-no": false,
+        "306-interest-yes": true,
+        "306-noright-no": false,
+        "306-fixed-no": false,
+        "297-replace-yes": true,
+        "297-money-no": false
+      }
+    },
+    {
+      "model": "qwen3.7-max",
+      "correct": 16,
+      "wrong": 0,
+      "abstain": 0,
+      "ms_per_call": 16104,
+      "verdicts": {
+        "301-cap-yes": true,
+        "301-total-yes": true,
+        "301-free-no": false,
+        "301-offtopic-no": false,
+        "301-num-no": false,
+        "294-fm-yes": true,
+        "294-otherfault-yes": true,
+        "294-proof-no": false,
+        "294-finance-no": false,
+        "302-scope-yes": true,
+        "302-indirect-no": false,
+        "306-interest-yes": true,
+        "306-noright-no": false,
+        "306-fixed-no": false,
+        "297-replace-yes": true,
+        "297-money-no": false
+      }
+    }
+  ]
+}
