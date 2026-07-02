@@ -57,7 +57,10 @@ def judge_case(case: dict, answer: str, sources: list[str]) -> tuple[bool, str]:
     return (has_cite and has_fact), why
 
 
-def run(write: bool = True) -> dict:
+def run(write: bool = True, repeat: int = 1) -> dict:
+    """`repeat` > 1: chạy MỖI ca `repeat` lần, lấy ĐA SỐ (majority-vote) → chống nhiễu LLM hosted
+    (dải 52-54 do stochastic ngay ở temp 0). Số ổn định hơn → đo được thay đổi nhỏ (điều kiện tiên
+    quyết THẬT để mở rộng KB an toàn — xem kb-expansion-plan.md)."""
     from legalguard.config.container import build_service
     from legalguard.domain.tenants import default_org
 
@@ -66,25 +69,36 @@ def run(write: bool = True) -> dict:
     results, passed = [], 0
     cat: dict[str, list[int]] = {}                       # lĩnh vực → [passed, total]
     for c in cases:
-        ans, snips = svc.lookup(c["question"], org, lang="vi")
-        ok, why = judge_case(c, ans, [s.source for s in snips])
+        votes, last_why, last_src, last_ans = [], "", [], ""
+        for _ in range(max(1, repeat)):
+            ans, snips = svc.lookup(c["question"], org, lang="vi")
+            ok, why = judge_case(c, ans, [s.source for s in snips])
+            votes.append(ok)
+            last_why, last_src, last_ans = why, [s.source for s in snips[:2]], ans
+        ok = sum(votes) * 2 >= len(votes)                # ĐA SỐ (hòa → đậu)
+        flaky = 0 < sum(votes) < len(votes)              # dao động giữa các lần = ca borderline
         passed += ok
         cc = c.get("category", "Khác")
         cat.setdefault(cc, [0, 0])
         cat[cc][0] += ok
         cat[cc][1] += 1
-        results.append({"q": c["question"], "category": cc, "ok": ok, "why": why,
-                        "sources": [s.source for s in snips[:2]], "answer": ans[:160]})
-        print(f"[{'✅' if ok else '❌'}] ({cc}) {c['question'][:48]}\n     {why} | {results[-1]['sources']}")
+        results.append({"q": c["question"], "category": cc, "ok": ok, "why": last_why,
+                        "flaky": flaky, "votes": f"{sum(votes)}/{len(votes)}",
+                        "sources": last_src, "answer": last_ans[:160]})
+        tag = "⚠️FLAKY" if flaky else ("✅" if ok else "❌")
+        print(f"[{tag}] ({cc}) {c['question'][:46]}  votes={sum(votes)}/{len(votes)}\n     {last_why}")
     acc = round(passed / len(cases), 3) if cases else 0.0
     by_category = {k: {"passed": v[0], "total": v[1], "accuracy": round(v[0] / v[1], 3)}
                    for k, v in cat.items()}
+    flaky_n = sum(1 for r in results if r.get("flaky"))
     report = {"answer_accuracy": acc, "passed": passed, "total": len(cases),
+              "repeat": repeat, "flaky_cases": flaky_n,
               "by_category": by_category, "cases": results}
     print("\n--- Theo lĩnh vực ---")
     for k, v in by_category.items():
         print(f"  {k}: {v['passed']}/{v['total']} = {v['accuracy']:.0%}")
-    print(f"\n=== ĐỘ CHÍNH XÁC CÂU TRẢ LỜI: {passed}/{len(cases)} = {acc:.0%} ===")
+    print(f"\n=== ĐỘ CHÍNH XÁC CÂU TRẢ LỜI: {passed}/{len(cases)} = {acc:.0%} "
+          f"(repeat={repeat}, flaky={flaky_n}) ===")
     if write:
         _REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"Đã ghi {_REPORT} → trang /trust sẽ hiện số này.")
@@ -92,7 +106,10 @@ def run(write: bool = True) -> dict:
 
 
 if __name__ == "__main__":
+    import re
     import sys
     # --no-write: chạy THÍ NGHIỆM (vd KNOWLEDGE_BASE_DIR override để thử KB mở rộng) mà KHÔNG ghi đè
     # accuracy_report.json production (tránh làm bẩn số /trust). Mặc định vẫn ghi (đo chính thức).
-    run(write="--no-write" not in sys.argv)
+    # --repeat N: majority-vote N lần/ca → số ổn định, hiện ca FLAKY (chống nhiễu LLM hosted).
+    rep = next((int(m.group(1)) for a in sys.argv if (m := re.match(r"--repeat=(\d+)", a))), 1)
+    run(write="--no-write" not in sys.argv, repeat=rep)
