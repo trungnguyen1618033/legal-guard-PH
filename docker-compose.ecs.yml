@@ -4,7 +4,7 @@
 # Chạy: docker compose -f docker-compose.ecs.yml up -d --build
 services:
   db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: legalguard

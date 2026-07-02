@@ -42,6 +42,19 @@ def test_get_or_embed_returns_none_when_offline(tmp_path):
     assert _store(tmp_path).get_or_embed(["a"], lambda ts: None) is None
 
 
+def test_sqlite_falls_back_no_ann(tmp_path):
+    # SQLite (không pgvector) → ann_enabled False → retriever tự dùng brute-force. Contract fallback:
+    # pgvector chỉ bật trên Postgres+extension; mọi nơi khác giữ hành vi cũ (365+ test chạy SQLite).
+    st = _store(tmp_path)
+    assert st.ann_enabled is False
+    v = st.get_or_embed(["a", "b"], lambda ts: [[1.0, 0.0] for _ in ts])
+    assert len(v) == 2                        # vẫn embed/nạp bình thường không cần ANN
+
+
+def test_enable_ann_false_forces_bruteforce(tmp_path):
+    assert SqlEmbeddingStore(f"sqlite:///{tmp_path / 'x.db'}", enable_ann=False).ann_enabled is False
+
+
 def test_rank_cosine_topk():
     vecs = [[1.0, 0.0], [0.0, 1.0], [0.9, 0.1]]
     top = SqlEmbeddingStore.rank([1.0, 0.0], vecs, top_k=2)
