@@ -69,6 +69,26 @@ def _expand_abbrev(query: str) -> str:
     return f"{query} {extra}" if extra else query
 
 
+_HYDE_PROMPT = (
+    "Cho câu hỏi pháp lý sau, liệt kê 5-8 THUẬT NGỮ / cụm từ PHÁP LÝ có KHẢ NĂNG XUẤT HIỆN trong điều luật "
+    "trả lời câu hỏi (danh từ pháp lý, tên thủ tục, chế định). CHỈ liệt kê cách nhau bởi dấu phẩy, KHÔNG "
+    "giải thích, KHÔNG bịa số điều. Câu hỏi: {q}")
+
+
+def _hyde_expand(query: str, llm: LLMPort | None) -> str:
+    """HyDE-lite: LLM sinh THUẬT NGỮ luật cầu nối khoảng-cách 'cách hỏi' vs 'cách luật viết' → cộng vào query
+    (chỉ RETRIEVAL). Bắc cầu câu THỦ TỤC ('gồm những bước nào') ↔ điều luật THỰC THỂ (vd 'Hòa giải tại Tòa
+    án') → cụm evidence chặt hơn → cổng relevance pass robust (KHÔNG tuning gate). Lỗi/offline → trả query gốc."""
+    if llm is None or not getattr(llm, "available", False):
+        return query
+    try:
+        terms = llm.complete(_HYDE_PROMPT.format(q=query[:400]))
+    except LLMError:
+        return query
+    terms = re.sub(r"[^\w\s,]", " ", terms).strip()[:300]   # gom sạch, chặn độ dài
+    return f"{query} {terms}" if terms else query
+
+
 def _windows(text: str) -> list[str]:
     if len(text) <= _CHUNK:
         return [text]
@@ -207,7 +227,8 @@ class AnalysisService:
                  lookup_llm: LLMPort | None = None,
                  lookup_pit_llm: LLMPort | None = None,
                  illegal_detection: bool = True,
-                 coverage_gated_abstain: bool = True) -> None:
+                 coverage_gated_abstain: bool = True,
+                 hyde_query_expansion: bool = False) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         self.summarizer = summarizer  # Gemini: tóm tắt (provider thứ hai)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp). Mặc định = reasoner (giữ tương thích/stub),
@@ -224,6 +245,9 @@ class AnalysisService:
         self.illegal_detection = illegal_detection
         # Coverage-Gated Abstention: cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain.
         self.coverage_gated_abstain = coverage_gated_abstain
+        # HyDE-lite: LLM sinh thuật ngữ luật cầu nối cách-hỏi vs cách-luật-viết → cụm evidence chặt hơn
+        # (nâng CHẤT LƯỢNG retrieval cho câu borderline, không tuning gate). Opt-in (thêm 1 call/lookup).
+        self.hyde_query_expansion = hyde_query_expansion
         # Cache tra cứu (in-process, bounded LRU): câu hỏi lặp → trả tức thì + tiết kiệm token. KB tĩnh
         # trong 1 phiên deploy nên an toàn; redeploy = process mới = cache mới. 0 = tắt.
         self._lookup_cache_size = lookup_cache_size
@@ -567,7 +591,10 @@ class AnalysisService:
         # overlay=False: /lookup là Q&A DẪN LUẬT → dùng KB quốc gia (điều luật), KHÔNG để lớp tactics moat
         # (premium_tactics.md, phục vụ /analyze) đè điều luật ra khỏi top_k làm hỏng citation accuracy.
         # Mở rộng viết tắt (TNHH→trách nhiệm hữu hạn…) CHỈ cho query retrieval → tăng recall khi luật viết đầy đủ.
-        snippets = self.kb.for_org(org, overlay=False).retrieve(_expand_abbrev(q), top_k)
+        rq = _expand_abbrev(q)
+        if self.hyde_query_expansion:            # HyDE-lite: bắc cầu cách-hỏi vs cách-luật-viết (chỉ retrieval)
+            rq = _hyde_expand(rq, self.judge)
+        snippets = self.kb.for_org(org, overlay=False).retrieve(rq, top_k)
         if not snippets:
             return ("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
                     if lang == "vi" else

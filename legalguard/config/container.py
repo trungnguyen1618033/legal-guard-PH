@@ -88,7 +88,8 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                            lookup_cache_size=cfg.lookup_cache_size, lookup_llm=lookup_llm,
                            lookup_pit_llm=lookup_pit_llm,
                            illegal_detection=cfg.illegal_detection,
-                           coverage_gated_abstain=cfg.coverage_gated_abstain)
+                           coverage_gated_abstain=cfg.coverage_gated_abstain,
+                           hyde_query_expansion=cfg.hyde_query_expansion)
 
 
 def build_evidence(cfg: Settings = settings) -> EvidenceService:

@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     legal_basis_grounding: bool = True  # gắn căn cứ điều luật (tất định, từ KB) cho mỗi risk/fallback
     nli_verification: bool = True       # kiểm entailment: nguồn có hậu thuẫn claim không (chống hallucinate; tốn thêm LLM call)
     coverage_gated_abstain: bool = True  # cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain lookup
+    hyde_query_expansion: bool = False   # HyDE-lite: LLM sinh thuật ngữ luật cầu nối query↔luật → retrieval chặt hơn (opt-in, +1 call/lookup)
     illegal_detection: bool = True      # Phase B: NLI-mâu-thuẫn nâng unfavorable→illegal khi trái điều luật đã grounding
     lookup_cache_size: int = 256        # cache câu trả lời tra cứu (hỏi lặp → trả tức thì + tiết kiệm token); 0 = tắt
 
