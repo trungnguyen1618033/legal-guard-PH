@@ -36,9 +36,15 @@ def _live_accuracy() -> dict | None:
         return None
     try:
         r = json.loads(p.read_text(encoding="utf-8"))
+        rep = r.get("repeat", 1)
+        # Ghi chú BỘ-ĐỀ: 100% = 0 lỗi TRÊN bộ golden này (không phải 'hoàn hảo mãi mãi'). Minh bạch cỡ mẫu
+        # + majority-vote nhiều lần (chống nhiễu LLM hosted) → số trung thực, không đọc thành tuyệt đối.
+        note = (f"{r['passed']}/{r['total']} ca golden (dẫn đúng Điều/Khoản + dữ kiện + biết từ chối khi "
+                f"ngoài KB), majority-vote {rep} lần/ca — accuracy_eval. Số trên BỘ ĐỀ này, không suy ra "
+                f"mọi câu hỏi.")
         return {"name": "Độ chính xác câu trả lời (golden set)",
                 "value": f"{r['answer_accuracy']:.0%} ({r['passed']}/{r['total']})",
-                "note": "Dẫn đúng điều luật + dữ kiện + biết từ chối khi ngoài KB — accuracy_eval"}
+                "note": note}
     except (json.JSONDecodeError, KeyError, OSError):
         return None
 
