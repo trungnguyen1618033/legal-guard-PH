@@ -57,15 +57,22 @@ def judge_case(case: dict, answer: str, sources: list[str]) -> tuple[bool, str]:
     return (has_cite and has_fact), why
 
 
-def run(write: bool = True, repeat: int = 1) -> dict:
+def run(write: bool = True, repeat: int = 1, golden_path: str | None = None) -> dict:
     """`repeat` > 1: chạy MỖI ca `repeat` lần, lấy ĐA SỐ (majority-vote) → chống nhiễu LLM hosted
     (dải 52-54 do stochastic ngay ở temp 0). Số ổn định hơn → đo được thay đổi nhỏ (điều kiện tiên
     quyết THẬT để mở rộng KB an toàn — xem kb-expansion-plan.md)."""
     from legalguard.config.container import build_service
     from legalguard.domain.tenants import default_org
 
-    cases = json.loads(_GOLDEN.read_text(encoding="utf-8"))["cases"]
+    gp = Path(golden_path) if golden_path else _GOLDEN   # --golden: chạy bộ khác (vd regression mở rộng)
+    cases = json.loads(gp.read_text(encoding="utf-8"))["cases"]
     svc, org = build_service(), default_org("VN")
+    # QUAN TRỌNG: repeat>1 = majority-vote chống nhiễu → PHẢI tắt cache lookup, nếu không mỗi vote KHÔNG độc
+    # lập: abstain KHÔNG được cache còn câu THÀNH CÔNG thì CÓ → ca borderline chỉ cần đậu 1 lần là bị khóa PASS
+    # các vote sau → thổi phồng accuracy + giấu FLAKY (đo được: ca 'Năm 2020' no-cache 1/6 nhưng eval cache 3/3).
+    if repeat > 1:
+        svc._lookup_cache_size = 0
+        svc._lookup_cache.clear()
     results, passed = [], 0
     cat: dict[str, list[int]] = {}                       # lĩnh vực → [passed, total]
     for c in cases:
@@ -112,4 +119,5 @@ if __name__ == "__main__":
     # accuracy_report.json production (tránh làm bẩn số /trust). Mặc định vẫn ghi (đo chính thức).
     # --repeat N: majority-vote N lần/ca → số ổn định, hiện ca FLAKY (chống nhiễu LLM hosted).
     rep = next((int(m.group(1)) for a in sys.argv if (m := re.match(r"--repeat=(\d+)", a))), 1)
-    run(write="--no-write" not in sys.argv, repeat=rep)
+    gpath = next((m.group(1) for a in sys.argv if (m := re.match(r"--golden=(.+)", a))), None)
+    run(write="--no-write" not in sys.argv, repeat=rep, golden_path=gpath)
