@@ -47,7 +47,8 @@ the chat apps they already use.
 - **Deployed on Alibaba Cloud ECS**: Docker (Caddy HTTPS + app + Postgres + Redis), Alembic migrations,
   persistent embeddings in Postgres.
 - **RAG quality**: hybrid retrieval (BM25 + embeddings, RRF), grounding + citation, 2-layer verification
-  (LLM-judge + NLI entailment), in-force/point-in-time filtering, citation closure.
+  (LLM-judge + NLI entailment), in-force/point-in-time filtering, citation closure. The NLI judge has its
+  **own labeled eval**: 16/16 correct incl. hard negatives, 100% agreement with the flagship (`evaluation/nli_report.json`).
 - **AI-Native evidence**: `GET /runs` exposes a live feed of the agent's tool calls and decisions.
 
 ## Challenges we ran into
