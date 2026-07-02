@@ -234,33 +234,51 @@ def rel_pairs_by_source(rel_rows: list[dict], id_to_ref: dict[str, str]
 
 def run_bulk(out: str = "knowledge_base/_ingested", limit: int | None = None,
              keyword: str | None = None, in_force_only: bool = False, min_year: int = 0,
-             central_only: bool = False) -> int:
+             central_only: bool = False, mirror_dir: str | None = None, dry_run: bool = False,
+             types: str | None = None) -> int:
     """CON BATCH bulk: join metadata + content + relationships của th1nhng0 (CC BY 4.0, vbpl.vn) → KB .md
-    KÈM cạnh đồ thị (amends/replaced_by/guides…) + hiệu lực. Cần `uv add datasets`. Trả số file đã ghi.
+    KÈM cạnh đồ thị (amends/replaced_by/guides…) + hiệu lực. Trả số file đã ghi (dry_run: số SẼ ghi).
 
-    `keyword` (tùy chọn): chỉ ingest VB có keyword trong title/loại/ngành/lĩnh vực (slice LIÊN QUAN sản phẩm,
-    tránh nạp 178k VB nhiễu). KHÔNG scrape TVPL (license). Idempotent: ghi đè theo số hiệu (re-run=cập nhật."""
-    try:
-        from datasets import load_dataset
-    except ImportError:
-        raise SystemExit("Cần cài: uv add datasets (chỉ cho ingestion bulk).") from None
-
+    `mirror_dir`: đọc parquet từ MIRROR LOCAL (data/legal-corpus-mirror/th1nhng0/data) — offline, không tải
+    lại + không cần `datasets`. Không có → tải từ HF (cần `uv add datasets`).
+    `keyword`: chỉ ingest VB có keyword trong title/loại/ngành/lĩnh vực (slice LIÊN QUAN sản phẩm, tránh
+    nạp 178k VB nhiễu). `dry_run`: CHỈ đếm + báo phân bố, KHÔNG ghi file (khảo sát trước khi nạp thật).
+    KHÔNG scrape TVPL (license). Idempotent: ghi đè theo số hiệu (re-run=cập nhật)."""
+    import pyarrow.parquet as pq
     out_dir = Path(out)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    if not dry_run:
+        out_dir.mkdir(parents=True, exist_ok=True)
     kws = [k.strip().lower() for k in (keyword or "").split(",") if k.strip()]   # nhiều keyword = OR
-    meta = load_dataset(_DATASET, "metadata", split="data")
-    meta_by_id = {str(r["id"]): r for r in meta}
-    id_to_ref = {i: (m.get("so_ky_hieu") or "") for i, m in meta_by_id.items()}
-    try:
-        rel_rows = list(load_dataset(_DATASET, "relationships", split="data"))
+    type_allow = {t.strip() for t in (types or "").split(",") if t.strip()}      # lọc doc_type quy phạm
+
+    if mirror_dir:                                    # OFFLINE: đọc parquet mirror trực tiếp
+        md = Path(mirror_dir)
+        meta = pq.read_table(md / "metadata.parquet").to_pylist()
+        meta_by_id = {str(r["id"]): r for r in meta}
+        id_to_ref = {i: (m.get("so_ky_hieu") or "") for i, m in meta_by_id.items()}
+        rel_rows = pq.read_table(md / "relationships.parquet").to_pylist()
         rels = rel_pairs_by_source(rel_rows, id_to_ref)
-    except Exception:  # noqa: BLE001 — không có config relationships → vẫn ingest nội dung + hiệu lực
-        rels = {}
-        print("⚠️ Không nạp được config relationships — bỏ cạnh đồ thị, vẫn ghi hiệu lực/nội dung.")
+        cpath = str(md / "content.parquet")
+    else:                                             # ONLINE: tải từ HF
+        try:
+            from datasets import load_dataset
+        except ImportError:
+            raise SystemExit("Cần cài: uv add datasets (hoặc dùng --mirror-dir).") from None
+        meta = load_dataset(_DATASET, "metadata", split="data")
+        meta_by_id = {str(r["id"]): r for r in meta}
+        id_to_ref = {i: (m.get("so_ky_hieu") or "") for i, m in meta_by_id.items()}
+        try:
+            rel_rows = list(load_dataset(_DATASET, "relationships", split="data"))
+            rels = rel_pairs_by_source(rel_rows, id_to_ref)
+        except Exception:  # noqa: BLE001 — không có relationships → vẫn ingest nội dung + hiệu lực
+            rels = {}
+            print("⚠️ Không nạp được relationships — bỏ cạnh đồ thị, vẫn ghi hiệu lực/nội dung.")
 
     def _match(m: dict) -> bool:
         if in_force_only and map_status(m.get("tinh_trang_hieu_luc")) != "in_force":
             return False                           # bỏ VB hết hiệu lực (giữ KB sạch, hiện hành)
+        if type_allow and doc_type_from(m.get("loai_van_ban")) not in type_allow:
+            return False                           # chỉ loại quy phạm (bỏ Quyết định/Chỉ thị hành chính nhiễu)
         if central_only:                           # chỉ VB TRUNG ƯƠNG (bỏ VB tỉnh/địa phương nhiễu)
             sk = (m.get("so_ky_hieu") or "").upper()
             if "UBND" in sk or "-HĐND" in sk or "/HĐND" in sk:
@@ -276,11 +294,13 @@ def run_bulk(out: str = "knowledge_base/_ingested", limit: int | None = None,
         return any(k in hay for k in kws)          # khớp BẤT KỲ keyword (OR)
 
     # content.parquet có cột HTML kiểu large_string → `datasets` cast sang string lỗi (>2GB). Đọc THẲNG
-    # bằng pyarrow theo batch (giữ large_string, nhẹ RAM), bỏ qua lớp cast của datasets.
-    import pyarrow.parquet as pq
-    from huggingface_hub import hf_hub_download
-    cpath = hf_hub_download(_DATASET, "data/content.parquet", repo_type="dataset")
+    # bằng pyarrow theo batch (giữ large_string, nhẹ RAM; ONLINE thì đã set cpath ở nhánh HF).
+    if not mirror_dir:
+        from huggingface_hub import hf_hub_download
+        cpath = hf_hub_download(_DATASET, "data/content.parquet", repo_type="dataset")
     written = 0
+    from collections import Counter
+    by_type: Counter = Counter()                       # phân bố loại VB (cho dry_run khảo sát)
     for batch in pq.ParquetFile(cpath).iter_batches(batch_size=256):
         for r in batch.to_pylist():
             m = meta_by_id.get(str(r.get("id")))
@@ -288,17 +308,23 @@ def run_bulk(out: str = "knowledge_base/_ingested", limit: int | None = None,
                 continue
             relations = group_relationships(rels.get(str(r.get("id")), []))
             res = to_kb_markdown(m, r.get("content_html", ""), relations=relations or None)
-            if not res:
+            if not res:                                # rỗng text (luật mới content trống — đã biết)
                 continue
-            fname, content = res
-            (out_dir / fname).write_text(content, encoding="utf-8")
+            by_type[doc_type_from(m.get("loai_van_ban"))] += 1
             written += 1
+            if not dry_run:
+                fname, content = res
+                (out_dir / fname).write_text(content, encoding="utf-8")
             if written % 200 == 0:
-                print(f"  … {written} file", flush=True)
+                print(f"  … {written}", flush=True)
             if limit and written >= limit:
-                print(f"\nBulk: đã ghi {written} file vào {out_dir}/ (auto-ingest — CẦN luật sư duyệt).")
-                return written
-    print(f"\nBulk: đã ghi {written} file vào {out_dir}/ (auto-ingest — CẦN luật sư duyệt).")
+                break
+        if limit and written >= limit:
+            break
+    verb = "SẼ ghi (dry-run)" if dry_run else f"đã ghi vào {out_dir}/"
+    print(f"\nBulk: {written} file {verb} — phân bố loại: {dict(by_type.most_common())}")
+    if not dry_run:
+        print("(auto-ingest — CẦN luật sư duyệt + chạy accuracy_eval đo regression trước khi promote vào KB/VN.)")
     return written
 
 
@@ -314,12 +340,18 @@ def main() -> None:
     ap.add_argument("--start", type=int, default=0)
     ap.add_argument("--keyword", default=None, help="lọc client-side theo title/loại/ngành")
     ap.add_argument("--out", default="knowledge_base/_ingested")
+    ap.add_argument("--mirror-dir", default=None,
+                    help="đọc parquet mirror local (offline), vd data/legal-corpus-mirror/th1nhng0/data")
+    ap.add_argument("--dry-run", action="store_true", help="chỉ đếm + báo phân bố, KHÔNG ghi file")
+    ap.add_argument("--types", default=None,
+                    help="chỉ loại quy phạm (vd nghi_dinh,thong_tu,luat,phap_lenh) — bỏ Quyết định/Chỉ thị")
     args = ap.parse_args()
 
     if args.bulk:
         run_bulk(args.out, args.limit, args.keyword,
                  in_force_only=args.in_force_only, min_year=args.min_year,
-                 central_only=args.central_only)
+                 central_only=args.central_only, mirror_dir=args.mirror_dir, dry_run=args.dry_run,
+                 types=args.types)
         return
 
     out_dir = Path(args.out)

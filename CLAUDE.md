@@ -36,6 +36,7 @@ uv run python -m evaluation.nli_eval      # eval RIÊNG judge NLI (16 ca có nh�
 uv run python -m evaluation.golden_to_review # sinh PHIẾU LUẬT SƯ DUYỆT từ golden → docs/internal/golden-set-lawyer-review.{csv,md} (gửi luật sư xác nhận)
 uv run python -m ingestion.hf_to_kb --pages 4 --keyword "hóa đơn" --out knowledge_base/_ingested # ETL sample: HF dataset luật VN → KB .md (front-matter status)
 uv run python -m ingestion.hf_to_kb --bulk --limit 2000 --out knowledge_base/_ingested # CON BATCH bulk: ingest toàn bộ th1nhng0 (cần `uv add datasets`) + cạnh đồ thị (amends/replaced_by/guides) + hiệu lực
+uv run python -m ingestion.hf_to_kb --bulk --mirror-dir data/legal-corpus-mirror/th1nhng0/data --in-force-only --central-only --types nghi_dinh,thong_tu,luat,phap_lenh --keyword "<domain>" --dry-run # ingest OFFLINE từ mirror + lọc QUY PHẠM (bỏ Quyết định/Chỉ thị nhiễu); --dry-run đếm trước. Quy trình eval-gated: docs/internal/ingest-eval-gated-process.md (BẮT BUỘC đo legal_eval + accuracy_eval trước promote vào KB/VN)
 uv run python -m evaluation.feedback_to_golden --org default --out evaluation/golden_candidates.json # vòng học: feedback ⚠️/➖ → ứng viên golden + báo lỗ hổng KB
 uv sync --group eval                  # cài lớp eval sâu (RAGAS) — opt-in, không cần cho runtime
 uv sync --group export                # cài python-docx cho xuất Word bản-ghi-nhớ (Phase C) — opt-in
