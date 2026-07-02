@@ -179,3 +179,20 @@ Dùng Personal Access Token (GitHub → Settings → Developer settings → Toke
 git clone -b dev https://<TOKEN>@github.com/trungnguyen1618033/legal-guard-PH.git legalguard
 ```
 Hoặc tạo SSH deploy key trên ECS (`ssh-keygen` → thêm public key vào repo → Deploy keys).
+
+## Autopilot cron (agent làm việc khi bạn ngủ) — TRONG stack
+
+Service `autopilot-cron` trong `docker-compose.ecs.yml` (alpine + crond, TZ Asia/Ho_Chi_Minh) tự gọi
+`POST app:8000/monitor/run` lúc **05:00 sáng VN** mỗi ngày qua `scripts/monitor-cron-docker.sh` —
+không cần crontab host, sống lại cùng stack sau reboot. Digest luôn in ra log container; đặt
+`EXPERT_CHANNEL` (Slack channel ID) trong `.env` → tự gửi digest vào Slack (dùng `SLACK_BOT_TOKEN` sẵn có).
+
+```bash
+docker compose -f docker-compose.ecs.yml up -d autopilot-cron    # bật (sau khi pull code mới)
+docker compose -f docker-compose.ecs.yml logs -f autopilot-cron  # bằng chứng agent chạy hằng ngày
+docker compose -f docker-compose.ecs.yml exec autopilot-cron /usr/local/bin/monitor-cron.sh   # chạy thử ngay
+```
+
+Lưu ý vận hành: script mount `:ro` từ repo — sau `git pull` có sửa script thì `restart autopilot-cron`
+(bind mount giữ inode cũ). Demo có dữ liệu: chạy thử với `since` lùi xa (sửa tạm biến `SINCE`) sẽ thấy
+impact thật (vd NĐ 63/2011 → 8 case trọng tài).
