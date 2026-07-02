@@ -40,7 +40,7 @@ flowchart TB
         QVL["qwen3.7-plus<br/>OCR (scan/image)"]
     end
 
-    GEM["Gemini 2.5-flash<br/>(≥1 call — XPRIZE rule)"]
+    GEM["Gemini 2.5-flash<br/>(summarizer — 2nd provider)"]
     KB[("📚 Knowledge Base<br/>in-force VN law + fallback matrix<br/>+ private overlay _orgs/")]
 
     U1 & U2 & U3 -->|HTTPS| CADDY --> IN --> ANALYSIS

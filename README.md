@@ -1,8 +1,17 @@
 # Legal Guard — Autopilot Agent for Cross-Border Contract Risk
 
+![Measured accuracy](https://img.shields.io/badge/measured_accuracy-98.1%25_(53%2F54)-brightgreen)
+![Tests](https://img.shields.io/badge/tests-365_passing-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Powered by Qwen](https://img.shields.io/badge/powered_by-Qwen_%C2%B7_Alibaba_Cloud-orange)
+
 An AI agent that acts as an **outsourced legal department**: it reads an international commercial
 contract, **flags risky and illegal clauses**, and proposes **position-aware negotiation tactics** —
 then keeps a human in the loop before anything goes to the counterparty.
+
+**Measured accuracy: 98.1% (53/54)** on a lawyer-style golden set spanning 12 Vietnamese legal
+domains, run against the real Qwen stack — methodology and raw numbers are published at
+[`/trust`](web/trust.html) (report: [`evaluation/accuracy_report.json`](evaluation/accuracy_report.json)).
 
 > 🏆 Built for the **Qwen Cloud Hackathon — Autopilot Agent track**. Powered by Qwen models on Qwen
 > Cloud, deployed on Alibaba Cloud. Proving ground: Vietnamese SMEs negotiating cross-border deals.
@@ -45,6 +54,16 @@ What the demo shows:
 Other pages: **`/lookup`** (grounded legal Q&A + a TVPL-style document graph) · **`/dashboard`**
 (system-of-record) · **`/runs`** (agent activity feed) · **`/docs`** (OpenAPI).
 
+## Screenshots (real Qwen run)
+
+| Contract analysis — risks flagged, ⚖️ illegal vs unfavorable | Agent ReAct trace — every tool call recorded |
+|---|---|
+| ![Contract analysis](docs/assets/demo-analyze.png) | ![Agent trace](docs/assets/demo-trace.png) |
+
+| Grounded legal Q&A — answer + article citation + sources | Published trust page — methodology + measured accuracy |
+|---|---|
+| ![Legal lookup](docs/assets/demo-lookup.png) | ![Trust page](docs/assets/demo-trust.png) |
+
 ## Architecture — Hexagonal (Ports & Adapters)
 
 ```
@@ -86,8 +105,9 @@ All LLM calls go to **Qwen models via Qwen Cloud / DashScope (Alibaba Cloud Mode
 | `qwen3.7-plus` | Multimodal OCR for scanned/image contracts |
 
 **Deployment: Alibaba Cloud ECS** — Docker (Caddy HTTPS + FastAPI app + Postgres + Redis), `alembic
-upgrade head` on start. Embeddings persist in Postgres (`kb_vectors`). One Gemini call (`gemini-2.5-flash`)
-is wired for the XPRIZE track's ≥1-Gemini-call rule; swapping a provider is one line in `config/container.py`.
+upgrade head` on start. Embeddings persist in Postgres (`kb_vectors`). A Gemini summarizer
+(`gemini-2.5-flash`) is wired as a second-provider example — swapping a provider is one line in
+`config/container.py`.
 
 ## Run with Docker
 
@@ -133,5 +153,5 @@ lawyer-verified evaluation set, deal-outcome flywheel data) layers on at deploy 
 overlay and is **not** in this repo. See [`docs/OPEN-CORE.md`](docs/OPEN-CORE.md). License: [`LICENSE`](LICENSE) (MIT).
 
 ## Requirements
-- Python ≥ 3.11 · Qwen API (primary LLM) · Gemini API (optional, ≥1 call for the XPRIZE track)
+- Python ≥ 3.11 · Qwen API (primary LLM) · Gemini API (optional second provider)
 - Runs fully offline in **stub mode** without any API key.

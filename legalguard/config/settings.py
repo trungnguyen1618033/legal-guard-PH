@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     lookup_temperature: float = 0.0       # TRA CỨU (lookup) dùng temp 0 → câu trả lời TẤT ĐỊNH (hết flaky must_say)
     judge_temperature: float = 0.0        # judge (NLI/verify/cổng relevance, DÙNG CẢ /analyze) temp 0 → yes/no tất định; tách khỏi lookup
 
-    # Gemini (>=1 call cho XPRIZE)
+    # Gemini (provider thứ hai — tóm tắt)
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"   # 2.0 đã cũ, free tier hẹp (hay dính 429)
 
