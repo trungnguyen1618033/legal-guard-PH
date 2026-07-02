@@ -231,7 +231,14 @@ migrations Alembic (`migrations/`, head 0009) + `create_all()` cho dev. win_rate
 **Embed BỀN cho corpus lớn** (`outbound/embedding_store.py` `SqlEmbeddingStore`, `PERSIST_EMBEDDINGS`): lưu
 vector vào bảng `kb_vectors` theo sha256(text) → `EmbeddingRetriever(store=)` chỉ embed chunk MỚI, boot KHÔNG
 embed lại (giải bài "embed 200 file mỗi boot quá chậm"). embed cũng cắt input ≤6000 ký tự (tránh HTTP 400).
-Quy mô RẤT lớn → nâng `kb_vectors.vector` sang cột pgvector `Vector(dim)` + ANN (`<=>`), cùng bảng/interface.
+**pgvector ANN** (`PGVECTOR_ANN`, TỰ PHÁT HIỆN): DB Postgres có extension `vector` → thêm cột `vec vector(dim)`
++ tìm EXACT trong Postgres (`ORDER BY vec <=> q`, C/SIMD) thay vì brute-force cosine O(N) trong Python (đo:
+Python 98% CPU/truy vấn ở 18k chunk là nút thắt khi mở rộng KB). Đo thật 18k×1024-dim: DB exact KHỚP 100%
+brute-force + nhanh 2.9x (582ms vs 1666ms). KHÔNG dùng HNSW (xấp xỉ, mất recall) ở quy mô này — chỉ khi
+HÀNG TRIỆU vector. SQLite/không-pgvector → tự fallback brute-force (hành vi cũ, test giữ nguyên). Image DB
+compose = `pgvector/pgvector:pg16` (pg16→pg16 giữ data volume; chỉ cần `CREATE EXTENSION`, store tự chạy).
+**LƯU Ý: pgvector giải LATENCY/CPU, KHÔNG giải regression accuracy do vocab-collision** — mở rộng KB vẫn
+phải selective + eval-gated (`docs/internal/ingest-eval-gated-process.md`).
 Prod TODO: encrypt-at-rest (RDS/KMS), RLS (cô lập org hiện ở tầng app), pgvector ANN khi >chục nghìn chunk.
 
 Docker (Postgres + app): `make up` (build+run+migrate), `make down`, `make logs`, `make psql`,

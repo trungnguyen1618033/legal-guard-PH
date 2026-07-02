@@ -357,11 +357,14 @@ class EmbeddingRetriever:
         self._embed_fn = embed_fn
         # `store` (SqlEmbeddingStore, tùy chọn): embed BỀN — chỉ tính chunk mới, boot không embed lại
         # (mở khóa corpus lớn). Không có store → embed tất cả tại chỗ (KB nhỏ, hành vi cũ).
+        self._store = store
+        # ANN pgvector nếu store hỗ trợ (Postgres+pgvector) → tìm TRONG DB, không quét O(N) trong RAM.
+        self._ann = bool(store is not None and getattr(store, "ann_enabled", False) and self._chunks)
         texts = [c for _, c in self._chunks]
         if store is not None and self._chunks:
-            self._vectors = store.get_or_embed(texts, embed_fn)
+            self._vectors = store.get_or_embed(texts, embed_fn)   # đảm bảo đã embed (+ ghi cột vec cho ANN)
             if self._vectors is None:                  # embed offline/lỗi → coi như không có embedding
-                self._vectors, self._chunks = [], []
+                self._vectors, self._chunks, self._ann = [], [], False
         else:
             self._vectors = embed_fn(texts) if self._chunks else []
 
@@ -369,6 +372,10 @@ class EmbeddingRetriever:
         if not self._chunks:
             return []
         qv = self._embed_fn([nfc(query)])[0]
+        if self._ann:                                  # ANN trong DB (scale corpus lớn — hết O(N) Python)
+            texts = [c for _, c in self._chunks]
+            return [Snippet(self._chunks[i][0], self._chunks[i][1], score)
+                    for i, score in self._store.search_ann(qv, texts, top_k)]
         scored = [
             Snippet(src, chunk, _cosine(qv, vec))
             for (src, chunk), vec in zip(self._chunks, self._vectors)

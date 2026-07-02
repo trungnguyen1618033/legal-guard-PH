@@ -20,6 +20,7 @@ dependencies = [
     "redis>=8.0.0",
     "mcp>=1.27.2",
     "striprtf>=0.0.32",
+    "pgvector>=0.4.2",
 ]
 
 # Bật ở giai đoạn scale: redis>=5.0 (cache/queue), pgvector (semantic RAG trên Postgres)

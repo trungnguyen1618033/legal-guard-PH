@@ -69,7 +69,7 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     embed_store = None
     if cfg.persist_embeddings and embed_fn is not None:
         from legalguard.adapters.outbound.embedding_store import SqlEmbeddingStore
-        embed_store = SqlEmbeddingStore(cfg.database_url)
+        embed_store = SqlEmbeddingStore(cfg.database_url, enable_ann=cfg.pgvector_ann)
     kb = FileKnowledgeBaseProvider(cfg.knowledge_base_dir, embed_fn=embed_fn,
                                    reranker_llm=reranker, strategy=kb_strategy,
                                    rerank_fn=rerank_fn, closure=cfg.citation_closure,
