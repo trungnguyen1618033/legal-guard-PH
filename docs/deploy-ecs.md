@@ -107,11 +107,15 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # cập nh
 
 ## Autopilot cron (agent làm việc khi bạn ngủ)
 
-`scripts/monitor-cron.sh` quét luật MỚI (hiệu lực từ hôm qua) qua `POST /monitor/run` mỗi sáng:
-luôn ghi digest vào log; nếu `.env` có `EXPERT_CHANNEL` (Slack channel ID) → tự gửi digest vào Slack.
+Mặc định cron chạy **TRONG Docker stack**: service `autopilot-cron` (docker-compose.ecs.yml) tự gọi
+`POST /monitor/run` lúc **5:00 sáng VN** mỗi ngày qua `scripts/monitor-cron-docker.sh` — không cần
+crontab host, sống lại cùng stack sau reboot. Digest luôn in ra log container; đặt `EXPERT_CHANNEL`
+(Slack channel ID) trong `.env` → tự gửi digest vào Slack (bot token dùng chung `SLACK_BOT_TOKEN`).
 
 ```bash
-# cài trên server (5:00 sáng giờ VN = 6:00 CST):
-( crontab -l; echo "0 6 * * * /root/legalguard/scripts/monitor-cron.sh >> /var/log/legalguard-monitor.log 2>&1" ) | crontab -
-tail -f /var/log/legalguard-monitor.log   # xem bằng chứng agent chạy hằng ngày
+docker compose -f docker-compose.ecs.yml up -d autopilot-cron   # bật (sau khi pull code mới)
+docker compose -f docker-compose.ecs.yml logs -f autopilot-cron # xem bằng chứng agent chạy hằng ngày
+docker compose -f docker-compose.ecs.yml exec autopilot-cron /usr/local/bin/monitor-cron.sh  # chạy thử ngay
 ```
+
+(Chạy bare-metal không Docker? Dùng `scripts/monitor-cron.sh` + crontab host — script đọc `.env` trực tiếp.)
