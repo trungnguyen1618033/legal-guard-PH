@@ -6,8 +6,8 @@
 set -u
 KEY=$(printf %s "${API_KEYS:-}" | tr -d '"' | cut -d, -f1 | cut -d: -f1)
 CHANNEL="${EXPERT_CHANNEL:-}"
-# busybox (alpine): date -D %s -d <epoch>; fallback GNU: date -d yesterday
-SINCE=$(date -D %s -d "$(( $(date +%s) - 86400 ))" +%F 2>/dev/null || date -d yesterday +%F)
+# date -d @epoch chạy cả busybox (alpine) lẫn GNU → hôm qua = epoch - 86400
+SINCE=$(date -d "@$(( $(date +%s) - 86400 ))" +%F)
 if [ -n "$CHANNEL" ]; then
   BODY="{\"since\":\"$SINCE\",\"via\":\"slack\",\"channel\":\"$CHANNEL\"}"
 else
