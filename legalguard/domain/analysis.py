@@ -605,9 +605,13 @@ class AnalysisService:
         # Bảo thủ: chỉ abstain khi NO rõ; mơ hồ vẫn trả lời (không giết câu hỏi grounded hợp lệ).
         # COVERAGE-GATED: gate quyết trên cụm evidence TẬP TRUNG (elbow) — không để đoạn nhiễu đuôi pha loãng
         # gây over-abstain (ca point-in-time). Answer vẫn dùng full `sources` (không mất citation).
+        # SÀN min_keep=3: cổng relevance KHÔNG được phán "không liên quan" khi chỉ nhìn 1 đoạn — câu trả lời
+        # pháp lý thường trải nhiều Điều (vd "thủ tục ly hôn" cần Đ.54 hòa giải + Đ.56 ly hôn theo yêu cầu).
+        # elbow thỉnh thoảng cắt còn 1 do điểm embedding hosted dao động ±0.01 → đói bằng chứng → abstain OAN
+        # (đo: ca ly hôn lật 6/10 khi keep=1). Giữ ≥ top-3 → judge đủ ngữ cảnh, VẪN cắt đuôi nhiễu (vị trí 4-5).
         if self.nli_verification:
             if self.coverage_gated_abstain:
-                keep = elbow_cutoff([s.score for s in snippets])
+                keep = elbow_cutoff([s.score for s in snippets], min_keep=3)
                 gate_sources = "\n---\n".join(f"[nguồn: {s.source}] {s.text}" for s in snippets[:keep])
             else:
                 gate_sources = sources
