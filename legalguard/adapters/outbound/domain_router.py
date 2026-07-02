@@ -41,6 +41,8 @@ DOMAIN_KEYWORDS: dict[str, list[str]] = {
     "hon_nhan": ["hôn nhân", "ly hôn", "vợ chồng", "tài sản chung", "kết hôn"],
     "dat_dai": ["đất đai", "quyền sử dụng đất", "sổ đỏ", "thuê đất", "giấy chứng nhận quyền sử dụng"],
     "trong_tai": ["trọng tài", "phán quyết", "thỏa thuận trọng tài", "hội đồng trọng tài"],
+    "xay_dung": ["xây dựng", "thi công", "nhà thầu", "xây lắp", "nghiệm thu công trình",
+                 "giấy phép xây dựng", "công trình xây dựng"],
 }
 
 

@@ -98,10 +98,13 @@ def safe_filename(so_ky_hieu: str | None, doc_id: str | int) -> str:
 
 
 def to_kb_markdown(meta: dict, content_html: str,
-                   relations: dict[str, list[str]] | None = None) -> tuple[str, str] | None:
+                   relations: dict[str, list[str]] | None = None,
+                   domain: str | None = None) -> tuple[str, str] | None:
     """1 record (metadata + content_html [+ relations]) → (filename, nội dung .md có front-matter).
     None nếu rỗng text. `relations` (từ `group_relationships`) → ghi cạnh đồ thị (amends/replaced_by/...)
-    vào front-matter — CHÍNH là dữ liệu để closure/changelog/impact/lược đồ sáng lên ở quy mô lớn."""
+    vào front-matter — CHÍNH là dữ liệu để closure/changelog/impact/lược đồ sáng lên ở quy mô lớn.
+    `domain`: nhãn lĩnh vực (vd 'xay_dung') → domain-scoped retrieval lọc theo lĩnh vực (chống
+    cạnh-tranh-toàn-cục khi mở rộng KB — kb-expansion-plan trụ cột 1)."""
     body = html_to_text(content_html)
     if not body:
         return None
@@ -109,6 +112,7 @@ def to_kb_markdown(meta: dict, content_html: str,
         "doc_id": meta.get("so_ky_hieu") or f"id-{meta.get('id')}",
         "title": (meta.get("title") or "").strip(),
         "doc_type": doc_type_from(meta.get("loai_van_ban")),
+        "domain": (domain or "").strip(),
         "status": map_status(meta.get("tinh_trang_hieu_luc")),
         "effective_date": iso_date(meta.get("ngay_co_hieu_luc")),
         "expiry_date": iso_date(meta.get("ngay_het_hieu_luc")),
@@ -235,7 +239,7 @@ def rel_pairs_by_source(rel_rows: list[dict], id_to_ref: dict[str, str]
 def run_bulk(out: str = "knowledge_base/_ingested", limit: int | None = None,
              keyword: str | None = None, in_force_only: bool = False, min_year: int = 0,
              central_only: bool = False, mirror_dir: str | None = None, dry_run: bool = False,
-             types: str | None = None) -> int:
+             types: str | None = None, domain_label: str | None = None) -> int:
     """CON BATCH bulk: join metadata + content + relationships của th1nhng0 (CC BY 4.0, vbpl.vn) → KB .md
     KÈM cạnh đồ thị (amends/replaced_by/guides…) + hiệu lực. Trả số file đã ghi (dry_run: số SẼ ghi).
 
@@ -307,7 +311,7 @@ def run_bulk(out: str = "knowledge_base/_ingested", limit: int | None = None,
             if not m or not _match(m):
                 continue
             relations = group_relationships(rels.get(str(r.get("id")), []))
-            res = to_kb_markdown(m, r.get("content_html", ""), relations=relations or None)
+            res = to_kb_markdown(m, r.get("content_html", ""), relations=relations or None, domain=domain_label)
             if not res:                                # rỗng text (luật mới content trống — đã biết)
                 continue
             by_type[doc_type_from(m.get("loai_van_ban"))] += 1
@@ -345,13 +349,14 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="chỉ đếm + báo phân bố, KHÔNG ghi file")
     ap.add_argument("--types", default=None,
                     help="chỉ loại quy phạm (vd nghi_dinh,thong_tu,luat,phap_lenh) — bỏ Quyết định/Chỉ thị")
+    ap.add_argument("--domain-label", default=None, help="gắn nhãn domain (vd xay_dung) cho domain-scoped retrieval")
     args = ap.parse_args()
 
     if args.bulk:
         run_bulk(args.out, args.limit, args.keyword,
                  in_force_only=args.in_force_only, min_year=args.min_year,
                  central_only=args.central_only, mirror_dir=args.mirror_dir, dry_run=args.dry_run,
-                 types=args.types)
+                 types=args.types, domain_label=args.domain_label)
         return
 
     out_dir = Path(args.out)
