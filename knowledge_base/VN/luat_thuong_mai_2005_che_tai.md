@@ -1,4 +1,5 @@
 ---
+domain: thuong_mai
 doc_id: 36/2005/QH11
 title: Luật Thương mại 2005 — Chế tài trong thương mại
 doc_type: luat

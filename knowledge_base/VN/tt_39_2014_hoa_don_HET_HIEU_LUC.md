@@ -1,4 +1,5 @@
 ---
+domain: hoa_don
 doc_id: 39/2014/TT-BTC
 title: Thông tư 39/2014/TT-BTC — hướng dẫn về hóa đơn bán hàng hóa, cung ứng dịch vụ (ĐÃ HẾT HIỆU LỰC)
 doc_type: thong_tu

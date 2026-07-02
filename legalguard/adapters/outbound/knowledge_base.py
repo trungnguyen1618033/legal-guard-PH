@@ -753,10 +753,12 @@ def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
                     reranker_llm: LLMPort | None = None, strategy: str = "auto",
                     rerank_fn: RerankFn | None = None, closure: bool = False,
                     in_force: bool = False, embed_store=None,
-                    tt_sar: bool = False) -> KnowledgeBasePort:
+                    tt_sar: bool = False, domain_scoped: bool = False) -> KnowledgeBasePort:
     """strategy: auto (hybrid nếu có embed, else keyword) | keyword | hybrid | full.
 
-    Thứ tự bọc: base → [in_force lọc hiệu lực] → [rerank] → [tt_sar rerank đồ-thị] → [closure].
+    Thứ tự bọc: base → [domain_scoped lọc theo lĩnh vực] → [in_force lọc hiệu lực] → [rerank] →
+    [tt_sar rerank đồ-thị] → [closure]. domain_scoped đặt SÁT base: thu hẹp vũ trụ ứng viên theo lĩnh vực
+    câu hỏi TRƯỚC mọi lớp khác (chống cạnh-tranh-toàn-cục khi KB lớn — kb-expansion-plan trụ cột 1).
     tt_sar đặt SAU rerank để cross-encoder KHÔNG ghi đè tín hiệu đồ-thị (typed/temporal) của TT-SAR — nếu
     đặt trước, reranker re-score thuần theo liên quan và xóa suppression replaced_by. rerank_fn ưu tiên hơn reranker_llm.
     """
@@ -772,6 +774,9 @@ def build_retriever(base_dir: str, tenant: str, embed_fn: EmbedFn | None = None,
             except Exception:  # noqa: BLE001 — fallback an toàn khi embedding lỗi
                 _log.warning("Embedding KB lỗi (tenant=%s) — hạ xuống keyword retriever.",
                              tenant, exc_info=True)
+    if domain_scoped:
+        from legalguard.adapters.outbound.domain_router import DomainScopedRetriever
+        base = DomainScopedRetriever(base, base_dir, tenant)
     if in_force:
         base = InForceRetriever(base, base_dir, tenant)
     if rerank_fn is not None:
@@ -821,7 +826,8 @@ class FileKnowledgeBaseProvider:
     def __init__(self, base_dir: str, embed_fn: EmbedFn | None = None,
                  reranker_llm: LLMPort | None = None, strategy: str = "auto",
                  rerank_fn: RerankFn | None = None, closure: bool = False,
-                 in_force: bool = False, embed_store=None, tt_sar: bool = False) -> None:
+                 in_force: bool = False, embed_store=None, tt_sar: bool = False,
+                 domain_scoped: bool = False) -> None:
         self.base_dir = base_dir
         self.embed_fn = embed_fn
         self.reranker_llm = reranker_llm
@@ -830,6 +836,7 @@ class FileKnowledgeBaseProvider:
         self.closure = closure
         self.in_force = in_force
         self.tt_sar = tt_sar               # TT-SAR: rerank đồ-thị typed+temporal (opt-in)
+        self.domain_scoped = domain_scoped  # định tuyến theo lĩnh vực (opt-in — chống cạnh-tranh-toàn-cục)
         self.embed_store = embed_store     # SqlEmbeddingStore (tùy chọn): embed bền → corpus lớn không re-embed
         self._cache: dict[tuple[str, str, bool, bool], KnowledgeBasePort] = {}
 
@@ -868,7 +875,8 @@ class FileKnowledgeBaseProvider:
         reranker_llm = self.reranker_llm if rerank else None
         base = build_retriever(self.base_dir, org.country, self.embed_fn, reranker_llm,
                                self.strategy, rerank_fn, self.closure, self.in_force,
-                               embed_store=self.embed_store, tt_sar=self.tt_sar)
+                               embed_store=self.embed_store, tt_sar=self.tt_sar,
+                               domain_scoped=self.domain_scoped)
         overlay_dir = Path(self.base_dir) / "_orgs" / org.id
         if overlay and overlay_dir.exists() and any(overlay_dir.glob("*.md")):
             # Overlay riêng công ty: giữ keyword (nhỏ, khỏi embed) NHƯNG vẫn tôn trọng lọc hiệu lực

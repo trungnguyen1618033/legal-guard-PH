@@ -1,4 +1,5 @@
 ---
+domain: so_huu_tri_tue
 doc_id: 50/2005/QH11
 title: Luật Sở hữu trí tuệ 2005 (50/2005/QH11)
 doc_type: luat

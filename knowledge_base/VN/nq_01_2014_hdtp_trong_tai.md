@@ -1,4 +1,5 @@
 ---
+domain: trong_tai
 doc_id: 01/2014/NQ-HĐTP
 title: Hướng dẫn thi hành một số quy định Luật trọng tài thương mại
 doc_type: nghi_quyet

@@ -74,7 +74,8 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                                    reranker_llm=reranker, strategy=kb_strategy,
                                    rerank_fn=rerank_fn, closure=cfg.citation_closure,
                                    in_force=cfg.in_force_filter, embed_store=embed_store,
-                                   tt_sar=cfg.tt_sar_rerank)
+                                   tt_sar=cfg.tt_sar_rerank,
+                                   domain_scoped=cfg.domain_scoped_retrieval)
     cases = SqlAlchemyCaseRepository(cfg.database_url)
     outcomes = SqlAlchemyOutcomeRepository(cfg.database_url)
     feedback = SqlAlchemyFeedbackRepository(cfg.database_url)

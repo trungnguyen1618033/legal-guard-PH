@@ -1,4 +1,5 @@
 ---
+domain: lao_dong
 doc_id: 145/2020/NĐ-CP
 title: NĐ 145/2020 — hướng dẫn Bộ luật Lao động 2019 (điều kiện lao động & quan hệ lao động)
 doc_type: nghi_dinh

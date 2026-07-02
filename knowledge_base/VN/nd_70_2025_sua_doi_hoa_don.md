@@ -1,4 +1,5 @@
 ---
+domain: hoa_don
 doc_id: 70/2025/NĐ-CP
 title: Nghị định 70/2025/NĐ-CP — sửa đổi, bổ sung Nghị định 123/2020/NĐ-CP về hóa đơn, chứng từ
 doc_type: nghi_dinh

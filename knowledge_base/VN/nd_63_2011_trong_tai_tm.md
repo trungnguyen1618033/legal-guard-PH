@@ -1,4 +1,5 @@
 ---
+domain: trong_tai
 doc_id: 63/2011/NĐ-CP
 title: Quy định chi tiết và hướng dẫn thi hành một số điều của Luật Trọng tài thương mại
 doc_type: nghi_dinh

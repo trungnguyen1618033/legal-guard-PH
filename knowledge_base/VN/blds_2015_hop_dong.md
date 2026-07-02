@@ -1,4 +1,5 @@
 ---
+domain: dan_su
 doc_id: 91/2015/QH13
 title: Bộ luật Dân sự 2015 — chế định hợp đồng (phạt vi phạm, bồi thường, đặt cọc, lãi chậm trả, nghĩa vụ trả nợ vay, trần lãi suất)
 doc_type: bo_luat

@@ -1,4 +1,5 @@
 ---
+domain: doanh_nghiep
 doc_id: 59/2020/QH14
 title: Luật Doanh nghiệp 2020 (59/2020/QH14)
 doc_type: luat

@@ -1,4 +1,5 @@
 ---
+domain: hoa_don
 doc_id: 123/2020/NĐ-CP
 title: Nghị định 123/2020/NĐ-CP — quy định về hóa đơn, chứng từ
 doc_type: nghi_dinh

@@ -1,4 +1,5 @@
 ---
+domain: dau_tu
 doc_id: 143/2025/QH15
 title: Luật Đầu tư 2025 (143/2025/QH15)
 doc_type: luat

@@ -1,4 +1,5 @@
 ---
+domain: du_lieu_ca_nhan
 doc_id: 13/2023/NĐ-CP
 title: NĐ 13/2023 — Bảo vệ dữ liệu cá nhân
 doc_type: nghi_dinh

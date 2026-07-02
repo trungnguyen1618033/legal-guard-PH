@@ -1,4 +1,5 @@
 ---
+domain: trong_tai
 doc_id: 54/2010/QH12
 title: Luật Trọng tài thương mại 2010 (54/2010/QH12)
 doc_type: luat

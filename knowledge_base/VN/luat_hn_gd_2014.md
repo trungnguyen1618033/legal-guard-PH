@@ -1,4 +1,5 @@
 ---
+domain: hon_nhan
 doc_id: 52/2014/QH13
 title: Luật Hôn nhân và gia đình 2014 (52/2014/QH13)
 doc_type: luat

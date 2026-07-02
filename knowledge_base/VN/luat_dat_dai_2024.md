@@ -1,4 +1,5 @@
 ---
+domain: dat_dai
 doc_id: 31/2024/QH15
 title: Luật Đất đai 2024 (31/2024/QH15)
 doc_type: luat
