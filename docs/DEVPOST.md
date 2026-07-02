@@ -7,6 +7,11 @@ clauses, and proposes position-aware negotiation tactics — with a human in the
 
 **Track:** Autopilot Agent · **Built with:** Qwen models on Qwen Cloud, Alibaba Cloud ECS · **License:** MIT
 
+**Try it out:**
+- 🌐 Live (Alibaba Cloud ECS): https://legalguard.duckdns.org — [`/app`](https://legalguard.duckdns.org/app) (analyze) · [`/lookup`](https://legalguard.duckdns.org/lookup) (legal Q&A + autopilot) · [`/trust`](https://legalguard.duckdns.org/trust) (published accuracy 98.1%)
+- 📦 Repo (MIT): https://github.com/trungnguyen1618033/legal-guard-PH — submission tag `v1.0-qwen`
+- 🎬 Demo video: `<YOUTUBE_LINK>` · Alibaba-deploy proof recording: `<YOUTUBE_LINK_2>`
+
 ---
 
 ## Inspiration
@@ -24,8 +29,9 @@ the chat apps they already use.
   agent returns keep-vs-concede tactics + a ready-to-send bilingual counter-clause — not a rigid template.
 - **Keeps a human in the loop**: the message to the counterparty is locked until a reviewer approves;
   rejecting escalates to a lawyer.
-- **Works proactively (autopilot)**: scans newly-issued laws and tells you which past contracts are now
-  affected — and self-tunes when you dismiss a false alarm.
+- **Works proactively (autopilot)**: a cron service inside the production Docker stack scans
+  newly-issued laws **every day at 5 AM** and tells you which past contracts are now affected —
+  and self-tunes when you dismiss a false alarm. The agent literally works while you sleep.
 - **Grounded, never fabricated**: in-force filtering (won't cite repealed law), NLI verification, and it
   **abstains** when the knowledge base doesn't cover a question.
 - Channels: Web UI, **Slack** and **Zalo** bots, and an **MCP** tool.
@@ -66,6 +72,25 @@ DashScope-intl; hosting is Alibaba Cloud ECS; the repo is MIT (open-core).
 
 ---
 
+## ✅ Submission checklist (theo rules chính thức trên Devpost — verify 2/7/2026)
+
+Hạn nộp: **July 9, 2026 @ 2:00 PM PDT** (= 4:00 sáng 10/7 giờ VN) — mục tiêu an toàn: submit xong 8/7.
+
+- [x] Repo public + **LICENSE file MIT hiển thị ở đầu trang repo** (⚠️ repo đang private — chuyển public trước khi submit)
+- [x] Dùng Qwen models trên Qwen Cloud (6 model qua DashScope)
+- [x] Deploy Alibaba Cloud ECS — live https://legalguard.duckdns.org
+- [x] Architecture diagram (`architecture-diagram.en.md`)
+- [x] Text description (file này) + chọn track Autopilot Agent
+- [ ] 🎬 Video demo ~3 phút — upload YouTube/Vimeo public → điền link ở "Try it out"
+- [ ] 🎥 **Recording RIÊNG (tách khỏi demo) chứng minh backend chạy trên Alibaba Cloud** — quay màn hình:
+      Alibaba Cloud console (ECS instance) → SSH `docker ps` (5 container) → `curl https://legalguard.duckdns.org/health` → đối chiếu IP/domain
+- [ ] (Optional, có giải Blog Post) bài blog "building with Qwen Cloud" → điền link
+
+Judging: Technical Depth 30% · Innovation 30% · Problem Value 25% · Presentation 15% — video nên phân bổ
+thời lượng theo đúng tỉ trọng này (kỹ thuật + sáng tạo = 60% điểm).
+
+---
+
 ## 🎬 Demo video script (~3 min, EN)
 1. **Hook (0:00–0:20)** — "Vietnamese SMEs sign foreign contracts that are unfavorable or illegal under
    Vietnamese law. Legal Guard is an autopilot agent that catches this and helps you push back."
@@ -76,7 +101,8 @@ DashScope-intl; hosting is Alibaba Cloud ECS; the repo is MIT (open-core).
    (AI-Native evidence).
 4. **Negotiate (1:40–2:10)** — paste the counterparty's reply ("we'll only go to 12%") → a new negotiation
    round cites the 8% cap; generate a bilingual counter-clause.
-5. **Autopilot (2:10–2:40)** — trigger `/monitor/run`: "the agent scans new laws while you sleep and flags
-   affected contracts"; dismiss a false alarm → it self-tunes.
+5. **Autopilot (2:10–2:40)** — show the in-stack cron (`docker compose logs autopilot-cron`) + trigger
+   `/monitor/run` with an older `since` so it fires on real data (Decree 63/2011 → 8 arbitration cases
+   flagged): "the agent scans new laws while you sleep"; dismiss a false alarm → it self-tunes.
 6. **Trust close (2:40–3:00)** — `/trust`: 98% internal accuracy, in-force filter, 2-layer verify —
    "grounded, never fabricated." Mention: Qwen on Qwen Cloud, Alibaba Cloud ECS, MIT open-core.

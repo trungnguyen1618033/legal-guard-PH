@@ -54,10 +54,10 @@ nhưng **đắt** → khoảng trống cho một công cụ giá rẻ. (ASL Law,
 
 ## 6. Hệ quả chiến lược
 
-- Thị trường **validate** thesis → mạnh cho cả Qwen (problem + khác biệt rõ) và XPRIZE
-  (Category Impact + Business Viability).
+- Thị trường **validate** thesis → mạnh cho pitch Qwen (problem + khác biệt rõ) và cho việc
+  bán thật hậu-contest (impact + viability).
 - Hai điểm pitch mạnh: **blue ocean SME** + **Luật AI VN như tailwind (compliant-by-design)**.
-- Vẫn cần **doanh thu thật** cho XPRIZE — thị trường tốt không thay được khách trả tiền
+- Thị trường tốt không thay được **khách trả tiền thật** — GTM dẫn-dắt-bởi-luật-sư là bước kế tiếp
   (xem [`phan-tich-kha-thi.md`](internal/phan-tich-kha-thi.md)).
 
 ## Nguồn (verify 10/6/2026)

@@ -30,8 +30,8 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
 | [data-model.md](data-model.md) | Persistence SQLAlchemy (SQLite→Postgres) · Alembic · bảng `cases` |
 | [security.md](security.md) | Threat model · cô lập theo công ty · redaction PII · prompt-injection · compliance |
 | [deployment.md](deployment.md) | Triển khai & scale trên Alibaba Cloud · topology · tiers · CI/CD · bottlenecks |
-| [deploy-ecs-selfhosted.md](deploy-ecs-selfhosted.md) | **Deploy ECS self-contained** (app+Caddy+PG+Redis 1 VM, DuckDNS, $0 ngoài) + backup DB + log/debug + SSH tunnel chọc DB từ local |
-| [deploy-ecs.md](deploy-ecs.md) | Deploy ECS + HTTPS bản dùng **Neon + Upstash** (DB/Redis ngoài) |
+| [deploy-ecs-selfhosted.md](deploy-ecs-selfhosted.md) | ⭐ **ĐANG DÙNG production** (legalguard.duckdns.org): app+Caddy+PG+Redis+autopilot-cron 1 VM, DuckDNS, $0 ngoài + backup DB + log/debug + SSH tunnel |
+| [deploy-ecs.md](deploy-ecs.md) | Deploy ECS + HTTPS bản dùng **Neon + Upstash** (DB/Redis ngoài) — phương án thay thế |
 | [architecture-diagram.md](architecture-diagram.md) | Sơ đồ kiến trúc (Mermaid) cho Devpost — tô đậm Alibaba Cloud |
 | [architecture-diagram.en.md](architecture-diagram.en.md) | 🌐 EN — sơ đồ + sequence cho giám khảo quốc tế (đúng deploy hiện tại + đủ 6 model Qwen) |
 | [DEVPOST.md](DEVPOST.md) | 🌐 EN — bản nộp Devpost (Inspiration/What/How/Challenges/Next) + block Qwen+Alibaba + script video |
@@ -45,8 +45,10 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
 | [/README.vi.md](../README.vi.md) | Bản tiếng Việt đầy đủ (endpoints chi tiết · channels · security · persistence) |
 | [/CLAUDE.md](../CLAUDE.md) | Hướng dẫn cho Claude Code: lệnh, kiến trúc, kỹ thuật AI, bảo mật |
 
-## Trạng thái dự án (25/6/2026)
-- ✅ MVP chạy được (221 test, lint sạch), offline qua stub.
+## Trạng thái dự án (2/7/2026)
+- ✅ MVP chạy được (365 test, lint sạch), offline qua stub.
+- ✅ **Đang LIVE**: https://legalguard.duckdns.org (ECS self-contained + HTTPS + autopilot-cron 5AM VN
+  trong stack). Accuracy công bố **98.1% (53/54)** đo 2/7 với stack Qwen thật → `/trust`.
 - ✅ Agentic RAG hiện đại + bảo mật + multi-tenancy 2 trục + persistence Postgres-ready + Docker.
 - ✅ **Tra cứu luật VN**: chunk Điều/Khoản + NFC, lọc hiệu lực + point-in-time, citation-closure
   document-aware (xuyên Luật→NĐ→TT), cross-encoder rerank (opt-in), **NLI entailment verify**,
@@ -55,6 +57,7 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
   **regulatory change intel** article-level + cảnh báo Slack/Zalo (`/impact`) · **system-of-record
   dashboard** (`/dashboard`, `/insights/dashboard`) · **living flywheel** feedback→golden
   (`evaluation/feedback_to_golden.py`) · reason-then-format structured output.
-- ✅ Hạ tầng deploy Alibaba Cloud ECS SẴN SÀNG (Dockerfile · compose.prod · Caddy auto-TLS · `deploy-ecs.md`).
-- ✅ Tập trung Qwen hackathon (gác XPRIZE). Chờ `QWEN_API_KEY` để chạy thật + deploy.
+- ✅ Tập trung 100% Qwen hackathon (XPRIZE bỏ hẳn 2/7 — đã gỡ khỏi bề mặt công khai). Còn lại trước
+  nộp (hạn Devpost 9/7 2pm PDT): video demo ~3′ + recording riêng chứng minh chạy Alibaba Cloud +
+  chuyển repo public + submit.
 - ⬜ Còn lại (cần hạ tầng/cost): reranker/embedding pháp lý VN **self-host** (GPU) · **hard-negative mining** từ feedback (training).
