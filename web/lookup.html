@@ -150,7 +150,9 @@ $('go').onclick = async () => {
     if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
     const d = await r.json();
     _q = q;
-    $('answer').textContent = d.answer || "(không có câu trả lời)";
+    // esc trước rồi mới thêm <strong> — an toàn, chỉ render **đậm** của template Trả lời/Căn cứ.
+    $('answer').innerHTML = esc(d.answer || "(không có câu trả lời)")
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     $('sources').innerHTML = (d.sources||[]).length
       ? "<b>Nguồn:</b> " + d.sources.map(s => `<code>${esc(s)}</code>`).join(" · ")
       : '<span class="muted">(không có nguồn — chưa đủ căn cứ trong cơ sở tri thức)</span>';
@@ -280,10 +282,10 @@ async function doRedline() {
 async function fb(rating) {
   $('fbmsg').textContent = " đang gửi…";
   try {
-    await fetch('/feedback', { method:'POST',
+    const r = await fetch('/feedback', { method:'POST',
       headers: { 'Content-Type':'application/json', ...authHeaders() },
       body: JSON.stringify({ kind:'lookup', ref:_q, rating }) });
-    $('fbmsg').textContent = " — cảm ơn phản hồi!";
+    $('fbmsg').textContent = r.ok ? " — cảm ơn phản hồi!" : ` — gửi lỗi (HTTP ${r.status}).`;
   } catch { $('fbmsg').textContent = " — gửi lỗi."; }
 }
 </script>
