@@ -1,0 +1,733 @@
+{
+  "note": "ỨNG VIÊN NHÁP — expected/basis TRỐNG, must_cite/must_say là ĐỀ XUẤT. Luật sư duyệt rồi mới merge vào accuracy_golden.json.",
+  "cases": [
+    {
+      "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
+      "type": "tra_cuu",
+      "question": "Chủ thể dữ liệu cá nhân có những quyền gì?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "13_2023"
+      ],
+      "must_say": [
+        "quyền"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
+      "type": "tra_cuu",
+      "question": "Sự đồng ý của chủ thể dữ liệu phải đáp ứng điều kiện nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "13_2023"
+      ],
+      "must_say": [
+        "đồng ý"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
+      "type": "tra_cuu",
+      "question": "Dữ liệu cá nhân nhạy cảm gồm những loại nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "13_2023"
+      ],
+      "must_say": [
+        "nhạy cảm"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
+      "type": "tra_cuu",
+      "question": "Chuyển dữ liệu cá nhân ra nước ngoài cần điều kiện gì?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "13_2023"
+      ],
+      "must_say": [
+        "xuyên biên giới"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
+      "type": "tra_cuu",
+      "question": "Đánh giá tác động xử lý dữ liệu cá nhân là gì?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "13_2023"
+      ],
+      "must_say": [
+        "đánh giá tác động"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Doanh nghiệp (Luật DN 2020)",
+      "type": "tra_cuu",
+      "question": "Thời hạn góp đủ vốn điều lệ khi thành lập doanh nghiệp là bao lâu?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "doanh_nghiep"
+      ],
+      "must_say": [
+        "90 ngày"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Doanh nghiệp (Luật DN 2020)",
+      "type": "tra_cuu",
+      "question": "Công ty có thể có bao nhiêu người đại diện theo pháp luật?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "doanh_nghiep"
+      ],
+      "must_say": [
+        "người đại diện"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Doanh nghiệp (Luật DN 2020)",
+      "type": "tra_cuu",
+      "question": "Chuyển nhượng phần vốn góp trong công ty TNHH hai thành viên bị hạn chế thế nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "doanh_nghiep"
+      ],
+      "must_say": [
+        "chuyển nhượng"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Doanh nghiệp (Luật DN 2020)",
+      "type": "tra_cuu",
+      "question": "Công ty cổ phần có những loại cổ phần nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "doanh_nghiep"
+      ],
+      "must_say": [
+        "cổ phần phổ thông"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Doanh nghiệp (Luật DN 2020)",
+      "type": "tra_cuu",
+      "question": "Các trường hợp doanh nghiệp bị giải thể?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "doanh_nghiep"
+      ],
+      "must_say": [
+        "giải thể"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Hôn nhân & gia đình (Luật HN&GĐ 2014)",
+      "type": "tra_cuu",
+      "question": "Tài sản chung của vợ chồng gồm những gì?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "hn_gd"
+      ],
+      "must_say": [
+        "tài sản chung"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Hôn nhân & gia đình (Luật HN&GĐ 2014)",
+      "type": "tra_cuu",
+      "question": "Nguyên tắc chia tài sản chung khi ly hôn?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "hn_gd"
+      ],
+      "must_say": [
+        "chia đôi"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Hôn nhân & gia đình (Luật HN&GĐ 2014)",
+      "type": "tra_cuu",
+      "question": "Điều kiện kết hôn theo pháp luật Việt Nam?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "hn_gd"
+      ],
+      "must_say": [
+        "tự nguyện"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Hôn nhân & gia đình (Luật HN&GĐ 2014)",
+      "type": "tra_cuu",
+      "question": "Quyền nuôi con dưới 36 tháng tuổi khi ly hôn thuộc về ai?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "hn_gd"
+      ],
+      "must_say": [
+        "36 tháng"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Hôn nhân & gia đình (Luật HN&GĐ 2014)",
+      "type": "tra_cuu",
+      "question": "Tài sản riêng của vợ, chồng gồm những gì?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "hn_gd"
+      ],
+      "must_say": [
+        "tài sản riêng"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Lao động (BLLĐ 2019/NĐ 145)",
+      "type": "tra_cuu",
+      "question": "Thời gian thử việc tối đa đối với công việc quản lý là bao lâu?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "145_2020"
+      ],
+      "must_say": [
+        "180 ngày"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Lao động (BLLĐ 2019/NĐ 145)",
+      "type": "tra_cuu",
+      "question": "Người lao động đơn phương chấm dứt hợp đồng phải báo trước bao nhiêu ngày?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "145_2020"
+      ],
+      "must_say": [
+        "báo trước"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Lao động (BLLĐ 2019/NĐ 145)",
+      "type": "tra_cuu",
+      "question": "Số ngày nghỉ phép năm tối thiểu của người lao động?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "145_2020"
+      ],
+      "must_say": [
+        "12 ngày"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Lao động (BLLĐ 2019/NĐ 145)",
+      "type": "tra_cuu",
+      "question": "Các trường hợp người sử dụng lao động được sa thải người lao động?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "145_2020"
+      ],
+      "must_say": [
+        "sa thải"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Lao động (BLLĐ 2019/NĐ 145)",
+      "type": "tra_cuu",
+      "question": "Hợp đồng lao động gồm những loại nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "145_2020"
+      ],
+      "must_say": [
+        "xác định thời hạn"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Sở hữu trí tuệ (Luật SHTT 2005)",
+      "type": "tra_cuu",
+      "question": "Quyền tác giả phát sinh từ thời điểm nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "shtt"
+      ],
+      "must_say": [
+        "sáng tạo"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Sở hữu trí tuệ (Luật SHTT 2005)",
+      "type": "tra_cuu",
+      "question": "Thời hạn bảo hộ quyền tác giả đối với tác phẩm là bao lâu?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "shtt"
+      ],
+      "must_say": [
+        "50 năm"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Sở hữu trí tuệ (Luật SHTT 2005)",
+      "type": "tra_cuu",
+      "question": "Điều kiện để một dấu hiệu được bảo hộ làm nhãn hiệu?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "shtt"
+      ],
+      "must_say": [
+        "nhãn hiệu"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Sở hữu trí tuệ (Luật SHTT 2005)",
+      "type": "tra_cuu",
+      "question": "Hành vi nào bị coi là xâm phạm quyền đối với nhãn hiệu?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "shtt"
+      ],
+      "must_say": [
+        "xâm phạm"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Sở hữu trí tuệ (Luật SHTT 2005)",
+      "type": "tra_cuu",
+      "question": "Thời hạn bảo hộ kiểu dáng công nghiệp là bao lâu?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "shtt"
+      ],
+      "must_say": [
+        "kiểu dáng"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Đất đai (Luật Đất đai 2024)",
+      "type": "tra_cuu",
+      "question": "Điều kiện chuyển nhượng quyền sử dụng đất?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "dat_dai"
+      ],
+      "must_say": [
+        "giấy chứng nhận"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Đất đai (Luật Đất đai 2024)",
+      "type": "tra_cuu",
+      "question": "Nhà nước thu hồi đất trong những trường hợp nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "dat_dai"
+      ],
+      "must_say": [
+        "thu hồi"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Đất đai (Luật Đất đai 2024)",
+      "type": "tra_cuu",
+      "question": "Doanh nghiệp thuê đất trả tiền hàng năm có quyền gì với đất thuê?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "dat_dai"
+      ],
+      "must_say": [
+        "thuê đất"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Đất đai (Luật Đất đai 2024)",
+      "type": "tra_cuu",
+      "question": "Thời hạn sử dụng đất của tổ chức kinh tế để thực hiện dự án đầu tư?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "dat_dai"
+      ],
+      "must_say": [
+        "50 năm"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Đầu tư (Luật Đầu tư 2025)",
+      "type": "tra_cuu",
+      "question": "Những ngành, nghề nào bị cấm đầu tư kinh doanh?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "dau_tu"
+      ],
+      "must_say": [
+        "cấm"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Đầu tư (Luật Đầu tư 2025)",
+      "type": "tra_cuu",
+      "question": "Hình thức đầu tư của nhà đầu tư nước ngoài tại Việt Nam?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "dau_tu"
+      ],
+      "must_say": [
+        "hình thức đầu tư"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Đầu tư (Luật Đầu tư 2025)",
+      "type": "tra_cuu",
+      "question": "Nhà nước bảo đảm gì cho nhà đầu tư khi thay đổi pháp luật?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "dau_tu"
+      ],
+      "must_say": [
+        "bảo đảm"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Đầu tư (Luật Đầu tư 2025)",
+      "type": "tra_cuu",
+      "question": "Dự án nào phải xin chấp thuận chủ trương đầu tư?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "dau_tu"
+      ],
+      "must_say": [
+        "chủ trương"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Trọng tài thương mại (TTTM 2010)",
+      "type": "tra_cuu",
+      "question": "Khi nào phán quyết trọng tài bị Tòa án hủy?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "trong_tai"
+      ],
+      "must_say": [
+        "hủy phán quyết"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Trọng tài thương mại (TTTM 2010)",
+      "type": "tra_cuu",
+      "question": "Ngôn ngữ và địa điểm giải quyết tranh chấp trọng tài do ai quyết định?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "trong_tai"
+      ],
+      "must_say": [
+        "thỏa thuận"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Trọng tài thương mại (TTTM 2010)",
+      "type": "tra_cuu",
+      "question": "Tranh chấp nào thuộc thẩm quyền giải quyết của trọng tài thương mại?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "trong_tai"
+      ],
+      "must_say": [
+        "thẩm quyền"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Trọng tài thương mại (TTTM 2010)",
+      "type": "tra_cuu",
+      "question": "Phán quyết trọng tài có giá trị thi hành như thế nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "trong_tai"
+      ],
+      "must_say": [
+        "chung thẩm"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Phá sản (CHƯA có KB)",
+      "type": "tra_cuu",
+      "question": "Trình tự thủ tục phá sản doanh nghiệp gồm những bước nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [],
+      "must_say": [],
+      "abstain": true,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Bảo hiểm xã hội (CHƯA có KB)",
+      "type": "tra_cuu",
+      "question": "Mức đóng bảo hiểm xã hội bắt buộc hiện nay là bao nhiêu phần trăm?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [],
+      "must_say": [],
+      "abstain": true,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Hải quan (CHƯA có KB)",
+      "type": "tra_cuu",
+      "question": "Thủ tục hải quan đối với hàng hóa xuất khẩu gồm những bước nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [],
+      "must_say": [],
+      "abstain": true,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Xây dựng (CHƯA có KB)",
+      "type": "tra_cuu",
+      "question": "Giấy phép xây dựng công trình do cơ quan nào cấp?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [],
+      "must_say": [],
+      "abstain": true,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Cạnh tranh (CHƯA có KB)",
+      "type": "tra_cuu",
+      "question": "Hành vi thỏa thuận hạn chế cạnh tranh bị cấm gồm những gì?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [],
+      "must_say": [],
+      "abstain": true,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Chế tài thương mại (LTM 2005)",
+      "type": "tra_cuu",
+      "question": "Quy định về buộc bồi thường thiệt hại trong thương mại thế nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "302"
+      ],
+      "must_say": [
+        "bồi thường"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Hợp đồng dân sự (BLDS 2015)",
+      "type": "tra_cuu",
+      "question": "Quy định về hợp đồng vô hiệu trong dân sự thế nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "blds"
+      ],
+      "must_say": [
+        "vô hiệu"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
+      "type": "tra_cuu",
+      "question": "Quy định về hóa đơn điện tử áp dụng từ ngày 1/6/2025 theo văn bản nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "70_2025"
+      ],
+      "must_say": [
+        "70/2025"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
+      "type": "tra_cuu",
+      "question": "Năm 2021, hộ kinh doanh dùng hóa đơn theo văn bản nào?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "39_2014"
+      ],
+      "must_say": [],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Lãi suất vay (BLDS 2015)",
+      "type": "tra_cuu",
+      "question": "Cho vay lãi suất 30%/năm có vi phạm trần lãi suất dân sự không?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "468"
+      ],
+      "must_say": [
+        "20%"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Chế tài thương mại (LTM 2005)",
+      "type": "tra_cuu",
+      "question": "Hợp đồng thương mại phạt 8% có vượt trần không?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "301"
+      ],
+      "must_say": [
+        "8%"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Hợp đồng dân sự (BLDS 2015)",
+      "type": "tra_cuu",
+      "question": "Đặt cọc 500 triệu, bên nhận cọc không giao kết hợp đồng thì phải trả lại bao nhiêu?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "328"
+      ],
+      "must_say": [
+        "gấp đôi"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    },
+    {
+      "category": "Lãi suất vay (BLDS 2015)",
+      "type": "tra_cuu",
+      "question": "Vay có lãi quá hạn không trả thì phải trả những loại lãi nào và mức bao nhiêu?",
+      "expected": "",
+      "basis": "",
+      "must_cite": [
+        "466"
+      ],
+      "must_say": [
+        "quá hạn"
+      ],
+      "abstain": false,
+      "_status": "DRAFT-cần-luật-sư-duyệt"
+    }
+  ]
+}
