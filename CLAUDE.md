@@ -277,8 +277,10 @@ Agent track) and Gemini XPRIZE (deadline 17 Aug 2026, Professional Services).
    GTGT ('hóa đơn/xuất khẩu' nuốt hóa đơn), TNDN (rate ở luật gốc). **Đo regression bằng eval MỖI lần nạp.**
 3. Sau mỗi đổi KB: chạy `accuracy_eval` lại → cập nhật `/trust` (đừng để số stale).
 
-**Hiện trạng**: **12 lĩnh vực grounded** (chế tài·hợp đồng·lãi vay·hóa đơn·trọng tài·lao động·doanh
-nghiệp·SHTT·PDPD·hôn nhân-GĐ·đất đai·đầu tư). Golden 54 ca (`evaluation/accuracy_golden.json`),
+**Hiện trạng**: **13 lĩnh vực grounded** (chế tài·hợp đồng·lãi vay·hóa đơn·trọng tài·lao động·doanh
+nghiệp·SHTT·PDPD·hôn nhân-GĐ·đất đai·đầu tư·**xây dựng**). Xây dựng nạp 2/7 từ UTS_VLC (Luật XD 2014
+50/2014, 162 điều, eval-gated `--repeat=3` = 54/54 không regression + vá over-reach câu giấy phép XD).
+Golden 54 ca (`evaluation/accuracy_golden.json`),
 **accuracy THẬT ~98% (53-54/54)** đo với config closure+rerank (`accuracy_report.json` → `/trust`). Đợt nâng
 cấp 1/7/2026 (`docs/internal/qwen-tech-upgrades.md`): baseline thực 87% → **98.1%** nhờ (1) **fix moat-overlay
 đè điều luật ở /lookup** — `OverlayRetriever` fuse RRF thay vì prepend + `/lookup` dùng `for_org(overlay=False)`
