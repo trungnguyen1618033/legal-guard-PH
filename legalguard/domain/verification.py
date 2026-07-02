@@ -101,10 +101,14 @@ def sources_answer_question(question: str, sources: str, judge: LLMPort,
     return None
 
 
-def elbow_cutoff(scores: list[float], min_keep: int = 1) -> int:
+def elbow_cutoff(scores: list[float], min_keep: int = 1, rel_floor: float = 0.9) -> int:
     """SỐ phần tử thuộc cụm điểm mạnh (elbow): cắt tại khe hụt lớn nhất → tách cụm evidence tập trung khỏi
     đuôi nhiễu. CHỈ cắt khi khe đủ rõ (> 1.5× khe trung bình); điểm giảm đều/không có khuỷu rõ → giữ hết
     (không over-cut). Luôn giữ >= min_keep. THUẦN (test offline).
+
+    SÀN TƯƠNG ĐỐI (`rel_floor`): KHÔNG BAO GIỜ bỏ snippet còn ≥ rel_floor × điểm-cao-nhất — đó vẫn là cụm
+    MẠNH, khe nhỏ giữa chúng không phải ranh giới đuôi nhiễu. Sửa lỗi cắt-oan: 5 điểm sát nhau [0.82..0.74]
+    từng bị cắt còn 1 tại khe 0.06 → cổng relevance chỉ thấy 1 khoản hẹp → abstain SAI dù evidence đầy đủ.
 
     ƯỚC LƯỢNG cỡ cụm trên điểm ĐÃ SẮP GIẢM DẦN — bền với input KHÔNG đơn điệu (vd citation-closure APPEND
     đoạn dẫn-chiếu đã decay ở cuối list → không còn giảm dần; nếu tính gap theo thứ tự gốc sẽ ra khe âm/cắt
@@ -116,12 +120,16 @@ def elbow_cutoff(scores: list[float], min_keep: int = 1) -> int:
     if n <= min_keep:
         return n
     ordered = sorted(scores, reverse=True)           # bền input không-đơn-điệu: gap có nghĩa trên bản giảm dần
+    top = ordered[0]
+    # Sàn tương đối: mọi điểm còn gần top (≥ rel_floor×top) thuộc cụm mạnh → luôn giữ (chống cắt-oan cụm sát nhau).
+    floor_keep = sum(1 for s in ordered if top > 0 and s >= rel_floor * top)
     gaps = [ordered[i] - ordered[i + 1] for i in range(n - 1)]
     max_gap = max(gaps)
     avg_gap = sum(gaps) / len(gaps)
     if avg_gap <= 0 or max_gap < 1.5 * avg_gap:      # điểm bằng nhau / không có khuỷu rõ → giữ hết
         return n
-    return max(min_keep, gaps.index(max_gap) + 1)    # số phần tử tới TRƯỚC khe lớn nhất
+    elbow = gaps.index(max_gap) + 1                  # số phần tử tới TRƯỚC khe lớn nhất
+    return max(min_keep, elbow, floor_keep)          # KHÔNG bỏ cụm mạnh: lấy max(elbow, sàn tương đối)
 
 
 _QUOTES = "\"'“”‘’„«»`"   # model hay BỌC evidence trong ngoặc → strip trước khi so (tránh false-negative)

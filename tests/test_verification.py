@@ -10,6 +10,18 @@ def test_elbow_cutoff_denoises_after_clear_gap():
     assert elbow_cutoff([28.7, 26.2, 19.7, 19.3, 19.1]) == 2
 
 
+def test_elbow_cutoff_keeps_tight_high_cluster_not_just_top():
+    # SHTT nhãn hiệu: 5 điểm SÁT nhau & CAO [0.82..0.74] — khe 0.06 ở đầu KHÔNG phải ranh giới đuôi nhiễu.
+    # Trước fix: cắt còn 1 (khoản hẹp) → cổng relevance abstain SAI. Sau fix (sàn tương đối): giữ cụm mạnh.
+    assert elbow_cutoff([0.818, 0.76, 0.756, 0.739, 0.735]) >= 4
+
+
+def test_elbow_cutoff_still_cuts_low_tail_after_strong_cluster():
+    # Sàn tương đối KHÔNG được phá bảo vệ point-in-time: cụm mạnh + đuôi THẤP → vẫn cắt đuôi.
+    assert elbow_cutoff([0.9, 0.88, 0.3, 0.28]) == 2
+    assert elbow_cutoff([0.9, 0.4, 0.35, 0.3]) == 1
+
+
 def test_elbow_cutoff_keeps_all_when_scores_decline_smoothly():
     # Giảm đều → không có khuỷu rõ → giữ hết (không over-cut evidence hợp lệ).
     assert elbow_cutoff([20.0, 19.0, 18.0, 17.0]) == 4
