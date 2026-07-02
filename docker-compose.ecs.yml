@@ -74,6 +74,10 @@ services:
       EXPERT_CHANNEL: ${EXPERT_CHANNEL:-}
     volumes:
       - ./scripts/monitor-cron-docker.sh:/usr/local/bin/monitor-cron.sh:ro
+      - cron_state:/state    # nhớ ngày thành-công-cuối → quét bù nếu lỡ ngày (server down)
+    logging:                 # chặn log phình vô hạn trên VM chạy lâu
+      driver: json-file
+      options: { max-size: "5m", max-file: "3" }
     depends_on:
       app:
         condition: service_healthy
@@ -102,3 +106,4 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  cron_state:
