@@ -104,3 +104,14 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # cập nh
 | `502 Bad Gateway` | app chưa sẵn sàng (đang migrate) | đợi ~30s; xem `logs app` |
 | app crash khi khởi động | `.env` sai (DATABASE_URL scheme, REDIS_URL) | xem `logs app`; sửa `.env` → restart |
 | Slack không verify | domain chưa HTTPS / app chưa chạy | `curl https://<DOMAIN>/health` phải 200 |
+
+## Autopilot cron (agent làm việc khi bạn ngủ)
+
+`scripts/monitor-cron.sh` quét luật MỚI (hiệu lực từ hôm qua) qua `POST /monitor/run` mỗi sáng:
+luôn ghi digest vào log; nếu `.env` có `EXPERT_CHANNEL` (Slack channel ID) → tự gửi digest vào Slack.
+
+```bash
+# cài trên server (5:00 sáng giờ VN = 6:00 CST):
+( crontab -l; echo "0 6 * * * /root/legalguard/scripts/monitor-cron.sh >> /var/log/legalguard-monitor.log 2>&1" ) | crontab -
+tail -f /var/log/legalguard-monitor.log   # xem bằng chứng agent chạy hằng ngày
+```
