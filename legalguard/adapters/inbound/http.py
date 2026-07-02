@@ -377,6 +377,17 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             raise HTTPException(status_code=404, detail="Không tìm thấy case.")
         return asdict(case)
 
+    @app.get("/cases/{case_id}/audit", response_class=PlainTextResponse)
+    def case_audit(case_id: str, reviewer: str = "", note: str = "",
+                   org: Organization = Depends(require_auth)) -> str:
+        # Chế độ luật sư: HỒ SƠ KIỂM CHỨNG AI (markdown) đính kèm hồ sơ — chứng minh đã đối chiếu
+        # (chuẩn ABA 512 / SG MinLaw). Cô lập theo công ty.
+        case = service.get_case(case_id)
+        if case is None or case.org_id != org.id:
+            raise HTTPException(status_code=404, detail="Không tìm thấy case.")
+        from legalguard.domain.audit import compile_audit_trail
+        return compile_audit_trail(asdict(case), reviewer=reviewer, note=note)
+
     @app.delete("/cases/{case_id}")
     def delete_case(case_id: str, org: Organization = Depends(require_auth)) -> dict:
         case = service.get_case(case_id)
