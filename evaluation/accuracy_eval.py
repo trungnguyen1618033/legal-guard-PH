@@ -92,4 +92,7 @@ def run(write: bool = True) -> dict:
 
 
 if __name__ == "__main__":
-    run()
+    import sys
+    # --no-write: chạy THÍ NGHIỆM (vd KNOWLEDGE_BASE_DIR override để thử KB mở rộng) mà KHÔNG ghi đè
+    # accuracy_report.json production (tránh làm bẩn số /trust). Mặc định vẫn ghi (đo chính thức).
+    run(write="--no-write" not in sys.argv)
