@@ -135,6 +135,14 @@
       <div id="memo" class="md"></div>
     </div>
 
+    <div class="card">
+      <h2>⚖️ Hồ sơ kiểm chứng AI (cho luật sư)</h2>
+      <p class="muted">Bằng chứng luật sư đã đối chiếu output AI: vân tay tài liệu (SHA-256) · phát hiện + căn cứ ·
+        dấu vết agent · ô ký kiểm chứng. Đính kèm hồ sơ vụ việc (chuẩn ABA 512 / MinLaw Singapore).</p>
+      <p><button type="button" class="ghost" id="audit-go">⬇️ Tải hồ sơ kiểm chứng (.md)</button>
+        <span id="audit-msg" class="muted"></span></p>
+    </div>
+
     <div class="card"><details><summary>🤖 Trace — agent đã làm gì (tool calls)</summary>
       <div id="trace"></div></details></div>
 
@@ -377,6 +385,20 @@ $('memo-docx').onclick = async () => {
     const blob = await r.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = url; a.download = 'ban-ghi-nho-sua-doi.docx'; a.click(); URL.revokeObjectURL(url);
   } catch (e) { toast('Lỗi tải Word: ' + e.message); }
+};
+
+$('audit-go').onclick = async () => {
+  if (!_caseId) { $('audit-msg').textContent = ' — cần chạy phân tích THẬT (có case) trước.'; return; }
+  $('audit-msg').textContent = ' đang tạo…';
+  try {
+    const r = await fetch(`/cases/${_caseId}/audit`, { headers: { ...authHeaders() } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const md = await r.text();
+    const blob = new Blob([md], { type:'text/markdown' }), url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `ho-so-kiem-chung-${_caseId.slice(0,8)}.md`; a.click(); URL.revokeObjectURL(url);
+    $('audit-msg').textContent = ' ✅ đã tải.';
+  } catch (e) { $('audit-msg').textContent = ' — lỗi: ' + e.message; }
 };
 
 async function recordOutcome(i, result, btn) {
