@@ -30,6 +30,7 @@ uv run alembic upgrade head        # apply DB migrations (DATABASE_URL; sqlite d
 uv run python -m evaluation.run_eval  # fast eval: precision/recall + groundedness on golden set (offline)
 uv run python -m evaluation.legal_eval # eval TRA CỨU LUẬT: Recall@k/MRR + closure-recall + still-good-law (offline)
 uv run python -m evaluation.zalo_ltr_eval # eval trên BENCHMARK CÔNG KHAI Zalo LTR 2021 (MIT, 61k điều/788 query): BM25 lexical Recall@10/MRR@10/Hit@1 → zalo_ltr_report.json (offline sau khi tải HF). LƯU Ý: chỉ đo thành phần lexical, KHÔNG so trực tiếp với accuracy 98% (end-to-end answer trên KB)
+uv run python -m evaluation.rerank_ab --reranker qwen3-api [--limit N] # A/B RERANK trên Zalo LTR: BM25 top-N → rerank → đo LIFT MRR@10/Recall@10. Arm qwen3-api chạy ngay (cần key); arm hf:<model> cần GPU (docs/internal/reranker-ab-deploy.md). Đo 2/7 (40 query): qwen3-rerank nâng MRR 0.487→0.622
 uv run python -m evaluation.accuracy_eval # eval ĐỘ CHÍNH XÁC CÂU TRẢ LỜI (golden đáp-án-đã-biết: dẫn đúng điều+dữ kiện+biết từ chối; cần QWEN key) → ghi accuracy_report.json cho trang /trust
 uv run python -m evaluation.nli_eval      # eval RIÊNG judge NLI (16 ca có nhãn + hard negative, flash vs flagship; cần QWEN key) → nli_report.json (đo 2/7: flash 16/16, đồng thuận 100%)
 uv run python -m evaluation.golden_to_review # sinh PHIẾU LUẬT SƯ DUYỆT từ golden → docs/internal/golden-set-lawyer-review.{csv,md} (gửi luật sư xác nhận)
