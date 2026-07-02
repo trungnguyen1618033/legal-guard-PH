@@ -27,6 +27,15 @@ def test_redact_masks_contact_pii_but_keeps_business_terms():
     assert "Arbitration" in out and "60 days" in out      # từ nghiệp vụ + số ngắn giữ nguyên
 
 
+def test_redact_covers_vn_personal_identifiers():
+    # Guarantee PDPL: định danh cá nhân VN (CCCD 12 số, MST, số TK) bị che TRƯỚC khi gửi mô hình;
+    # số pháp lý (Điều, %, số ngày) KHÔNG bị che → không hỏng phân tích. Xem docs/internal/compliance-pdpl/.
+    out, n = redact("CCCD 079201001234, MST 0312345678-001, STK 19001234567890. Điều 301, phạt 8%, 60 ngày.")
+    assert "079201001234" not in out and "0312345678" not in out and "19001234567890" not in out
+    assert n >= 3
+    assert "Điều 301" in out and "8%" in out and "60 ngày" in out
+
+
 def test_analyze_notes_redaction(tmp_path):
     c = _client(tmp_path)
     d = c.post("/analyze", data={"text": "Email x@y.com. Arbitration in Beijing."},
