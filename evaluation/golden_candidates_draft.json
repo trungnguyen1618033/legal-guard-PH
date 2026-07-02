@@ -14,7 +14,7 @@
         "quyền"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
@@ -29,7 +29,7 @@
         "đồng ý"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
@@ -44,7 +44,7 @@
         "nhạy cảm"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
@@ -56,10 +56,10 @@
         "13_2023"
       ],
       "must_say": [
-        "xuyên biên giới"
+        "nước ngoài"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "sửa must_say (đề xuất cũ quá cứng) — cần luật sư xác nhận"
     },
     {
       "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
@@ -74,7 +74,7 @@
         "đánh giá tác động"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Doanh nghiệp (Luật DN 2020)",
@@ -89,7 +89,7 @@
         "90 ngày"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Doanh nghiệp (Luật DN 2020)",
@@ -104,7 +104,7 @@
         "người đại diện"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Doanh nghiệp (Luật DN 2020)",
@@ -119,7 +119,7 @@
         "chuyển nhượng"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Doanh nghiệp (Luật DN 2020)",
@@ -134,7 +134,7 @@
         "cổ phần phổ thông"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Doanh nghiệp (Luật DN 2020)",
@@ -149,7 +149,7 @@
         "giải thể"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Hôn nhân & gia đình (Luật HN&GĐ 2014)",
@@ -164,7 +164,7 @@
         "tài sản chung"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Hôn nhân & gia đình (Luật HN&GĐ 2014)",
@@ -179,7 +179,7 @@
         "chia đôi"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Hôn nhân & gia đình (Luật HN&GĐ 2014)",
@@ -194,7 +194,7 @@
         "tự nguyện"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Hôn nhân & gia đình (Luật HN&GĐ 2014)",
@@ -209,7 +209,7 @@
         "36 tháng"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Hôn nhân & gia đình (Luật HN&GĐ 2014)",
@@ -224,7 +224,7 @@
         "tài sản riêng"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Lao động (BLLĐ 2019/NĐ 145)",
@@ -239,7 +239,7 @@
         "180 ngày"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "KB-GAP: thiếu Bộ luật Lao động 2019 (chỉ có NĐ 145 hướng dẫn)"
     },
     {
       "category": "Lao động (BLLĐ 2019/NĐ 145)",
@@ -254,7 +254,7 @@
         "báo trước"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "KB-GAP: thiếu BLLĐ 2019"
     },
     {
       "category": "Lao động (BLLĐ 2019/NĐ 145)",
@@ -269,7 +269,7 @@
         "12 ngày"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "KB-GAP: thiếu BLLĐ 2019"
     },
     {
       "category": "Lao động (BLLĐ 2019/NĐ 145)",
@@ -284,7 +284,7 @@
         "sa thải"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "KB-GAP: thiếu BLLĐ 2019"
     },
     {
       "category": "Lao động (BLLĐ 2019/NĐ 145)",
@@ -299,7 +299,7 @@
         "xác định thời hạn"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "KB-GAP: thiếu BLLĐ 2019"
     },
     {
       "category": "Sở hữu trí tuệ (Luật SHTT 2005)",
@@ -314,7 +314,7 @@
         "sáng tạo"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Sở hữu trí tuệ (Luật SHTT 2005)",
@@ -329,7 +329,7 @@
         "50 năm"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Sở hữu trí tuệ (Luật SHTT 2005)",
@@ -344,7 +344,7 @@
         "nhãn hiệu"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Sở hữu trí tuệ (Luật SHTT 2005)",
@@ -359,7 +359,7 @@
         "xâm phạm"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Sở hữu trí tuệ (Luật SHTT 2005)",
@@ -374,7 +374,7 @@
         "kiểu dáng"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "RETRIEVAL-MISS: nội dung có trong SHTT nhưng file lớn không nổi"
     },
     {
       "category": "Đất đai (Luật Đất đai 2024)",
@@ -389,7 +389,7 @@
         "giấy chứng nhận"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Đất đai (Luật Đất đai 2024)",
@@ -404,7 +404,7 @@
         "thu hồi"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Đất đai (Luật Đất đai 2024)",
@@ -419,7 +419,7 @@
         "thuê đất"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Đất đai (Luật Đất đai 2024)",
@@ -434,7 +434,7 @@
         "50 năm"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Đầu tư (Luật Đầu tư 2025)",
@@ -449,7 +449,7 @@
         "cấm"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Đầu tư (Luật Đầu tư 2025)",
@@ -461,10 +461,10 @@
         "dau_tu"
       ],
       "must_say": [
-        "hình thức đầu tư"
+        "đầu tư"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "sửa must_say (đề xuất cũ quá cứng) — cần luật sư xác nhận"
     },
     {
       "category": "Đầu tư (Luật Đầu tư 2025)",
@@ -479,7 +479,7 @@
         "bảo đảm"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Đầu tư (Luật Đầu tư 2025)",
@@ -494,7 +494,7 @@
         "chủ trương"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Trọng tài thương mại (TTTM 2010)",
@@ -509,7 +509,7 @@
         "hủy phán quyết"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Trọng tài thương mại (TTTM 2010)",
@@ -524,7 +524,7 @@
         "thỏa thuận"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Trọng tài thương mại (TTTM 2010)",
@@ -536,10 +536,10 @@
         "trong_tai"
       ],
       "must_say": [
-        "thẩm quyền"
+        "tranh chấp"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "sửa must_say (đề xuất cũ quá cứng) — cần luật sư xác nhận"
     },
     {
       "category": "Trọng tài thương mại (TTTM 2010)",
@@ -554,7 +554,7 @@
         "chung thẩm"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Phá sản (CHƯA có KB)",
@@ -598,7 +598,7 @@
       "must_cite": [],
       "must_say": [],
       "abstain": true,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "⚠️ AN TOÀN: hệ thống TRẢ LỜI thay vì từ chối (over-reach ngoài KB) — cần điều tra cổng"
     },
     {
       "category": "Cạnh tranh (CHƯA có KB)",
@@ -624,7 +624,7 @@
         "bồi thường"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Hợp đồng dân sự (BLDS 2015)",
@@ -639,7 +639,7 @@
         "vô hiệu"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "RETRIEVAL-MISS: 'vô hiệu' đa nghĩa, cần chỉnh câu/chunk"
     },
     {
       "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
@@ -654,7 +654,7 @@
         "70/2025"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Hóa đơn – chứng từ (NĐ 123/2020)",
@@ -667,7 +667,7 @@
       ],
       "must_say": [],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Lãi suất vay (BLDS 2015)",
@@ -682,7 +682,7 @@
         "20%"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Chế tài thương mại (LTM 2005)",
@@ -697,7 +697,7 @@
         "8%"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     },
     {
       "category": "Hợp đồng dân sự (BLDS 2015)",
@@ -709,10 +709,10 @@
         "328"
       ],
       "must_say": [
-        "gấp đôi"
+        "tương đương"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "sửa must_say (đề xuất cũ quá cứng) — cần luật sư xác nhận"
     },
     {
       "category": "Lãi suất vay (BLDS 2015)",
@@ -727,7 +727,7 @@
         "quá hạn"
       ],
       "abstain": false,
-      "_status": "DRAFT-cần-luật-sư-duyệt"
+      "_status": "provisional-verified (hệ thống xác nhận 2/2) — cần luật sư spot-check expected"
     }
   ]
 }
