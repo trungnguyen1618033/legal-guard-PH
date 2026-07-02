@@ -1,0 +1,10 @@
+{
+  "benchmark": "Zalo AI Legal Text Retrieval 2021 (MIT)",
+  "retriever": "BM25 lexical (Okapi k1=1.5 b=0.75)",
+  "corpus_size": 61425,
+  "test_queries": 788,
+  "top_k": 10,
+  "recall@10": 0.7798,
+  "mrr@10": 0.488,
+  "hit@1": 0.3439
+}
