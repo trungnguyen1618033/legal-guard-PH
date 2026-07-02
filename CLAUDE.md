@@ -52,7 +52,7 @@ chống citation tồn-tại-nhưng-không-hỗ-trợ, `NLI_VERIFICATION`; áp v
 không"; Phase B phát hiện TRÁI LUẬT có grounding, parser CHẶT bất-đối-xứng: NO/KHÔNG→False an toàn, chỉ
 'YES' tiếng Anh→True, bỏ 'CÓ' tránh va 'có thể'→illegal sai), lexical BM25 (Okapi, length-norm + IDF) +
 embedding, hybrid retrieval RRF + opt-in LLM reranker
-+ opt-in cross-encoder reranker (Qwen `gte-rerank`, `CROSS_ENCODER_RERANK`) + full-context
++ opt-in cross-encoder reranker (Qwen `qwen3-rerank`; `gte-rerank` v1 khai tử 30/5/2026, `CROSS_ENCODER_RERANK`) + full-context
 (`outbound/knowledge_base.py`, `RERANK_ENABLED`). **Rerank theo path** (đo: chi phí rerank chỉ ~272ms/
 retrieve, latency analyze ~99% là vòng flagship output-bound — KHÔNG nén được ở tầng retrieval): `/analyze`
 gọi `for_org(org, rerank=False)` (hybrid RRF, bỏ rerank — giảm tải quota khi đông user, zero quality cost);

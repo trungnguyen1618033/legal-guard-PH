@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     default_tenant: str = "VN"
     knowledge_base_dir: str = "knowledge_base"
     rerank_enabled: bool = False     # bật LLM rerank (tốn thêm call); mặc định dùng hybrid RRF
-    cross_encoder_rerank: bool = False  # bật cross-encoder rerank (Qwen gte-rerank) — ưu tiên hơn LLM rerank
+    cross_encoder_rerank: bool = False  # bật cross-encoder rerank (Qwen qwen3-rerank) — ưu tiên hơn LLM rerank
     citation_closure: bool = False   # bật citation closure: đi theo dẫn chiếu kéo về điều luật liên quan (Phase 2)
     tt_sar_rerank: bool = False      # TT-SAR: rerank đồ-thị theo cạnh typed+temporal (arXiv:2604.06173 mở rộng); opt-in, đo A/B trước khi bật prod
     in_force_filter: bool = True     # mặc định CHỈ trả văn bản còn hiệu lực (lọc theo front-matter status)
