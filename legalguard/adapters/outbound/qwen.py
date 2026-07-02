@@ -122,7 +122,7 @@ class QwenAdapter(LLMPort):
         return vectors
 
     def rerank(self, query: str, docs: list[str]) -> list[float] | None:
-        """Cross-encoder rerank qua DashScope text-rerank (gte-rerank). Trả điểm/doc theo
+        """Cross-encoder rerank qua DashScope text-rerank (qwen3-rerank; gte-rerank v1 đã khai tử 30/5/2026). Trả điểm/doc theo
         đúng thứ tự `docs`; None khi chưa có key (→ retriever passthrough)."""
         if not self.available or not docs:
             return None
