@@ -64,7 +64,15 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     summarizer = GeminiAdapter(cfg.gemini_api_key, cfg.gemini_model, temperature=cfg.llm_temperature)
     embed_fn = reasoner.embed if reasoner.available else None
     reranker = reasoner if cfg.rerank_enabled else None
-    rerank_fn = reasoner.rerank if (cfg.cross_encoder_rerank and reasoner.available) else None
+    # Cross-encoder rerank: RERANK_URL (self-host TEI, vd AITeamVN) ưu tiên hơn qwen3-rerank API khi được đặt.
+    rerank_fn = None
+    if cfg.cross_encoder_rerank:
+        if cfg.rerank_url:
+            from legalguard.adapters.outbound.http_reranker import HttpReranker
+            hr = HttpReranker(cfg.rerank_url)
+            rerank_fn = hr.rerank if hr.available else None
+        elif reasoner.available:
+            rerank_fn = reasoner.rerank
     # Embed bền (corpus lớn không re-embed mỗi boot) — opt-in PERSIST_EMBEDDINGS; lưu chung DB.
     embed_store = None
     if cfg.persist_embeddings and embed_fn is not None:
