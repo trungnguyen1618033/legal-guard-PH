@@ -111,6 +111,14 @@ class CounterIn(BaseModel):
     leverage: str = "balanced"  # vị thế đàm phán: strong | balanced | weak
 
 
+class NegoStateIn(BaseModel):
+    """Sổ nhượng-bộ vòng trước — caller thread qua các vòng (web/API) để agent nhớ đã nhượng/chốt gì."""
+    red_lines: list[str] = []       # điểm must-fix KHÔNG nhượng (seed từ /analyze)
+    secured: list[str] = []         # đối tác đã đồng ý
+    conceded: list[str] = []        # ta đã nhượng
+    open_items: list[str] = []      # còn tranh chấp
+
+
 class NegotiateIn(BaseModel):
     deal_context: str               # bối cảnh deal (chiến lược/rủi ro từ /analyze hoặc vòng trước)
     partner_message: str            # tin nhắn đối tác vừa gửi (counter-offer / phản hồi)
@@ -120,6 +128,7 @@ class NegotiateIn(BaseModel):
     relationship: str = "new"
     alternatives: bool = False
     protected_party: str = ""
+    state: NegoStateIn | None = None   # sổ nhượng-bộ vòng trước (trả lại ở response → thread vòng sau)
 
 
 class AlertIn(BaseModel):
@@ -574,10 +583,12 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         pos = NegotiationPosition(leverage=body.leverage, urgency=body.urgency,
                                   relationship=body.relationship, alternatives=body.alternatives,
                                   protected_party=body.protected_party[:120])
+        from legalguard.domain.negotiation import NegotiationState
+        st = NegotiationState(**body.state.model_dump()) if body.state else None
+        lang = body.lang if body.lang in ("en", "vi") else "vi"
         try:
             return await run_in_threadpool(
-                service.negotiate_round, body.deal_context, body.partner_message, pos,
-                body.lang if body.lang in ("en", "vi") else "vi")
+                service.negotiate_round, body.deal_context, body.partner_message, pos, st, lang)
         except LLMError as exc:
             raise HTTPException(status_code=502, detail=f"LLM lỗi: {exc}") from exc
 

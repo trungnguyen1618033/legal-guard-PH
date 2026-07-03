@@ -256,6 +256,7 @@ $('go').onclick = async () => {
 
 let _caseId = null;
 let _deal = '';
+let _negoState = null;   // sổ nhượng-bộ đàm phán — thread qua các vòng (agent nhớ đã nhượng/chốt gì)
 async function sendFeedback(rating) {
   $('fb-thanks').textContent = ' đang gửi…';
   try {
@@ -273,6 +274,9 @@ function render(d) {
   // Bối cảnh deal cho đàm phán đa phiên: chiến lược + danh sách rủi ro (clause/priority/status).
   _deal = 'CHIẾN LƯỢC:\n' + (d.strategy || '') + '\n\nRỦI RO:\n' +
     (d.risks||[]).map(r => `- ${r.clause} [${r.priority||''}/${r.legal_status||''}]: ${r.risk}`).join('\n');
+  // Seed red-line = rủi ro must_fix (điểm sống còn KHÔNG nhượng) → guardrail walk-away + bộ nhớ đàm phán.
+  _negoState = { red_lines: (d.risks||[]).filter(r => r.priority==='must_fix').map(r => r.clause),
+                 secured: [], conceded: [], open_items: [] };
   $('nego-result').innerHTML = '';
   $('partner-msg').value = '';
   $('summary').innerHTML = mdLite(d.summary || '(không có)');
@@ -445,14 +449,22 @@ $('nego-go').onclick = async () => {
       headers: { 'Content-Type':'application/json', ...authHeaders() },
       body: JSON.stringify({ deal_context:_deal, partner_message:msg, lang:$('lang').value,
         leverage:$('leverage').value, urgency:$('urgency').value, relationship:$('relationship').value,
-        alternatives:$('alternatives').value==='true', protected_party:$('protected_party').value }) });
+        alternatives:$('alternatives').value==='true', protected_party:$('protected_party').value,
+        state:_negoState }) });
     if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
     const d = await r.json();
+    if (d.state) _negoState = d.state;   // thread sổ nhượng-bộ sang vòng sau (nhớ đã chốt/nhượng gì)
     const [label, bg] = _NEGO_STATUS[d.status] || _NEGO_STATUS.continue;
+    const st = d.state || {};
+    const ledger =
+      ((st.secured||[]).length ? `<div style="margin-top:8px"><b>✅ Đã chốt:</b> ${st.secured.join('; ')}</div>` : '') +
+      ((st.conceded||[]).length ? `<div style="margin-top:4px"><b>↩️ Ta đã nhượng:</b> ${st.conceded.join('; ')}</div>` : '') +
+      (d.walk_away_recommended ? `<div class="banner" style="background:var(--high);margin-top:8px"><strong>🚨 Red-line bị chặn + ta có BATNA → cân nhắc RÚT.</strong></div>` : '');
     $('nego-result').innerHTML =
       `<div class="banner" style="background:${bg}"><strong>${label}</strong></div>` +
       `<div style="margin-top:8px"><b>📊 Đánh giá phản hồi:</b><div class="md">${mdLite(d.assessment)}</div></div>` +
       (d.strategy ? `<div style="margin-top:8px"><b>🧭 Chiến lược vòng tới:</b><div class="md">${mdLite(d.strategy)}</div></div>` : '') +
+      ledger +
       (d.reply_vi ? `<div style="margin-top:8px"><b>💬 Trả lời đối tác (VN):</b><div class="md">${mdLite(d.reply_vi)}</div></div>` : '') +
       (d.reply_en ? `<div style="margin-top:6px"><b>💬 Reply (EN):</b><div class="md">${mdLite(d.reply_en)}</div></div>` : '') +
       (d.grounded ? '' : '<p class="note muted">⚠️ Khung sơ bộ (chưa có LLM).</p>');

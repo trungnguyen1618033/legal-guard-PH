@@ -60,6 +60,18 @@ def test_negotiate_endpoint(client):
     assert r.status_code == 200
     d = r.json()
     assert d["status"] in ("continue", "close", "walk_away") and "assessment" in d
+    assert "state" in d and "walk_away_recommended" in d          # trả sổ nhượng-bộ + cờ walk-away
+
+
+def test_negotiate_threads_state_across_rounds(client):
+    # Caller truyền state vòng trước → response mang state (agent nhớ đã chốt/nhượng gì qua các vòng).
+    r = client.post("/negotiate", json={
+        "deal_context": "deal", "partner_message": "ok trọng tài VN",
+        "state": {"red_lines": ["trọng tài VN"], "secured": ["phạt 8%"], "conceded": ["gia hạn 5 ngày"]},
+    }, headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    st = r.json()["state"]                                        # stub offline giữ nguyên state đã truyền
+    assert "phạt 8%" in st["secured"] and "trọng tài VN" in st["red_lines"]
 
 
 def test_graph_endpoint_returns_nodes_and_edges(client):
