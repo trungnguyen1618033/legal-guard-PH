@@ -1,6 +1,12 @@
 from legalguard.config.container import build_service
 from legalguard.domain.models import NegotiationPosition
-from legalguard.domain.negotiation import _parse_round, negotiate_round
+from legalguard.domain.negotiation import (
+    NegotiationState,
+    _merge_unique,
+    _parse_round,
+    negotiate_round,
+    should_walk_away,
+)
 from legalguard.domain.tenants import default_org
 
 ORG = default_org("VN")
@@ -36,6 +42,8 @@ class _LLM:
         return self._a
 
     def complete(self, prompt, *, system=None):
+        if isinstance(self._out, list):          # nhiều vòng: trả lần lượt từng output
+            return self._out.pop(0)
         return self._out
 
 
@@ -57,3 +65,51 @@ def test_negotiate_round_parses_llm_and_status():
     r = negotiate_round(_LLM(out=out), deal_context="phạt 15% trái Đ.301", partner_message="OK giảm 8%",
                         position=NegotiationPosition(protected_party="Bên Mua", leverage="weak"))
     assert r.grounded is True and r.status == "close" and r.reply_en == "Agreed"
+
+
+# ---- Sổ nhượng-bộ (concession ledger) + guardrail walk-away ----
+def test_merge_unique_dedups_case_insensitive():
+    assert _merge_unique(["Phạt 8%"], ["phạt 8%", "Giao FOB"]) == ["Phạt 8%", "Giao FOB"]
+    assert _merge_unique([], ["  ", "x"]) == ["x"]      # bỏ rỗng/khoảng trắng
+
+
+def test_should_walk_away_pure():
+    assert should_walk_away(True, True) is True        # red-line bị chặn + có BATNA → rút
+    assert should_walk_away(True, False) is False      # bị chặn nhưng KHÔNG có BATNA → giữ đàm phán
+    assert should_walk_away(False, True) is False      # không bị chặn → tiếp tục
+
+
+def test_ledger_accumulates_across_rounds_without_losing_secured():
+    r1out = ('{"assessment":"đối tác đồng ý phạt 8%","strategy":"tiếp","reply_vi":"a","reply_en":"a",'
+             '"newly_secured":["phạt 8%"],"newly_conceded":["gia hạn giao 5 ngày"],'
+             '"still_open":["địa điểm trọng tài"],"status":"continue"}')
+    r2out = ('{"assessment":"đối tác đồng ý trọng tài VN","strategy":"chốt","reply_vi":"b","reply_en":"b",'
+             '"newly_secured":["trọng tài tại VN"],"newly_conceded":[],'
+             '"still_open":[],"status":"close"}')
+    llm = _LLM(out=[r1out, r2out])
+    r1 = negotiate_round(llm, deal_context="deal", partner_message="giảm 8%")
+    r2 = negotiate_round(llm, deal_context="deal", partner_message="ok trọng tài VN", state=r1.state)
+    # secured vòng 1 KHÔNG mất khi sang vòng 2 (chống 'quên' do cắt cụt) + tích lũy mục mới.
+    assert "phạt 8%" in r2.state.secured and "trọng tài tại VN" in r2.state.secured
+    assert r2.state.conceded == ["gia hạn giao 5 ngày"]     # giữ nhượng-bộ cũ, không nhân đôi
+    assert r2.status == "close"
+
+
+def test_guardrail_escalates_to_walk_away_on_blocked_red_line_with_batna():
+    out = ('{"assessment":"đối tác từ chối bỏ điều khoản trọng tài Bắc Kinh","strategy":"tiếp",'
+           '"reply_vi":"x","reply_en":"x","still_open":["trọng tài"],"red_line_blocked":true,'
+           '"status":"continue"}')
+    st = NegotiationState(red_lines=["trọng tài tại VN, không Bắc Kinh"])
+    r = negotiate_round(_LLM(out=out), deal_context="d", partner_message="giữ Bắc Kinh",
+                        position=NegotiationPosition(alternatives=True), state=st)
+    assert r.walk_away_recommended is True and r.status == "walk_away"      # LLM nói continue → guardrail GHI ĐÈ
+    assert "GUARDRAIL" in r.strategy
+
+
+def test_no_walk_away_when_blocked_but_no_batna():
+    out = ('{"assessment":"đối tác giữ Bắc Kinh","strategy":"tiếp","reply_vi":"x","reply_en":"x",'
+           '"red_line_blocked":true,"status":"continue"}')
+    r = negotiate_round(_LLM(out=out), deal_context="d", partner_message="giữ Bắc Kinh",
+                        position=NegotiationPosition(alternatives=False),
+                        state=NegotiationState(red_lines=["trọng tài VN"]))
+    assert r.walk_away_recommended is False and r.status == "continue"      # không BATNA → không tự hại
