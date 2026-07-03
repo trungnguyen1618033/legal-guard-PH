@@ -1,0 +1,16 @@
+{
+  "benchmark": "Zalo LTR 2021 (MIT)",
+  "reranker": "qwen3-api",
+  "fetch_n": 50,
+  "top_k": 10,
+  "queries": 788,
+  "bm25_baseline": {
+    "recall@10": 0.7798,
+    "mrr@10": 0.488
+  },
+  "reranked": {
+    "recall@10": 0.8725,
+    "mrr@10": 0.6135
+  },
+  "mrr_lift": 0.1255
+}
