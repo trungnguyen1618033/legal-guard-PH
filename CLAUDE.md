@@ -148,11 +148,20 @@ khi chưa có key. Còn thiếu (next): escalation chuyên gia thật (hiện ch
 prod cần token/verify OA thật (webhook + sender đã code).
 
 Đàm phán đa phiên (`domain/negotiation.py`, lõi Autopilot Agent): `POST /negotiate` {deal_context,
-partner_message, leverage/urgency/…, protected_party} → `negotiate_round`: nhận bối cảnh deal (từ /analyze
-hoặc vòng trước) + tin đối tác vừa gửi → `NegotiationRound` {assessment (đối tác nhượng/giữ gì), strategy
-(vòng tới), reply_vi/reply_en, status: continue|close|walk_away}. Reasoner soạn bám vị thế; offline → khung
-an toàn (grounded=False). `_parse_round` thuần (ép enum status). UI app.html: card "💬 Đàm phán đa phiên" sau
-kết quả — dán phản hồi đối tác → round mới, NỐI bối cảnh qua các vòng (`_deal`), badge status.
+partner_message, leverage/urgency/…, protected_party, **state**} → `negotiate_round`: nhận bối cảnh deal (từ
+/analyze hoặc vòng trước) + **sổ nhượng-bộ** + tin đối tác vừa gửi → `NegotiationRound` {assessment (đối tác
+nhượng/giữ gì), strategy (vòng tới), reply_vi/reply_en, status: continue|close|walk_away, **state**,
+**walk_away_recommended**}. Reasoner soạn bám vị thế; offline → khung an toàn (grounded=False). `_parse_round`
+thuần (ép enum status). **SỔ NHƯỢNG-BỘ CÓ CẤU TRÚC (`NegotiationState`: red_lines/secured/conceded/open_items)**
+mang qua các vòng → agent NHỚ chính xác đã nhượng/chốt gì (chống "quên" do context free-text cắt cụt →
+nhượng lại thứ đã nhượng / đàm phán lại thứ đối tác đã đồng ý). Mỗi vòng merge delta (`_merge_unique` dedup),
+`secured` KHÔNG tụt. **GUARDRAIL walk-away THUẦN** (`should_walk_away(red_line_blocked, has_alternatives)`):
+đối tác chặn điểm red-line (must_fix) + ta có BATNA → GHI ĐÈ status→walk_away (bảo vệ vị thế tất định, không
+để agent chốt/nhượng tiếp khi điểm sống còn bị chặn); không BATNA → giữ đàm phán. State persist qua
+`Conversation.nego_state` (JSON, 3 store, migration 0010); chat seed red_lines = rủi ro must_fix sau /analyze;
+`/negotiate` thread state qua request/response (`state_to_json`/`state_from_json` thuần). UI app.html: card
+"💬 Đàm phán đa phiên" — dán phản hồi đối tác → round mới, hiện ✅ Đã chốt / ↩️ Ta đã nhượng / 🚨 walk-away,
+thread state qua các vòng (`_negoState`), badge status.
 
 Counter-clause (`domain/counter_clause.py`): `POST /counter` {clause, risk, suggestion, legal_basis, leverage}
 → điều khoản PHẢN-ĐỀ song ngữ VN/EN dán-được-ngay vào HĐ (khác `english_reply` = câu nhắn đối tác). Qwen
