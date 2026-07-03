@@ -39,9 +39,12 @@ def _live_accuracy() -> dict | None:
         rep = r.get("repeat", 1)
         # Ghi chú BỘ-ĐỀ: 100% = 0 lỗi TRÊN bộ golden này (không phải 'hoàn hảo mãi mãi'). Minh bạch cỡ mẫu
         # + majority-vote nhiều lần (chống nhiễu LLM hosted) → số trung thực, không đọc thành tuyệt đối.
+        flaky = r.get("flaky_cases", 0)
+        flaky_note = (f" {flaky} ca dao động giữa các lần (biên nhiễu LLM hosted, đa số vẫn đạt)."
+                      if flaky else "")
         note = (f"{r['passed']}/{r['total']} ca golden (dẫn đúng Điều/Khoản + dữ kiện + biết từ chối khi "
                 f"ngoài KB), majority-vote {rep} lần/ca — accuracy_eval. Số trên BỘ ĐỀ này, không suy ra "
-                f"mọi câu hỏi.")
+                f"mọi câu hỏi.{flaky_note}")
         return {"name": "Độ chính xác câu trả lời (golden set)",
                 "value": f"{r['answer_accuracy']:.0%} ({r['passed']}/{r['total']})",
                 "note": note}

@@ -609,7 +609,12 @@ class AnalysisService:
         # pháp lý thường trải nhiều Điều (vd "thủ tục ly hôn" cần Đ.54 hòa giải + Đ.56 ly hôn theo yêu cầu).
         # elbow thỉnh thoảng cắt còn 1 do điểm embedding hosted dao động ±0.01 → đói bằng chứng → abstain OAN
         # (đo: ca ly hôn lật 6/10 khi keep=1). Giữ ≥ top-3 → judge đủ ngữ cảnh, VẪN cắt đuôi nhiễu (vị trí 4-5).
-        if self.nli_verification:
+        # POINT-IN-TIME: câu "văn bản NÀO tại thời điểm T" — bộ lọc in-force/point-in-time ĐÃ chọn đúng VB
+        # valid-at-T (làm phần ngữ nghĩa rồi). Gate relevance khi đó second-guess trên nội dung ĐIỀU-KHOẢN của
+        # VB (+ đoạn nhiễu đuôi) → phán "không trả lời câu hỏi" → abstain OAN (đo: ca 'Năm 2020 → TT 39/2014'
+        # flaky 2/6, gate NO 10/10 dù retrieve đúng rank-1). Bỏ gate cho câu PIT: tin bộ lọc thời gian; answer
+        # LLM vẫn tự ghi 'Chưa đủ căn cứ' nếu nguồn thiếu. An toàn: cả 3 ca PIT golden đều abstain=False.
+        if self.nli_verification and not _PIT_RE.search(q):
             if self.coverage_gated_abstain:
                 keep = elbow_cutoff([s.score for s in snippets], min_keep=3)
                 gate_sources = "\n---\n".join(f"[nguồn: {s.source}] {s.text}" for s in snippets[:keep])
