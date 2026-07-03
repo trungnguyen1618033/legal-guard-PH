@@ -33,6 +33,7 @@ class ConversationRow(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     history: Mapped[list] = mapped_column(JSON, default=list)
     context: Mapped[str] = mapped_column(String, default="")
+    nego_state: Mapped[str] = mapped_column(String, default="")
     updated_at: Mapped[str] = mapped_column(String, default="")
 
 
@@ -47,12 +48,14 @@ class SqlAlchemyConversationStore:
             if row is None:
                 return None
             return Conversation(id=row.id, history=row.history or [],
-                                context=row.context or "", updated_at=row.updated_at or "")
+                                context=row.context or "", nego_state=row.nego_state or "",
+                                updated_at=row.updated_at or "")
 
     def save(self, conversation: Conversation) -> None:
         with Session(self.engine) as s:
             s.merge(ConversationRow(id=conversation.id, history=conversation.history,
-                                    context=conversation.context, updated_at=conversation.updated_at))
+                                    context=conversation.context, nego_state=conversation.nego_state,
+                                    updated_at=conversation.updated_at))
             s.commit()
 
 

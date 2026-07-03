@@ -14,6 +14,7 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from legalguard.domain.agent import run_agent
 from legalguard.domain.models import (
@@ -41,6 +42,9 @@ from legalguard.domain.tenants import Organization, get_tenant
 from legalguard.domain.verification import (
     elbow_cutoff, nli_contradicts, nli_supports, sources_answer_question, verify_risks,
 )
+
+if TYPE_CHECKING:
+    from legalguard.domain.negotiation import NegotiationState
 
 _log = logging.getLogger(__name__)
 
@@ -333,13 +337,15 @@ class AnalysisService:
         return asdict(cc)
 
     def negotiate_round(self, deal_context: str, partner_message: str,
-                        position: NegotiationPosition | None = None, lang: str = "vi") -> dict:
-        """Một VÒNG đàm phán đa phiên: bối cảnh deal + tin đối tác → đánh giá + chiến lược vòng tới +
-        câu trả lời song ngữ + status (continue/close/walk_away). Lõi 'Autopilot Agent' dẫn đàm phán."""
+                        position: NegotiationPosition | None = None,
+                        state: "NegotiationState | None" = None, lang: str = "vi") -> dict:
+        """Một VÒNG đàm phán đa phiên: bối cảnh deal + SỔ nhượng-bộ + tin đối tác → đánh giá + chiến lược
+        vòng tới + câu trả lời song ngữ + status (continue/close/walk_away) + sổ nhượng-bộ ĐÃ cập nhật.
+        `state` mang qua các vòng (agent nhớ đã nhượng/chốt gì). Lõi 'Autopilot Agent' dẫn đàm phán."""
         from legalguard.domain.negotiation import negotiate_round as _round
 
         r = _round(self.reasoner, deal_context=deal_context, partner_message=partner_message,
-                   position=position, lang=lang)
+                   position=position, state=state, lang=lang)
         if self.observer:
             self.observer.event("negotiate_round", {"status": r.status, "grounded": r.grounded})
         return asdict(r)

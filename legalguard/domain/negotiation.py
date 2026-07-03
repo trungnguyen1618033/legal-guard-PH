@@ -109,6 +109,24 @@ class NegotiationState:
     open_items: list[str] = field(default_factory=list)  # còn tranh chấp
 
 
+def state_to_json(state: NegotiationState) -> str:
+    """NegotiationState → JSON string (persist trong conv/store dưới dạng chuỗi, không cần cột nested)."""
+    return json.dumps({"red_lines": state.red_lines, "secured": state.secured,
+                       "conceded": state.conceded, "open_items": state.open_items}, ensure_ascii=False)
+
+
+def state_from_json(s: str) -> NegotiationState:
+    """JSON string → NegotiationState. Rỗng/hỏng → state trống (an toàn, không vỡ luồng chat)."""
+    if not s:
+        return NegotiationState()
+    try:
+        d = json.loads(s)
+        return NegotiationState(red_lines=_str_list(d.get("red_lines")), secured=_str_list(d.get("secured")),
+                                conceded=_str_list(d.get("conceded")), open_items=_str_list(d.get("open_items")))
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        return NegotiationState()
+
+
 @dataclass
 class NegotiationRound:
     assessment: str            # đối tác nhượng/giữ/phản-đề gì

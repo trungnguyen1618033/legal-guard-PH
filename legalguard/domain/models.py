@@ -91,6 +91,7 @@ class Conversation:
     id: str
     history: list[dict] = field(default_factory=list)   # [{role, content}]
     context: str = ""                                   # tóm tắt deal đang bàn
+    nego_state: str = ""                                # sổ nhượng-bộ đàm phán (JSON, xem negotiation.state_*)
     updated_at: str = ""
 
     def add(self, role: str, content: str) -> None:

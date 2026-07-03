@@ -167,6 +167,23 @@ def test_format_negotiation_reply():
     assert "Nên CHỐT deal" in out and "đối tác nhượng đủ" in out and "Đồng ý" in out
 
 
+def test_format_negotiation_reply_shows_ledger_and_walk_away():
+    from legalguard.adapters.inbound.channels import format_negotiation_reply
+    out = format_negotiation_reply({"status": "walk_away", "assessment": "đối tác giữ Bắc Kinh",
+                                    "reply_vi": "x", "grounded": True, "walk_away_recommended": True,
+                                    "state": {"secured": ["phạt 8%"], "conceded": ["gia hạn 5 ngày"]}})
+    assert "Đã chốt:" in out and "phạt 8%" in out and "Ta đã nhượng:" in out and "cân nhắc RÚT" in out
+
+
+def test_analyze_seeds_red_lines_into_nego_state():
+    from legalguard.domain.negotiation import state_from_json
+    h = _handler()
+    h.reply("cRed", text=MSG)                                  # analyze → seed red_lines = must_fix
+    st = state_from_json(h.store.get("cRed").nego_state)
+    assert st.red_lines                                        # trọng tài Bắc Kinh = must_fix → là red-line
+    assert any("trọng tài" in r.lower() or "bắc kinh" in r.lower() for r in st.red_lines)
+
+
 def test_chat_history_redacts_pii_before_store():
     # Khách DÁN hợp đồng có PII vào chat → history KHÔNG được giữ email/sđt nguyên văn.
     store = InMemoryConversationStore()

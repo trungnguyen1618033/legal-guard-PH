@@ -22,6 +22,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from legalguard.domain.analysis import AnalysisService
 from legalguard.domain.models import AnalysisResult, Conversation, Feedback, Outcome, SourceMeta
+from legalguard.domain.negotiation import NegotiationState, state_from_json, state_to_json
 from legalguard.domain.ports import (
     ChatSenderPort,
     ConversationStorePort,
@@ -130,6 +131,13 @@ def format_negotiation_reply(r: dict, lang: str = "vi") -> str:
         lines.append(f"📊 *Đánh giá phản hồi:* {r['assessment']}")
     if r.get("strategy"):
         lines.append(f"🧭 *Vòng tới:* {r['strategy']}")
+    st = r.get("state") or {}
+    if st.get("secured"):
+        lines.append("✅ *Đã chốt:* " + "; ".join(st["secured"]))
+    if st.get("conceded"):
+        lines.append("↩️ *Ta đã nhượng:* " + "; ".join(st["conceded"]))
+    if r.get("walk_away_recommended"):
+        lines.append("🚨 *Red-line bị chặn + ta có BATNA → cân nhắc RÚT.*")
     reply = r.get("reply_vi") if lang == "vi" else (r.get("reply_en") or r.get("reply_vi"))
     if reply:
         lines.append(f"💬 *Câu trả lời đối tác:*\n{reply}")
@@ -221,6 +229,10 @@ class ChatHandler:
             except (ValueError, LLMError) as exc:
                 return ChatReply(f"Xin lỗi, chưa xử lý được: {exc}")
             conv.context = _context_from_result(result)    # nhớ deal đang bàn
+            # Seed red-line đàm phán = các rủi ro must_fix (điểm sống còn KHÔNG nhượng) → vòng đàm phán sau
+            # có bộ nhớ cấu trúc + guardrail walk-away tất định.
+            red = [r["clause"] for r in result.risks if r.get("priority") == "must_fix" and r.get("clause")]
+            conv.nego_state = state_to_json(NegotiationState(red_lines=red))
             return ChatReply(format_chat_reply(result, lang), "analysis", result.case_id or "")
         # Trong deal: tin là PHẢN HỒI/COUNTER của đối tác → VÒNG ĐÀM PHÁN có cấu trúc (không phải Q&A chung).
         if conv.context and _is_counter_offer(text or ""):
@@ -240,12 +252,19 @@ class ChatHandler:
                          "hoặc đặt câu hỏi pháp lý nhé.")
 
     def _negotiate(self, conv: Conversation, partner_message: str, lang: str) -> str:
-        """Vòng đàm phán đa phiên trên Slack: bối cảnh deal + tin đối tác → round có cấu trúc.
-        NỐI kết quả vào context để vòng sau dựa trên đó (đàm phán nhiều bước trong thread)."""
+        """Vòng đàm phán đa phiên trên Slack: bối cảnh deal + SỔ nhượng-bộ + tin đối tác → round có cấu trúc.
+        Sổ nhượng-bộ (`conv.nego_state`) mang qua các vòng → agent NHỚ đã nhượng/chốt gì (không 'quên' do
+        context free-text cắt cụt) + guardrail walk-away theo red-line."""
+        state = state_from_json(conv.nego_state)
         try:
-            r = self.service.negotiate_round(conv.context, partner_message, position=None, lang=lang)
+            r = self.service.negotiate_round(conv.context, partner_message, position=None,
+                                             state=state, lang=lang)
         except LLMError as exc:
             return f"Xin lỗi, chưa xử lý được vòng đàm phán: {exc}"
+        upd = r.get("state") or {}
+        conv.nego_state = state_to_json(NegotiationState(
+            red_lines=upd.get("red_lines", state.red_lines), secured=upd.get("secured", []),
+            conceded=upd.get("conceded", []), open_items=upd.get("open_items", [])))
         nxt = r.get("reply_vi") or r.get("assessment") or ""
         conv.context = (conv.context + f"\n--- Đối tác: {partner_message}\n--- Ta: {nxt}")[:1800]
         return format_negotiation_reply(r, lang)
