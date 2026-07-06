@@ -135,7 +135,7 @@ uv run ruff check .                      # lint
 | GET | `/runs` | **Agent activity feed** (AI-Native evidence): tool calls, risks, escalations per run. |
 | POST | `/ask` | Grounded legal Q&A → answer citing in-force Article/Clause + sources. |
 | POST | `/counter` | Draft a bilingual VN/EN **counter-clause** for a risky term. |
-| POST | `/negotiate` | **Multi-round negotiation**: deal context + counterparty reply → assessment + next-round strategy + bilingual reply + status. |
+| POST | `/negotiate` | **Stateful multi-round negotiation**: deal context + counterparty reply (+ prior `state`) → assessment · next-round strategy · bilingual reply · status · updated **concession ledger** (secured/conceded/red-lines carried across rounds) · **concession ladder** (proposed trades, red-line-screened) · `walk_away_recommended` (fires when a red-line is blocked and a BATNA exists). Tactics are biased by the org's real win-rate flywheel. |
 | POST | `/monitor/run` | **Autopilot**: scan newly-issued laws (`since`) → which contracts are affected → digest. |
 | POST | `/monitor/feedback` | Mark a monitor alert as a false alarm → suppressed next run (self-tuning). |
 | GET | `/graph/{doc_id}` · `/latest/{doc_id}` · `/articles-changed/{doc_id}` | Document relationship graph / latest version / amended articles (TVPL-style). |

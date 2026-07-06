@@ -27,6 +27,12 @@ the chat apps they already use.
   **⚖️ illegal (voidable)** from merely **unfavorable**, with a deterministic citation to the in-force article.
 - **Proposes position-aware fallbacks**: you declare leverage / urgency / relationship / BATNA and the
   agent returns keep-vs-concede tactics + a ready-to-send bilingual counter-clause — not a rigid template.
+- **Negotiates across rounds, not one-shot**: paste the counterparty's reply and the agent runs a *stateful*
+  negotiation round — a **concession ledger** remembers what's already secured/conceded (never gives back a
+  won point across rounds), a **deterministic walk-away guardrail** fires when a red-line (must-fix) is blocked
+  *and* you hold a BATNA, and it proposes a **concession ladder** (trade a low-cost point to lock a valuable one,
+  never offering a red-line). It **learns from real outcomes** — an org-isolated win-rate flywheel biases future
+  tactics toward what has actually closed.
 - **Keeps a human in the loop**: the message to the counterparty is locked until a reviewer approves;
   rejecting escalates to a lawyer.
 - **Works proactively (autopilot)**: a cron service inside the production Docker stack scans
@@ -108,10 +114,14 @@ thời lượng theo đúng tỉ trọng này (kỹ thuật + sáng tạo = 60% 
    **🤖 agent execution summary** (tool calls), and the **locked** message-to-counterparty (human checkpoint).
 3. **See the agent think (1:10–1:40)** — open the Trace tab / `GET /runs` feed: real tool calls & decisions
    (AI-Native evidence).
-4. **Negotiate (1:40–2:10)** — paste the counterparty's reply ("we'll only go to 12%") → a new negotiation
-   round cites the 8% cap; generate a bilingual counter-clause.
-5. **Autopilot (2:10–2:40)** — show the in-stack cron (`docker compose logs autopilot-cron`) + trigger
+4. **Negotiate across rounds (1:40–2:20)** — paste the counterparty's reply ("we accept 8% penalty but
+   keep Beijing arbitration") → a *stateful* round: the **concession ledger** shows ✅ *8% secured*, the
+   agent proposes a **concession ladder** (trade a low-cost point to lock arbitration in Vietnam), and cites
+   the 8% cap. Paste a second reply refusing arbitration → the **walk-away guardrail** fires (red-line blocked
+   + BATNA) — the agent recommends walking. Show it **remembered the 8% from round 1** (never re-negotiated a
+   won point). Generate the bilingual counter-clause.
+5. **Autopilot (2:20–2:45)** — show the in-stack cron (`docker compose logs autopilot-cron`) + trigger
    `/monitor/run` with an older `since` so it fires on real data (Decree 63/2011 → 8 arbitration cases
    flagged): "the agent scans new laws while you sleep"; dismiss a false alarm → it self-tunes.
-6. **Trust close (2:40–3:00)** — `/trust`: 54/54 internal golden (majority-vote), in-force filter, 2-layer verify —
+6. **Trust close (2:45–3:00)** — `/trust`: 54/54 internal golden (majority-vote), in-force filter, 2-layer verify —
    "grounded, never fabricated." Mention: Qwen on Qwen Cloud, Alibaba Cloud ECS, MIT open-core.
