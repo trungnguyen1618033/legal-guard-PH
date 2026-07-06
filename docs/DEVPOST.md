@@ -74,19 +74,26 @@ DashScope-intl; hosting is Alibaba Cloud ECS; the repo is MIT (open-core).
 
 ---
 
-## ✅ Submission checklist (theo rules chính thức trên Devpost — verify 2/7/2026)
+## ✅ Submission checklist (RE-VERIFY nội quy chính thức qwencloud-hackathon.devpost.com/rules — 6/7/2026)
 
-Hạn nộp: **July 9, 2026 @ 2:00 PM PDT** (= 4:00 sáng 10/7 giờ VN) — mục tiêu an toàn: submit xong 8/7.
+Hạn nộp: **July 9, 2026 @ 2:00 PM PT** (= ~4:00 sáng 10/7 giờ VN) — mục tiêu an toàn: submit xong 8/7.
+Ngôn ngữ: **MỌI tài liệu phải tiếng ANH** (hoặc kèm bản dịch EN) — description/video/testing instructions.
 
-- [x] Repo public + **LICENSE file MIT hiển thị ở đầu trang repo** (⚠️ repo đang private — chuyển public trước khi submit)
-- [x] Dùng Qwen models trên Qwen Cloud (6 model qua DashScope)
-- [x] Deploy Alibaba Cloud ECS — live https://legalguard.duckdns.org
+- [ ] Repo **public** + **LICENSE MIT "detectable & visible at top of repo page"** (GitHub tự nhận MIT ✓; chỉ cần bấm public)
+- [x] Dùng Qwen models trên Qwen Cloud (6 model qua DashScope) — `qwen.py`
+- [x] **Proof Alibaba = LINK FILE CODE** (nội quy: "a link to a code file that demonstrates use of Alibaba Cloud
+      services and APIs") → `legalguard/adapters/outbound/qwen.py` + `config/settings.py` (endpoint
+      `dashscope-intl.aliyuncs.com` = Alibaba Model Studio/Qwen Cloud). ⚠️ KHÔNG bắt buộc video — file code là đủ.
+- [x] Deploy Alibaba Cloud ECS — live https://legalguard.duckdns.org (thêm bằng chứng runtime)
 - [x] Architecture diagram (`architecture-diagram.en.md`)
-- [x] Text description (file này) + chọn track Autopilot Agent
-- [ ] 🎬 Video demo ~3 phút — upload YouTube/Vimeo public → điền link ở "Try it out"
-- [ ] 🎥 **Recording RIÊNG (tách khỏi demo) chứng minh backend chạy trên Alibaba Cloud** — quay màn hình:
-      Alibaba Cloud console (ECS instance) → SSH `docker ps` (5 container) → `curl https://legalguard.duckdns.org/health` → đối chiếu IP/domain
-- [ ] (Optional, có giải Blog Post) bài blog "building with Qwen Cloud" → điền link
+- [x] Text description (file này) + chọn track **Autopilot Agent**
+- [ ] 🎬 Video demo **<3 phút**, public **YouTube/Vimeo/Youku**, tiếng Anh, KHÔNG nhạc/nhãn-hiệu bản quyền → điền link
+- [ ] (Điểm cộng, không bắt buộc) Recording backend chạy Alibaba: console ECS → SSH `docker ps` → `curl /health`
+- [ ] (Optional, có giải Blog Post riêng) blog "building with Qwen Cloud" → điền link
+
+**Chấm (Stage 2, đều nhau về nhóm):** Innovation & AI Creativity 30% · Technical Depth 30% · Problem Value 25% ·
+Presentation & Documentation 15% (= demo rõ + arch docs; KHÔNG cần deck riêng). Stage 1 = pass/fail (đúng theme + dùng Qwen API).
+Autopilot track nhấn: ambiguous inputs · external tools · human-in-the-loop · **production-ready (không phải toy demo)**.
 
 Judging: Technical Depth 30% · Innovation 30% · Problem Value 25% · Presentation 15% — video nên phân bổ
 thời lượng theo đúng tỉ trọng này (kỹ thuật + sáng tạo = 60% điểm).
