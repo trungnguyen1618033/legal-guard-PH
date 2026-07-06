@@ -72,7 +72,9 @@ là **New** (commit đầu 09/06 — verify git) → thực chất N/A; nếu fo
 1. **Architecture Diagram** (png/jpg/pdf) — có thể render/AI-generate.
 2. **Screenshot proof of Alibaba deployment** (png/jpg) — ⚠️ **PHẢI LÀ ẢNH THẬT** (chụp console Alibaba/terminal), **KHÔNG AI-generate** (đây là bằng chứng deploy thật; bịa = gian lận, mà bạn ĐÃ deploy thật nên chỉ cần chụp).
 
-**Architecture diagram — cách chuẩn nhất (render mermaid):** mở `docs/architecture-diagram.en.md` → copy khối ` ```mermaid ` → dán vào https://mermaid.live → Export PNG.
+**Architecture diagram — ĐÃ RENDER SẴN:** upload `docs/assets/architecture-overview.png` (sơ đồ hệ thống —
+Users→Alibaba ECS→Qwen Cloud 6 model). Bonus: `docs/assets/architecture-sequence.png` (luồng phân tích).
+*(Nguồn mermaid: `docs/architecture-diagram.en.md` — muốn render lại thì dán khối ```mermaid vào https://mermaid.live.)*
 
 **Prompt AI tạo ảnh Architecture Diagram (ChatGPT/Gemini) — nếu muốn đẹp hơn:**
 > Create a clean, professional software architecture diagram (light background, 3:2 ratio) for "Legal Guard", a hexagonal (ports & adapters) FastAPI legal-AI agent. Left→right flow: Users → (Web UI · Slack · Zalo · MCP) → FastAPI inbound adapter → Domain core box (ReAct agent · analysis use-case · NLI self-critique · multi-round negotiation) → Outbound adapters → **Qwen Cloud / DashScope on Alibaba Cloud ECS** (qwen3.7-max reasoner, qwen-flash judge, qwen-plus lookup, text-embedding-v4, qwen3-rerank, qwen3.7-plus OCR) + Knowledge Base (in-force Vietnamese law) + PostgreSQL/pgvector + Redis. Label the arrows; emphasize all inference goes to Qwen on Alibaba Cloud. Minimal, boardroom-quality, no clutter, English labels.
