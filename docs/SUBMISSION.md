@@ -51,16 +51,18 @@ FastAPI + Postgres + Redis). Repo MIT open-core.
 
 | Field | Giá trị |
 |---|---|
-| Submitter type | Individual *(đổi nếu team/organization)* |
-| Country of residence | *chọn nước bạn ở thực tế (Vietnam / Japan…)* |
+| Submitter type | Individual |
+| Organization name | *(để TRỐNG — cá nhân, không áp dụng)* |
+| Country of residence | Vietnam |
 | Newly built or existing? | **New** |
 | Start date | 06-09-26 |
 | Track | **Track 4: Autopilot Agent** |
 | Repository URL | https://github.com/trungnguyen1618033/legal-guard-PH |
 | **Alibaba proof (code file URL)** | https://github.com/trungnguyen1618033/legal-guard-PH/blob/main/legalguard/adapters/outbound/qwen.py |
 
-**"What you updated during the submission period" (bắt buộc — paste):**
-> Newly built during the submission period — first commit June 9, 2026 (after May 26). Everything was created from scratch: the ReAct contract-review agent, hybrid RAG over in-force Vietnamese law with NLI verification, stateful multi-round position-aware negotiation (concession ledger + walk-away guardrail + concession ladder + win-rate flywheel), proactive autopilot law-monitoring, a human-in-the-loop checkpoint, and the Qwen-on-Alibaba-Cloud deployment.
+**"What you updated during the submission period"** — field CÓ ĐIỀU KIỆN ("nếu tồn tại trước 26/5"). Dự án
+là **New** (commit đầu 09/06 — verify git) → thực chất N/A; nếu form vẫn bắt buộc thì paste (trung thực):
+> Newly built during the submission period — first commit June 9, 2026 (after May 26); it did not exist before. Everything was created from scratch: the ReAct contract-review agent, hybrid RAG over in-force Vietnamese law with NLI verification, stateful multi-round position-aware negotiation (concession ledger + walk-away guardrail + concession ladder + win-rate flywheel), proactive autopilot law-monitoring, a human-in-the-loop checkpoint, and the Qwen-on-Alibaba-Cloud deployment.
 
 **"Which AI tools have you leveraged" (SỬA — BỎ Gemini "real-time search"; paste):**
 > Qwen models via Qwen Cloud / DashScope for ALL product inference (qwen3.7-max reasoner, qwen-flash judge/NLI, qwen-plus lookup, text-embedding-v4, qwen3-rerank, qwen3.7-plus vision-OCR). Claude Code as a coding assistant during development.
