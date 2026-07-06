@@ -73,17 +73,29 @@ Hợp đồng upload là **input không tin cậy** đưa vào agent có tool. P
 
 ## 8. Lỗ hổng hiện tại & ưu tiên
 
-| Hạng mục | Trạng thái | Adopt-now (không cần key) |
+| Hạng mục | Trạng thái | Ghi chú |
 |---|---|---|
-| API auth + tenant scoping | 🔴 `/cases`,`/evidence` đang MỞ | ✅ thêm API key + ràng tenant |
-| Redaction PII trước khi gửi LLM | 🔴 chưa có | ✅ redactor rule-based |
-| Giới hạn file upload | 🟠 chỉ check định dạng | ✅ thêm giới hạn kích thước |
-| Prompt-injection hardening | 🟠 tool ít quyền nhưng chưa delimit | ✅ bọc untrusted + chỉ thị |
-| Right-to-erasure | 🔴 chưa có | ✅ endpoint xóa case |
-| Rate limiting | 🟠 chưa | ✅ in-process per-key (`RATE_LIMIT_PER_MIN`); prod → Redis |
-| Retry/backoff LLM + CI (ruff+pytest) | 🟠 chưa | ✅ `_http.post_json` retry · `.github/workflows/ci.yml` |
-| Encrypt at-rest / KMS / RLS | ⚪ prod | khi deploy (RDS/KMS) |
-| Presidio NER redaction / DPA / self-host Qwen | ⚪ nâng cao | khi có khách thật |
+| API auth (X-API-Key→org) + tenant scoping | ✅ ĐÃ CÓ | `require_auth`; verify live: no/bad key → 401 |
+| Redaction PII trước khi gửi LLM | ✅ ĐÃ CÓ (email + số dài) | `domain/redaction.py`; ⚠️ CHƯA che TÊN riêng → Presidio |
+| Giới hạn file/kích thước input | ✅ ĐÃ CÓ | verify live: >50k ký tự → 413 |
+| Prompt-injection hardening | ✅ ĐÃ CÓ | delimiter `<<<CONTRACT>>>` + tool ít quyền + HITL; verify live: injection → abstain, không lộ prompt |
+| Right-to-erasure (cascade) | ✅ ĐÃ CÓ | `delete_case` → xóa outcomes + feedback |
+| Rate limiting | ✅ ĐÃ CÓ | in-process per-key (`RATE_LIMIT_PER_MIN`); prod → Redis |
+| Retry/backoff LLM + CI (ruff+pytest) | ✅ ĐÃ CÓ | `_http.post_json` · `.github/workflows/ci.yml` |
+| Grounding chống bịa (in-force + NLI + abstain) | ✅ ĐÃ CÓ | verify live: ngoài-KB → "Chưa đủ căn cứ" |
+| Encrypt at-rest / KMS / Postgres RLS | ⚪ PROD | isolation hiện ở tầng app; RDS/KMS khi deploy khách thật |
+| Presidio NER (che tên) / DPA / self-host Qwen | ⚪ NÂNG CAO | khi có khách thật |
 
-> Nguyên tắc: **giảm thiểu dữ liệu** (chỉ gửi/giữ tối thiểu) + **defense-in-depth** + **least privilege**.
+### Tuân thủ AI/dữ liệu VN (cả 2 luật ĐÃ hiệu lực 2026)
+| Nghĩa vụ | Luật | Trạng thái dự án |
+|---|---|---|
+| **Con người giám sát, AI không thay quyền quyết** | Luật AI 134/2025 (1/3/2026) | ✅ human-in-the-loop (khóa reply tới khi duyệt) + escalate luật sư |
+| **Minh bạch: người dùng biết đang nói với AI** | Luật AI 134/2025 | 🟠 có disclaimer "AI hỗ trợ, không thay tư vấn luật" — cần marker "AI" NHẤT QUÁN mọi kênh (web/Slack/Zalo) |
+| **Auditability / giải trình** | Luật AI 134/2025 | ✅ trace + `/runs` + execution_summary + audit trail |
+| **Chống UPL (hành nghề luật trái phép)** | (nghề luật) | ✅ định vị công cụ hỗ trợ + HITL + escalate + disclaimer |
+| **Chuyển dữ liệu cá nhân xuyên biên giới** (HĐ→Alibaba Singapore) | PDPL 91/2025 Đ.20 (1/1/2026) | 🟠 giảm thiểu: redaction + Alibaba no-train/no-store/AES-256; **PROD cần: hồ sơ ĐÁNH GIÁ TÁC ĐỘNG + thông báo + consent/DPA** (phạt tới **5% doanh thu**) |
+| **Phân loại AI rủi ro cao + đăng ký** | Luật AI 134/2025 | ⚪ AI pháp lý có thể high-risk → nghĩa vụ risk-mgmt/đăng ký; transition ~12 tháng (tới ~1/3/2027) |
+
+> Nguyên tắc: **giảm thiểu dữ liệu** (chỉ gửi/giữ tối thiểu) + **defense-in-depth** + **least privilege** +
+> **trust-by-design** (grounding + HITL + audit = vừa là bảo mật vừa là moat + khớp Luật AI 134/2025).
 > Tất cả lớp bảo mật cắm vào kiến trúc hexagonal dưới dạng adapter/middleware — domain không đổi.
