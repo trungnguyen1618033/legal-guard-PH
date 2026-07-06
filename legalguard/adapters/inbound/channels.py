@@ -138,6 +138,14 @@ def format_negotiation_reply(r: dict, lang: str = "vi") -> str:
         lines.append("↩️ *Ta đã nhượng:* " + "; ".join(st["conceded"]))
     if r.get("walk_away_recommended"):
         lines.append("🚨 *Red-line bị chặn + ta có BATNA → cân nhắc RÚT.*")
+    moves = r.get("next_moves") or []
+    if moves:
+        mv = []
+        for m in moves:
+            flag = " ⚠️ _gần red-line — cân nhắc_" if m.get("near_red_line") else ""
+            ret = f" → đổi lấy: {m['in_return_for']}" if m.get("in_return_for") else ""
+            mv.append(f"• Nhượng: {m.get('offer', '')}{ret}{flag}")
+        lines.append("🪜 *Nước đi đề xuất (thang nhượng-bộ):*\n" + "\n".join(mv))
     reply = r.get("reply_vi") if lang == "vi" else (r.get("reply_en") or r.get("reply_vi"))
     if reply:
         lines.append(f"💬 *Câu trả lời đối tác:*\n{reply}")

@@ -175,6 +175,16 @@ def test_format_negotiation_reply_shows_ledger_and_walk_away():
     assert "Đã chốt:" in out and "phạt 8%" in out and "Ta đã nhượng:" in out and "cân nhắc RÚT" in out
 
 
+def test_format_negotiation_reply_shows_next_moves():
+    from legalguard.adapters.inbound.channels import format_negotiation_reply
+    out = format_negotiation_reply({"status": "continue", "assessment": "a", "reply_vi": "x", "grounded": True,
+                                    "next_moves": [{"offer": "gia hạn giao 5 ngày", "in_return_for": "chốt phạt 8%",
+                                                    "near_red_line": False},
+                                                   {"offer": "đổi trọng tài", "near_red_line": True}]})
+    assert "thang nhượng-bộ" in out and "gia hạn giao 5 ngày" in out
+    assert "đổi lấy: chốt phạt 8%" in out and "gần red-line" in out
+
+
 def test_analyze_seeds_red_lines_into_nego_state():
     from legalguard.domain.negotiation import state_from_json
     h = _handler()

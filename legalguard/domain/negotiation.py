@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from legalguard.domain.models import NegotiationPosition
@@ -31,7 +32,10 @@ _SYSTEM = (
     "của đối tác, rồi: (1) đánh giá đối tác CHẤP NHẬN/TỪ CHỐI/PHẢN-ĐỀ gì; (2) cập nhật chiến lược vòng tới "
     "(còn PHẢI GIỮ gì, NHƯỢNG thêm gì) — TUYỆT ĐỐI không nhượng lại thứ đã nhượng, không đàm phán lại thứ "
     "đối tác đã đồng ý (secured); (3) soạn câu trả lời gửi đối tác song ngữ, chuyên nghiệp, bám vị thế; "
-    "(4) khuyến nghị status. Bám căn cứ pháp lý nếu có, KHÔNG bịa số hiệu điều luật. "
+    "(4) đề xuất THANG NHƯỢNG-BỘ (next_moves): 1-3 nước đi TRAO ĐỔI cho vòng tới — mỗi nước = NHƯỢNG một "
+    "điểm RẺ-với-ta ĐỂ ĐỔI LẤY chốt một điểm CÒN MỞ có giá trị; hiệu chỉnh theo lợi thế (mạnh→đòi nhiều, "
+    "nhượng ít; yếu→ưu tiên giữ deal). TUYỆT ĐỐI KHÔNG đề xuất nhượng điểm red-line. "
+    "(5) khuyến nghị status. Bám căn cứ pháp lý nếu có, KHÔNG bịa số hiệu điều luật. "
     "status: 'continue' (còn đàm phán) | 'close' (điều kiện đã đủ tốt, nên chốt) | 'walk_away' (đối tác không "
     "nhượng điểm sống còn + ta có BATNA → nên rút). "
     "red_line_blocked = true CHỈ KHI đối tác TỪ CHỐI thẳng một điểm trong danh sách red-line (must-fix). "
@@ -39,8 +43,14 @@ _SYSTEM = (
     'Trả về DUY NHẤT một khối JSON: {"assessment":"<đánh giá phản hồi đối tác>", '
     '"strategy":"<chiến lược vòng tới: giữ/nhượng/walk-away>", "reply_vi":"<câu trả lời tiếng Việt>", '
     '"reply_en":"<English reply to partner>", "newly_secured":["..."], "newly_conceded":["..."], '
-    '"still_open":["..."], "red_line_blocked":false, "status":"continue|close|walk_away"}.'
+    '"still_open":["..."], "next_moves":[{"offer":"<nhượng gì (rẻ với ta)>","in_return_for":"<đổi lấy chốt '
+    'điểm nào>","why":"<vì sao hợp lý theo vị thế>"}], "red_line_blocked":false, '
+    '"status":"continue|close|walk_away"}.'
 )
+
+# Stopword VN (từ chức năng) — bỏ khi so nước-đi với red-line để giảm khớp giả (chỉ token đặc trưng mới tính).
+_STOP = {"phải", "tại", "của", "cho", "các", "một", "trong", "được", "này", "đối", "tác", "và", "với",
+         "theo", "khi", "thì", "sang", "về", "bên", "điểm", "việc", "sẽ", "đã", "còn"}
 
 _LEVERAGE_VI = {"strong": "mạnh", "balanced": "cân bằng", "weak": "yếu (ưu tiên giữ deal, không đòi quá)"}
 
@@ -63,6 +73,35 @@ def _merge_unique(base: list[str], new: list[str]) -> list[str]:
         if k and k not in seen:
             out.append(x.strip())
             seen.add(k)
+    return out
+
+
+def _key_tokens(s: str) -> set[str]:
+    """Token đặc trưng (NFC, thường, len≥3, bỏ stopword) để so nước-đi với red-line."""
+    toks = re.findall(r"\w+", unicodedata.normalize("NFC", (s or "").lower()))
+    return {t for t in toks if len(t) >= 3 and t not in _STOP}
+
+
+def _touches(offer: str, red_line: str) -> bool:
+    """Nước đi 'nhượng' CÓ đụng điểm red-line không? Substring hoặc ≥2 token đặc trưng chung (bảo thủ →
+    thà gắn cờ oan còn hơn để lọt nhượng điểm sống còn; cờ hiển thị cho người, không tự ý bỏ nước đi)."""
+    o, r = offer.strip().lower(), red_line.strip().lower()
+    if not o or not r:
+        return False
+    if o in r or r in o:
+        return True
+    return len(_key_tokens(o) & _key_tokens(r)) >= 2
+
+
+def screen_moves(moves: list[dict], red_lines: list[str]) -> list[dict]:
+    """Gắn cờ `near_red_line` cho từng nước đi đụng điểm red-line (bảo vệ TẤT ĐỊNH — LLM có thể lỡ gợi ý
+    nhượng điểm sống còn). THUẦN (test offline). Không bỏ nước đi, chỉ đánh dấu để UI/người quyết."""
+    out = []
+    for m in moves:
+        offer = str(m.get("offer", ""))
+        flagged = any(_touches(offer, rl) for rl in red_lines)
+        out.append({"offer": offer, "in_return_for": str(m.get("in_return_for", "")).strip(),
+                    "why": str(m.get("why", "")).strip(), "near_red_line": flagged})
     return out
 
 
@@ -91,13 +130,29 @@ def _parse_round(raw: str) -> dict:
                     "newly_secured": _str_list(d.get("newly_secured")),
                     "newly_conceded": _str_list(d.get("newly_conceded")),
                     "still_open": _str_list(d.get("still_open")),
+                    "next_moves": _move_list(d.get("next_moves")),
                     "red_line_blocked": bool(d.get("red_line_blocked", False)),
                     "status": status}
         except (json.JSONDecodeError, AttributeError):
             pass
     return {"assessment": text[:800], "strategy": "", "reply_vi": "", "reply_en": "",
-            "newly_secured": [], "newly_conceded": [], "still_open": [],
+            "newly_secured": [], "newly_conceded": [], "still_open": [], "next_moves": [],
             "red_line_blocked": False, "status": "continue"}
+
+
+def _move_list(v) -> list[dict]:
+    """Ép next_moves về list[{offer,in_return_for,why}]. LLM có thể trả str đơn → coi là offer."""
+    if not isinstance(v, list):
+        return []
+    out = []
+    for m in v:
+        if isinstance(m, dict):
+            out.append({"offer": str(m.get("offer", "")).strip(),
+                        "in_return_for": str(m.get("in_return_for", "")).strip(),
+                        "why": str(m.get("why", "")).strip()})
+        elif isinstance(m, str) and m.strip():
+            out.append({"offer": m.strip(), "in_return_for": "", "why": ""})
+    return [m for m in out if m["offer"]]
 
 
 @dataclass
@@ -135,6 +190,7 @@ class NegotiationRound:
     reply_en: str              # câu trả lời gửi đối tác (tiếng Anh — sẵn gửi)
     status: str = "continue"   # continue | close | walk_away
     state: NegotiationState = field(default_factory=NegotiationState)  # sổ nhượng-bộ ĐÃ cập nhật
+    next_moves: list[dict] = field(default_factory=list)  # thang nhượng-bộ: [{offer,in_return_for,why,near_red_line}]
     walk_away_recommended: bool = False   # guardrail red-line: red-line bị chặn + có BATNA
     grounded: bool = True      # False = soạn offline/khung, cần người hoàn thiện
 
@@ -183,6 +239,8 @@ def negotiate_round(reasoner: LLMPort, *, deal_context: str, partner_message: st
         status = "walk_away"                                           # có BATNA → không để agent chốt/nhượng tiếp
         strategy = (strategy + " " if strategy else "") + \
             "[GUARDRAIL] Đối tác chặn điểm red-line (must-fix) và ta có BATNA → khuyến nghị RÚT."
+    moves = screen_moves(parsed["next_moves"], new_state.red_lines)    # bảo vệ tất định: gắn cờ nước-đi đụng red-line
     return NegotiationRound(assessment=parsed["assessment"], strategy=strategy,
                             reply_vi=parsed["reply_vi"], reply_en=parsed["reply_en"],
-                            status=status, state=new_state, walk_away_recommended=walk, grounded=True)
+                            status=status, state=new_state, next_moves=moves,
+                            walk_away_recommended=walk, grounded=True)

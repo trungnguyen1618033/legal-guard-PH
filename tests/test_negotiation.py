@@ -3,8 +3,10 @@ from legalguard.domain.models import NegotiationPosition
 from legalguard.domain.negotiation import (
     NegotiationState,
     _merge_unique,
+    _move_list,
     _parse_round,
     negotiate_round,
+    screen_moves,
     should_walk_away,
 )
 from legalguard.domain.tenants import default_org
@@ -113,3 +115,30 @@ def test_no_walk_away_when_blocked_but_no_batna():
                         position=NegotiationPosition(alternatives=False),
                         state=NegotiationState(red_lines=["trọng tài VN"]))
     assert r.walk_away_recommended is False and r.status == "continue"      # không BATNA → không tự hại
+
+
+# ---- Thang nhượng-bộ (concession ladder) + bảo vệ red-line ----
+def test_move_list_coerces_dict_and_str():
+    ms = _move_list([{"offer": "gia hạn giao 5 ngày", "in_return_for": "chốt phạt 8%"}, "giảm đặt cọc", {}, 3])
+    assert ms[0]["offer"] == "gia hạn giao 5 ngày" and ms[0]["in_return_for"] == "chốt phạt 8%"
+    assert ms[1] == {"offer": "giảm đặt cọc", "in_return_for": "", "why": ""}
+    assert len(ms) == 2                                    # {} và 3 (không có offer) bị bỏ
+
+
+def test_screen_moves_flags_offer_touching_red_line():
+    moves = [{"offer": "Nhượng địa điểm trọng tài sang Bắc Kinh", "in_return_for": "chốt giá"},
+             {"offer": "Gia hạn giao hàng thêm 5 ngày", "in_return_for": "chốt phạt 8%"}]
+    out = screen_moves(moves, red_lines=["Trọng tài phải tại Việt Nam (VIAC)"])
+    assert out[0]["near_red_line"] is True                 # đụng red-line trọng tài → gắn cờ
+    assert out[1]["near_red_line"] is False                # gia hạn giao hàng → an toàn
+    assert screen_moves([], ["x"]) == []
+
+
+def test_negotiate_round_screens_next_moves_against_red_line():
+    out = ('{"assessment":"a","strategy":"s","reply_vi":"v","reply_en":"e","status":"continue",'
+           '"next_moves":[{"offer":"nhượng trọng tài sang Bắc Kinh","in_return_for":"chốt giá","why":"x"},'
+           '{"offer":"giảm đặt cọc còn 10%","in_return_for":"chốt thời hạn","why":"y"}]}')
+    r = negotiate_round(_LLM(out=out), deal_context="d", partner_message="m",
+                        state=NegotiationState(red_lines=["Trọng tài tại Việt Nam"]))
+    assert len(r.next_moves) == 2
+    assert r.next_moves[0]["near_red_line"] is True and r.next_moves[1]["near_red_line"] is False

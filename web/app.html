@@ -459,7 +459,10 @@ $('nego-go').onclick = async () => {
     const ledger =
       ((st.secured||[]).length ? `<div style="margin-top:8px"><b>✅ Đã chốt:</b> ${st.secured.join('; ')}</div>` : '') +
       ((st.conceded||[]).length ? `<div style="margin-top:4px"><b>↩️ Ta đã nhượng:</b> ${st.conceded.join('; ')}</div>` : '') +
-      (d.walk_away_recommended ? `<div class="banner" style="background:var(--high);margin-top:8px"><strong>🚨 Red-line bị chặn + ta có BATNA → cân nhắc RÚT.</strong></div>` : '');
+      (d.walk_away_recommended ? `<div class="banner" style="background:var(--high);margin-top:8px"><strong>🚨 Red-line bị chặn + ta có BATNA → cân nhắc RÚT.</strong></div>` : '') +
+      ((d.next_moves||[]).length ? `<div style="margin-top:8px"><b>🪜 Nước đi đề xuất (thang nhượng-bộ):</b><ul style="margin:4px 0 0 18px">` +
+        d.next_moves.map(m => `<li>Nhượng: ${m.offer||''}${m.in_return_for?` → đổi lấy: ${m.in_return_for}`:''}${m.near_red_line?' <span style="color:#c00">⚠️ gần red-line</span>':''}${m.why?`<br><span class="muted" style="font-size:.9em">${m.why}</span>`:''}</li>`).join('') +
+        `</ul></div>` : '');
     $('nego-result').innerHTML =
       `<div class="banner" style="background:${bg}"><strong>${label}</strong></div>` +
       `<div style="margin-top:8px"><b>📊 Đánh giá phản hồi:</b><div class="md">${mdLite(d.assessment)}</div></div>` +
