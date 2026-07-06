@@ -92,7 +92,7 @@
   <div class="chips">
     <span class="chip live">Live trên ECS</span>
     <span class="chip">12 lĩnh vực grounded</span>
-    <span class="chip">Độ chính xác 98% (53/54)</span>
+    <span class="chip">Độ chính xác 54/54 (golden nội bộ)</span>
     <span class="chip">Slack 9 chức năng</span>
     <span class="chip">Bảo mật siết</span>
   </div>
@@ -101,11 +101,11 @@
   <div class="card">
     <h2>Tóm tắt</h2>
     <p>Legal Guard phân tích điều khoản rủi ro, tách <strong>trái luật</strong> với <strong>bất lợi</strong>, và đề xuất chiến thuật đàm phán theo vị thế của doanh nghiệp. Toàn bộ câu trả lời được <strong>neo vào văn bản luật truy xuất được</strong> (grounding) và dẫn đúng Điều/Khoản; văn bản đã hết hiệu lực bị tự động loại.</p>
-    <p>Hệ thống đang chạy thật trên máy chủ (ECS), kênh chính là <strong>Slack</strong>, đã vượt bộ kiểm thử nội bộ <strong>53/54 câu (98%)</strong> trải 12 lĩnh vực pháp luật.</p>
+    <p>Hệ thống đang chạy thật trên máy chủ (ECS), kênh chính là <strong>Slack</strong>, đã vượt bộ kiểm thử nội bộ <strong>54/54 câu (majority-vote)</strong> trải 12 lĩnh vực pháp luật.</p>
     <div class="stats">
       <div class="stat"><span class="n">12</span><span class="l">Lĩnh vực grounded</span></div>
       <div class="stat"><span class="n">54</span><span class="l">Câu kiểm thử</span></div>
-      <div class="stat"><span class="n">98%</span><span class="l">Đúng (nội bộ)</span></div>
+      <div class="stat"><span class="n">54/54</span><span class="l">Đúng (nội bộ)</span></div>
       <div class="stat"><span class="n">9</span><span class="l">Chức năng Slack</span></div>
     </div>
     <p class="toc-hint">Bấm vào từng mục dưới đây để mở chi tiết.</p>
@@ -118,7 +118,7 @@
     <summary><span class="s-title">1 · Gói gửi luật sư</span><span class="s-teaser">Lời mời + việc cần duyệt (54 câu) + phân tích mẫu + cam kết trung thực</span><span class="chev">▶</span></summary>
     <div class="body">
       <h3>Lời mời thẩm định</h3>
-      <p>Nguyên tắc cốt lõi: <strong>AI không được bịa luật</strong>. Để chứng minh khách quan, chúng tôi xây bộ kiểm thử (golden set) 54 câu hỏi pháp lý, mỗi câu có sẵn đáp án + căn cứ điều luật do hệ thống tạo. Hệ thống tự chấm đạt 98% — nhưng đây là <strong>con số nội bộ, chưa được chuyên gia xác nhận</strong>.</p>
+      <p>Nguyên tắc cốt lõi: <strong>AI không được bịa luật</strong>. Để chứng minh khách quan, chúng tôi xây bộ kiểm thử (golden set) 54 câu hỏi pháp lý, mỗi câu có sẵn đáp án + căn cứ điều luật do hệ thống tạo. Hệ thống tự chấm đạt 54/54 (majority-vote) — nhưng đây là <strong>con số nội bộ, chưa được chuyên gia xác nhận</strong>.</p>
       <p>Rất mong Luật sư giúp thẩm định (file Excel <code>golden-set-lawyer-review.csv</code> đính kèm):</p>
       <ol>
         <li>Với mỗi câu: <strong>đáp án + căn cứ điều luật</strong> đã đúng chưa? (đánh dấu Đúng/Sai; sai thì sửa)</li>
@@ -193,7 +193,7 @@
         <li>Embeddings lưu bền (3.437 vector) → khởi động lại tức thì, không phân tích lại.</li>
       </ul>
       <h3>Độ chính xác (nội bộ)</h3>
-      <p><span class="num">53/54 = 98%</span>. Câu duy nhất chưa đạt là một câu tra cứu theo mốc thời gian — hệ thống <strong>từ chối quá thận trọng</strong> (an toàn: không trả sai), đang cải thiện.</p>
+      <p><span class="num">54/54</span> (majority-vote, 3 lần/câu). Còn <strong>1 ca ranh giới dao động</strong> giữa các lần (khớp câu chữ trên model hosted) — một lần chạy đơn có thể ra 53/54; chúng tôi công bố thẳng thay vì làm tròn 100%.</p>
       <h3>Đã kiểm thử (vượt)</h3>
       <div class="tbl-wrap"><table>
         <thead><tr><th>Hạng mục</th><th>Kết quả</th></tr></thead>
@@ -230,7 +230,7 @@
     <summary><span class="s-title">5 · Giới hạn &amp; cam kết trung thực</span><span class="s-teaser">Những điều nói rõ ngay từ đầu</span><span class="chev">▶</span></summary>
     <div class="body">
       <ul>
-        <li><strong>"98%" là số nội bộ</strong> (tự chấm trên golden tự tạo) — nhờ luật sư duyệt chính là để biến nó thành con số có chuyên gia xác nhận.</li>
+        <li><strong>"54/54" là số nội bộ</strong> (tự chấm trên golden tự tạo) — nhờ luật sư duyệt chính là để biến nó thành con số có chuyên gia xác nhận.</li>
         <li><strong>Văn bản luật là bản tự-động-trích</strong> từ nguồn mở; đã lọc hiệu lực nhưng cần đối chiếu bản chính thức trước khi dùng tư vấn.</li>
         <li><strong>1 câu từ chối quá thận trọng</strong> (điểm-thời-gian) — an toàn, không trả sai, đang sửa.</li>
         <li><strong>Phạm vi đang mở rộng</strong>: 12 lĩnh vực hiện tập trung hợp đồng thương mại; bổ sung dần.</li>

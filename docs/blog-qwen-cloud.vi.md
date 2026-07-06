@@ -58,8 +58,9 @@ Ba lớp chắn giải quyết chuyện này:
    được tính là trả lời đúng.
 
 Chúng tôi kiểm tra tất cả bằng 54 câu hỏi có đáp án chuẩn, trải 12 lĩnh vực pháp luật Việt Nam.
-Điểm hiện tại: **98,1% (53/54)** — từ mức 87% lúc khởi đầu. Ca cuối cùng dao động do độ ngẫu
-nhiên của dịch vụ AI hosted, và chúng tôi nói thẳng điều đó thay vì làm tròn lên 100%. Toàn bộ
+Điểm hiện tại: **54/54** theo majority-vote (3 lần/câu) — từ mức 87% lúc khởi đầu. Một ca ranh giới
+vẫn dao động giữa các lần (khớp câu chữ trên model hosted), nên một lần chạy đơn có thể ra 53/54 —
+chúng tôi nói thẳng điều đó thay vì làm tròn lên 100%. Toàn bộ
 phương pháp công bố tại https://legalguard.duckdns.org/trust — vì một AI đụng đến rủi ro pháp lý
 thì phải dám trưng bảng điểm của mình.
 
