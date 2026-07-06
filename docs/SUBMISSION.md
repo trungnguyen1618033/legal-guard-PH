@@ -25,7 +25,7 @@
 | **Proof of Alibaba Cloud deployment** (link file code) | https://github.com/trungnguyen1618033/legal-guard-PH/blob/main/legalguard/adapters/outbound/qwen.py — dùng endpoint `dashscope-intl.aliyuncs.com` (Alibaba Model Studio / Qwen Cloud). Bổ trợ: [`docker-compose.yml`](../docker-compose.yml), [`docs/deploy-ecs-selfhosted.md`](deploy-ecs-selfhosted.md) |
 | **Architecture diagram** | https://github.com/trungnguyen1618033/legal-guard-PH/blob/main/docs/architecture-diagram.en.md |
 | **License** | MIT (LICENSE ở gốc repo — GitHub tự hiện) |
-| **Blog post** (tùy chọn, có giải riêng) | ⬜ TODO nếu nộp: `<BLOG_LINK>` (nháp: `docs/blog-qwen-cloud.md`) |
+| **Blog post** (tùy chọn, có giải riêng) | ✅ https://dev.to/ntt-fei/i-built-an-ai-that-reads-contracts-like-a-lawyer-and-knows-when-to-say-i-dont-know-27pb |
 
 ## 3. Story (paste nguyên văn từ DEVPOST.md)
 
@@ -86,5 +86,5 @@ là **New** (commit đầu 09/06 — verify git) → thực chất N/A; nếu fo
 - [ ] Điền form Devpost: mục 1 + 2 + 3 (story) + track Autopilot Agent
 - [ ] Alibaba proof = link `qwen.py` (mục 2)
 - [ ] Submit trước 8/7 (đệm an toàn trước hạn 9/7 2PM PT)
-- [ ] (tùy chọn) nộp Blog post cho giải riêng
+- [x] Blog post đã đăng: https://dev.to/ntt-fei/i-built-an-ai-that-reads-contracts-like-a-lawyer-and-knows-when-to-say-i-dont-know-27pb
 - [ ] (bảo mật) thu hồi key đã lộ: GEMINI_API_KEY + sk-ws-… (giờ vô dụng)
