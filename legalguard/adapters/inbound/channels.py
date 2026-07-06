@@ -98,6 +98,11 @@ _MENTION_RE = re.compile(r"<@[A-Z0-9]+>")   # tag @user trong text Slack
 _log = logging.getLogger(__name__)
 
 
+# Minh bạch AI — Luật AI 134/2025 (hiệu lực 1/3/2026): hệ thống AI tương tác trực tiếp với người phải
+# cho người dùng BIẾT đang làm việc với máy. Marker này gắn vào MỌI reply chat (analyze/lookup/negotiate).
+_AI_DISCLOSURE = "\n_(🤖 Trả lời bởi AI — hỗ trợ, không thay thế tư vấn luật chính thức.)_"
+
+
 def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
     """Trả lời gọn cho chat (Zalo/Slack) — ngôn ngữ thường, tiếng Việt mặc định."""
     if not result.risks:
@@ -114,7 +119,7 @@ def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
         lines += ["", f"🧭 {result.strategy}"]
     if result.needs_human_review:
         lines.append("⚖️ Có điểm rủi ro cao — nên để chuyên gia pháp lý duyệt trước khi áp dụng.")
-    lines.append("\n_(AI hỗ trợ — không thay thế tư vấn luật chính thức.)_")
+    lines.append(_AI_DISCLOSURE)
     out = "\n".join(lines)
     return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
@@ -155,6 +160,7 @@ def format_negotiation_reply(r: dict, lang: str = "vi") -> str:
         lines.append(f"💬 *Câu trả lời đối tác:*\n{reply}")
     if not r.get("grounded"):
         lines.append("_(khung sơ bộ — chưa cấu hình AI)_")
+    lines.append(_AI_DISCLOSURE.strip())
     out = "\n\n".join(lines)
     return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
@@ -260,7 +266,7 @@ class ChatHandler:
             if snippets:                                   # hiện nguồn (dẫn điều/khoản) gọn dưới câu trả lời
                 srcs = " · ".join(s.source for s in snippets[:3])
                 answer = f"{answer}\n\n📎 Nguồn: {srcs}"
-            return ChatReply(answer, "lookup", text)
+            return ChatReply(answer + _AI_DISCLOSURE, "lookup", text)
         if conv.context:                                   # có deal, không phải câu hỏi → follow-up
             return ChatReply(self._followup(conv, text or "", lang))
         return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "

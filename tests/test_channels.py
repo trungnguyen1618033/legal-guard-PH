@@ -186,6 +186,18 @@ def test_format_negotiation_reply():
     assert "Nên CHỐT deal" in out and "đối tác nhượng đủ" in out and "Đồng ý" in out
 
 
+def test_ai_disclosure_on_chat_replies():
+    # Minh bạch AI (Luật AI 134/2025): mọi reply chat phải cho biết là AI trả lời.
+    from legalguard.adapters.inbound.channels import format_chat_reply, format_negotiation_reply
+    from legalguard.domain.models import AnalysisResult
+    res = AnalysisResult(tenant="VN", risks=[{"clause": "X", "risk": "y", "priority": "negotiate"}],
+                         fallbacks=[], needs_human_review=False, review_reasons=[], summary="", trace=[],
+                         strategy="s")
+    assert "AI" in format_chat_reply(res)
+    nego = format_negotiation_reply({"status": "continue", "assessment": "a", "reply_vi": "x", "grounded": True})
+    assert "AI" in nego
+
+
 def test_format_negotiation_reply_shows_ledger_and_walk_away():
     from legalguard.adapters.inbound.channels import format_negotiation_reply
     out = format_negotiation_reply({"status": "walk_away", "assessment": "đối tác giữ Bắc Kinh",
