@@ -576,7 +576,7 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
             raise HTTPException(status_code=502, detail=f"LLM lỗi: {exc}") from exc
 
     @app.post("/negotiate")
-    async def negotiate(body: NegotiateIn, _: Organization = Depends(require_auth)) -> dict:
+    async def negotiate(body: NegotiateIn, org: Organization = Depends(require_auth)) -> dict:
         # VÒNG đàm phán đa phiên: bối cảnh deal + tin đối tác → đánh giá + chiến lược + câu trả lời + status.
         if len(body.deal_context) > max_input_chars or len(body.partner_message) > max_input_chars:
             raise HTTPException(status_code=413, detail="Nội dung quá dài.")
@@ -588,7 +588,7 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         lang = body.lang if body.lang in ("en", "vi") else "vi"
         try:
             return await run_in_threadpool(
-                service.negotiate_round, body.deal_context, body.partner_message, pos, st, lang)
+                service.negotiate_round, body.deal_context, body.partner_message, pos, st, lang, org.id)
         except LLMError as exc:
             raise HTTPException(status_code=502, detail=f"LLM lỗi: {exc}") from exc
 

@@ -338,7 +338,8 @@ class AnalysisService:
 
     def negotiate_round(self, deal_context: str, partner_message: str,
                         position: NegotiationPosition | None = None,
-                        state: "NegotiationState | None" = None, lang: str = "vi") -> dict:
+                        state: "NegotiationState | None" = None, lang: str = "vi",
+                        org_id: str | None = None) -> dict:
         """Một VÒNG đàm phán đa phiên: bối cảnh deal + SỔ nhượng-bộ + tin đối tác → đánh giá + chiến lược
         vòng tới + câu trả lời song ngữ + status (continue/close/walk_away) + sổ nhượng-bộ ĐÃ cập nhật.
         `state` mang qua các vòng (agent nhớ đã nhượng/chốt gì). Lõi 'Autopilot Agent' dẫn đàm phán."""
@@ -346,7 +347,8 @@ class AnalysisService:
         from legalguard.domain.negotiation import negotiate_round as _round
 
         # Living flywheel: nạp win-rate lịch sử (kết quả đàm phán THẬT) → agent ưu tiên nước đi từng thành công.
-        rates = self.outcomes.win_rates() if self.outcomes else {}
+        # CÔ LẬP org (privacy): chỉ dùng outcome của CHÍNH công ty này, không rò từ công ty khác.
+        rates = self.outcomes.win_rates(org_id) if self.outcomes else {}
         r = _round(self.reasoner, deal_context=deal_context, partner_message=partner_message,
                    position=position, state=state, tactics_context=format_tactics_context(rates), lang=lang)
         if self.observer:
@@ -480,9 +482,10 @@ class AnalysisService:
         ctx.risks = _dedupe(ctx.risks)
         ctx.fallbacks = _dedupe(ctx.fallbacks)
 
-        # Outcome-aware ranking: gắn win-rate lịch sử (flywheel toàn cục) cho mỗi fallback.
+        # Outcome-aware ranking: gắn win-rate lịch sử cho mỗi fallback. CÔ LẬP org (privacy + tín hiệu
+        # đúng công ty — outcome công ty khác KHÔNG được ảnh hưởng advice công ty này).
         if self.outcomes is not None:
-            rates = self.outcomes.win_rates()
+            rates = self.outcomes.win_rates(org.id)
             for f in ctx.fallbacks:
                 if f.clause in rates:
                     f.win_rate = rates[f.clause]["rate"]

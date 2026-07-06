@@ -26,6 +26,35 @@ def test_win_rates_scoped_by_org(tmp_path):
     assert repo.win_rates(org_id="globex") == {}           # org khác → rỗng
 
 
+def test_negotiate_threads_org_id_to_win_rates():
+    # Flywheel cô lập org: negotiate_round phải gọi win_rates(org_id) của CHÍNH org, không global.
+    from legalguard.domain.analysis import AnalysisService
+
+    seen = []
+
+    class _FakeOutcomes:
+        def win_rates(self, org_id=None):
+            seen.append(org_id)
+            return {}
+
+    class _LLM:
+        available = False
+        name = "stub"
+
+        def complete(self, prompt, *, system=None):
+            return ""
+
+        def chat(self, messages, tools=None):
+            return None
+
+    class _KB:
+        pass
+
+    svc = AnalysisService(_LLM(), _LLM(), _KB(), outcomes=_FakeOutcomes())
+    svc.negotiate_round("deal", "đối tác giữ giá", org_id="acme")
+    assert seen == ["acme"]                                 # đúng org, KHÔNG phải None (global)
+
+
 def test_analyze_annotates_fallback_win_rate():
     svc = build_service()
     org = default_org("VN")

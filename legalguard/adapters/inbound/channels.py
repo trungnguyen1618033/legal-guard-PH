@@ -250,7 +250,7 @@ class ChatHandler:
             return ChatReply(format_chat_reply(result, lang), "analysis", result.case_id or "")
         # Trong deal: tin là PHẢN HỒI/COUNTER của đối tác → VÒNG ĐÀM PHÁN có cấu trúc (không phải Q&A chung).
         if conv.context and _is_counter_offer(text or ""):
-            return ChatReply(self._negotiate(conv, text or "", lang), "negotiate", "")
+            return ChatReply(self._negotiate(conv, text or "", lang, org.id), "negotiate", "")
         # Follow-up theo deal — TRỪ câu hỏi pháp lý CHUNG (→ ưu tiên lookup template+dẫn nguồn cho nhất quán).
         if conv.context and not _is_legal_lookup(text or ""):
             return ChatReply(self._followup(conv, text or "", lang))
@@ -265,14 +265,14 @@ class ChatHandler:
         return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "
                          "hoặc đặt câu hỏi pháp lý nhé.")
 
-    def _negotiate(self, conv: Conversation, partner_message: str, lang: str) -> str:
+    def _negotiate(self, conv: Conversation, partner_message: str, lang: str, org_id: str = "") -> str:
         """Vòng đàm phán đa phiên trên Slack: bối cảnh deal + SỔ nhượng-bộ + tin đối tác → round có cấu trúc.
         Sổ nhượng-bộ (`conv.nego_state`) mang qua các vòng → agent NHỚ đã nhượng/chốt gì (không 'quên' do
-        context free-text cắt cụt) + guardrail walk-away theo red-line."""
+        context free-text cắt cụt) + guardrail walk-away theo red-line. org_id → win-rate flywheel cô lập org."""
         state = state_from_json(conv.nego_state)
         try:
             r = self.service.negotiate_round(conv.context, partner_message, position=None,
-                                             state=state, lang=lang)
+                                             state=state, lang=lang, org_id=org_id or None)
         except LLMError as exc:
             return f"Xin lỗi, chưa xử lý được vòng đàm phán: {exc}"
         upd = r.get("state") or {}
