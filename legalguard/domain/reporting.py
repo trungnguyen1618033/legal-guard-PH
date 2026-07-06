@@ -19,7 +19,7 @@ _PRIO = {
 
 _L = {
     "en": {
-        "title": "# Contract Review Report — Legal Guard PH",
+        "title": "# Contract Review Report — Legal Guard",
         "market": "Market", "arb": "Domestic arbitration",
         "disclaimer": "> ⚠️ AI-assisted report. Recommendations require legal-expert review before use.",
         "summary": "## Summary", "none": "_(none)_", "strategy": "## Negotiation strategy",
@@ -32,7 +32,7 @@ _L = {
         "review_default": "high-severity clauses present", "todo": "_(pending)_",
     },
     "vi": {
-        "title": "# Báo cáo Rà soát Hợp đồng — Legal Guard PH",
+        "title": "# Báo cáo Rà soát Hợp đồng — Legal Guard",
         "market": "Thị trường", "arb": "Trọng tài nội địa",
         "disclaimer": "> ⚠️ Báo cáo hỗ trợ bởi AI. Khuyến nghị cần chuyên gia pháp lý duyệt trước khi áp dụng.",
         "summary": "## Tóm tắt", "none": "_(không có)_", "strategy": "## Chiến lược đàm phán",

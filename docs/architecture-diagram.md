@@ -1,4 +1,4 @@
-# Architecture Diagram — Legal Guard PH
+# Architecture Diagram — Legal Guard
 
 Sơ đồ kiến trúc cho Qwen Hackathon (track Autopilot Agent). Render trực tiếp trên GitHub;
 chụp màn hình để nộp Devpost. Phần **Alibaba Cloud** được tô đậm (yêu cầu bắt buộc của track).

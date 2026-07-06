@@ -269,7 +269,7 @@ exercisable offline. Set `QWEN_API_KEY` in `.env` for real analysis (Qwen-only).
 
 ## What this project is
 
-**Legal Guard PH** (also referred to as "VietDeal Copilot" in the plan) is an AI agent that acts as an
+**Legal Guard** (also referred to as "VietDeal Copilot" in the plan) is an AI agent that acts as an
 outsourced legal department for Vietnamese SMEs negotiating international commercial contracts. It analyzes
 contracts, flags risky clauses, and proposes flexible fallback negotiation tactics based on each party's
 real bargaining position. Built for the Qwen Cloud hackathon (deadline 8 Jul 2026, Autopilot Agent

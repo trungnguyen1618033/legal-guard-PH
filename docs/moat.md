@@ -1,4 +1,4 @@
-# Moat & Defensibility — Legal Guard PH
+# Moat & Defensibility — Legal Guard
 
 > Đồng thuận 2026: **tech KHÔNG phải moat** (LLM ai cũng gọi được; "AI wrapper không data moat"
 > là nhóm thất bại nhiều nhất). Foundation model sẽ tự nhảy vào vertical → *phải xây moat trước*.

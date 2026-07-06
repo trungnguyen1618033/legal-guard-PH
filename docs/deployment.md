@@ -1,4 +1,4 @@
-# Triển khai & Scale — Legal Guard PH
+# Triển khai & Scale — Legal Guard
 
 Thiết kế đưa hệ thống lên production và scale. Cloud mục tiêu: **Alibaba Cloud** (bắt buộc cho
 Qwen hackathon, cũng là nơi Qwen/DashScope chạy gần). Nguyên tắc: **12-factor + stateless app +

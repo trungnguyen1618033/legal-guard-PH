@@ -1,4 +1,4 @@
-# Kiến trúc — Legal Guard PH
+# Kiến trúc — Legal Guard
 
 Chuẩn áp dụng: **Hexagonal Architecture (Ports & Adapters)** của Alistair Cockburn.
 Mục tiêu: tách **nghiệp vụ (domain)** khỏi **hạ tầng (FastAPI, Qwen, file KB)**

@@ -10,10 +10,10 @@
 
 | Field Devpost | Giá trị |
 |---|---|
-| **Project title** | Legal Guard — Autopilot Agent for Cross-Border Contract Risk |
-| **Tagline / elevator pitch** | An autopilot legal agent that reviews cross-border contracts, flags illegal/unfavorable clauses, and proposes position-aware negotiation tactics — with a human in the loop. |
-| **Track** | Autopilot Agent |
-| **Built with** (tags) | Qwen, DashScope, Alibaba Cloud ECS, Python, FastAPI, PostgreSQL, pgvector, Redis, Docker, Caddy, Alembic, MCP, RAG, BM25 |
+| **Project name** | Legal Guard |
+| **Elevator pitch** | An autopilot legal agent for Vietnamese SMEs: flags illegal/unfavorable clauses in cross-border contracts and negotiates fallback tactics from your real bargaining position — with a human in the loop. |
+| **Track** | Track 4: Autopilot Agent |
+| **Built with** (tags) | python, fastapi, qwen, dashscope, alibaba-cloud-ecs, postgresql, pgvector, redis, docker, mcp, rag, bm25 |
 
 ## 2. Links (paste vào "Try it out" + các field bắt buộc)
 
@@ -46,6 +46,36 @@ FastAPI + Postgres + Redis). Repo MIT open-core.
 - **Trust-by-design**: khớp Luật AI 134/2025 (giám sát người + minh bạch AI + audit) + redaction PII (PDPL).
 
 ---
+
+## 4b. Additional info (cho giám khảo — required fields)
+
+| Field | Giá trị |
+|---|---|
+| Submitter type | Individual *(đổi nếu team/organization)* |
+| Country of residence | *chọn nước bạn ở thực tế (Vietnam / Japan…)* |
+| Newly built or existing? | **New** |
+| Start date | 06-09-26 |
+| Track | **Track 4: Autopilot Agent** |
+| Repository URL | https://github.com/trungnguyen1618033/legal-guard-PH |
+| **Alibaba proof (code file URL)** | https://github.com/trungnguyen1618033/legal-guard-PH/blob/main/legalguard/adapters/outbound/qwen.py |
+
+**"What you updated during the submission period" (bắt buộc — paste):**
+> Newly built during the submission period — first commit June 9, 2026 (after May 26). Everything was created from scratch: the ReAct contract-review agent, hybrid RAG over in-force Vietnamese law with NLI verification, stateful multi-round position-aware negotiation (concession ledger + walk-away guardrail + concession ladder + win-rate flywheel), proactive autopilot law-monitoring, a human-in-the-loop checkpoint, and the Qwen-on-Alibaba-Cloud deployment.
+
+**"Which AI tools have you leveraged" (SỬA — BỎ Gemini "real-time search"; paste):**
+> Qwen models via Qwen Cloud / DashScope for ALL product inference (qwen3.7-max reasoner, qwen-flash judge/NLI, qwen-plus lookup, text-embedding-v4, qwen3-rerank, qwen3.7-plus vision-OCR). Claude Code as a coding assistant during development.
+
+## 4c. Ảnh cần nộp (2 file) + prompt tạo
+
+1. **Architecture Diagram** (png/jpg/pdf) — có thể render/AI-generate.
+2. **Screenshot proof of Alibaba deployment** (png/jpg) — ⚠️ **PHẢI LÀ ẢNH THẬT** (chụp console Alibaba/terminal), **KHÔNG AI-generate** (đây là bằng chứng deploy thật; bịa = gian lận, mà bạn ĐÃ deploy thật nên chỉ cần chụp).
+
+**Architecture diagram — cách chuẩn nhất (render mermaid):** mở `docs/architecture-diagram.en.md` → copy khối ` ```mermaid ` → dán vào https://mermaid.live → Export PNG.
+
+**Prompt AI tạo ảnh Architecture Diagram (ChatGPT/Gemini) — nếu muốn đẹp hơn:**
+> Create a clean, professional software architecture diagram (light background, 3:2 ratio) for "Legal Guard", a hexagonal (ports & adapters) FastAPI legal-AI agent. Left→right flow: Users → (Web UI · Slack · Zalo · MCP) → FastAPI inbound adapter → Domain core box (ReAct agent · analysis use-case · NLI self-critique · multi-round negotiation) → Outbound adapters → **Qwen Cloud / DashScope on Alibaba Cloud ECS** (qwen3.7-max reasoner, qwen-flash judge, qwen-plus lookup, text-embedding-v4, qwen3-rerank, qwen3.7-plus OCR) + Knowledge Base (in-force Vietnamese law) + PostgreSQL/pgvector + Redis. Label the arrows; emphasize all inference goes to Qwen on Alibaba Cloud. Minimal, boardroom-quality, no clutter, English labels.
+
+**Screenshot Alibaba (chụp THẬT):** SSH vào ECS → `docker ps` + `curl -s https://legalguard.duckdns.org/health` → chụp 1 ảnh ghép có: Alibaba Cloud console (ECS instance id/region) + terminal `docker ps` + IP/domain khớp. Field này của Devpost ghi mâu thuẫn (ảnh HOẶC link code) → nộp **cả ảnh thật + link `qwen.py`** cho chắc.
 
 ## 5. Pre-submit checklist (làm theo thứ tự)
 - [ ] Repo **Public** (Settings → visibility) — xác nhận LICENSE MIT hiện ở đầu trang repo

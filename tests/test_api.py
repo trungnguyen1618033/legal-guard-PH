@@ -199,7 +199,7 @@ def test_analyze_async_mode_returns_case_id_then_pollable(client, sample_contrac
 def test_landing_page(client):
     r = client.get("/")
     assert r.status_code == 200
-    assert "Legal Guard PH" in r.text
+    assert "Legal Guard" in r.text
 
 
 def test_analyze_report_format_default_english(client, sample_contract):

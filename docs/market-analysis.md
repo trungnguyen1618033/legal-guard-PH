@@ -1,4 +1,4 @@
-# Phân tích Thị trường — Legal Guard PH
+# Phân tích Thị trường — Legal Guard
 
 > Cập nhật 10/6/2026. Dùng cho pitch + submission. Nguồn ở cuối.
 
@@ -37,7 +37,7 @@ nhưng **đắt** → khoảng trống cho một công cụ giá rẻ. (ASL Law,
 > Công cụ rà soát–đàm phán hợp đồng **giá SME**, hiểu **luật VN**, trang bị cho **bên yếu thế** —
 > thứ cả Robin AI/Luminance ($3000+) lẫn ChatGPT đều không làm cho SME xuất khẩu Việt.
 
-| Trục | Enterprise tools | ChatGPT | **Legal Guard PH** |
+| Trục | Enterprise tools | ChatGPT | **Legal Guard** |
 |---|---|---|---|
 | Giá | $3000+/mo | rẻ | **$30–100** ✅ |
 | Luật VN bản địa | ❌ | ❌ | ✅ |

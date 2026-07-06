@@ -1,4 +1,4 @@
-# Legal Guard PH
+# Legal Guard
 
 AI "phòng pháp chế thuê ngoài" cho SME Việt Nam: phân tích hợp đồng thương mại quốc tế,
 cảnh báo điều khoản rủi ro, và đề xuất chiến thuật thỏa hiệp (fallback) theo luật thương mại VN.

@@ -1,4 +1,4 @@
-# Ước tính Năng lực (Capacity Planning) — Legal Guard PH
+# Ước tính Năng lực (Capacity Planning) — Legal Guard
 
 > Kết luận trước: **điểm nghẽn là quota LLM (TPM của Qwen), KHÔNG phải server/DB.** Server rẻ;
 > số người dùng phục vụ được do **token/phút của tài khoản DashScope** quyết định.

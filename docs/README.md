@@ -1,4 +1,4 @@
-# Tài liệu — Legal Guard PH
+# Tài liệu — Legal Guard
 
 Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](../README.md) (quickstart) rồi tới đây.
 

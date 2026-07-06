@@ -162,7 +162,7 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
               max_upload_bytes: int = 10 * 1024 * 1024, rate_limit_per_min: int = 60,
               max_input_chars: int = 50_000,
               senders: dict | None = None, expert_channel: str = "") -> FastAPI:
-    app = FastAPI(title="Legal Guard PH", version="0.7.0")
+    app = FastAPI(title="Legal Guard", version="0.7.0")
     orgs = api_orgs or {}
     _senders = senders or {}        # {"slack": ChatSenderPort, "zalo": ChatSenderPort} — gửi cảnh báo chủ động
     _expert_channel = expert_channel   # kênh chuyên gia nhận case escalation
@@ -196,28 +196,28 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
     def landing():
         if _LANDING.exists():
             return FileResponse(_LANDING)
-        return HTMLResponse("<h1>Legal Guard PH</h1><p>API: /docs</p>")
+        return HTMLResponse("<h1>Legal Guard</h1><p>API: /docs</p>")
 
     @app.get("/app", response_class=HTMLResponse)
     def demo_app():
         # UI demo: upload → risk → fallback → human checkpoint (Approve/Reject).
         if _APP.exists():
             return FileResponse(_APP)
-        return HTMLResponse("<h1>Legal Guard PH</h1><p>UI chưa được cài. API: /docs</p>")
+        return HTMLResponse("<h1>Legal Guard</h1><p>UI chưa được cài. API: /docs</p>")
 
     @app.get("/lookup", response_class=HTMLResponse)
     def lookup_ui():
         # UI tra cứu luật: câu hỏi → /ask → câu trả lời dẫn điều/khoản còn hiệu lực + nguồn.
         if _LOOKUP.exists():
             return FileResponse(_LOOKUP)
-        return HTMLResponse("<h1>Legal Guard PH</h1><p>UI tra cứu chưa được cài. API: /ask</p>")
+        return HTMLResponse("<h1>Legal Guard</h1><p>UI tra cứu chưa được cài. API: /ask</p>")
 
     @app.get("/dashboard", response_class=HTMLResponse)
     def dashboard_ui():
         # UI system-of-record: tổng hợp hoạt động pháp lý của công ty → /insights/dashboard.
         if _DASHBOARD.exists():
             return FileResponse(_DASHBOARD)
-        return HTMLResponse("<h1>Legal Guard PH</h1><p>UI bảng điều khiển chưa cài. API: /insights/dashboard</p>")
+        return HTMLResponse("<h1>Legal Guard</h1><p>UI bảng điều khiển chưa cài. API: /insights/dashboard</p>")
 
     @app.get("/trust", response_class=HTMLResponse)
     def trust_ui():

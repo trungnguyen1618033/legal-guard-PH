@@ -1,4 +1,4 @@
-# Thiết kế Bảo mật — Legal Guard PH
+# Thiết kế Bảo mật — Legal Guard
 
 Dữ liệu hợp đồng cực nhạy cảm và **được gửi sang LLM bên thứ ba** → bảo mật là yêu cầu
 sống còn, không phải tính năng phụ. Tài liệu này định nghĩa threat model, các lớp phòng thủ,

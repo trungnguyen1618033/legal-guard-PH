@@ -221,10 +221,10 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Legal Guard PH — dữ liệu khách hàng / evidence (không commit)
+# Legal Guard — dữ liệu khách hàng / evidence (không commit)
 data/
 
-# Legal Guard PH — tài liệu chiến lược nội bộ (không public)
+# Legal Guard — tài liệu chiến lược nội bộ (không public)
 docs/internal/
 
 # File hợp đồng thật để test local (nhạy cảm — không commit)
