@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 COMPOSE := docker compose
 
-.PHONY: help env up down clean logs migrate psql sh test lint smoke run build
+.PHONY: help env up down clean logs migrate psql sh test lint smoke smoke-neg run build
 
 help:  ## Liệt kê các lệnh
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-10s\033[0m %s\n",$$1,$$2}'
@@ -39,8 +39,11 @@ test:  ## Chạy test (local, sqlite stub)
 lint:  ## Lint (local)
 	uv run ruff check .
 
-smoke:  ## Live smoke test — gọi endpoint THẬT trên deploy (BASE=... đổi URL, SKIP_LLM=1 bỏ endpoint chậm)
+smoke:  ## Live smoke test happy-path — gọi endpoint THẬT (BASE=... đổi URL, SKIP_LLM=1 bỏ endpoint chậm)
 	bash scripts/live_smoke.sh
+
+smoke-neg:  ## Live negative/edge test — input xấu ra lỗi SẠCH (4xx/degrade), không 500/crash/leak
+	bash scripts/live_negative.sh
 
 run:  ## Chạy local KHÔNG docker (sqlite mặc định)
 	uv run uvicorn app:app --reload
