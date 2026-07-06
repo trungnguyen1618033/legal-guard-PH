@@ -1,7 +1,7 @@
 """Use-case rà soát hợp đồng (application service trong hexagon).
 
 Nối: build retriever (qua provider) → run_agent → human checkpoint → tóm tắt.
-Chỉ phụ thuộc PORT, không biết gì về Qwen/Gemini/FastAPI.
+Chỉ phụ thuộc PORT, không biết gì về Qwen/FastAPI.
 """
 from __future__ import annotations
 

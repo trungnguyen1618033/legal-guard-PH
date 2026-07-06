@@ -265,15 +265,15 @@ Docker (Postgres + app): `make up` (build+run+migrate), `make down`, `make logs`
 on start. `make test` / `make lint` / `make run` run locally without Docker.
 
 Runs without API keys in **stub mode** (LLM clients return `[..._STUB]` text) so the full flow is
-exercisable offline. Set `QWEN_API_KEY` / `GEMINI_API_KEY` in `.env` for real analysis.
+exercisable offline. Set `QWEN_API_KEY` in `.env` for real analysis (Qwen-only).
 
 ## What this project is
 
 **Legal Guard PH** (also referred to as "VietDeal Copilot" in the plan) is an AI agent that acts as an
 outsourced legal department for Vietnamese SMEs negotiating international commercial contracts. It analyzes
 contracts, flags risky clauses, and proposes flexible fallback negotiation tactics based on each party's
-real bargaining position. Built for two hackathons: Qwen Cloud (deadline 8 Jul 2026, Autopilot
-Agent track) and Gemini XPRIZE (deadline 17 Aug 2026, Professional Services).
+real bargaining position. Built for the Qwen Cloud hackathon (deadline 8 Jul 2026, Autopilot Agent
+track). (XPRIZE track dropped — see memory `focus-qwen-defer-xprize`; codebase is now Qwen-only.)
 
 ## Knowledge base & legal data (cập nhật 29/6/2026)
 
@@ -330,7 +330,7 @@ never imports adapters or frameworks.
   `tools.py` holds tool schemas + dispatch (reason-then-format: `reasoning` là property ĐẦU TIÊN của
   `flag_risk`/`propose_fallback` — model suy luận trước khi điền các trường quyết định severity/priority/
   suggestion; optional, vào trace để audit); `models.py` holds DTOs; `tenants.py` the tenant config.
-- **`legalguard/adapters/outbound/`** — implement the ports: `qwen.py`/`gemini.py` (`LLMPort`),
+- **`legalguard/adapters/outbound/`** — implement the ports: `qwen.py` (`LLMPort`),
   `knowledge_base.py` (keyword + embedding retrievers + provider), `document_parser.py`.
 - **`legalguard/adapters/inbound/http.py`** — FastAPI driving adapter (HTTP ↔ domain).
 - **`legalguard/config/container.py`** — composition root, the ONLY place adapters are wired into

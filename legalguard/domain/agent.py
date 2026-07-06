@@ -1,4 +1,4 @@
-"""Agentic loop (domain). Phụ thuộc LLMPort, không biết Qwen/Gemini là ai."""
+"""Agentic loop (domain). Phụ thuộc LLMPort, không biết Qwen (hay provider nào) là ai."""
 from __future__ import annotations
 
 import json

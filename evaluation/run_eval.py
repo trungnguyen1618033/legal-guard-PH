@@ -1,7 +1,7 @@
 """Eval harness — đo chất lượng phát hiện rủi ro + groundedness trên bộ golden.
 
 Chạy:  uv run python -m evaluation.run_eval
-Mặc định dùng stub (offline). Có QWEN/GEMINI key → đo trên model thật.
+Mặc định dùng stub (offline). Có QWEN key → đo trên model thật.
 """
 from __future__ import annotations
 

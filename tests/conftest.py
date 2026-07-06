@@ -1,14 +1,13 @@
 """Cấu hình test dùng chung.
 
-Ép cả 2 API key về rỗng TRƯỚC khi import app/config → mọi test chạy ở chế độ
-STUB, hoàn toàn offline (không gọi Qwen/Gemini thật).
+Ép API key về rỗng TRƯỚC khi import app/config → mọi test chạy ở chế độ
+STUB, hoàn toàn offline (không gọi LLM thật).
 """
 import os
 import tempfile
 from pathlib import Path
 
 os.environ["QWEN_API_KEY"] = ""
-os.environ["GEMINI_API_KEY"] = ""
 # Auth: test chạy chế độ MỞ — KHÔNG phụ thuộc `.env` (vd .env prod bật REQUIRE_AUTH + API_KEYS
 # sẽ khiến test app đòi key → 401 hàng loạt / fail-closed). Cô lập để test luôn ổn định.
 os.environ["API_KEYS"] = ""

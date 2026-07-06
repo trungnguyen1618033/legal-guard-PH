@@ -1,6 +1,6 @@
 """Composition root: nơi DUY NHẤT lắp adapter vào domain.
 
-Đây là chỗ "ráp hexagon": chọn adapter cụ thể (Qwen, Gemini, file KB, CSV...) và
+Đây là chỗ "ráp hexagon": chọn adapter cụ thể (Qwen, file KB, CSV...) và
 tiêm vào các use-case + API. Đổi provider = đổi ở đây, không đụng domain.
 """
 from __future__ import annotations
