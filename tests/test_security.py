@@ -36,6 +36,17 @@ def test_redact_covers_vn_personal_identifiers():
     assert "Điều 301" in out and "8%" in out and "60 ngày" in out
 
 
+def test_redact_masks_person_names_after_markers():
+    # PDPL cross-border: che TÊN người sau kính ngữ/đại diện TRƯỚC khi gửi LLM ra ngoài VN.
+    out, n = redact("Ông Nguyễn Văn A và người đại diện: Trần Thị Bình ký hợp đồng tại VIAC.")
+    assert "Nguyễn Văn" not in out and "Trần Thị Bình" not in out
+    assert "[TÊN]" in out and n >= 2
+    assert "VIAC" in out                                   # tổ chức/nghiệp vụ giữ nguyên
+    # Tên riêng nghiệp vụ KHÔNG sau marker người → không bị che (không hỏng phân tích).
+    keep, _ = redact("Trọng tài theo Luật Thương Mại 2005, phạt 8%.")
+    assert "Luật Thương Mại" in keep
+
+
 def test_analyze_notes_redaction(tmp_path):
     c = _client(tmp_path)
     d = c.post("/analyze", data={"text": "Email x@y.com. Arbitration in Beijing."},
