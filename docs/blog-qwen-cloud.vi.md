@@ -87,6 +87,23 @@ Bấm bỏ qua một báo động giả một lần, lần sau nó im. Khi thử
 một nghị định về trọng tài gắn cờ 8 hợp đồng có điều khoản trọng tài nước ngoài. Không ai yêu
 cầu nó làm. Đó chính là ý nghĩa của autopilot.
 
+## Bài học 5: Máy soi HĐ nói cho bạn cái gì SAI; copilot nói bạn nên LÀM gì
+
+Tool AI nào cũng gắn cờ điều khoản rủi ro. Khoảng trống không ai lấp cho SME: *tôi phải LÀM gì với nó,
+từ vị thế đàm phán THẬT của mình?* Nên Legal Guard không dừng ở phân tích — nó chạy **đàm phán đa vòng
+CÓ TRẠNG THÁI**.
+
+Bạn khai lợi thế + có phương án thay thế (BATNA) không. Rồi qua từng vòng, agent:
+- **nhớ những gì đã chốt** — "sổ nhượng-bộ" chạy xuyên vòng, không bao giờ đàm phán lại điểm đã thắng
+  (bản ngây thơ cứ quên rồi nhượng lại);
+- **đề xuất TRAO ĐỔI, không đầu hàng** — *"nhượng đặt cọc để chốt trọng tài tại VN"* — và sàng lọc mọi
+  đề xuất để không bao giờ lỡ nhượng một điểm red-line;
+- **biết khi nào nên RÚT** — guardrail tất định bật *"khuyến nghị walk-away"* ngay khi đối tác chặn một
+  điểm must-fix **và** bạn có phương án thật. Luật này không tùy tâm trạng model — nó cưỡng chế trong code.
+- **học từ kết quả** — chiến thuật từng chốt được deal thật sẽ được ưu tiên lần sau.
+
+Đó là ranh giới giữa máy soi tài liệu và copilot đàm phán — và là phần mình xem là moat thật.
+
 ## Những gì THẤT BẠI (đáng giá ngang những gì thành công)
 
 - Một phương pháp truy xuất "cây thông minh" thời thượng thua phương pháp lai cổ điển trong bài
