@@ -171,7 +171,7 @@ class AnalysisResult:
 
 @dataclass
 class AnalysisCase:
-    """Một lần rà soát được lưu — lịch sử khách + audit/evidence AI-Native (XPRIZE)."""
+    """Một lần rà soát được lưu — lịch sử khách + audit/evidence AI-Native (system-of-record)."""
     id: str
     org_id: str                  # CÔNG TY sở hữu — cô lập dữ liệu theo trường này
     tenant: str                  # quốc gia (jurisdiction)
@@ -190,7 +190,7 @@ class AnalysisCase:
     text_chars: int = 0          # độ dài text đã phân tích (sau parse, trước redact)
 
 
-# ---- Evidence doanh thu (cho XPRIZE) ----
+# ---- Evidence doanh thu (system-of-record) ----
 @dataclass
 class RevenueEntry:
     customer: str
@@ -198,4 +198,4 @@ class RevenueEntry:
     amount_usd: float
     contract_ref: str = ""
     testimonial: str = ""
-    related_party: bool = False   # XPRIZE yêu cầu khai riêng related-party
+    related_party: bool = False   # khai riêng related-party (không thổi phồng số liệu organic)

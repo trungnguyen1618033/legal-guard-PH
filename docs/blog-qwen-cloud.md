@@ -100,4 +100,4 @@ Spend your speed budget on reasoning, your safety budget on verification, and pu
 you actually measured — not the one that looks good.
 
 *Built with Qwen models on Qwen Cloud (DashScope), deployed on Alibaba Cloud ECS. Open-source
-(MIT), 365 automated tests. Hackathon submission tag: `v1.0-qwen`.*
+(MIT), 400+ automated tests. Hackathon submission tag: `v1.0-qwen`.*

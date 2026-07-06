@@ -1,7 +1,7 @@
 # Legal Guard — Autopilot Agent for Cross-Border Contract Risk
 
 ![Measured accuracy](https://img.shields.io/badge/measured_accuracy-54%2F54_golden-brightgreen)
-![Tests](https://img.shields.io/badge/tests-399_passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-400%2B_passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Powered by Qwen](https://img.shields.io/badge/powered_by-Qwen_%C2%B7_Alibaba_Cloud-orange)
 
@@ -29,6 +29,10 @@ invokes external tools, and incorporates human-in-the-loop checkpoints.** Legal 
   until it reaches a grounded conclusion, recording every step in a `trace`.
 - **Self-critique** — after flagging risks the agent verifies its own findings (evidence must exist in
   the contract + a judge confirms each risk is supported by retrieved law) and marks unverified ones.
+- **Position-aware negotiation (the differentiator)** — declare your leverage/urgency/BATNA and the agent
+  runs *stateful* multi-round negotiation: a **concession ledger** remembers what's secured across rounds
+  (never gives back a won point), a deterministic **walk-away guardrail** protects red-lines, and it
+  proposes trade-based next moves — learning from real deal outcomes (win-rate flywheel).
 - **Proactive autopilot** — `POST /monitor/run` scans newly-issued laws and tells you which of your
   past contracts are now affected — *"the agent works while you sleep"* (built for a daily cron). It
   even **self-tunes**: dismissed false alarms are suppressed next run.

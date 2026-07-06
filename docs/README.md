@@ -46,7 +46,7 @@ Bản đồ toàn bộ tài liệu dự án. Bắt đầu từ [`/README.md`](..
 | [/CLAUDE.md](../CLAUDE.md) | Hướng dẫn cho Claude Code: lệnh, kiến trúc, kỹ thuật AI, bảo mật |
 
 ## Trạng thái dự án (2/7/2026)
-- ✅ MVP chạy được (365 test, lint sạch), offline qua stub.
+- ✅ MVP chạy được (400+ test, lint sạch), offline qua stub.
 - ✅ **Đang LIVE**: https://legalguard.duckdns.org (ECS self-contained + HTTPS + autopilot-cron 5AM VN
   trong stack). Accuracy công bố **98.1% (53/54)** đo 2/7 với stack Qwen thật → `/trust`.
 - ✅ Agentic RAG hiện đại + bảo mật + multi-tenancy 2 trục + persistence Postgres-ready + Docker.

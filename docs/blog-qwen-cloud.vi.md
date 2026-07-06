@@ -101,4 +101,4 @@ Dành ngân sách tốc độ cho suy luận, ngân sách an toàn cho kiểm ch
 mình đo được — chứ không phải con số trông đẹp.
 
 *Xây bằng các model Qwen trên Qwen Cloud (DashScope), deploy trên Alibaba Cloud ECS. Mã nguồn
-mở (MIT), 365 test tự động. Tag nộp bài: `v1.0-qwen`.*
+mở (MIT), 400+ test tự động. Tag nộp bài: `v1.0-qwen`.*

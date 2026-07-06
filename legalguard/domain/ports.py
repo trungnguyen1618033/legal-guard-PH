@@ -122,14 +122,14 @@ class ConversationStorePort(Protocol):
 
 @runtime_checkable
 class ObservabilityPort(Protocol):
-    """Ghi telemetry (trace/event) — evidence AI-Native (XPRIZE) + debug. NoOp nếu tắt."""
+    """Ghi telemetry (trace/event) — evidence AI-Native (audit) + debug. NoOp nếu tắt."""
 
     def event(self, name: str, data: dict) -> None: ...
 
 
 @runtime_checkable
 class RevenueLogPort(Protocol):
-    """Lưu & đọc bản ghi doanh thu (evidence XPRIZE)."""
+    """Lưu & đọc bản ghi doanh thu (evidence tăng trưởng / system-of-record)."""
 
     def record(self, entry: RevenueEntry) -> None: ...
 
