@@ -77,6 +77,9 @@ def test_high_severity_always_requires_human_review():
                 "clause": "Trọng tài", "risk": "bất lợi", "severity": "high",
                 "source": "kb", "evidence": "trọng tài tại Bắc Kinh"})])
 
+        def complete(self, prompt, *, system=None):   # summary giờ dùng judge (=reasoner ở đây)
+            return "Tóm tắt: 1 rủi ro cao về trọng tài."
+
     svc = AnalysisService(_ForgetfulLLM(), GeminiAdapter("", "gemini-2.5-flash"),
                           FileKnowledgeBaseProvider("knowledge_base"))
     result = svc.analyze(contract, default_org("VN"), lang="vi")

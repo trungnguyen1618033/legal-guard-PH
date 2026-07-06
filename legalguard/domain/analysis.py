@@ -399,15 +399,18 @@ class AnalysisService:
             return False
 
     def _summarize(self, risks: list, lang: str) -> tuple[str, str | None]:
-        """Gemini tóm tắt cho chủ SME. Trả (text, note-lỗi-nếu-có) — không ném exception
-        (chạy trong thread pool, lỗi phải trả về tường minh)."""
+        """Tóm tắt rủi ro cho chủ SME bằng MODEL NHANH (`self.judge` = qwen-flash) — task nhẹ, right-size
+        như NLI/verify. Trước đây dùng Gemini nhưng đo thấy 1 call Gemini ~12-24s CHIẾM TRỌN post-agent
+        (verify+legal_basis chỉ ~1.5s) → nghẽn critical path; sau khi bỏ XPRIZE (hết ràng '≥1 Gemini call')
+        không còn lý do giữ. Chuyển flash → post-agent ~24s xuống ~1.5s. Trả (text, note-lỗi-nếu-có) —
+        không ném exception (chạy trong thread pool, lỗi phải trả về tường minh)."""
         bullet = "\n".join(f"- {r.clause}: {r.risk} [{r.severity}]" for r in risks)
         prompt = (
             f"Summarize these contract risks briefly for an SME owner:\n{bullet}" if lang == "en"
             else f"Tóm tắt ngắn gọn, dễ hiểu cho chủ SME các rủi ro hợp đồng sau:\n{bullet}"
         )
         try:
-            return self.summarizer.complete(prompt), None
+            return self.judge.complete(prompt), None
         except LLMError as exc:
             return "", f"⚠️ Không tạo được tóm tắt ({exc.provider}); dùng kết quả agent."
 
