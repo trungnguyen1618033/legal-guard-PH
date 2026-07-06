@@ -1,57 +1,76 @@
 # Prompt tạo ảnh — Blog + Devpost gallery
 
-> Dùng ChatGPT / Gemini / image tools. **Quy tắc vàng:**
-> - ✅ **AI-generate**: hero + minh họa khái niệm (trang trí blog / thumbnail Devpost).
-> - ⚠️ **ẢNH THẬT (KHÔNG AI)**: screenshot UI sản phẩm (`/app`·`/lookup`·`/trust`·Trace) + **bằng chứng deploy
->   Alibaba** (console ECS + `docker ps` + `/health`). AI vẽ UI giả = trông fake + rủi ro gian lận.
-> - Thêm **"no text, no logos"** vào mọi prompt (AI viết chữ trong ảnh thường lỗi/nhòe).
-> - Giữ **cùng bảng màu** cho đồng bộ: navy + teal + amber, nền sáng, phong cách flat/editorial.
+## Bạn cần BAO NHIÊU ảnh? (không phải cứ đủ 5)
+| Mục đích | Cần | Loại |
+|---|---|---|
+| **Architecture Diagram** (Devpost bắt buộc) | 1 | render mermaid (chuẩn) hoặc AI |
+| **Proof deploy Alibaba** (Devpost bắt buộc) | 1 | ⚠️ **SCREENSHOT THẬT** — KHÔNG AI |
+| **Video demo** (Devpost bắt buộc) | — | quay màn hình (không phải ảnh) |
+| **Gallery Devpost** (khuyên, tối đa 15) | 3–5 | ⚠️ **screenshot THẬT** sản phẩm |
+| **Blog** (tùy chọn) | 1 hero + 0–3 minh họa | AI-generate |
+
+→ **Tối thiểu**: architecture (1) + proof Alibaba (1) + vài screenshot thật. **AI-image chỉ cần 1 hero** cho blog
+là đủ; 4 minh họa còn lại là *nice-to-have*, làm nếu dư thời gian. **Đừng để việc tạo ảnh chặn nộp bài.**
+
+> **Quy tắc vàng:** ✅ AI-generate = hero + minh họa khái niệm (trang trí). ⚠️ ẢNH THẬT (KHÔNG AI) =
+> screenshot UI + proof Alibaba (AI vẽ UI/console giả = trông fake + rủi ro gian lận).
 
 ---
 
-## A. Ảnh AI-GENERATE (trang trí)
+## Cách dùng prompt (tối ưu)
+1. Dán **STYLE** (dưới) + **1 SCENE** vào ChatGPT (GPT-image) / Gemini (Imagen) / Midjourney.
+2. Image model **hay bịa chữ lỗi** → mọi prompt đã ép *"absolutely no text"*. Nếu vẫn ra chữ → thêm
+   "remove all text" ở lần chỉnh.
+3. Muốn **đồng bộ**: giữ NGUYÊN đoạn STYLE cho cả bộ → 5 ảnh cùng tông.
+4. Tỉ lệ: **blog hero 16:9** · **Devpost thumbnail/gallery 3:2** (đổi "16:9"→"3:2" ở cuối prompt).
 
-**1. Hero (blog cover + Devpost thumbnail) — 16:9**
-> Editorial tech illustration, clean flat modern style, light background, palette navy + teal + amber.
-> A confident Vietnamese small-business owner at a desk reviewing a multi-page international contract on
-> a laptop; beside her a friendly AI assistant / shield motif highlighting one contract clause in red
-> (risky) and one in green (safe); subtle scales-of-justice and document icons. Professional, optimistic,
-> uncluttered. No text, no logos. 16:9.
+### STYLE (prefix — dán trước mọi scene)
+> Flat modern editorial vector illustration. Clean light background. Palette: deep navy, teal, warm amber,
+> soft shadows. Professional, optimistic, uncluttered, boardroom-quality. **Absolutely no text, no letters,
+> no numbers, no logos, no UI mockups.** Aspect ratio 16:9.
 
-**2. Lesson 1 — right-sizing models**
-> Flat isometric illustration, light background, navy/teal/amber. A law firm as a metaphor for AI models:
-> a large "senior partner" desk (deliberate) and a small fast "paralegal" desk (quick), with tasks routed
-> to the right desk by little arrows. Clean, minimal. No text, no logos. 16:9.
+---
 
-**3. Lesson 2 — grounding / no hallucination**
-> Flat illustration, light background, navy/teal/amber. An AI robot checking a claim against an open law
-> book with a magnifying glass; one statement gets a green "verified" check, another a red "unsupported"
-> cross; a small thought bubble suggesting honest uncertainty ("?"). Professional, trustworthy. No text. 16:9.
+## A. Ảnh AI-GENERATE
 
-**4. Lesson 5 — negotiation copilot (moat, ảnh nổi bật nhất)**
-> Flat illustration, light background, navy/teal/amber. A negotiation table with two parties facing each
-> other; an AI copilot stands beside the near party showing a checklist ledger (some items checked = secured)
-> and a glowing exit/"walk-away" sign; a chess-piece being moved to signal strategy. Confident, strategic,
-> not aggressive. No text, no logos. 16:9.
+**1. HERO** *(nên có — blog cover + Devpost thumbnail)*
+> [STYLE] Scene: a confident Vietnamese woman running a small export business, at a tidy desk with a laptop
+> showing a multi-page contract; beside her a friendly geometric AI-assistant / shield motif points at one
+> contract line marked red (risky) and one marked green (safe); faint scales-of-justice and document icons
+> float subtly. Focus on trust and clarity.
 
-**5. Lesson 4 — autopilot (works while you sleep)**
-> Flat night-scene illustration, calm deep-blue palette with a warm amber accent. A person asleep at night
-> while a small AI agent stays awake scanning a stack of legal documents with a radar sweep at 5 AM; a
-> notification bell lights up on one affected contract. Peaceful, "agent works while you sleep". No text. 16:9.
+**2. Right-sizing models** *(Lesson 1 — optional)*
+> [STYLE] Scene: two desks as a metaphor for AI models — a large slow "senior partner" desk and a small fast
+> "assistant" desk — with paper tasks flowing by arrows to the correct desk. Sense of smart delegation.
+
+**3. Grounding / no hallucination** *(Lesson 2 — optional)*
+> [STYLE] Scene: a friendly robot holding a magnifying glass over an open law book, comparing a claim to the
+> statute; one claim gets a green checkmark, another a red cross; a small "?" bubble suggesting honest doubt.
+
+**4. Negotiation copilot** *(Lesson 5 — ưu tiên nếu chỉ làm thêm 1 ảnh: đây là moat)*
+> [STYLE] Scene: a negotiation table, two parties facing each other; an AI copilot beside the near party holds
+> a checklist ledger with several items ticked (secured) and points to a glowing exit / "walk-away" arrow; a
+> hand moves a chess piece to signal strategy. Confident and strategic, not aggressive.
+
+**5. Autopilot at night** *(Lesson 4 — optional)*
+> [STYLE, but night palette: deep blue with one warm amber accent] Scene: a person peacefully asleep while a
+> small AI agent stays awake scanning a stack of legal documents with a radar sweep; a single notification
+> bell glows on one flagged document. Calm "works while you sleep" mood.
 
 ## B. Ảnh THẬT — screenshot (KHÔNG AI)
-Chụp từ live `https://legalguard.duckdns.org` (hoặc local `/app`):
-- **Analyze**: kết quả rà HĐ — có nhãn ⚖️ TRÁI LUẬT + priority + căn cứ điều luật.
+Chụp từ live `https://legalguard.duckdns.org` (hoặc local `/app`) — 3:2 đẹp cho gallery:
+- **Analyze**: kết quả rà HĐ có nhãn ⚖️ TRÁI LUẬT + priority + căn cứ điều luật.
 - **Trace / `/runs`**: agent tool-calls (AI-Native evidence).
-- **Negotiate**: card đàm phán — ✅ Đã chốt + 🪜 thang nhượng-bộ + 🚪 walk-away.
-- **`/trust`**: trang công bố 54/54 + phương pháp.
-- **`/lookup`**: câu trả lời dẫn Điều/Khoản + 🗺️ lược đồ văn bản.
-→ Devpost gallery (tối đa 15 ảnh, 3:2 đẹp nhất): ưu tiên các ảnh THẬT này — chứng minh sản phẩm chạy thật.
+- **Negotiate**: ✅ Đã chốt + 🪜 thang nhượng-bộ + 🚪 walk-away.
+- **`/trust`**: 54/54 + phương pháp.  ·  **`/lookup`**: dẫn Điều/Khoản + 🗺️ lược đồ VB.
 
 ## C. Architecture Diagram (Devpost bắt buộc)
-- **Chuẩn nhất**: render mermaid — copy khối ```mermaid``` trong `architecture-diagram.en.md` → https://mermaid.live → Export PNG.
-- Hoặc AI-generate: xem prompt trong [`SUBMISSION.md`](SUBMISSION.md) §4c.
+- **Chuẩn nhất**: copy khối ```mermaid``` trong `architecture-diagram.en.md` → https://mermaid.live → Export PNG.
+- Hoặc AI: [STYLE] + "software architecture diagram, left→right: Users → (Web/Slack/Zalo/MCP) → FastAPI →
+  Domain core (ReAct agent · NLI verify · multi-round negotiation) → Qwen Cloud/DashScope on Alibaba Cloud
+  (6 models) + Knowledge Base + PostgreSQL/pgvector + Redis; labeled arrows; emphasize all inference → Qwen."
+  *(Lưu ý: AI thường vẽ sơ đồ có chữ lỗi → render mermaid an toàn hơn cho diagram.)*
 
-## D. Bằng chứng deploy Alibaba (Devpost bắt buộc) — ⚠️ ẢNH THẬT
-SSH vào ECS → ghép 1 ảnh: Alibaba Cloud console (ECS instance id + region) · terminal `docker ps` ·
+## D. Proof deploy Alibaba (Devpost bắt buộc) — ⚠️ ẢNH THẬT
+SSH ECS → ghép 1 ảnh: Alibaba Cloud console (ECS instance id + region) · terminal `docker ps` ·
 `curl -s https://legalguard.duckdns.org/health` → `{"status":"ok","qwen_ready":true}`. **KHÔNG AI-generate.**
