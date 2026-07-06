@@ -78,7 +78,7 @@ survive, it becomes the safety-critical part. So it gets its own exam: 16 tricky
 statements paired with real statute text — including traps like *"a 10% penalty is valid under
 this article"* shown next to the article that says 8%. We score the fast model against both the
 correct answers and the big model's answers. Result: **16/16 correct, 100% agreement with the
-flagship, at a fraction of the latency** (`evaluation/nli_report.json`). That test is what let us
+flagship, at a fraction of the latency** ([test report](https://github.com/trungnguyen1618033/legal-guard-PH/blob/main/evaluation/nli_report.json)). That test is what let us
 make the faster trade with a clear conscience.
 
 ## Lesson 4: "Autopilot" means it works while you sleep

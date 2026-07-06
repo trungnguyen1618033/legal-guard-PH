@@ -71,7 +71,7 @@ sống sót, nó trở thành mắt xích an toàn quan trọng nhất. Nên nó
 hóc búa ghép với nguyên văn điều luật — gồm cả bẫy kiểu *"thỏa thuận phạt 10% là hợp lệ theo
 điều này"* đặt cạnh chính điều luật ghi trần 8%. Chúng tôi chấm model nhanh so với cả đáp án
 chuẩn lẫn model lớn. Kết quả: **16/16 đúng, đồng thuận 100% với model lớn, nhanh hơn ~5 lần**
-(`evaluation/nli_report.json`). Bài thi đó là thứ cho phép đánh đổi lấy tốc độ mà lương tâm
+([báo cáo test](https://github.com/trungnguyen1618033/legal-guard-PH/blob/main/evaluation/nli_report.json)). Bài thi đó là thứ cho phép đánh đổi lấy tốc độ mà lương tâm
 vẫn yên ổn.
 
 ## Bài học 4: "Autopilot" nghĩa là làm việc khi bạn ngủ
