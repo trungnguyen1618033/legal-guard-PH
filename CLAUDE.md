@@ -342,10 +342,10 @@ and **Organization = company** (data isolation by `org_id` + per-company KB over
 `AnalysisService.analyze(contract, org)` and cases are scoped by `org_id`. VAI TRÒ LLM (right-sizing):
 Qwen flagship `qwen3.7-max` = reasoner (agent phân tích — việc KHÓ); Qwen `qwen-flash` = `judge` (NLI/verify
 yes/no — ~0.5s vs ~23s; CŨNG dùng tóm tắt SME `_summarize`); Qwen `qwen-plus` = `lookup_llm` (tra cứu Q&A —
-~4-6s, hybrid: point-in-time→flagship). Gemini adapter còn wired (health `gemini_ready`) nhưng OFF critical
-path: sau khi bỏ XPRIZE (hết ràng '≥1 Gemini call'), summary chuyển sang qwen-flash — đo thấy 1 call Gemini
-~12-24s CHIẾM TRỌN post-agent (verify+legal_basis chỉ ~1.5s) → nghẽn; flash cắt post-agent 24s→2.75s (analyze
-118-135s→102s; còn lại là agent loop flagship output-bound, async-mitigated qua web-poll/Slack-background).
+~4-6s, hybrid: point-in-time→flagship). **QWEN-ONLY** — Gemini ĐÃ GỠ (sau khi bỏ XPRIZE, hết ràng '≥1 Gemini
+call'): summary chuyển qwen-flash vì đo thấy 1 call Gemini ~12-24s CHIẾM TRỌN post-agent (verify+legal_basis
+chỉ ~1.5s) → nghẽn; flash cắt post-agent 24s→2.75s (analyze 118-135s→102s; còn lại là agent loop flagship
+output-bound, async-mitigated qua web-poll/Slack-background). Muốn provider thứ 2 → thêm adapter + 1 dòng container.
 `judge`/`lookup_llm` mặc định = reasoner nếu không cấu hình (giữ tương thích/stub). Deploy target: Alibaba Cloud ECS.
 
 The **Fallback Matrix** (`docs/internal/legal-guard.md` §6) is the product's core logic: a mapping from a partner-imposed
