@@ -151,7 +151,7 @@
     "f2d": "Answers cite the exact Article/Clause of in-force documents — no fabrication, no dead law.",
     "f3t": "Multi-round negotiation",
     "f3d": "Paste the counterparty's reply → a new negotiation round, context-aware, with bilingual counter-clauses.",
-    "foot": "12 legal domains · 98% internal accuracy · grounded in in-force law · a support tool, not a substitute for legal advice."
+    "foot": "12 legal domains · 54/54 internal golden · grounded in in-force law · a support tool, not a substitute for legal advice."
   },
   "trust": {
     "back": "← Home",
