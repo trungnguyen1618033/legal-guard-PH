@@ -168,6 +168,10 @@ chỉnh theo leverage; prompt cấm nhượng red-line). **Bảo vệ red-line T
 `near_red_line` cho nước đi đụng điểm sống còn (`_touches`: substring/≥2 token đặc trưng, bỏ stopword VN) —
 không tự bỏ, chỉ đánh dấu để người quyết. Hiện ở Slack (🪜) + web (ul, ⚠️ gần red-line). Verify LIVE: LLM
 sinh trade thực thụ (nhượng thanh toán 30 ngày ĐỔI LẤY giảm đặt cọc + chốt trọng tài VIAC), không đụng red-line.
+**LIVING FLYWHEEL** (`format_tactics_context` thuần): win-rate lịch sử (kết quả đàm phán THẬT của org, từ
+`outcomes.win_rates()`) inject vào prompt đàm phán (`negotiate_round(tactics_context=)`) → agent ưu tiên GIỮ
+điểm win-rate cao, LINH HOẠT nhượng điểm thấp. Vòng học đóng: usage→Outcome→win_rate→advice đàm phán tốt hơn
+(moat system-of-record: chỉ ai LƯU outcome mới có tín hiệu này). Verify: seed 3 outcome → 67% → context đúng.
 
 Counter-clause (`domain/counter_clause.py`): `POST /counter` {clause, risk, suggestion, legal_basis, leverage}
 → điều khoản PHẢN-ĐỀ song ngữ VN/EN dán-được-ngay vào HĐ (khác `english_reply` = câu nhắn đối tác). Qwen
