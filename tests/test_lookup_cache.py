@@ -33,7 +33,7 @@ class _KB:
 
 def _svc(size=256):
     llm = _CountLLM()
-    svc = AnalysisService(reasoner=llm, summarizer=llm, kb=_KB(),
+    svc = AnalysisService(reasoner=llm, kb=_KB(),
                           nli_verification=False, lookup_cache_size=size)
     return svc, llm
 
@@ -104,7 +104,7 @@ def test_hybrid_routes_point_in_time_to_flagship():
     # Câu có mốc thời gian (năm/ngày) → dùng reasoner (flagship); câu thường → lookup_llm (nhanh).
     fast = _CountLLM()
     flagship = _CountLLM()
-    svc = AnalysisService(reasoner=flagship, summarizer=flagship, kb=_KB(),
+    svc = AnalysisService(reasoner=flagship, kb=_KB(),
                           nli_verification=False, lookup_llm=fast)
     svc.lookup("Mức phạt vi phạm tối đa?", _ORG)          # thường → fast
     svc.lookup("Năm 2020 văn bản nào còn hiệu lực?", _ORG)  # point-in-time → flagship

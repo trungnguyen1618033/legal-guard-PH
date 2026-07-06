@@ -2,7 +2,6 @@ from fastapi.testclient import TestClient
 
 from legalguard.adapters.inbound.http import build_api
 from legalguard.adapters.outbound.document_parser import PdfDocxParser
-from legalguard.adapters.outbound.gemini import GeminiAdapter
 from legalguard.adapters.outbound.knowledge_base import FileKnowledgeBaseProvider
 from legalguard.adapters.outbound.revenue_log import CsvRevenueLog
 from legalguard.config.container import build_service
@@ -15,9 +14,8 @@ from legalguard.domain.ports import LLMError, LLMPort
 def test_health(client):
     body = client.get("/health").json()
     assert body["status"] == "ok"
-    # Trong test, key bị blank → cả hai provider ở chế độ stub.
+    # Trong test, key bị blank → provider ở chế độ stub.
     assert body["qwen_ready"] is False
-    assert body["gemini_ready"] is False
 
 
 def test_analyze_returns_structured_result(client, sample_contract):
@@ -258,7 +256,6 @@ class _BoomLLM(LLMPort):
 def test_analyze_llm_error_returns_502_without_leaking_key(tmp_path, sample_contract):
     service = AnalysisService(
         reasoner=_BoomLLM(),
-        summarizer=GeminiAdapter("", "gemini-2.0-flash"),
         kb=FileKnowledgeBaseProvider("knowledge_base"),
     )
     evidence = EvidenceService(CsvRevenueLog(str(tmp_path / "rev.csv")))

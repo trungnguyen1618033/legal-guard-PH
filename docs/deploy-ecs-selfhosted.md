@@ -11,7 +11,7 @@ yêu cầu "backend trên Alibaba Cloud" của Qwen hackathon).
 
 ## 0. Cần chuẩn bị
 - Tài khoản Alibaba Cloud (có credit).
-- `QWEN_API_KEY`, `GEMINI_API_KEY` (key thật).
+- `QWEN_API_KEY` (key thật; Qwen-only — Gemini đã gỡ sau khi bỏ XPRIZE).
 - **Repo public** để `git clone https://...` không cần đăng nhập (nếu private → xem mục cuối).
 
 ## 1. Tạo ECS (console Alibaba → ECS → Create Instance → Custom Launch)
@@ -64,7 +64,6 @@ nano .env          # ← "nơi thiết kế env": sửa rồi Ctrl+O lưu, Ctrl+
 Cách self-contained chỉ cần sửa **3 dòng** trong `.env`:
 ```ini
 QWEN_API_KEY=sk-...
-GEMINI_API_KEY=...
 DOMAIN=legalguard.duckdns.org
 ```
 Không cần đụng `DATABASE_URL`/`REDIS_URL` — `docker-compose.ecs.yml` đã trỏ sang Postgres/Redis nội bộ.

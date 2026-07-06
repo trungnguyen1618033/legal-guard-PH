@@ -219,7 +219,7 @@ def _detect_illegal(risks: list, judge: LLMPort | None) -> int:
 
 
 class AnalysisService:
-    def __init__(self, reasoner: LLMPort, summarizer: LLMPort, kb: KnowledgeBaseProvider,
+    def __init__(self, reasoner: LLMPort, kb: KnowledgeBaseProvider,
                  cases: CaseRepositoryPort | None = None,
                  outcomes: OutcomeRepositoryPort | None = None,
                  observer: ObservabilityPort | None = None,
@@ -234,8 +234,7 @@ class AnalysisService:
                  coverage_gated_abstain: bool = True,
                  hyde_query_expansion: bool = False) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
-        self.summarizer = summarizer  # Gemini: tóm tắt (provider thứ hai)
-        # Model NHANH cho việc phụ yes/no (NLI, verify gộp). Mặc định = reasoner (giữ tương thích/stub),
+        # Model NHANH cho việc phụ yes/no (NLI, verify gộp) + tóm tắt SME (_summarize). Mặc định = reasoner (giữ tương thích/stub),
         # prod truyền qwen-flash → cắt mạnh latency khâu hậu-agent mà KHÔNG giảm bước kiểm nào.
         self.judge = judge or reasoner
         self.kb = kb
@@ -387,7 +386,6 @@ class AnalysisService:
         return {
             "status": "ok",
             "qwen_ready": self.reasoner.available,
-            "gemini_ready": self.summarizer.available,
         }
 
     def ready(self) -> bool:

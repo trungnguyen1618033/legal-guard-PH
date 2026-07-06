@@ -55,7 +55,6 @@ def test_agent_terminates_with_final_message(sample_contract):
 def test_high_severity_always_requires_human_review():
     # Lời hứa sản phẩm: rủi ro HIGH luôn cần duyệt — kể cả khi LLM "quên" gọi
     # request_human_review (đã xảy ra với LLM thật khi cạn iterations).
-    from legalguard.adapters.outbound.gemini import GeminiAdapter
     from legalguard.adapters.outbound.knowledge_base import FileKnowledgeBaseProvider
     from legalguard.domain.analysis import AnalysisService
     from legalguard.domain.models import ChatTurn, ToolCall
@@ -80,8 +79,7 @@ def test_high_severity_always_requires_human_review():
         def complete(self, prompt, *, system=None):   # summary giờ dùng judge (=reasoner ở đây)
             return "Tóm tắt: 1 rủi ro cao về trọng tài."
 
-    svc = AnalysisService(_ForgetfulLLM(), GeminiAdapter("", "gemini-2.5-flash"),
-                          FileKnowledgeBaseProvider("knowledge_base"))
+    svc = AnalysisService(_ForgetfulLLM(), FileKnowledgeBaseProvider("knowledge_base"))
     result = svc.analyze(contract, default_org("VN"), lang="vi")
     assert result.needs_human_review is True
     assert any("tự động" in r for r in result.review_reasons)

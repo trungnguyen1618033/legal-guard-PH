@@ -18,7 +18,6 @@ from legalguard.adapters.outbound.conversation_store import (
 )
 from legalguard.adapters.inbound.http import build_api
 from legalguard.adapters.outbound.document_parser import OcrFallbackParser, PdfDocxParser
-from legalguard.adapters.outbound.gemini import GeminiAdapter
 from legalguard.adapters.outbound.knowledge_base import FileKnowledgeBaseProvider
 from legalguard.adapters.outbound.observability import LangfuseObserver, NoOpObserver
 from legalguard.adapters.outbound.qwen import QwenAdapter
@@ -61,7 +60,6 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     # Point-in-time lookup dùng flagship (suy luận thời điểm) nhưng cũng temp 0 → tất định.
     lookup_pit_llm = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_model,
                                  temperature=cfg.lookup_temperature)
-    summarizer = GeminiAdapter(cfg.gemini_api_key, cfg.gemini_model, temperature=cfg.llm_temperature)
     embed_fn = reasoner.embed if reasoner.available else None
     reranker = reasoner if cfg.rerank_enabled else None
     # Cross-encoder rerank: RERANK_URL (self-host TEI, vd AITeamVN) ưu tiên hơn qwen3-rerank API khi được đặt.
@@ -89,7 +87,7 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     feedback = SqlAlchemyFeedbackRepository(cfg.database_url)
     observer = (LangfuseObserver(cfg.langfuse_public_key, cfg.langfuse_secret_key, cfg.langfuse_host)
                 if cfg.langfuse_secret_key else NoOpObserver())
-    return AnalysisService(reasoner=reasoner, summarizer=summarizer, kb=kb,
+    return AnalysisService(reasoner=reasoner, kb=kb,
                            cases=cases, outcomes=outcomes, observer=observer,
                            legal_basis_grounding=cfg.legal_basis_grounding, feedback=feedback,
                            nli_verification=cfg.nli_verification, judge=judge,
