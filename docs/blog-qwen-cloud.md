@@ -4,6 +4,8 @@
 > into the submission. Every number below is real and measured. Vietnamese version:
 > [`blog-qwen-cloud.vi.md`](blog-qwen-cloud.vi.md).
 
+![Legal Guard — an AI legal agent reviewing a cross-border contract for a Vietnamese SME](assets/blog-hero.png)
+
 Picture a small Vietnamese furniture exporter. A German buyer sends over a 12-page contract in
 English. Somewhere on page 7, there's a line: *"late delivery penalty: 15% of contract value."*
 
@@ -21,6 +23,8 @@ Try it: https://legalguard.duckdns.org · Code (open source): https://github.com
 Here's what I learned, in plain language.
 
 ## Lesson 1: Don't send a senior partner to do a photocopy job
+
+![Right-sizing AI models: route hard reasoning to the big model, quick checks to a fast one](assets/blog-right-sizing.png)
 
 AI models are like staff at a law firm. The senior partner (`qwen3.7-max`) is brilliant and slow.
 The paralegal (`qwen-flash`) is fast and great at simple, well-defined checks.
@@ -40,6 +44,8 @@ One phase of the pipeline dropped from **~4 minutes to ~7 seconds**. Nothing got
 the work just went to the right desk.
 
 ## Lesson 2: The most dangerous AI answer is the confident wrong one
+
+![Grounding: the AI checks every claim against the actual statute and abstains when unsure](assets/blog-grounding.png)
 
 Everyone worries about AI "hallucinating" — making things up. In legal work the failure is
 sneakier: the AI cites a **real** law article that simply **doesn't say** what the AI claims.
@@ -77,6 +83,8 @@ make the faster trade with a clear conscience.
 
 ## Lesson 4: "Autopilot" means it works while you sleep
 
+![Autopilot: at 5 AM the agent scans new laws and flags affected contracts while you sleep](assets/blog-autopilot.png)
+
 The track is called *Autopilot Agent* — and I took that literally. On the production server
 (one small Alibaba Cloud machine running everything in Docker), a scheduler wakes the agent at
 **5 AM every day**. It checks which laws became effective, then cross-references **every contract
@@ -88,6 +96,8 @@ on real data: one decree about arbitration flagged 8 stored contracts with forei
 clauses. Nobody asked it to. That's the point.
 
 ## Lesson 5: A contract scanner tells you what's wrong; a copilot tells you what to *do*
+
+![Negotiation copilot: a concession ledger of secured points, trade moves, and a walk-away exit](assets/blog-negotiation.png)
 
 Every contract AI flags risky clauses. The gap nobody fills for small businesses: *what do I do
 about it, from my actual bargaining position?* So Legal Guard doesn't stop at analysis — it runs a
