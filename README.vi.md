@@ -3,7 +3,11 @@
 AI "phòng pháp chế thuê ngoài" cho SME Việt Nam: phân tích hợp đồng thương mại quốc tế,
 cảnh báo điều khoản rủi ro, và đề xuất chiến thuật thỏa hiệp (fallback) theo luật thương mại VN.
 
-> Track **Autopilot Agent** (Qwen Cloud Hackathon).
+**Độ chính xác đo được: 54/54** trên bộ golden 12 lĩnh vực luật VN (majority-vote 3 lần/câu; 1 ca ranh giới
+chập chờn giữa các lần — công bố thẳng, không làm tròn 100%). Phương pháp + số liệu: [`/trust`](web/trust.html).
+Giấy phép **MIT** · **400+ test** tự động · chạy offline (stub) không cần key. *(README English: [`README.md`](README.md))*
+
+> Track **Autopilot Agent** (Qwen Cloud Hackathon). Qwen models trên Qwen Cloud, deploy Alibaba Cloud ECS.
 > 📚 **Toàn bộ tài liệu:** [`docs/README.md`](docs/README.md) (chiến lược · kỹ thuật · thị trường · bảo mật).
 
 ## 🚀 Quick demo (cho giám khảo)
@@ -49,8 +53,10 @@ Kỹ thuật chất lượng: **grounding + citation** (mỗi rủi ro gắn `so
 point-in-time) + **citation closure** (đi theo dẫn chiếu chéo) · **reason-then-format** (model suy luận trước
 khi điền structured output) · **eval harness + A/B** (`evaluation/`). Lỗi provider → `LLMError` → degrade, không crash.
 
-**Khác biệt (moat):** không chỉ soi HĐ mà đàm phán **theo vị thế thật** (leverage/urgency/BATNA → priority
-+ chiến lược + **điều khoản phản-đề song ngữ** `/counter`) · **regulatory change intel** (`/impact`: VB mới
+**Khác biệt (moat):** không chỉ soi HĐ mà **đàm phán đa vòng CÓ TRẠNG THÁI theo vị thế thật**
+(leverage/urgency/BATNA → priority + **sổ nhượng-bộ** nhớ qua các vòng + **guardrail walk-away** theo red-line
++ **thang nhượng-bộ** trao đổi + học từ **win-rate flywheel** + **điều khoản phản-đề song ngữ** `/counter`) ·
+**regulatory change intel** (`/impact`: VB mới
 ảnh hưởng HĐ nào, article-level, cảnh báo Slack/Zalo) · **system-of-record** (`/dashboard`) · **living flywheel**
 (feedback → golden set). Phân tích sâu: `docs/internal/moat-and-differentiation.md`.
 
@@ -104,7 +110,7 @@ uv add <package>                  # thêm thư viện (cập nhật pyproject + 
 | POST | `/analyze` | Rà soát HĐ. `format=json`/`report` · `lang=en`/`vi` · **vị thế đàm phán** `leverage`/`urgency`/`relationship`/`alternatives` → priority + chiến lược |
 | POST | `/ask` | Tra cứu luật (RAG có grounding) → câu trả lời dẫn Điều/Khoản **còn hiệu lực** + nguồn |
 | POST | `/counter` | Soạn **điều khoản phản-đề song ngữ VN/EN** cho 1 điều khoản rủi ro (bám căn cứ + vị thế) |
-| POST | `/negotiate` | **Đàm phán đa phiên**: bối cảnh deal + tin đối tác → đánh giá + chiến lược vòng tới + reply + status |
+| POST | `/negotiate` | **Đàm phán đa phiên CÓ TRẠNG THÁI**: bối cảnh deal + tin đối tác (+`state`) → đánh giá · chiến lược vòng tới · reply song ngữ · status · **sổ nhượng-bộ** (đã chốt/đã nhượng/red-line giữ qua các vòng) · **thang nhượng-bộ** (nước đi trao đổi, chặn red-line) · `walk_away_recommended` (red-line bị chặn + có BATNA). Ưu tiên theo win-rate flywheel của org |
 | GET | `/changes/{doc_id}` | "What changed" cấp văn bản: VB này sửa đổi/thay thế/của VB nào |
 | GET | `/graph/{doc_id}` | **Lược đồ văn bản** (nodes+edges, đa-hop) — quan hệ + hiệu lực kiểu TVPL |
 | GET | `/latest/{doc_id}` | Map tới **văn bản mới nhất** (theo chuỗi replaced_by) |
