@@ -341,9 +341,12 @@ and **Organization = company** (data isolation by `org_id` + per-company KB over
 `knowledge_base/_orgs/<org_id>/` via `OverlayRetriever`). Data isolation is per-COMPANY, not per-country;
 `AnalysisService.analyze(contract, org)` and cases are scoped by `org_id`. VAI TRÒ LLM (right-sizing):
 Qwen flagship `qwen3.7-max` = reasoner (agent phân tích — việc KHÓ); Qwen `qwen-flash` = `judge` (NLI/verify
-yes/no — ~0.5s vs ~23s); Qwen `qwen-plus` = `lookup_llm` (tra cứu Q&A — ~4-6s, hybrid: point-in-time→flagship);
-Gemini = summarizer (≥1-Gemini-call XPRIZE rule). `judge`/`lookup_llm` mặc định = reasoner nếu không cấu hình
-(giữ tương thích/stub). Deploy target: Alibaba Cloud ECS.
+yes/no — ~0.5s vs ~23s; CŨNG dùng tóm tắt SME `_summarize`); Qwen `qwen-plus` = `lookup_llm` (tra cứu Q&A —
+~4-6s, hybrid: point-in-time→flagship). Gemini adapter còn wired (health `gemini_ready`) nhưng OFF critical
+path: sau khi bỏ XPRIZE (hết ràng '≥1 Gemini call'), summary chuyển sang qwen-flash — đo thấy 1 call Gemini
+~12-24s CHIẾM TRỌN post-agent (verify+legal_basis chỉ ~1.5s) → nghẽn; flash cắt post-agent 24s→2.75s (analyze
+118-135s→102s; còn lại là agent loop flagship output-bound, async-mitigated qua web-poll/Slack-background).
+`judge`/`lookup_llm` mặc định = reasoner nếu không cấu hình (giữ tương thích/stub). Deploy target: Alibaba Cloud ECS.
 
 The **Fallback Matrix** (`docs/internal/legal-guard.md` §6) is the product's core logic: a mapping from a partner-imposed
 clause → risk analysis → concrete compromise tactic. This is the differentiator (flexible tactics, not rigid
