@@ -87,6 +87,25 @@ no spam. And if you dismiss a false alarm once, it stays dismissed. During testi
 on real data: one decree about arbitration flagged 8 stored contracts with foreign-arbitration
 clauses. Nobody asked it to. That's the point.
 
+## Lesson 5: A contract scanner tells you what's wrong; a copilot tells you what to *do*
+
+Every contract AI flags risky clauses. The gap nobody fills for small businesses: *what do I do
+about it, from my actual bargaining position?* So Legal Guard doesn't stop at analysis — it runs a
+**stateful, multi-round negotiation**.
+
+You tell it your leverage and whether you have a backup deal (BATNA). Then, round after round, it:
+- **remembers what's already agreed** — a running "concession ledger" so it never re-negotiates a
+  point you already won (the naive version kept forgetting and giving ground back);
+- **proposes trades, not surrender** — *"concede the deposit to lock arbitration in Vietnam"* — and
+  screens every suggestion so it never offers away a red-line;
+- **knows when to walk** — a deterministic guardrail flips to *"recommend walk-away"* the moment the
+  other side blocks a must-fix red-line **and** you hold a real alternative. That rule isn't left to
+  the model's mood; it's enforced in code.
+- **learns from outcomes** — tactics that closed real deals get weighted up next time.
+
+That's the line between a document scanner and a negotiation copilot — and it's the part I'd defend
+as the real moat.
+
 ## What failed (worth as much as what worked)
 
 - A fancy tree-search retrieval method lost to the boring hybrid approach on our tests. Boring won.
