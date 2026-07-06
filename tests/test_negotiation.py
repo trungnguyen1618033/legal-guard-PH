@@ -5,6 +5,7 @@ from legalguard.domain.negotiation import (
     _merge_unique,
     _move_list,
     _parse_round,
+    format_tactics_context,
     negotiate_round,
     screen_moves,
     should_walk_away,
@@ -38,12 +39,14 @@ class _LLM:
 
     def __init__(self, available=True, out=""):
         self._a, self._out = available, out
+        self.last_prompt = ""
 
     @property
     def available(self):
         return self._a
 
     def complete(self, prompt, *, system=None):
+        self.last_prompt = prompt
         if isinstance(self._out, list):          # nhiều vòng: trả lần lượt từng output
             return self._out.pop(0)
         return self._out
@@ -142,3 +145,21 @@ def test_negotiate_round_screens_next_moves_against_red_line():
                         state=NegotiationState(red_lines=["Trọng tài tại Việt Nam"]))
     assert len(r.next_moves) == 2
     assert r.next_moves[0]["near_red_line"] is True and r.next_moves[1]["near_red_line"] is False
+
+
+# ---- Living flywheel: win-rate lịch sử → context đàm phán ----
+def test_format_tactics_context_sorts_and_skips_empty():
+    wr = {"phạt vi phạm": {"rate": 0.8, "total": 5}, "trọng tài nước ngoài": {"rate": 0.2, "total": 4},
+          "chưa có mẫu": {"rate": 0.0, "total": 0}}
+    out = format_tactics_context(wr)
+    assert "phạt vi phạm' đạt 80% (5 vụ)" in out                 # điểm cao lên trước
+    assert out.index("80%") < out.index("20%")                   # sắp giảm dần theo rate
+    assert "chưa có mẫu" not in out                              # total=0 bị loại
+    assert format_tactics_context({}) == ""                      # rỗng → không thêm gì
+
+
+def test_negotiate_round_injects_tactics_context_into_prompt():
+    llm = _LLM(out='{"assessment":"a","status":"continue"}')
+    negotiate_round(llm, deal_context="d", partner_message="m",
+                    tactics_context="WIN-RATE LỊCH SỬ: 'phạt' đạt 80% (5 vụ)")
+    assert "WIN-RATE LỊCH SỬ" in llm.last_prompt and "'phạt' đạt 80%" in llm.last_prompt

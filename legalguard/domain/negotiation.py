@@ -105,6 +105,21 @@ def screen_moves(moves: list[dict], red_lines: list[str]) -> list[dict]:
     return out
 
 
+def format_tactics_context(win_rates: dict, limit: int = 6) -> str:
+    """Tóm tắt WIN-RATE lịch sử (kết quả đàm phán THẬT — moat flywheel) → context cho vòng đàm phán:
+    agent ưu tiên GIỮ điểm win-rate cao (đối tác hay chấp nhận), LINH HOẠT điểm win-rate thấp (hay bị từ
+    chối → nhượng đổi lấy điểm khác). Sắp theo (rate, số vụ) giảm dần; chỉ clause có ≥1 mẫu. Rỗng → "" (vòng
+    đầu chưa có dữ liệu → không thêm gì). THUẦN (test offline)."""
+    items = sorted(((c, s.get("rate", 0.0), s.get("total", 0))
+                    for c, s in (win_rates or {}).items() if isinstance(s, dict) and s.get("total")),
+                   key=lambda x: (x[1], x[2]), reverse=True)[:limit]
+    if not items:
+        return ""
+    body = "; ".join(f"'{c}' đạt {int(r * 100)}% ({n} vụ)" for c, r, n in items)
+    return ("WIN-RATE LỊCH SỬ (kết quả đàm phán THẬT của ta — ưu tiên GIỮ điểm đạt cao, LINH HOẠT nhượng "
+            f"điểm đạt thấp): {body}")
+
+
 def should_walk_away(red_line_blocked: bool, has_alternatives: bool) -> bool:
     """Guardrail THUẦN: đối tác chặn một điểm red-line (must-fix) VÀ ta có BATNA (giải pháp thay thế) →
     nên RÚT. Bảo vệ vị thế tất định — không để agent nhượng tiếp/chốt khi điểm sống còn đã bị chặn.
@@ -197,9 +212,11 @@ class NegotiationRound:
 
 def negotiate_round(reasoner: LLMPort, *, deal_context: str, partner_message: str,
                     position: NegotiationPosition | None = None,
-                    state: NegotiationState | None = None, lang: str = "vi") -> NegotiationRound:
-    """Một VÒNG đàm phán: bối cảnh deal + SỔ nhượng-bộ + tin đối tác → đánh giá + chiến lược + câu trả lời +
-    status + sổ nhượng-bộ ĐÃ cập nhật. `state` mang qua các vòng (agent nhớ đã nhượng/chốt gì).
+                    state: NegotiationState | None = None, tactics_context: str = "",
+                    lang: str = "vi") -> NegotiationRound:
+    """Một VÒNG đàm phán: bối cảnh deal + SỔ nhượng-bộ + WIN-RATE lịch sử + tin đối tác → đánh giá + chiến
+    lược + câu trả lời + status + sổ nhượng-bộ ĐÃ cập nhật. `state` mang qua các vòng (agent nhớ đã nhượng/
+    chốt gì); `tactics_context` = win-rate lịch sử (moat flywheel) → agent ưu tiên nước đi từng thành công.
     Offline (chưa có key) → khung an toàn (grounded=False), KHÔNG bịa."""
     pos = position or NegotiationPosition()
     st = state or NegotiationState()
@@ -222,7 +239,8 @@ def negotiate_round(reasoner: LLMPort, *, deal_context: str, partner_message: st
         f"quan hệ={pos.relationship}, có BATNA={pos.alternatives}\n\n"
         f"BỐI CẢNH DEAL (từ phân tích/các vòng trước):\n{deal_context[:4000]}\n\n"
         f"{ledger}\n"
-        f"ĐỐI TÁC VỪA PHẢN HỒI:\n{partner_message[:2000]}\n\n"
+        + (f"{tactics_context[:1000]}\n\n" if tactics_context else "")
+        + f"ĐỐI TÁC VỪA PHẢN HỒI:\n{partner_message[:2000]}\n\n"
         f"Đánh giá phản hồi, cập nhật sổ nhượng-bộ (các mục MỚI vòng này) + chiến lược vòng tới, soạn câu "
         f"trả lời ({'tiếng Việt + tiếng Anh' if lang == 'vi' else 'English + Vietnamese'}), đề xuất status."
     )

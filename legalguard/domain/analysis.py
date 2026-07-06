@@ -342,10 +342,13 @@ class AnalysisService:
         """Một VÒNG đàm phán đa phiên: bối cảnh deal + SỔ nhượng-bộ + tin đối tác → đánh giá + chiến lược
         vòng tới + câu trả lời song ngữ + status (continue/close/walk_away) + sổ nhượng-bộ ĐÃ cập nhật.
         `state` mang qua các vòng (agent nhớ đã nhượng/chốt gì). Lõi 'Autopilot Agent' dẫn đàm phán."""
+        from legalguard.domain.negotiation import format_tactics_context
         from legalguard.domain.negotiation import negotiate_round as _round
 
+        # Living flywheel: nạp win-rate lịch sử (kết quả đàm phán THẬT) → agent ưu tiên nước đi từng thành công.
+        rates = self.outcomes.win_rates() if self.outcomes else {}
         r = _round(self.reasoner, deal_context=deal_context, partner_message=partner_message,
-                   position=position, state=state, lang=lang)
+                   position=position, state=state, tactics_context=format_tactics_context(rates), lang=lang)
         if self.observer:
             self.observer.event("negotiate_round", {"status": r.status, "grounded": r.grounded})
         return asdict(r)
