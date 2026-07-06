@@ -197,6 +197,7 @@ class ChatHandler:
             conv.add("user", user_msg)
             conv.add("assistant", res.text)
             self._summarize(conv)
+            conv.updated_at = datetime.now(timezone.utc).isoformat()   # 'last active' — trước đây bỏ trống
             self.store.save(conv)
             return res
 
