@@ -9,7 +9,7 @@ yêu cầu "backend chạy trên Alibaba Cloud" của Qwen hackathon). DB dùng 
   - Mua domain rẻ (Namecheap/Porkbun ~$1-10), HOẶC
   - Free: tạo subdomain tại [duckdns.org](https://www.duckdns.org) (vd `legalguard.duckdns.org`) — đủ cho test/demo.
 - [ ] Tài khoản Alibaba Cloud (đã có credit ✓).
-- [ ] Sẵn các giá trị `.env`: `QWEN_API_KEY`, `GEMINI_API_KEY`, `DATABASE_URL` (Neon, `postgresql+psycopg://...?sslmode=require`), `REDIS_URL` (Upstash `rediss://...`), `SLACK_SIGNING_SECRET`, `SLACK_BOT_TOKEN`, và `DOMAIN`.
+- [ ] Sẵn các giá trị `.env`: `QWEN_API_KEY`, `DATABASE_URL` (Neon, `postgresql+psycopg://...?sslmode=require`), `REDIS_URL` (Upstash `rediss://...`), `SLACK_SIGNING_SECRET`, `SLACK_BOT_TOKEN`, và `DOMAIN`.
 
 ## 1. Tạo ECS instance
 1. Console Alibaba Cloud → **ECS → Create Instance**.

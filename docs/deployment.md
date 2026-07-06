@@ -24,7 +24,7 @@ managed services + scale từng tầng độc lập**; mọi thay đổi scale c
         └───────────┘ └──────────────┘        │
         ┌──────────┐  ┌──────────────┐  ┌──────▼───────┐
         │ OSS files│  │ KMS secrets  │  │ DashScope    │ (Qwen, Singapore)
-        └──────────┘  └──────────────┘  │ + Gemini     │
+        └──────────┘  └──────────────┘  │  (Qwen-only) │
                                         └──────────────┘
    Observability: SLS (logs) · metrics · tracing
 ```
@@ -38,7 +38,7 @@ managed services + scale từng tầng độc lập**; mọi thay đổi scale c
 | File | **OSS** (nếu lưu file) | mã hóa + lifecycle (erasure) + signed URL |
 | Secrets | **KMS / Secrets Manager** | thay `.env` |
 | Registry | **ACR** | image từ CI |
-| LLM | DashScope (Qwen) + Gemini | tự scale phía provider |
+| LLM | DashScope (Qwen — reasoner/judge/lookup/embed/rerank/OCR) | tự scale phía provider |
 | Observability | **SLS** + metrics | log/metric/trace |
 
 ## 2. Scale từng tầng (và hexagonal giúp thế nào)

@@ -23,12 +23,13 @@ flowchart TB
                 ANALYSIS["AnalysisService<br/>chunk · verify 2 lớp · audit"]
                 CHECK["⚖️ Human checkpoint"]
             end
-            OUT["Outbound adapters<br/>qwen · gemini · kb · parser"]
+            OUT["Outbound adapters<br/>qwen · kb · parser"]
         end
     end
 
     subgraph qwencloud["☁️ QWEN CLOUD / DashScope (Alibaba)"]
         QMAX["qwen3.7-max<br/>(reasoning agent)"]
+        QFLASH["qwen-flash<br/>(judge: NLI/verify/tóm tắt)"]
         QEMB["text-embedding-v4<br/>(retrieval)"]
         QVL["qwen3.7-plus<br/>(OCR scan/ảnh)"]
     end
@@ -36,7 +37,6 @@ flowchart TB
     subgraph ext["Dịch vụ ngoài"]
         NEON["Neon Postgres<br/>(cases · outcomes)"]
         UP["Upstash Redis<br/>(chat session)"]
-        GEM["Gemini<br/>(tóm tắt)"]
     end
 
     KB[("📚 Knowledge Base<br/>fallback matrix<br/>luật VN")]
@@ -48,7 +48,7 @@ flowchart TB
     OUT -->|embed| QEMB
     OUT -->|OCR| QVL
     OUT --> KB
-    OUT -->|summary| GEM
+    OUT -->|NLI/verify/summary| QFLASH
     ANALYSIS --> NEON
     IN --> UP
 

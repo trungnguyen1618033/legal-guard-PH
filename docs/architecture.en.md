@@ -7,10 +7,10 @@
 
 The business logic in `legalguard/domain/` never imports a framework or a vendor SDK. It defines
 **ports** (interfaces) — `LLMPort`, `KnowledgeBasePort`, `DocumentParserPort` — and the
-`adapters/outbound/` layer implements them (Qwen, Gemini, file-based KB, PDF/DOCX/OCR parser).
+`adapters/outbound/` layer implements them (Qwen, file-based KB, PDF/DOCX/OCR parser).
 `config/container.py` is the single composition root. Consequences:
 
-- Swapping Qwen ↔ Gemini, or file-KB ↔ vector DB, is **one line** in the container; the core is untouched.
+- Swapping the LLM provider, or file-KB ↔ vector DB, is **one line** in the container; the core is untouched.
 - The whole pipeline runs **offline in stub mode** (LLM adapters return labelled placeholder text), so
   the agent loop, tools, verification and HTTP surface are all testable without any API key.
 

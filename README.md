@@ -74,7 +74,7 @@ legalguard/
     negotiation (multi-round) · counter_clause · regulatory (autopilot) · runs (AI evidence)
   adapters/
     inbound/http.py            FastAPI driving adapter · inbound/mcp_server.py (Model Context Protocol)
-    outbound/                  qwen · gemini · knowledge_base (hybrid RAG) · document_parser (+OCR)
+    outbound/                  qwen · knowledge_base (hybrid RAG) · document_parser (+OCR)
   config/container.py          composition root — the only place adapters are wired in
 knowledge_base/VN/             in-force Vietnamese law (verbatim) + a 12-situation fallback matrix
 ```
@@ -105,9 +105,8 @@ All LLM calls go to **Qwen models via Qwen Cloud / DashScope (Alibaba Cloud Mode
 | `qwen3.7-plus` | Multimodal OCR for scanned/image contracts |
 
 **Deployment: Alibaba Cloud ECS** — Docker (Caddy HTTPS + FastAPI app + Postgres + Redis), `alembic
-upgrade head` on start. Embeddings persist in Postgres (`kb_vectors`). A Gemini summarizer
-(`gemini-2.5-flash`) is wired as a second-provider example — swapping a provider is one line in
-`config/container.py`.
+upgrade head` on start. Embeddings persist in Postgres (`kb_vectors`). Qwen-only; the hexagonal
+`LLMPort` means swapping in a second provider (or a vector DB) is one line in `config/container.py`.
 
 ## Run with Docker
 
@@ -120,7 +119,7 @@ make logs    # tail logs   ·   make down (stop)   ·   make help (all commands)
 
 ```bash
 uv sync
-cp .env.example .env          # optional: add QWEN_API_KEY / GEMINI_API_KEY for real analysis
+cp .env.example .env          # optional: add QWEN_API_KEY for real analysis
 uv run uvicorn app:app --reload          # → http://localhost:8000/docs
 uv run pytest                            # full offline test suite
 uv run ruff check .                      # lint
@@ -153,5 +152,5 @@ lawyer-verified evaluation set, deal-outcome flywheel data) layers on at deploy 
 overlay and is **not** in this repo. See [`docs/OPEN-CORE.md`](docs/OPEN-CORE.md). License: [`LICENSE`](LICENSE) (MIT).
 
 ## Requirements
-- Python ≥ 3.11 · Qwen API (primary LLM) · Gemini API (optional second provider)
+- Python ≥ 3.11 · Qwen API (primary LLM; hexagonal `LLMPort` → add a 2nd provider in one line)
 - Runs fully offline in **stub mode** without any API key.

@@ -31,7 +31,7 @@ legalguard/
     verification (NLI) · negotiation (đa phiên) · counter_clause · regulatory · redline · dashboard
   adapters/
     inbound/http.py            FastAPI (driving adapter)
-    outbound/                  qwen · gemini · knowledge_base · document_parser · revenue_log · case_repository
+    outbound/                  qwen · knowledge_base · document_parser · revenue_log · case_repository
   config/                      settings · container (composition root)
 knowledge_base/VN/             ma trận fallback (12 nhóm điều khoản) — xem knowledge_base/_README.md
 ```
@@ -75,7 +75,7 @@ Lệnh: `make psql` · `make redis-cli` · `make logs`.
 
 ```bash
 uv sync                       # tạo .venv + cài deps theo pyproject.toml / uv.lock
-cp .env.example .env          # điền QWEN_API_KEY (và GEMINI_API_KEY)
+cp .env.example .env          # điền QWEN_API_KEY
 uv run uvicorn app:app --reload
 # → http://localhost:8000/docs
 ```
@@ -160,4 +160,4 @@ thu phí → `POST /evidence/revenue`. Sổ doanh thu lưu ở `data/revenue.csv
 
 ## Yêu cầu
 - Python ≥ 3.11
-- Qwen API (LLM phân tích chính) · Gemini API (tùy chọn — provider thứ hai)
+- Qwen API (LLM phân tích chính; hexagonal `LLMPort` → thêm provider thứ 2 chỉ 1 dòng)

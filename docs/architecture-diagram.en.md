@@ -25,7 +25,7 @@ flowchart TB
                 CHECK["⚖️ Human checkpoint"]
                 AUTOPILOT["🛰️ Autopilot monitor<br/>(scan new laws → impact)"]
             end
-            OUT["Outbound adapters<br/>qwen · gemini · KB · parser"]
+            OUT["Outbound adapters<br/>qwen · KB · parser"]
         end
         PG[("Postgres<br/>cases · outcomes · kb_vectors")]
         REDIS[("Redis<br/>chat session")]
@@ -33,14 +33,13 @@ flowchart TB
 
     subgraph qwencloud["☁️ QWEN CLOUD / DashScope (Alibaba Model Studio)"]
         QMAX["qwen3.7-max<br/>reasoning agent"]
-        QFLASH["qwen-flash<br/>NLI verify (judge)"]
+        QFLASH["qwen-flash<br/>NLI verify + summary (judge)"]
         QPLUS["qwen-plus<br/>legal lookup"]
         QEMB["text-embedding-v4<br/>retrieval"]
         QRR["qwen3-rerank<br/>cross-encoder"]
         QVL["qwen3.7-plus<br/>OCR (scan/image)"]
     end
 
-    GEM["Gemini 2.5-flash<br/>(summarizer — 2nd provider)"]
     KB[("📚 Knowledge Base<br/>in-force VN law + fallback matrix<br/>+ private overlay _orgs/")]
 
     U1 & U2 & U3 -->|HTTPS| CADDY --> IN --> ANALYSIS
@@ -54,7 +53,7 @@ flowchart TB
     OUT -->|rerank| QRR
     OUT -->|OCR| QVL
     OUT --> KB
-    OUT -->|summary| GEM
+    OUT -->|summary| QFLASH
     ANALYSIS --> PG
     IN --> REDIS
 

@@ -8,7 +8,7 @@
 
 | Tham số | Giá trị giả định | Ghi chú |
 |---|---|---|
-| LLM call / 1 lần `/analyze` | **~8 Qwen + 1 Gemini ≈ 9** | agent loop (~4) + verification (~3, mỗi rủi ro 1) + embed (~1) + summary (1) |
+| LLM call / 1 lần `/analyze` | **~9 Qwen** | agent loop (~4, flagship) + verification (~1 gộp, flash) + legal_basis (~mỗi risk) + embed (~1) + summary (1, flash) |
 | Token / 1 lần `/analyze` | **~60,000** | HĐ + KB context nhân nhiều call |
 | Wall-clock / 1 lần | **~30s** | 9 call tuần tự/bán song song |
 | DashScope standard | **600 RPM · 1,000,000 TPM** | Qwen-Turbo: 5M TPM. **Free tier ~3 RPM = không dùng được** |

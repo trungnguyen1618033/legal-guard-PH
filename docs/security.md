@@ -11,7 +11,7 @@ Nghị định 356/2025 (hiệu lực 1/1/2026, thay Nghị định 13/2023)**; 
 | Tài sản | Mối đe dọa | Lớp phòng thủ |
 |---|---|---|
 | Nội dung hợp đồng | Lộ ra ngoài / bên thứ 3 / log | Redaction PII · không lưu toàn văn · mã hóa · residency |
-| API key (Qwen/Gemini) | Rò rỉ qua log/repo/process | `.env` gitignore · `LLMError` sanitize · secret manager (prod) |
+| API key (Qwen) | Rò rỉ qua log/repo/process | `.env` gitignore · `LLMError` sanitize · secret manager (prod) |
 | Dữ liệu khách giữa các tenant | Tenant A đọc dữ liệu tenant B | Auth + tenant scoping · (sau) Postgres RLS |
 | Agent (tool-calling) | Prompt injection từ hợp đồng | Segregate untrusted data · tool ít quyền · HITL |
 | Hệ thống | Lạm dụng / DoS / file độc | Rate limit · giới hạn kích thước/định dạng file |

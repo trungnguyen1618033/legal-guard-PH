@@ -33,7 +33,7 @@ startup, phủ lên engine qua cơ chế overlay sẵn có (KHÔNG cần sửa c
 
 ## ✅ PUBLIC (MIT — trong repo này)
 - **Engine**: `legalguard/` (domain hexagonal, agent ReAct, RAG, verification, regulatory, runs…),
-  adapters (Qwen/Gemini/KB/parser), HTTP API, MCP, observability.
+  adapters (Qwen/KB/parser), HTTP API, MCP, observability.
 - **Frontend**: `frontend/` (Next.js) + `web/*.html`.
 - **Hạ tầng**: Docker, Alembic migrations, `scripts/` (backup/restore), CI.
 - **Tri thức nền**: `knowledge_base/VN/*` — văn bản **luật công khai** (verbatim) + đồ thị hiệu lực;
