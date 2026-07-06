@@ -162,6 +162,12 @@ nhượng lại thứ đã nhượng / đàm phán lại thứ đối tác đã 
 `/negotiate` thread state qua request/response (`state_to_json`/`state_from_json` thuần). UI app.html: card
 "💬 Đàm phán đa phiên" — dán phản hồi đối tác → round mới, hiện ✅ Đã chốt / ↩️ Ta đã nhượng / 🚨 walk-away,
 thread state qua các vòng (`_negoState`), badge status.
+**THANG NHƯỢNG-BỘ (concession ladder, `next_moves`)** — CHỦ ĐỘNG không chỉ phản ứng: mỗi vòng agent đề xuất
+1-3 nước đi TRAO ĐỔI `{offer, in_return_for, why}` (nhượng điểm rẻ-với-ta ĐỂ ĐỔI LẤY chốt điểm còn mở, hiệu
+chỉnh theo leverage; prompt cấm nhượng red-line). **Bảo vệ red-line TẤT ĐỊNH** `screen_moves` (THUẦN): gắn cờ
+`near_red_line` cho nước đi đụng điểm sống còn (`_touches`: substring/≥2 token đặc trưng, bỏ stopword VN) —
+không tự bỏ, chỉ đánh dấu để người quyết. Hiện ở Slack (🪜) + web (ul, ⚠️ gần red-line). Verify LIVE: LLM
+sinh trade thực thụ (nhượng thanh toán 30 ngày ĐỔI LẤY giảm đặt cọc + chốt trọng tài VIAC), không đụng red-line.
 
 Counter-clause (`domain/counter_clause.py`): `POST /counter` {clause, risk, suggestion, legal_basis, leverage}
 → điều khoản PHẢN-ĐỀ song ngữ VN/EN dán-được-ngay vào HĐ (khác `english_reply` = câu nhắn đối tác). Qwen
