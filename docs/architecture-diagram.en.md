@@ -7,6 +7,7 @@ Devpost submission. **Alibaba Cloud** blocks are highlighted (a track requiremen
 ## System overview
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': {'fontFamily':'Inter, Segoe UI, Roboto, sans-serif', 'fontSize':'14px', 'lineColor':'#64748b', 'clusterBkg':'#f8fafc', 'clusterBorder':'#94a3b8'}, 'flowchart': {'curve':'basis', 'nodeSpacing':45, 'rankSpacing':55, 'htmlLabels':true, 'padding':10}}}%%
 flowchart TB
     subgraph users["👤 Users"]
         U1["Web UI /app · /lookup · /dashboard"]
@@ -62,6 +63,10 @@ flowchart TB
     style CHECK fill:#e6f7ed,stroke:#198754,stroke-width:2px
     style AGENT fill:#e6f0ff,stroke:#0d6efd,stroke-width:2px
     style AUTOPILOT fill:#e6f0ff,stroke:#0d6efd,stroke-width:2px
+    classDef qwen fill:#fff3e8,stroke:#ff6a00,stroke-width:1.5px,color:#7a3b00
+    classDef store fill:#eef2f7,stroke:#64748b,stroke-width:1.5px,color:#334155
+    class QMAX,QFLASH,QPLUS,QEMB,QRR,QVL qwen
+    class PG,REDIS,KB store
 ```
 
 ## Analysis flow (sequence)
