@@ -160,6 +160,25 @@ def test_counter_offer_in_deal_routes_negotiation():
     assert r.kind == "negotiate"                                      # → vòng đàm phán
 
 
+def test_partner_refusal_with_contract_keyword_routes_negotiation_not_analyze():
+    # Đo từ test LIVE: tin từ chối "chúng tôi không thể đổi… bắt buộc" chứa từ khóa HĐ ("trọng tài")
+    # từng bị RE-ANALYZE oan (guardrail walk-away không chạy). Giờ phải ra vòng đàm phán.
+    from legalguard.adapters.inbound.channels import _is_counter_offer
+    assert _is_counter_offer("Về trọng tài, chúng tôi không thể đổi, bắt buộc phải ở Bắc Kinh.")
+    h = _handler()
+    h.reply("cNego2", text=MSG)                                       # analyze → set context (deal)
+    r = h.reply_ex("cNego2", text="Về trọng tài, chúng tôi không thể đổi, bắt buộc phải ở Bắc Kinh.")
+    assert r.kind == "negotiate"                                      # KHÔNG phải "analysis"
+
+
+def test_short_in_deal_message_not_reanalyzed():
+    # Trong deal, tin NGẮN chứa từ khóa HĐ nhưng không phải HĐ mới → không re-analyze (rơi xuống đàm phán/followup).
+    h = _handler()
+    h.reply("cShort", text=MSG)                                       # deal context
+    r = h.reply_ex("cShort", text="Giữ nguyên điều khoản thanh toán nhé.")
+    assert r.kind != "analysis"
+
+
 def test_format_negotiation_reply():
     from legalguard.adapters.inbound.channels import format_negotiation_reply
     out = format_negotiation_reply({"status": "close", "assessment": "đối tác nhượng đủ",

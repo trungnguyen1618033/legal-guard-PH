@@ -64,7 +64,11 @@ def _is_legal_lookup(text: str) -> bool:
 # Tín hiệu đây là PHẢN HỒI/COUNTER-OFFER của đối tác (đang trong deal) → vòng đàm phán có cấu trúc.
 _COUNTER_RE = re.compile(
     r"đối tác|đối phương|bên kia|bên bán|bên mua|họ (nói|đề nghị|muốn|đồng ý|từ chối)|phản hồi|phản đề|"
-    r"đồng ý|chấp nhận|từ chối|đề nghị|yêu cầu|giảm (còn|xuống)|tăng|nhượng|chốt|walk|counter|offer|%",
+    r"đồng ý|chấp nhận|từ chối|đề nghị|yêu cầu|giảm (còn|xuống)|tăng|nhượng|chốt|walk|counter|offer|%|"
+    # Từ chối/kiên quyết/ngôi-thứ-nhất-đối-tác (đối tác giữ/chặn điểm — vẫn là vòng đàm phán, đo từ test live):
+    r"chúng tôi|chúng tớ|phía (tôi|chúng tôi|bên)|không thể|không đổi|không (đồng ý|chấp nhận)|"
+    r"khó chấp nhận|bắt buộc|kiên quyết|vẫn (giữ|muốn|cần)|giữ nguyên|"
+    r"\b(we|our|cannot|can't|must|insist|refuse|decline|reject)\b",
     re.IGNORECASE)
 
 
@@ -227,9 +231,11 @@ class ChatHandler:
             except ValueError as exc:
                 return ChatReply(f"Không đọc được file: {exc}")
         elif (text and not _is_question(text) and any(s in text.lower() for s in _SIGNALS)
-              and not (conv.context and _is_counter_offer(text))):
+              and not (conv.context and (_is_counter_offer(text) or len(text.strip()) < 220))):
             contract = text                            # tín hiệu HĐ & KHÔNG phải câu hỏi → rà soát
-            # (đang trong deal + là phản hồi đối tác → KHÔNG re-analyze, để rơi xuống nhánh đàm phán)
+            # ĐANG TRONG DEAL: phản hồi đối tác HOẶC tin NGẮN (<220 ký tự) → KHÔNG re-analyze (tin ngắn không
+            # phải HĐ mới; để rơi xuống nhánh đàm phán). Đo từ test live: tin từ chối "chúng tôi không thể đổi…"
+            # từng bị re-analyze oan vì chứa từ khóa HĐ ("trọng tài") → guardrail walk-away không chạy.
 
         if contract and contract.strip():                 # → RÀ SOÁT
             try:

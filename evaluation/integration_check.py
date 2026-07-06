@@ -92,6 +92,17 @@ def _run_scenarios(handler: ChatHandler, service) -> list[dict]:
     record("slack_followup", "Hỏi tiếp sau khi rà soát (nhớ ngữ cảnh deal)",
            lambda: {"input": fu, **_reply(handler, conv, fu)})
 
+    # 2b) Slack: đàm phán đa vòng (counter-offer trong cùng thread) → _negotiate với sổ nhượng-bộ.
+    # 2 vòng: đối tác nhượng phạt/giữ trọng tài → rồi chặn thẳng red-line → kiểm ledger + guardrail live.
+    def negotiate():
+        m1 = "Chúng tôi đồng ý giảm phạt xuống 8%, nhưng giữ trọng tài tại Bắc Kinh."
+        r1 = _reply(handler, conv, m1)
+        m2 = "Về trọng tài, chúng tôi không thể đổi, bắt buộc phải ở Bắc Kinh."
+        r2 = _reply(handler, conv, m2)
+        return {"round1": {"input": m1, **r1}, "round2": {"input": m2, **r2}}
+    record("slack_negotiate_multiround", "Đàm phán đa vòng: ledger giữ điểm đã chốt + guardrail walk-away",
+           negotiate)
+
     # 3) Slack: câu hỏi pháp lý độc lập (thread mới) → tra cứu KB có grounding.
     q = "Mức phạt vi phạm hợp đồng tối đa là bao nhiêu phần trăm giá trị nghĩa vụ?"
     record("slack_lookup", "Hỏi pháp lý độc lập → tra cứu dẫn Điều/Khoản còn hiệu lực",
