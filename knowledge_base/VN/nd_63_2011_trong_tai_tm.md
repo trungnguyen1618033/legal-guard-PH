@@ -10,7 +10,8 @@ guides: 54/2010/QH12; 32/2001/QH10
 guided_by: 12/2012/TT-BTP; 42/2013/TT-BTC
 replaces: 25/2004/NĐ-CP
 based_on: 32/2001/QH10; 54/2010/QH12
-amended_by: 124/2018/NĐ-CP; 18/2026/NĐ-CP; 112/2025/NĐ-CP
+amended_by: 124/2018/NĐ-CP; 112/2025/NĐ-CP; 18/2026/NĐ-CP
+stale_note: HẾT HIỆU LỰC MỘT PHẦN (verify 8/7/2026) — KB là 63/2011 GỐC, CHƯA nạp text 3 VB sửa (PDF ký số font legacy, cần OCR). 124/2018 (19/9/2018) bãi bỏ điểm d k1 Đ.8+Đ.10, sửa k2/k3 Đ.21 (giấy tờ chi nhánh/VP tổ chức TT nước ngoài); 112/2025 (29/5/2025) thêm Đ.14a (cấp lại phép), Đ.23a (thu hồi phép chi nhánh nước ngoài); 18/2026 (14/1/2026) thêm Đ.5a (kết quả TTHC ký số). CẢ 3 là THỦ TỤC HÀNH CHÍNH lập/quản lý tổ chức trọng tài — KHÔNG đụng luật NỘI DUNG (thỏa thuận TT/thẩm quyền/thi hành phán quyết ở Luật TTTM 2010 + NQ 01/2014, đã có+còn hiệu lực). Impact THẤP, CHỦ ĐÍCH chưa nạp (tránh vocab-collision+rủi ro OCR); chỉ tra THỦ TỤC LẬP trung tâm TT mới lỗi thời.
 source: th1nhng0/vietnamese-legal-documents (vbpl.vn, CC BY 4.0) — auto-ingest, CẦN luật sư duyệt
 ---
 Quy định chi tiết và hướng dẫn thi hành một số điều của Luật Trọng tài thương mại — 63/2011/NĐ-CP. Trạng thái: Hết hiệu lực một phần.
