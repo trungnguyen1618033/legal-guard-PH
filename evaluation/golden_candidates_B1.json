@@ -1,0 +1,60 @@
+{
+  "note": "B1 GOLDEN CANDIDATES — domain KB-đã-có nhưng golden mỏng/thiếu. AI-draft đáp án từ VĂN BẢN THẬT trong KB, CẦN LUẬT SƯ/NGƯỜI DUYỆT trước khi merge vào accuracy_golden.json. KHÔNG dùng cho /trust tới khi duyệt. Chạy thử: uv run python -m evaluation.accuracy_eval --no-write --golden evaluation/golden_candidates_B1.json",
+  "cases": [
+    {
+      "category": "Xây dựng (Luật XD 2014)",
+      "type": "tra_cuu",
+      "question": "Khởi công xây dựng công trình cần đáp ứng những điều kiện gì?",
+      "expected": "Có mặt bằng bàn giao; có giấy phép xây dựng (với công trình phải xin phép); có thiết kế bản vẽ thi công được phê duyệt; có hợp đồng thi công đã ký với nhà thầu (Điều 107 Luật Xây dựng 2014).",
+      "basis": "Điều 107 Luật Xây dựng 2014",
+      "must_cite": ["xay_dung"],
+      "must_say": ["giấy phép|mặt bằng|thiết kế|hợp đồng thi công"],
+      "abstain": false,
+      "_review": "ổn định — Đ.107 điều kiện khởi công"
+    },
+    {
+      "category": "Xây dựng (Luật XD 2014)",
+      "type": "tra_cuu",
+      "question": "Ai chịu trách nhiệm bảo hành công trình xây dựng?",
+      "expected": "Nhà thầu thi công có trách nhiệm bảo hành công trình do mình thi công; nhà thầu cung ứng thiết bị bảo hành thiết bị do mình cung cấp (Điều 125 Luật Xây dựng 2014).",
+      "basis": "Điều 125 Luật Xây dựng 2014",
+      "must_cite": ["xay_dung"],
+      "must_say": ["nhà thầu"],
+      "abstain": false,
+      "_review": "ổn định — Đ.125 bảo hành"
+    },
+    {
+      "category": "Xây dựng (Luật XD 2014)",
+      "type": "tra_cuu",
+      "question": "Nội dung bảo hành công trình xây dựng gồm những gì?",
+      "expected": "Khắc phục, sửa chữa, thay thế thiết bị hư hỏng, khiếm khuyết do lỗi của nhà thầu gây ra (khoản 2 Điều 125 Luật Xây dựng 2014).",
+      "basis": "Điều 125 khoản 2 Luật Xây dựng 2014",
+      "must_cite": ["xay_dung"],
+      "must_say": ["khắc phục|sửa chữa|thay thế|lỗi"],
+      "abstain": false,
+      "_review": "ổn định — Đ.125 k2"
+    },
+    {
+      "category": "Xây dựng (Luật XD 2014)",
+      "type": "tinh_huong",
+      "question": "Công trình hư hỏng do lỗi thi công nhưng nhà thầu từ chối bảo hành. Nhà thầu có đúng luật không?",
+      "expected": "KHÔNG đúng — nhà thầu thi công có trách nhiệm bảo hành, bao gồm khắc phục hư hỏng/khiếm khuyết do lỗi của mình gây ra (Điều 125 Luật Xây dựng 2014).",
+      "basis": "Điều 125 Luật Xây dựng 2014",
+      "must_cite": ["xay_dung"],
+      "must_say": ["nhà thầu|trách nhiệm bảo hành"],
+      "abstain": false,
+      "_review": "party-aware — kiểm hệ nói nhà thầu PHẢI bảo hành"
+    },
+    {
+      "category": "Xây dựng (Luật XD 2014)",
+      "type": "tra_cuu",
+      "question": "Công trình nào được miễn giấy phép xây dựng?",
+      "expected": "Gồm nhiều loại, trong đó có nhà ở riêng lẻ ở nông thôn thuộc khu vực chưa có quy hoạch (điểm k khoản 2 Điều 89 Luật Xây dựng 2014).",
+      "basis": "Điều 89 khoản 2 Luật Xây dựng 2014",
+      "must_cite": ["xay_dung"],
+      "must_say": ["miễn"],
+      "abstain": false,
+      "_review": "⚠️ RỦI RO: Điều 89 ĐÃ BỊ SỬA bởi Luật XD sửa đổi 62/2020 — danh mục miễn khác. KB đang là bản 2014 gốc → đáp án có thể LỖI THỜI. Luật sư kiểm; cân nhắc bỏ hoặc ingest bản 2020."
+    }
+  ]
+}
