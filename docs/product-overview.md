@@ -83,6 +83,12 @@ khi chuyên gia pháp lý bấm duyệt — rủi ro cao tự động yêu cầu
 bạn không bao giờ gửi đi một câu chữ pháp lý chưa ai kiểm qua. Khi reviewer **từ chối**, case được
 **chuyển thẳng cho luật sư** qua kênh chuyên gia (Slack) — không chỉ gắn cờ mà escalation tới người thật.
 
+### 🧑‍⚖️ Chế độ luật sư — dùng đúng quy tắc nghề
+Bộ công cụ cho luật sư dùng AI đúng chuẩn nghề (ABA 512 / SG MinLaw / Luật Luật sư VN + PDPL 91/2025):
+**mẫu văn bản đồng ý** điền sẵn cho khách (`GET /lawyer/consent`) · **hồ sơ kiểm chứng AI** xuất mỗi
+case (`GET /cases/{id}/audit` — vân tay tài liệu + căn cứ + dấu vết agent + ô ký của luật sư) ·
+human-checkpoint + minh bạch AI. Hướng dẫn đầy đủ: [`docs/lawyer-mode.md`](lawyer-mode.md).
+
 ### 💬 Hỏi đáp như nói chuyện với luật sư riêng
 Sau khi phân tích, cứ hỏi tự nhiên: *"Đối tác từ chối SIAC thì sao?", "Bên mình cần gấp,
 nhượng khoản thanh toán được không?"* — hệ thống nhớ ngữ cảnh deal đang bàn và tư vấn tiếp

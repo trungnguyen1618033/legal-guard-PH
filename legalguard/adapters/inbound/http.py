@@ -397,6 +397,15 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         from legalguard.domain.audit import compile_audit_trail
         return compile_audit_trail(asdict(case), reviewer=reviewer, note=note)
 
+    @app.get("/lawyer/consent", response_class=PlainTextResponse)
+    def lawyer_consent(party_a: str = "", party_b: str = "", date: str = "", matter: str = "",
+                       org: Organization = Depends(require_auth)) -> str:
+        # Chế độ luật sư: sinh MẪU VĂN BẢN ĐỒNG Ý điền sẵn (khách cho phép luật sư dùng AI) — PDPL 91/2025
+        # + Điều 9 Luật Luật sư. Văn bản luật sư ký với khách; công cụ chỉ sinh bản draft để rà.
+        from legalguard.domain.consent import compile_consent
+        return compile_consent(party_a=party_a[:200], party_b=party_b[:200], org_name=org.name,
+                               date=date[:40], matter=matter[:300])
+
     @app.delete("/cases/{case_id}")
     def delete_case(case_id: str, org: Organization = Depends(require_auth)) -> dict:
         case = service.get_case(case_id)

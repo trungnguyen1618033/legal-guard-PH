@@ -40,6 +40,14 @@ def test_trust_endpoints(client):
     assert j["methodology"] and j["metrics"] and j["disclaimer"]
 
 
+def test_lawyer_consent_endpoint(client):
+    # Chế độ luật sư: sinh mẫu văn bản đồng ý điền sẵn (khách cho phép luật sư dùng AI).
+    r = client.get("/lawyer/consent", params={"party_a": "Cty ABC", "party_b": "LS An"},
+                   headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    assert "Cty ABC" in r.text and "LS An" in r.text and "VĂN BẢN ĐỒNG Ý" in r.text
+
+
 def test_amendments_compile_endpoint(client):
     # Phase C: gộp điều khoản đã chọn → memo markdown (illegal lên đầu).
     r = client.post("/amendments/compile", json={"items": [
