@@ -6,6 +6,7 @@ domain: xay_dung
 status: in_force
 effective_date: 2015-01-01
 issuer: Quốc hội
+amended_by: 62/2020/QH14
 source: undertheseanlp/UTS_VLC (in-force verified, đối chiếu vbpl.vn, MIT) — auto-ingest, CẦN luật sư duyệt
 ---
 
