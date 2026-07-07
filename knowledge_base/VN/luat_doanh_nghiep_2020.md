@@ -9,7 +9,7 @@ issuer: Quốc hội
 guided_by: 16/2021/TT-NHNN; 58/2021/NĐ-CP
 replaces: 68/2014/QH13
 based_on: Không số
-amended_by: 19/2023/QH15; 76/2025/QH15; 56/2024/QH15; 03/2022/QH15
+amended_by: 76/2025/QH15
 amends: 83/2015/QH13; 92/2015/QH13; 14/2017/QH14; 08/2017/QH14; 25/2018/QH14; 35/2018/QH14; 36/2018/QH14; 45/2019/QH14; 50/2019/QH14
 amends_articles: Điều 151
 source: th1nhng0/vietnamese-legal-documents (vbpl.vn, CC BY 4.0) — auto-ingest, CẦN luật sư duyệt
