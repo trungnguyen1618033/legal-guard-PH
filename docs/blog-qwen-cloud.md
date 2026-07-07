@@ -65,7 +65,7 @@ Three guardrails fixed this:
    instead of guessing. We treat a correct refusal as a correct answer in our tests.
 
 We test all of this against 54 questions with lawyer-known answers, across 12 areas of
-Vietnamese law. Current score: **54/54** on majority-vote (3 runs per case) — up from 87% when we
+Vietnamese law. Current score: **~98% (53–54/54)** on majority-vote (3 runs per case) — up from 87% when we
 started. One borderline case still flickers between runs (a wording match on the hosted model), so a
 single run may read 53/54 — we disclose that rather than round up to a flat 100%. The whole
 methodology is published at https://legalguard.duckdns.org/trust — because an AI that touches legal
