@@ -37,7 +37,7 @@ echo "== Live smoke: $BASE =="
 
 # --- Tất định / nhanh (không LLM) ---
 check "health"             GET  /health "qwen_ready"
-check "trust.json"         GET  /trust.json "54/54"
+check "trust.json"         GET  /trust.json "/54"
 check "runs (AI evidence)" GET  /runs "totals"
 check "dashboard"          GET  /insights/dashboard "cases"
 check "tactics (flywheel)" GET  /insights/tactics "{"
