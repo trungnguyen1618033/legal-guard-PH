@@ -407,7 +407,7 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
     @app.post("/cases/{case_id}/outcome")
     def record_outcome(case_id: str, body: OutcomeIn,
                        org: Organization = Depends(require_auth)) -> dict:
-        # Flywheel: ghi kết quả đàm phán thực tế (dữ liệu độc quyền).
+        # Flywheel: ghi kết quả đàm phán thực tế (dữ liệu tích lũy riêng org).
         if body.result not in ("accepted", "partial", "rejected", "pending"):
             raise HTTPException(status_code=400, detail="result không hợp lệ.")
         case = service.get_case(case_id)

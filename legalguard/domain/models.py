@@ -106,7 +106,7 @@ class Conversation:
 
 @dataclass
 class Outcome:
-    """Kết quả đàm phán thực tế — DỮ LIỆU ĐỘC QUYỀN (moat flywheel)."""
+    """Kết quả đàm phán thực tế — dữ liệu tích lũy riêng org (data flywheel)."""
     id: str
     org_id: str
     case_id: str

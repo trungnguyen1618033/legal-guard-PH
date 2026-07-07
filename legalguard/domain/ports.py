@@ -151,7 +151,7 @@ class CaseRepositoryPort(Protocol):
 
 @runtime_checkable
 class OutcomeRepositoryPort(Protocol):
-    """Lưu & thống kê kết quả đàm phán — flywheel dữ liệu độc quyền."""
+    """Lưu & thống kê kết quả đàm phán — data flywheel (dữ liệu tích lũy riêng org)."""
 
     def record(self, outcome: Outcome) -> str: ...
 

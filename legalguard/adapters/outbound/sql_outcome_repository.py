@@ -1,7 +1,7 @@
 """Adapter outcomes (kết quả đàm phán) → implement OutcomeRepositoryPort.
 
 Dùng chung Base/engine kiểu với cases. win_rates() là tín hiệu cho outcome-aware ranking
-+ là moat dữ liệu độc quyền (càng nhiều kết quả thật, gợi ý càng chuẩn).
++ là dữ liệu tích lũy riêng theo org (càng nhiều kết quả thật, gợi ý càng chuẩn).
 """
 from __future__ import annotations
 

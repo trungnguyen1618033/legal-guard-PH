@@ -61,7 +61,7 @@ Quy đổi 5 lần/tháng → tải/phút mỗi công ty: 5 ÷ 22 ngày ÷ 8h ÷
 ## 6. Lưu ý chi phí (unit economics)
 
 ~60k token/lần → chi phí token/lần × ~5 lần/tháng phải **< giá gói ($30–100/tháng)**. Giảm call/token
-(mục 5) vừa tăng năng lực vừa cải thiện biên lợi nhuận. Tính lại theo bảng giá Qwen thực tế khi có.
+(mục 5) vừa tăng năng lực vừa giảm chi phí suy luận. Tính lại theo đơn giá API Qwen thực tế khi có.
 
 ## 7. Việc cần làm để chốt số thật
 - Xác nhận **RPM/TPM/concurrency** thật của account trong **DashScope console** (free vs paid khác nhau lớn).

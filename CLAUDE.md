@@ -189,8 +189,8 @@ win-rate → lần phân tích sau hiện badge `win X%` (càng dùng càng khô
 human-checkpoint (không chỉ gắn cờ mà CHUYỂN tới người thật). Chưa cấu hình kênh → vẫn nhận (ok, sent=False).
 System-of-record dashboard: `GET /insights/dashboard` = tổng hợp 1 org (HĐ đã rà soát, rủi ro hay gặp +
 phân bố severity, top điều khoản rủi ro, tín hiệu feedback + lỗ hổng KB, top chiến thuật theo win-rate).
-`domain/dashboard.build_dashboard` THUẦN (gộp cases/feedback/win_rates). Càng dùng càng nhiều dữ liệu →
-switching cost (moat: system-of-record).
+`domain/dashboard.build_dashboard` THUẦN (gộp cases/feedback/win_rates). Càng dùng càng nhiều dữ liệu
+tích lũy (system-of-record).
 Vòng học: `Feedback` (phản hồi người dùng helpful/wrong/incomplete) → `FeedbackRepositoryPort` →
 `POST /feedback` (+ nút trên web UI) + `GET /feedback` (export build golden set); gom lỗ hổng KB từ usage thật.
 Đóng vòng: `evaluation/feedback_to_golden.py` biến feedback ⚠️ wrong/➖ incomplete → ứng viên golden set

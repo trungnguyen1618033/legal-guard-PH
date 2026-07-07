@@ -1,4 +1,4 @@
-"""System-of-record dashboard — tổng hợp hoạt động pháp lý của một công ty (moat: switching cost).
+"""System-of-record dashboard — tổng hợp hoạt động pháp lý của một công ty.
 
 Càng dùng, dữ liệu tích trong hệ thống càng nhiều → khó rời. Dashboard biến đống case/feedback/outcome
 rời rạc thành bức tranh: đã rà soát bao nhiêu HĐ, rủi ro hay gặp nhất, tín hiệu phản hồi, tỉ lệ thắng
