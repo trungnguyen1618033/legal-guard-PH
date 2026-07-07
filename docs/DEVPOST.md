@@ -8,7 +8,7 @@ clauses, and proposes position-aware negotiation tactics — with a human in the
 **Track:** Autopilot Agent · **Built with:** Qwen models on Qwen Cloud, Alibaba Cloud ECS · **License:** MIT
 
 **Try it out:**
-- 🌐 Live (Alibaba Cloud ECS): https://legalguard.duckdns.org — [`/app`](https://legalguard.duckdns.org/app) (analyze) · [`/lookup`](https://legalguard.duckdns.org/lookup) (legal Q&A + autopilot) · [`/trust`](https://legalguard.duckdns.org/trust) (published accuracy 54/54 golden)
+- 🌐 Live (Alibaba Cloud ECS): https://legalguard.duckdns.org — [`/app`](https://legalguard.duckdns.org/app) (analyze) · [`/lookup`](https://legalguard.duckdns.org/lookup) (legal Q&A + autopilot) · [`/trust`](https://legalguard.duckdns.org/trust) (published accuracy 53–54/54 golden)
 - 📦 Repo (MIT): https://github.com/trungnguyen1618033/legal-guard-PH — submission tag `v1.0-qwen`
 - 🎬 Demo video: `<YOUTUBE_LINK>` · Alibaba-deploy proof recording: `<YOUTUBE_LINK_2>`
 
@@ -62,7 +62,7 @@ the chat apps they already use.
   a safety feature that must *abstain* rather than answer when unsure.
 - **Grounding vs hallucination**: NLI entailment to reject "citation exists but doesn't support the claim".
 - **Latency**: model right-sizing (flash for yes/no checks) cut post-agent verification from ~23s to ~0.5s.
-- **Honest metrics**: we publish 54/54 on an internal golden set via majority-vote, and openly note
+- **Honest metrics**: we publish 53–54/54 on an internal golden set via majority-vote, and openly note
   the one borderline case that still flickers run-to-run — rather than claiming a flat 100%.
 
 ## What we learned
@@ -123,5 +123,5 @@ thời lượng theo đúng tỉ trọng này (kỹ thuật + sáng tạo = 60% 
 5. **Autopilot (2:20–2:45)** — show the in-stack cron (`docker compose logs autopilot-cron`) + trigger
    `/monitor/run` with an older `since` so it fires on real data (Decree 63/2011 → 8 arbitration cases
    flagged): "the agent scans new laws while you sleep"; dismiss a false alarm → it self-tunes.
-6. **Trust close (2:45–3:00)** — `/trust`: 54/54 internal golden (majority-vote), in-force filter, 2-layer verify —
+6. **Trust close (2:45–3:00)** — `/trust`: 53–54/54 internal golden (majority-vote), in-force filter, 2-layer verify —
    "grounded, never fabricated." Mention: Qwen on Qwen Cloud, Alibaba Cloud ECS, MIT open-core.

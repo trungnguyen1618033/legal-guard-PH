@@ -1,6 +1,6 @@
 # Legal Guard — Autopilot Agent for Cross-Border Contract Risk
 
-![Measured accuracy](https://img.shields.io/badge/measured_accuracy-54%2F54_golden-brightgreen)
+![Measured accuracy](https://img.shields.io/badge/measured_accuracy-~98%25_(53–54%2F54)-brightgreen)
 ![Tests](https://img.shields.io/badge/tests-400%2B_passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Powered by Qwen](https://img.shields.io/badge/powered_by-Qwen_%C2%B7_Alibaba_Cloud-orange)
@@ -9,10 +9,10 @@ An AI agent that acts as an **outsourced legal department**: it reads an interna
 contract, **flags risky and illegal clauses**, and proposes **position-aware negotiation tactics** —
 then keeps a human in the loop before anything goes to the counterparty.
 
-**Measured accuracy: 54/54** on a lawyer-style golden set spanning 12 Vietnamese legal domains, run
-against the real Qwen stack via majority-vote (3 runs/case). One borderline case still flickers
-run-to-run (a wording match), so a single run may read 53/54 — we disclose this rather than round to a
-flat 100%. Methodology and raw numbers are published at [`/trust`](web/trust.html)
+**Measured accuracy: ~98% (53–54/54)** on a lawyer-style golden set spanning 12 Vietnamese legal domains,
+run against the real Qwen stack via majority-vote (3 runs/case). One or two borderline cases flicker
+run-to-run (a wording match on the hosted model), so a given run reads 53 or 54 out of 54 — we publish the
+measured range rather than cherry-pick a flat 100%. Methodology and live numbers at [`/trust`](web/trust.html)
 (report: [`evaluation/accuracy_report.json`](evaluation/accuracy_report.json)).
 
 > 🏆 Built for the **Qwen Cloud Hackathon — Autopilot Agent track**. Powered by Qwen models on Qwen

@@ -3,8 +3,8 @@
 AI "phòng pháp chế thuê ngoài" cho SME Việt Nam: phân tích hợp đồng thương mại quốc tế,
 cảnh báo điều khoản rủi ro, và đề xuất chiến thuật thỏa hiệp (fallback) theo luật thương mại VN.
 
-**Độ chính xác đo được: 54/54** trên bộ golden 12 lĩnh vực luật VN (majority-vote 3 lần/câu; 1 ca ranh giới
-chập chờn giữa các lần — công bố thẳng, không làm tròn 100%). Phương pháp + số liệu: [`/trust`](web/trust.html).
+**Độ chính xác đo được: ~98% (53–54/54)** trên bộ golden 12 lĩnh vực luật VN (majority-vote 3 lần/câu; 1–2 ca
+ranh giới chập chờn giữa các lần — công bố dải đo thật, không cherry-pick 100%). Phương pháp + số liệu: [`/trust`](web/trust.html).
 Giấy phép **MIT** · **400+ test** tự động · chạy offline (stub) không cần key. *(README English: [`README.md`](README.md))*
 
 > Track **Autopilot Agent** (Qwen Cloud Hackathon). Qwen models trên Qwen Cloud, deploy Alibaba Cloud ECS.
