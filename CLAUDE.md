@@ -275,7 +275,7 @@ contracts, flags risky clauses, and proposes flexible fallback negotiation tacti
 real bargaining position. Built for the Qwen Cloud hackathon (deadline 8 Jul 2026, Autopilot Agent
 track). Codebase is Qwen-only.
 
-## Knowledge base & legal data (cập nhật 29/6/2026)
+## Knowledge base & legal data (cập nhật 8/7/2026)
 
 **Nguồn data (2, BỔ TRỢ — đều license OK, repo open-source được):**
 - **`th1nhng0/vietnamese-legal-documents`** (vbpl.vn, CC BY 4.0) — NĐ/TT + **status + graph quan hệ**
@@ -295,11 +295,24 @@ track). Codebase is Qwen-only.
 2. **Code lớn vocab-trùng NUỐT domain lõi** → nạp CHỌN LỌC. Đã BỎ: BLHS ('phạt/vi phạm' nuốt chế tài),
    GTGT ('hóa đơn/xuất khẩu' nuốt hóa đơn), TNDN (rate ở luật gốc). **Đo regression bằng eval MỖI lần nạp.**
 3. Sau mỗi đổi KB: chạy `accuracy_eval` lại → cập nhật `/trust` (đừng để số stale).
+4. **Nạp LUẬT SỬA ĐỔI (amendment-graph)** → `to_kb_markdown(relations={'amends':[<doc gốc>]})` TỰ rút
+   `amends_articles` từ thân VB sửa + dựng cạnh amends/amended_by 2 chiều → engine closure kéo cả gốc+sửa.
+   Gate golden cũ KHÔNG regress trước khi giữ. Verify `amended_by` SẠCH (auto-ingest hay điền NHIỄU — vd
+   19/2023 KHÔNG sửa DN, đã bỏ). **Đánh giá IMPACT vs use-case trước khi nạp**: KB-stale KHÔNG luôn = phải
+   nạp — nếu VB sửa chỉ đụng thủ tục hành chính (không phải luật nội dung use-case dùng) → "document gap"
+   (stale_note front-matter) đúng hơn nạp (tránh vocab-collision + rủi ro OCR). Vd NĐ63 trọng tài (124/2018/
+   112/2025/18/2026 chỉ sửa TTHC lập tổ chức trọng tài → CHỦ ĐÍCH chưa nạp, ghi stale_note).
 
 **Hiện trạng**: **13 lĩnh vực grounded** (chế tài·hợp đồng·lãi vay·hóa đơn·trọng tài·lao động·doanh
 nghiệp·SHTT·PDPD·hôn nhân-GĐ·đất đai·đầu tư·**xây dựng**). Xây dựng nạp 2/7 từ UTS_VLC (Luật XD 2014
 50/2014, 162 điều, eval-gated `--repeat=3` = 54/54 không regression + vá over-reach câu giấy phép XD).
-Golden 54 ca (`evaluation/accuracy_golden.json`),
+**Đợt vá KB-stale 8/7 (DEV-ONLY, prod đóng băng judging)**: rà front-matter → 3 file stale → ingest luật
+SỬA ĐỔI qua amendment-graph, gate 54/54 no-regress: **XD 62/2020** (sửa 50/2014, amends_articles Đ.89/107) ·
+**SHTT 131/2025** (sửa 50/2005) · **DN 76/2025** (sửa 59/2020, chủ sở hữu hưởng lợi Đ.4/8/11 — ⚠️ **OCR
+Công báo CP, CHƯA luật sư verify số, KHÔNG deploy tới khi đối chiếu bản gốc**; mirror rỗng VB 2025). NĐ63
+trọng tài (124/2018/112/2025/18/2026) = CHỦ ĐÍCH chưa nạp (chỉ TTHC, ghi stale_note). Golden vẫn 54 ca
+(`evaluation/accuracy_golden.json`; 5 candidate Xây dựng `golden_candidates_B1.json` DUYỆT, chờ merge 54→59
+HẬU judging),
 **accuracy THẬT ~98% (53-54/54)** đo với config closure+rerank (`accuracy_report.json` → `/trust`). Đợt nâng
 cấp 1/7/2026 (`docs/internal/qwen-tech-upgrades.md`): baseline thực 87% → **98.1%** nhờ (1) **fix moat-overlay
 đè điều luật ở /lookup** — `OverlayRetriever` fuse RRF thay vì prepend + `/lookup` dùng `for_org(overlay=False)`
@@ -311,7 +324,7 @@ stochastic** (rerank API + judge + answer không byte-deterministic ngay ở tem
 là NHIỄU ĐO không phải regression. **Đã thử + BỎ**: tuning cổng relevance (whack-a-mole, regress ca khác);
 per-snippet judge-filter (50/54); PageIndex tree-nav spike (`docs/internal/pageindex-research-plan.md` §4b:
 52/54 vs hybrid 54/54, thua point-in-time — NO-GO cho KB hiện tại, revisit khi corpus lớn). **Vượt trần** cần
-reranker tốt hơn (self-host AITeamVN/GPU) hoặc domain-aware/paradigm khác. KB ~2.2MB/15 file →
+reranker tốt hơn (self-host AITeamVN/GPU) hoặc domain-aware/paradigm khác. KB ~2.7MB/20 file →
 `PERSIST_EMBEDDINGS=1` bắt buộc; pgvector khi corpus rất lớn.
 
 **TT-SAR** (`TemporalTypedRerankRetriever`, `TT_SAR_RERANK` opt-in OFF): rerank đồ-thị lan truyền điểm theo
