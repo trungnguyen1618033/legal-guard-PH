@@ -79,7 +79,15 @@ Users→Alibaba ECS→Qwen Cloud 6 model). Bonus: `docs/assets/architecture-sequ
 **Prompt AI tạo ảnh Architecture Diagram (ChatGPT/Gemini) — nếu muốn đẹp hơn:**
 > Create a clean, professional software architecture diagram (light background, 3:2 ratio) for "Legal Guard", a hexagonal (ports & adapters) FastAPI legal-AI agent. Left→right flow: Users → (Web UI · Slack · Zalo · MCP) → FastAPI inbound adapter → Domain core box (ReAct agent · analysis use-case · NLI self-critique · multi-round negotiation) → Outbound adapters → **Qwen Cloud / DashScope on Alibaba Cloud ECS** (qwen3.7-max reasoner, qwen-flash judge, qwen-plus lookup, text-embedding-v4, qwen3-rerank, qwen3.7-plus OCR) + Knowledge Base (in-force Vietnamese law) + PostgreSQL/pgvector + Redis. Label the arrows; emphasize all inference goes to Qwen on Alibaba Cloud. Minimal, boardroom-quality, no clutter, English labels.
 
-**Screenshot Alibaba (chụp THẬT):** SSH vào ECS → `docker ps` + `curl -s https://legalguard.duckdns.org/health` → chụp 1 ảnh ghép có: Alibaba Cloud console (ECS instance id/region) + terminal `docker ps` + IP/domain khớp. Field này của Devpost ghi mâu thuẫn (ảnh HOẶC link code) → nộp **cả ảnh thật + link `qwen.py`** cho chắc.
+**Screenshot Alibaba — ĐÃ CHỤP THẬT:** upload `docs/assets/ecs-deployment-proof.png` (console Alibaba Cloud
+→ ECS Instance, region Singapore ap-southeast-1: instance `legalguard` status **Running**, 2 vCPU/4GiB,
+IP public 47.84.59.79). Field này của Devpost ghi mâu thuẫn (ảnh HOẶC link code) → nộp **cả ảnh thật +
+link `qwen.py`** cho chắc.
+⚠️ Instance subscription hết hạn ~27/7 → GIA HẠN tới sau 31/7 để live sống suốt judging period.
+
+**Thumbnail + gallery — ĐÃ CÓ:** Thumbnail = `docs/assets/devpost-thumbnail.png` (3:2, focal robot+shield,
+premium — đọc rõ ở card nhỏ). Gallery = `devpost-gallery-1.png` + `architecture-overview.png` +
+`demo-analyze/trace/lookup/trust.png` (screenshot UI thật).
 
 ## 5. Pre-submit checklist (làm theo thứ tự)
 - [ ] Repo **Public** (Settings → visibility) — xác nhận LICENSE MIT hiện ở đầu trang repo
