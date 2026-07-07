@@ -33,6 +33,12 @@ là đủ; 4 minh họa còn lại là *nice-to-have*, làm nếu dư thời gia
 
 ## A. Ảnh AI-GENERATE
 
+**0. DEVPOST THUMBNAIL (3:2)** *(card gallery — bố cục gọn, đọc được ở size nhỏ)*
+> [STYLE nhưng 3:2] Centered composition optimized to read at small thumbnail size: a friendly geometric
+> AI-assistant / shield protecting a contract document; one clause glows red (risky/illegal), one glows green
+> (safe); a small Vietnam flag accent + subtle scales-of-justice. Bold simple shapes, high contrast. No text.
+> *(Devpost card đã có title bên dưới → không cần chữ trong ảnh. Hoặc crop hero 16:9 → 3:2 cho nhanh.)*
+
 **1. HERO** *(nên có — blog cover + Devpost thumbnail)*
 > [STYLE] Scene: a confident Vietnamese woman running a small export business, at a tidy desk with a laptop
 > showing a multi-page contract; beside her a friendly geometric AI-assistant / shield motif points at one
