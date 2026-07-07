@@ -37,6 +37,18 @@ def test_judge_fails_on_wrong_citation_or_fact():
     assert not judge_case(case, "tối đa 10%", ["...#Điều 301"])[0]              # sai dữ kiện
 
 
+def test_judge_must_say_pipe_is_synonym_or():
+    # '|' trong 1 must_say = CHẤP mọi cách diễn đạt đồng nghĩa đúng-luật (khử nhiễu wording), KHÔNG hạ chuẩn.
+    case = {"must_cite": ["trong_tai"], "must_say": ["từ chối|trả lại đơn|không thụ lý"], "abstain": False}
+    assert judge_case(case, "Tòa TRẢ LẠI ĐƠN khởi kiện.", ["x#trong_tai"])[0]      # synonym → pass
+    assert judge_case(case, "Tòa TỪ CHỐI thụ lý.", ["x#trong_tai"])[0]             # gốc → pass
+    assert not judge_case(case, "Tòa vẫn thụ lý bình thường.", ["x#trong_tai"])[0] # sai ý → vẫn FAIL
+    # AND giữa nhiều item vẫn giữ (mỗi item là 1 dữ-kiện bắt buộc)
+    c2 = {"must_cite": [], "must_say": ["8%", "thương mại|LTM"], "abstain": False}
+    assert judge_case(c2, "trần 8% theo LTM 2005", [])[0]
+    assert not judge_case(c2, "trần 8%", [])[0]                                    # thiếu item 2 → FAIL
+
+
 def test_judge_matches_by_content_not_filename_slash():
     # Sửa bug cũ: doc_id '39/2014' vs tên file 't_39_2014_' — chấm theo NỘI DUNG nguồn.
     case = {"must_cite": ["39_2014"], "must_say": ["39/2014"], "abstain": False}

@@ -51,7 +51,12 @@ def judge_case(case: dict, answer: str, sources: list[str]) -> tuple[bool, str]:
         return ok, ("từ chối đúng (ngoài KB)" if ok else "BỊA — lẽ ra phải từ chối")
     has_cite = all(_norm(c) in src for c in case.get("must_cite", []))
     a_num = _vn_num_to_digits(a)   # 'hai mươi năm' ↔ '20 năm': so dữ-kiện số công bằng dù luật viết chữ
-    has_fact = all(_norm(f) in a or _norm(f) in a_num for f in case.get("must_say", []))
+    # Mỗi must_say là 1 dữ-kiện BẮT BUỘC (AND giữa các item). Trong 1 item, '|' = CHẤP mọi cách diễn đạt
+    # ĐỒNG NGHĨA đúng-luật (vd 'từ chối|trả lại đơn|không thụ lý' — Đ.6 TTTM cùng ý) → khử nhiễu wording,
+    # KHÔNG hạ chuẩn (vẫn phải nói đúng ý). Item không có '|' hoạt động y như trước.
+    def _fact_ok(f: str) -> bool:
+        return any(_norm(alt) in a or _norm(alt) in a_num for alt in f.split("|") if alt.strip())
+    has_fact = all(_fact_ok(f) for f in case.get("must_say", []))
     why = (f"dẫn-nguồn={'✓' if has_cite else '✗ '+str(case.get('must_cite'))} "
            f"dữ-kiện={'✓' if has_fact else '✗ '+str(case.get('must_say'))}")
     return (has_cite and has_fact), why
