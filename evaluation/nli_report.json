@@ -6,7 +6,7 @@
       "correct": 16,
       "wrong": 0,
       "abstain": 0,
-      "ms_per_call": 3153,
+      "ms_per_call": 719,
       "verdicts": {
         "301-cap-yes": true,
         "301-total-yes": true,
@@ -31,7 +31,7 @@
       "correct": 16,
       "wrong": 0,
       "abstain": 0,
-      "ms_per_call": 16104,
+      "ms_per_call": 15353,
       "verdicts": {
         "301-cap-yes": true,
         "301-total-yes": true,
