@@ -5,8 +5,8 @@
       "category": "Xây dựng (Luật XD 2014)",
       "type": "tra_cuu",
       "question": "Khởi công xây dựng công trình cần đáp ứng những điều kiện gì?",
-      "expected": "Có mặt bằng bàn giao; có giấy phép xây dựng (với công trình phải xin phép); có thiết kế bản vẽ thi công được phê duyệt; có hợp đồng thi công đã ký với nhà thầu (Điều 107 Luật Xây dựng 2014).",
-      "basis": "Điều 107 Luật Xây dựng 2014",
+      "expected": "Khởi công phải đủ 6 điều kiện: mặt bằng bàn giao; giấy phép XD (với công trình phải xin phép); thiết kế bản vẽ thi công được duyệt; hợp đồng thi công đã ký; biện pháp bảo đảm an toàn/môi trường; thông báo khởi công cho cơ quan QLNN trước ≥3 ngày (Đ.107 LXD 2014 sửa bởi 62/2020).",
+      "basis": "Điều 107 Luật XD 2014 (sửa bởi 62/2020/QH14)",
       "must_cite": [
         "xay_dung"
       ],
@@ -14,8 +14,8 @@
         "giấy phép|mặt bằng|thiết kế|hợp đồng thi công"
       ],
       "abstain": false,
-      "_review": "HOÃN — Đ.107 k1 ĐÃ bị 62/2020 sửa (thêm ĐK an toàn+thông báo 3 ngày); KB gốc 2014 thiếu → chờ ingest bản hợp nhất",
-      "_verdict": "HOÃN"
+      "_review": "DUYỆT (sau ingest 62/2020) — hệ trả lời 6 điều kiện theo luật hiện hành, kéo cả 50/2014+62/2020",
+      "_verdict": "DUYỆT"
     },
     {
       "category": "Xây dựng (Luật XD 2014)",
@@ -69,8 +69,8 @@
       "category": "Xây dựng (Luật XD 2014)",
       "type": "tra_cuu",
       "question": "Công trình nào được miễn giấy phép xây dựng?",
-      "expected": "Gồm nhiều loại, trong đó có nhà ở riêng lẻ ở nông thôn thuộc khu vực chưa có quy hoạch (điểm k khoản 2 Điều 89 Luật Xây dựng 2014).",
-      "basis": "Điều 89 khoản 2 Luật Xây dựng 2014",
+      "expected": "Danh mục miễn giấy phép theo Đ.89 k2 (sửa bởi 62/2020) — gồm công trình bí mật nhà nước, khẩn cấp, dự án do cơ quan có thẩm quyền quyết định đầu tư, một số nhà ở riêng lẻ... (luật sư xác nhận danh mục đầy đủ).",
+      "basis": "Điều 89 khoản 2 Luật XD 2014 (sửa bởi 62/2020/QH14)",
       "must_cite": [
         "xay_dung"
       ],
@@ -78,8 +78,8 @@
         "miễn"
       ],
       "abstain": false,
-      "_review": "BỎ — Đ.89 giấy phép ĐÃ bị 62/2020 sửa (danh mục miễn khác); đáp án KB 2014 lỗi thời",
-      "_verdict": "BỎ"
+      "_review": "DUYỆT (sau ingest 62/2020) — answer đổi sang danh mục MỚI (bí mật nhà nước/khẩn cấp...), hết lỗi thời 2014",
+      "_verdict": "DUYỆT"
     }
   ]
 }
