@@ -52,7 +52,7 @@ Phủ lên public khi deploy startup; lớn dần theo thời gian. Mất public
 | **Dữ liệu flywheel** (win-rate deal thật) | DB runtime (`data/`, Postgres) | tích lũy khi dùng |
 
 ## Vì sao tách thế này
-- **RAG/engine đã commodity** → công khai để minh bạch + ăn điểm kỹ thuật cuộc thi, không mất gì.
+- **RAG/engine đã commodity** → công khai để minh bạch, không mất gì.
 - **KB là luật công khai** → giữ riêng bảo vệ rất ít, lại giảm độ tin demo.
 - **Moat thật = dữ liệu lớn dần** (flywheel, tactic curated, golden lawyer-verified) + GTM + thực thi —
   những thứ đối thủ KHÔNG clone được dù có toàn bộ code.

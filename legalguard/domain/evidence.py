@@ -1,7 +1,7 @@
 """Use-case evidence doanh thu (system-of-record).
 
 Tính tổng doanh thu + breakdown theo tháng, tách riêng related-party, đếm khách thật — bằng chứng
-tăng trưởng cho system-of-record. (Xây ban đầu cho track XPRIZE — đã bỏ; giữ lại làm evidence nội bộ.)
+tăng trưởng cho system-of-record.
 """
 from __future__ import annotations
 

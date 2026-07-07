@@ -43,7 +43,7 @@ khách thật (`internal/legal-guard.md` §5b.4).
 
 ## Bảng `outcomes` (flywheel — moat)
 
-Kết quả đàm phán thực tế = **dữ liệu độc quyền** (xem [moat.md](moat.md)). Adapter:
+Kết quả đàm phán thực tế = **dữ liệu độc quyền** (data flywheel). Adapter:
 `SqlAlchemyOutcomeRepository`; migration `0003`.
 
 | Cột | Ghi chú |

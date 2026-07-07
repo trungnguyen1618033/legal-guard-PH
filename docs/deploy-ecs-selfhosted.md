@@ -11,7 +11,7 @@ yêu cầu "backend trên Alibaba Cloud" của Qwen hackathon).
 
 ## 0. Cần chuẩn bị
 - Tài khoản Alibaba Cloud (có credit).
-- `QWEN_API_KEY` (key thật; Qwen-only — Gemini đã gỡ sau khi bỏ XPRIZE).
+- `QWEN_API_KEY` (key thật; Qwen-only).
 - **Repo public** để `git clone https://...` không cần đăng nhập (nếu private → xem mục cuối).
 
 ## 1. Tạo ECS (console Alibaba → ECS → Create Instance → Custom Launch)

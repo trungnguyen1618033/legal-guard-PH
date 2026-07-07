@@ -273,7 +273,7 @@ exercisable offline. Set `QWEN_API_KEY` in `.env` for real analysis (Qwen-only).
 outsourced legal department for Vietnamese SMEs negotiating international commercial contracts. It analyzes
 contracts, flags risky clauses, and proposes flexible fallback negotiation tactics based on each party's
 real bargaining position. Built for the Qwen Cloud hackathon (deadline 8 Jul 2026, Autopilot Agent
-track). (XPRIZE track dropped — see memory `focus-qwen-defer-xprize`; codebase is now Qwen-only.)
+track). Codebase is Qwen-only.
 
 ## Knowledge base & legal data (cập nhật 29/6/2026)
 
@@ -342,8 +342,8 @@ and **Organization = company** (data isolation by `org_id` + per-company KB over
 `AnalysisService.analyze(contract, org)` and cases are scoped by `org_id`. VAI TRÒ LLM (right-sizing):
 Qwen flagship `qwen3.7-max` = reasoner (agent phân tích — việc KHÓ); Qwen `qwen-flash` = `judge` (NLI/verify
 yes/no — ~0.5s vs ~23s; CŨNG dùng tóm tắt SME `_summarize`); Qwen `qwen-plus` = `lookup_llm` (tra cứu Q&A —
-~4-6s, hybrid: point-in-time→flagship). **QWEN-ONLY** — Gemini ĐÃ GỠ (sau khi bỏ XPRIZE, hết ràng '≥1 Gemini
-call'): summary chuyển qwen-flash vì đo thấy 1 call Gemini ~12-24s CHIẾM TRỌN post-agent (verify+legal_basis
+~4-6s, hybrid: point-in-time→flagship). **QWEN-ONLY** — Gemini (provider thứ 2 cũ) ĐÃ GỠ:
+summary chuyển qwen-flash vì đo thấy 1 call Gemini ~12-24s CHIẾM TRỌN post-agent (verify+legal_basis
 chỉ ~1.5s) → nghẽn; flash cắt post-agent 24s→2.75s (analyze 118-135s→102s; còn lại là agent loop flagship
 output-bound, async-mitigated qua web-poll/Slack-background). Muốn provider thứ 2 → thêm adapter + 1 dòng container.
 `judge`/`lookup_llm` mặc định = reasoner nếu không cấu hình (giữ tương thích/stub). Deploy target: Alibaba Cloud ECS.

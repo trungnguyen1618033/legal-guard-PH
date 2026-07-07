@@ -401,8 +401,8 @@ class AnalysisService:
     def _summarize(self, risks: list, lang: str) -> tuple[str, str | None]:
         """Tóm tắt rủi ro cho chủ SME bằng MODEL NHANH (`self.judge` = qwen-flash) — task nhẹ, right-size
         như NLI/verify. Trước đây dùng Gemini nhưng đo thấy 1 call Gemini ~12-24s CHIẾM TRỌN post-agent
-        (verify+legal_basis chỉ ~1.5s) → nghẽn critical path; sau khi bỏ XPRIZE (hết ràng '≥1 Gemini call')
-        không còn lý do giữ. Chuyển flash → post-agent ~24s xuống ~1.5s. Trả (text, note-lỗi-nếu-có) —
+        (verify+legal_basis chỉ ~1.5s) → nghẽn critical path; Gemini (provider thứ 2 cũ) không còn lý do
+        giữ nên đã gỡ. Chuyển flash → post-agent ~24s xuống ~1.5s. Trả (text, note-lỗi-nếu-có) —
         không ném exception (chạy trong thread pool, lỗi phải trả về tường minh)."""
         bullet = "\n".join(f"- {r.clause}: {r.risk} [{r.severity}]" for r in risks)
         prompt = (
