@@ -554,3 +554,43 @@ def test_reply_ex_marks_lookup_and_analysis_kind():
     h = _handler()
     assert h.reply_ex("cK", text="Mức phạt vi phạm hợp đồng tối đa bao nhiêu?").kind == "lookup"
     assert h.reply_ex("cA", text=MSG).kind == "analysis"
+
+
+# ---- Phase 0: persist-first (lưu tin dù lỗi/retry — dữ liệu, KHÔNG hiển thị lại) ----
+def test_user_message_persisted_before_handle():
+    import pytest
+    h = _handler()
+    h._handle = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("LLM down"))  # ép lỗi giữa chừng
+    with pytest.raises(RuntimeError):
+        h.reply_ex("slack:c:p0a", text="Mức phạt vi phạm hợp đồng tối đa bao nhiêu?")
+    conv = h.store.get("slack:c:p0a")
+    assert conv and conv.history and conv.history[-1]["role"] == "user"    # tin user VẪN bền
+    assert all(m["role"] != "assistant" for m in conv.history)             # mồ côi = dấu vết lỗi auditable
+
+
+def test_no_duplicate_user_turn_on_retry():
+    import pytest
+    h = _handler()
+    orig, calls = h._handle, {"n": 0}
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("transient")
+        return orig(*a, **k)
+    h._handle = flaky
+    msg = "Mức phạt vi phạm hợp đồng tối đa bao nhiêu?"
+    with pytest.raises(RuntimeError):
+        h.reply_ex("slack:c:p0b", text=msg)      # lần 1 lỗi → orphan user turn
+    h.reply_ex("slack:c:p0b", text=msg)          # retry cùng text → KHÔNG dup user turn
+    conv = h.store.get("slack:c:p0b")
+    assert [m["role"] for m in conv.history] == ["user", "assistant"]   # đúng 1 user + 1 reply
+
+
+def test_distinct_resend_after_reply_keeps_both_turns():
+    # Rule dedup HẸP: chỉ chặn khi turn cuối là user-orphan. Gửi lại SAU khi đã có reply = lượt mới hợp lệ.
+    h = _handler()
+    msg = "Mức phạt vi phạm hợp đồng tối đa bao nhiêu?"
+    h.reply_ex("slack:c:p0c", text=msg)
+    h.reply_ex("slack:c:p0c", text=msg)
+    conv = h.store.get("slack:c:p0c")
+    assert [m["role"] for m in conv.history] == ["user", "assistant", "user", "assistant"]

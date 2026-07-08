@@ -208,15 +208,21 @@ class ChatHandler:
                  filename: str | None = None, lang: str = "vi") -> ChatReply:
         with self._conv_lock(conversation_id):     # tuần tự hóa theo hội thoại (chống race)
             conv = self.store.get(conversation_id) or Conversation(id=conversation_id)
-            res = self._handle(conv, text, attachment, filename, lang)
-            # REDACT trước khi lưu history: khách DÁN hợp đồng vào chat → không giữ PII nguyên văn.
-            # `_handle` đã redact bản gửi LLM riêng → không ảnh hưởng phân tích.
+            # PERSIST-FIRST: lưu tin user (đã REDACT PII) TRƯỚC khi xử lý → lỗi bất ngờ trong `_handle`
+            # KHÔNG làm mất tin (dữ liệu audit/flywheel/debug, KHÔNG để hiển thị lại). `_handle` chỉ đọc
+            # conv.context/nego_state — không đọc history → prepend an toàn. Chống DUP (retry / user tự
+            # gửi lại y hệt): turn cuối đã là user + content giống → không append lần 2.
             user_msg = redact((text or "").strip())[0] or "(đã gửi tệp)"
-            conv.add("user", user_msg)
+            if not (conv.history and conv.history[-1].get("role") == "user"
+                    and conv.history[-1].get("content") == user_msg):
+                conv.add("user", user_msg)
+                conv.updated_at = datetime.now(timezone.utc).isoformat()
+                self.store.save(conv)               # save #1 — tin user đã BỀN (trước điểm có thể chết)
+            res = self._handle(conv, text, attachment, filename, lang)
             conv.add("assistant", res.text)
             self._summarize(conv)
-            conv.updated_at = datetime.now(timezone.utc).isoformat()   # 'last active' — trước đây bỏ trống
-            self.store.save(conv)
+            conv.updated_at = datetime.now(timezone.utc).isoformat()   # 'last active'
+            self.store.save(conv)                   # save #2 — kèm assistant reply, như cũ
             return res
 
     def reply(self, conversation_id: str, text: str | None = None, attachment: bytes | None = None,
