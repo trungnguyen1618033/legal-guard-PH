@@ -267,7 +267,7 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
 <h1>🤝 Legal Guard — Giới thiệu &amp; Hướng dẫn</h1>
 <p class="intro">{escape(s["intro"])}</p>
 {block("Chức năng chính", s["features"])}
-{block("Bắt đầu thế nào", s["usage"])}
+{block("Cách sử dụng", s["usage"])}
 {block("Gặp sự cố", s["trouble"])}
 <p class="note">🤖 AI hỗ trợ — không thay thế tư vấn pháp lý chính thức. Trên Slack/Zalo: gõ
 <b>help</b> để xem hướng dẫn này.</p>

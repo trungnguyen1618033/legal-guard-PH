@@ -24,7 +24,7 @@ def test_format_help_text_covers_all_four_sections():
     assert "HƯỚNG DẪN" in txt
     assert "trợ lý pháp lý AI" in txt                            # (1) giới thiệu
     assert "Chức năng chính" in txt and "party-aware" in txt     # (2) chức năng
-    assert "Bắt đầu thế nào" in txt and "Tra cứu luật" in txt    # (3) cách dùng
+    assert "Cách sử dụng" in txt and "Tra cứu luật" in txt    # (3) cách dùng
     assert "Gặp sự cố" in txt and "Không đọc được file" in txt   # (4) sự cố
     assert "AI hỗ trợ" in txt                                    # minh bạch AI
 

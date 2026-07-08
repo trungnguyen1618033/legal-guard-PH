@@ -72,7 +72,7 @@ def format_help_text(channel: str = "slack", support_contact: str = "") -> str:
                     else "Mở trang Rà soát (/app), dán nội dung hoặc tải file hợp đồng lên")
     out = ["🤝 *LEGAL GUARD — HƯỚNG DẪN*", "", _INTRO, "", "*Chức năng chính:*"]
     out += [f"{i} *{t}* — {d}" for i, t, d in _FEATURES]
-    out += ["", "*Bắt đầu thế nào:*"]
+    out += ["", "*Cách sử dụng (bắt đầu thế nào):*"]
     out += [f"{i} *{t}* — {d.format(how_contract=how_contract)}" for i, t, d in _USAGE]
     out += ["", "*Gặp sự cố:*"]
     out += [f"{i} *{t}:* {d}" for i, t, d in _TROUBLE]
