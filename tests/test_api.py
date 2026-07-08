@@ -107,6 +107,29 @@ def test_articles_changed_endpoint(client):
     assert "Điều 9" in art and "70/2025/NĐ-CP" in art["Điều 9"]
 
 
+def test_in_force_endpoint_still_valid_law(client):
+    # LTM 2005 còn hiệu lực (chỉ bị SỬA vài luật, không bị thay thế toàn bộ).
+    r = client.get("/in-force/36/2005/QH11", headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["in_force"] is True and d["replaced"] is False
+    assert any(a["doc_id"] == "75/2025/QH15" for a in d["amended_by"])   # ghi chú đã bị sửa đổi
+    assert "CÒN hiệu lực" in d["reason"]
+
+
+def test_in_force_endpoint_replaced_law_not_valid(client):
+    # VB bị THAY THẾ toàn bộ → HẾT hiệu lực + trỏ bản hiện hành.
+    r = client.get("/in-force/39/2014/TT-BTC", headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    d = r.json()
+    assert d["in_force"] is False and d["replaced"] is True
+    assert d["latest"] == "123/2020/NĐ-CP" and "KHÔNG còn hiệu lực" in d["reason"]
+
+
+def test_in_force_endpoint_404_for_unknown(client):
+    assert client.get("/in-force/999/9999/NĐ-CP", headers={"x-tenant-id": "VN"}).status_code == 404
+
+
 def test_analyze_accepts_protected_party_and_returns_legal_status(client):
     # Phase A: /analyze nhận 'protected_party', mỗi risk có legal_status hợp lệ + tách illegal.
     contract = "Phạt vi phạm 15% giá trị hợp đồng. Trọng tài tại Bắc Kinh. Thanh toán T/T 60 ngày."
@@ -146,7 +169,7 @@ def test_lookup_ui_page_served(client):
     r = client.get("/lookup")
     assert r.status_code == 200
     assert "tra cứu" in r.text.lower()         # trang tra cứu luật
-    assert "Lược đồ văn bản" in r.text and "loadGraph" in r.text   # section lược đồ (graph UI)
+    assert "còn hiệu lực" in r.text and "checkInForce" in r.text   # section kiểm tra hiệu lực VB
 
 
 def test_analyze_persists_case_and_can_fetch(client, sample_contract):

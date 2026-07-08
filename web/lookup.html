@@ -84,17 +84,14 @@
   </details>
 
   <details>
-    <summary>🗺️ Lược đồ văn bản (quan hệ · hiệu lực · bản mới nhất · điều bị sửa)</summary>
-    <p class="muted" style="margin-top:6px">Nhập số hiệu → xem <b>lược đồ quan hệ</b> (sửa đổi/thay thế/hướng dẫn),
-      <b>map tới bản mới nhất</b>, và <b>điều nào đã bị sửa</b> (bôi vàng) — kiểu Thư Viện Pháp Luật.</p>
+    <summary>✅ Văn bản còn hiệu lực pháp luật không?</summary>
+    <p class="muted" style="margin-top:6px">Nhập số hiệu → kiểm tra văn bản <b>CÒN hiệu lực</b> hay đã
+      <b>bị thay thế / hết hiệu lực</b> — kèm bản hiện hành và ghi chú đã bị sửa đổi, bổ sung (nếu có).</p>
     <div class="row">
-      <input id="graphid" placeholder="Số hiệu, vd 123/2020/NĐ-CP" style="flex:1">
-      <select id="depth" style="width:auto"><option value="1">1 hop</option><option value="2">2 hop</option><option value="3">3 hop</option></select>
-      <button class="ghost" onclick="loadGraph()">Xem lược đồ</button>
+      <input id="forceid" placeholder="Số hiệu, vd 36/2005/QH11 (Luật Thương mại 2005)" style="flex:1">
+      <button class="ghost" onclick="checkInForce()">Kiểm tra hiệu lực</button>
     </div>
-    <div id="latest"></div>
-    <div id="amended"></div>
-    <div id="graph" class="timeline"></div>
+    <div id="inforce" class="timeline"></div>
   </details>
 
   <details>
@@ -185,42 +182,30 @@ async function loadChanges() {
   } catch (e) { $('changes').textContent = 'Lỗi: ' + e.message; }
 }
 
-async function loadGraph() {
-  const id = $('graphid').value.trim();
-  $('graph').textContent=''; $('latest').textContent=''; $('amended').textContent='';
+async function checkInForce() {
+  const id = $('forceid').value.trim();
+  $('inforce').textContent = '';
   if (!id) return;
-  $('graph').textContent = 'Đang dựng lược đồ…';
+  $('inforce').textContent = 'Đang kiểm tra hiệu lực…';
   try {
-    const depth = $('depth').value;
-    const [gR, lR, aR] = await Promise.all([
-      fetch(encodeURI('/graph/' + id + '?depth=' + depth), { headers: authHeaders() }),
-      fetch(encodeURI('/latest/' + id), { headers: authHeaders() }),
-      fetch(encodeURI('/articles-changed/' + id), { headers: authHeaders() }),
-    ]);
-    if (gR.status === 404) { $('graph').textContent = 'Không tìm thấy văn bản trong KB.'; return; }
-    if (!gR.ok) throw new Error('HTTP ' + gR.status);
-    const g = await gR.json();
-    // map tới bản mới nhất
-    if (lR.ok) { const lv = await lR.json();
-      $('latest').innerHTML = lv.replaced
-        ? `<div class="banner">🆕 Văn bản này đã bị thay thế → bản mới nhất: <b>${esc(lv.latest)}</b>` +
-          (lv.latest_title ? ` — ${esc(lv.latest_title)}` : '') + `</div>`
-        : `<div class="banner">✅ Đây là bản mới nhất (chưa bị thay thế).</div>`; }
-    // điều bị sửa (bôi vàng)
-    if (aR.ok) { const aa = (await aR.json()).amended_articles || {};
-      const arts = Object.keys(aa);
-      if (arts.length) $('amended').innerHTML = '<div style="margin-top:8px">✏️ Điều đã bị sửa: ' +
-        arts.map(a => `<span class="hl" title="bởi ${esc(aa[a].join(', '))}">${esc(a)}</span>`).join(' ') +
-        ' <span class="muted">(rê chuột xem VB sửa)</span></div>'; }
-    // nodes + edges
-    const nodes = g.nodes.map(n =>
-      `<span class="node ${n.doc_id===g.root?'root':''} ${n.status==='expired'?'exp':''}" ` +
-      `title="${esc(n.title||'')} ${n.in_kb?'':'(chưa nạp)'}">${esc(n.doc_id)}</span>`).join('');
-    const edges = g.edges.map(e =>
-      `<div class="edge">${esc(e.from)} <b>${esc(_REL_VI[e.relation]||e.relation)}</b> ${esc(e.to)}</div>`).join('');
-    $('graph').innerHTML = `<div style="margin:6px 0">${nodes}</div>` +
-      `<div style="margin-top:6px"><span class="muted">Quan hệ (${g.edges.length}):</span>${edges}</div>`;
-  } catch (e) { $('graph').textContent = 'Lỗi: ' + e.message; }
+    const r = await fetch(encodeURI('/in-force/' + id), { headers: authHeaders() });
+    if (r.status === 404) { $('inforce').textContent = 'Không tìm thấy văn bản trong KB.'; return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const badge = d.in_force
+      ? '<span class="node" style="background:#e6f7ec;border-color:#a7e3bd">CÒN hiệu lực</span>'
+      : '<span class="node exp">HẾT hiệu lực</span>';
+    let html = `<div><b>${esc(d.title || d.doc_id)}</b> ${badge}</div>` +
+      `<div style="margin-top:6px">${esc(d.reason)}</div>` +
+      (d.effective_date ? `<div class="muted">Ngày hiệu lực: ${esc(d.effective_date)}</div>` : '');
+    if (d.replaced && d.latest)
+      html += `<div class="banner" style="margin-top:6px">🆕 Văn bản hiện hành: <b>${esc(d.latest)}</b>` +
+        (d.latest_title ? ` — ${esc(d.latest_title)}` : '') + `</div>`;
+    if ((d.amended_by || []).length)
+      html += `<div class="muted" style="margin-top:4px">✏️ Đã bị sửa đổi, bổ sung bởi: ` +
+        d.amended_by.map(a => esc(a.doc_id) + (a.title ? ` (${esc(a.title)})` : '')).join(', ') + `</div>`;
+    $('inforce').innerHTML = html;
+  } catch (e) { $('inforce').textContent = 'Lỗi: ' + e.message; }
 }
 
 async function loadImpact() {

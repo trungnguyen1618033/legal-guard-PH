@@ -227,6 +227,44 @@ def latest_version(base_dir: str, tenant: str, doc_id: str) -> dict | None:
             "latest_status": lm.get("status", ""), "latest_title": lm.get("title", "")}
 
 
+def in_force_status(base_dir: str, tenant: str, doc_id: str) -> dict | None:
+    """Văn bản `doc_id` CÒN hiệu lực pháp luật không? Verdict tất định (suy từ front-matter, KHÔNG LLM),
+    khớp bộ lọc in-force của retriever: `in_force = _is_in_force(status) AND chưa bị thay thế toàn bộ`.
+    Kết hợp 3 tín hiệu: (1) `status` (in_force/expired…); (2) chuỗi `replaced_by` (bị THAY THẾ → hết
+    hiệu lực, trỏ bản hiện hành); (3) `amended_by` (VẪN hiệu lực nhưng đã bị SỬA vài điều — ghi chú).
+    None nếu doc_id không có trong KB."""
+    did = doc_id.strip().upper()
+    metas = _load_doc_meta(base_dir, tenant)
+    by_docid = {(m.get("doc_id") or "").upper(): m for m in metas.values() if m.get("doc_id")}
+    if did not in by_docid:
+        return None
+    m = by_docid[did]
+    status = (m.get("status") or "in_force").strip().lower()
+    expiry = (m.get("expiry_date") or "").strip()
+    lv = latest_version(base_dir, tenant, doc_id) or {}
+    cl = legal_changelog(base_dir, tenant, doc_id) or {}
+    replaced = bool(lv.get("replaced"))
+    amended_by = [{"doc_id": r["doc_id"], "title": r.get("title", "")}
+                  for r in cl.get("related", []) if r["relation"] == "amended_by"]
+    in_force = _is_in_force(status) and not replaced
+    if replaced:
+        latest, ltitle = lv.get("latest", ""), lv.get("latest_title", "")
+        reason = (f"KHÔNG còn hiệu lực — đã bị thay thế toàn bộ. Văn bản hiện hành: {latest}"
+                  + (f" ({ltitle})" if ltitle else "") + ".")
+    elif not _is_in_force(status):
+        reason = "KHÔNG còn hiệu lực (theo trạng thái văn bản" + (f", hết hiệu lực {expiry}" if expiry else "") + ")."
+    else:
+        reason = "CÒN hiệu lực pháp luật."
+        if amended_by:
+            reason += (" Lưu ý: đã bị SỬA ĐỔI, BỔ SUNG bởi "
+                       + ", ".join(a["doc_id"] for a in amended_by) + " — một số điều đã thay đổi.")
+    return {"doc_id": did, "title": m.get("title", ""), "in_force": in_force, "status": status,
+            "effective_date": (m.get("effective_date") or "").strip(), "expiry_date": expiry,
+            "replaced": replaced, "latest": lv.get("latest", "") if replaced else "",
+            "latest_title": lv.get("latest_title", "") if replaced else "",
+            "amended_by": amended_by, "reason": reason}
+
+
 def recent_laws(base_dir: str, tenant: str, since: str) -> list[dict]:
     """VB có effective_date >= `since` (ISO 'YYYY-MM-DD') — phát hiện luật MỚI cho giám sát chủ động
     (autopilot). Trả [{doc_id, title, effective_date, status}] sắp giảm dần theo ngày hiệu lực."""
@@ -861,6 +899,9 @@ class FileKnowledgeBaseProvider:
 
     def latest(self, doc_id: str, country: str) -> dict | None:
         return latest_version(self.base_dir, country, doc_id)
+
+    def in_force_of(self, doc_id: str, country: str) -> dict | None:
+        return in_force_status(self.base_dir, country, doc_id)
 
     def amended_articles(self, doc_id: str, country: str) -> dict | None:
         return amended_articles(self.base_dir, country, doc_id)

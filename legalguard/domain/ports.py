@@ -74,6 +74,9 @@ class KnowledgeBaseProvider(Protocol):
     # Map tới văn bản MỚI NHẤT (theo chuỗi replaced_by). None nếu doc_id không có trong KB.
     def latest(self, doc_id: str, country: str) -> dict | None: ...
 
+    # VB `doc_id` CÒN hiệu lực không → {in_force, status, replaced, latest, amended_by, reason}. None nếu không có.
+    def in_force_of(self, doc_id: str, country: str) -> dict | None: ...
+
     # Điều nào của doc_id đã bị VB khác sửa → {article: [doc_id]} (cho 'bôi vàng'). None nếu không có VB.
     def amended_articles(self, doc_id: str, country: str) -> dict | None: ...
 

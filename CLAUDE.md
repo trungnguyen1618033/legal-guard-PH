@@ -147,10 +147,12 @@ Web UI: `web/index.html` (landing, `GET /`) + `web/app.html` (demo UI, `GET /app
 upload/dán HĐ + vị thế đàm phán → gọi `/analyze` → bảng risks/fallbacks/strategy/trace +
 **human checkpoint** (english_reply bị khóa tới khi reviewer Approve; Reject = chuyển chuyên gia).
 + `web/lookup.html` (`GET /lookup`): form tra cứu luật → `/ask` → câu trả lời dẫn điều/khoản + nguồn + nút feedback
-(+ section "VB mới ảnh hưởng HĐ nào?" `/impact`, changelog, redline, **🗺️ Lược đồ văn bản** `loadGraph`: gọi
-`/graph`+`/latest`+`/articles-changed` → vẽ nodes tô màu hiệu lực + edges quan hệ + banner bản-mới-nhất +
-bôi-vàng-điều-bị-sửa, kiểu TVPL). app.html mỗi fallback có nút "📝 soạn
-điều khoản phản-đề" (`/counter`). + `web/trust.html` (`GET /trust` + data `GET /trust.json`): **công bố độ tin cậy** (phương pháp đảm bảo +
+(+ section "VB mới ảnh hưởng HĐ nào?" `/impact`, changelog, redline, **✅ VB còn hiệu lực không?** `checkInForce`:
+gọi `GET /in-force/{doc_id}` → verdict CÒN/HẾT hiệu lực (`in_force_status` THUẦN: status + chuỗi replaced_by
++ amended_by; `in_force = _is_in_force(status) AND chưa bị thay thế`) + bản hiện hành nếu bị thay + ghi chú
+đã bị sửa đổi. Endpoint đồ-thị `/graph`+`/latest`+`/articles-changed` VẪN CÒN (Next.js frontend + test dùng);
+web lookup ĐÃ ĐỔI section lược đồ TVPL → kiểm tra hiệu lực (đơn giản, đúng nhu cầu người dùng). app.html mỗi
+fallback có nút "📝 soạn điều khoản phản-đề" (`/counter`). + `web/trust.html` (`GET /trust` + data `GET /trust.json`): **công bố độ tin cậy** (phương pháp đảm bảo +
 số đo eval, nguồn chung `domain/trust.py trust_report`/`format_trust_text` — cho cả web lẫn Slack; câu hỏi
 "độ chính xác/tin cậy" trên Slack `_is_trust_query` → trả tóm tắt). + `web/dashboard.html` (`GET /dashboard`): system-of-record → `/insights/dashboard`
 (HĐ rà soát, phân bố severity, top điều khoản rủi ro, feedback, win-rate chiến thuật).

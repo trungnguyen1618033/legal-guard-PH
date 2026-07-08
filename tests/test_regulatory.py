@@ -2,6 +2,7 @@
 from legalguard.adapters.outbound.knowledge_base import (
     affected_doc_files,
     amended_articles,
+    in_force_status,
     latest_version,
     legal_graph,
     recent_laws,
@@ -261,6 +262,25 @@ def test_latest_version_in_force_doc_is_itself():
 
 def test_latest_version_unknown_doc_none():
     assert latest_version("knowledge_base", "VN", "999/9999/NĐ-CP") is None
+
+
+def test_in_force_status_valid_law_still_in_force():
+    # LTM 2005: còn hiệu lực (chỉ bị SỬA vài luật) → in_force True + amended_by ghi nhận.
+    d = in_force_status("knowledge_base", "VN", "36/2005/QH11")
+    assert d["in_force"] is True and d["replaced"] is False and d["status"] == "in_force"
+    assert {a["doc_id"] for a in d["amended_by"]} >= {"05/2017/QH14", "75/2025/QH15"}
+    assert "CÒN hiệu lực" in d["reason"]
+
+
+def test_in_force_status_replaced_doc_not_in_force():
+    # VB bị THAY THẾ toàn bộ → in_force False + trỏ bản hiện hành (dù front-matter chưa đổi status).
+    d = in_force_status("knowledge_base", "VN", "39/2014/TT-BTC")
+    assert d["in_force"] is False and d["replaced"] is True and d["latest"] == "123/2020/NĐ-CP"
+    assert "KHÔNG còn hiệu lực" in d["reason"]
+
+
+def test_in_force_status_unknown_doc_none():
+    assert in_force_status("knowledge_base", "VN", "999/9999/NĐ-CP") is None
 
 
 def test_amended_articles_for_reading_highlight():

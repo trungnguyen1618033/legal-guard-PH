@@ -535,6 +535,14 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
             raise HTTPException(status_code=404, detail="Không tìm thấy văn bản trong KB.")
         return lv
 
+    @app.get("/in-force/{doc_id:path}")
+    def doc_in_force(doc_id: str, org: Organization = Depends(require_auth)) -> dict:
+        # VB này CÒN hiệu lực pháp luật không? Verdict tất định (status + replaced_by + amended_by).
+        info = service.kb.in_force_of(doc_id, org.country)
+        if info is None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy văn bản trong KB.")
+        return info
+
     @app.get("/articles-changed/{doc_id:path}")
     def doc_articles_changed(doc_id: str, org: Organization = Depends(require_auth)) -> dict:
         # 'Bôi vàng' kiểu TVPL: đọc luật này → ĐIỀU nào đã bị VB khác sửa + bởi VB nào.
