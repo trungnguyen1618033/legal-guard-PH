@@ -101,7 +101,6 @@ _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
 
-_PRIO_EMOJI = {"must_fix": "🔴", "negotiate": "🟠", "acceptable": "🟢"}
 _MAX_REPLY = 3900    # Slack hiển thị đẹp ≤~4000 ký tự / message
 _ACK = ("📥 Đã nhận! Em đang rà soát — thường mất vài phút (hợp đồng dài có thể lâu hơn). "
         "Kết quả sẽ trả vào đây.")
@@ -115,24 +114,40 @@ _log = logging.getLogger(__name__)
 _AI_DISCLOSURE = "\n_(🤖 Trả lời bởi AI — hỗ trợ, không thay thế tư vấn luật chính thức.)_"
 
 
+# Công bố AI dạng VĂN PHONG PHÁP LÝ (không icon) — cho reply rà soát HĐ gửi luật sư.
+_AI_DISCLOSURE_LEGAL = ("\n\n(Nội dung trên do trí tuệ nhân tạo (AI) hỗ trợ soạn, mang tính tham khảo, "
+                        "không thay thế tư vấn pháp lý chính thức của luật sư.)")
+
+
 def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
-    """Trả lời gọn cho chat (Zalo/Slack) — ngôn ngữ thường, tiếng Việt mặc định."""
+    """Trả lời rà soát HĐ cho LUẬT SƯ — văn phong pháp lý, KHÔNG icon/màu/nhãn ưu tiên; rủi ro đánh số
+    (1)(2)(3); dòng đầu nêu loại HĐ + khách hàng được bảo vệ (nếu LLM xác định được)."""
+    ctype = (result.contract_type or "").strip()
+    client = (result.protected_party or "").strip()
+    lead = "Sau đây là các rủi ro và đề xuất sửa đổi"
+    if client:
+        lead += f" có lợi cho khách hàng là {client}"
+    head = (f"Đây là {ctype}. " if ctype else "") + lead + ":"
     if not result.risks:
-        return "✅ Không phát hiện điều khoản rủi ro rõ ràng trong nội dung bạn gửi."
-    lines = ["📋 *Rà soát hợp đồng:*"]
-    for r in result.risks:
-        # Đánh dấu TRÁI LUẬT (có thể vô hiệu) — đòn mạnh cho luật sư, khác 'bất lợi nhưng hợp pháp'.
-        tag = ""
-        if r.get("legal_status") == "illegal":
-            vl = r.get("violated_law", "")
-            tag = f" ⚖️ *TRÁI LUẬT{' — vi phạm ' + vl if vl else ''}*"
-        lines.append(f"{_PRIO_EMOJI.get(r.get('priority'), '•')} {r['clause']}: {r['risk']}{tag}")
+        return head + "\n\nKhông phát hiện điều khoản rủi ro rõ ràng trong nội dung được cung cấp." \
+            + _AI_DISCLOSURE_LEGAL
+    sugg = {f.get("clause", ""): (f.get("suggestion") or "").strip() for f in result.fallbacks}
+    lines = [head, ""]
+    for i, r in enumerate(result.risks, 1):
+        seg = f"({i}) {r['clause']}: {r['risk']}".rstrip(".") + "."
+        if r.get("legal_status") == "illegal":       # nêu trái luật bằng văn phong pháp lý (không icon)
+            vl = (r.get("violated_law") or "").strip()
+            seg += f" Điều khoản này có dấu hiệu trái quy định{(' tại ' + vl) if vl else ' của pháp luật'}" \
+                   "; phần vi phạm có thể bị tuyên vô hiệu."
+        s = sugg.get(r["clause"], "")
+        if s:
+            seg += f" Đề xuất sửa đổi: {s.rstrip('.')}."
+        lines.append(seg)
     if result.strategy:
-        lines += ["", f"🧭 {result.strategy}"]
+        lines += ["", result.strategy]
     if result.needs_human_review:
-        lines.append("⚖️ Có điểm rủi ro cao — nên để chuyên gia pháp lý duyệt trước khi áp dụng.")
-    lines.append(_AI_DISCLOSURE)
-    out = "\n".join(lines)
+        lines.append("Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng.")
+    out = "\n".join(lines) + _AI_DISCLOSURE_LEGAL
     return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
 

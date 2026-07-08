@@ -69,40 +69,52 @@ def test_format_chat_reply():
                          needs_human_review=True, review_reasons=[], summary="", trace=[],
                          strategy="Giữ điều khoản trọng tài")
     out = format_chat_reply(res)
-    assert "Trọng tài: Bất lợi" in out and "🔴" in out and "Giữ điều khoản trọng tài" in out
+    # Văn phong pháp lý: đánh số (1), KHÔNG icon màu, KHÔNG nhãn ưu tiên.
+    assert "(1) Trọng tài: Bất lợi" in out and "Giữ điều khoản trọng tài" in out
+    assert "🔴" not in out and "🟠" not in out and "📋" not in out and "must_fix" not in out
 
 
 def test_format_chat_reply_marks_illegal():
-    # Điều khoản TRÁI LUẬT được gắn nhãn ⚖️ + điều luật bị vi phạm.
+    # Điều khoản trái luật → diễn đạt PHÁP LÝ (không icon ⚖️): "dấu hiệu trái quy định tại <điều>… vô hiệu".
     res = AnalysisResult(tenant="VN", risks=[{"clause": "Phạt 15%", "risk": "vượt trần",
                          "severity": "high", "priority": "must_fix",
                          "legal_status": "illegal", "violated_law": "Điều 301 LTM 2005"}],
                          fallbacks=[], needs_human_review=False, review_reasons=[],
                          summary="", trace=[], strategy="")
     out = format_chat_reply(res)
-    assert "TRÁI LUẬT" in out and "Điều 301" in out
+    assert "trái quy định tại Điều 301" in out and "vô hiệu" in out and "⚖️" not in out
 
 
 def test_format_chat_reply_illegal_without_violated_law():
-    # illegal nhưng thiếu violated_law → hiện 'TRÁI LUẬT' không kèm '— vi phạm' (không lỗi chuỗi).
+    # illegal thiếu violated_law → "trái quy định của pháp luật" (không 'tại Điều …'), không lỗi chuỗi.
     res = AnalysisResult(tenant="VN", risks=[{"clause": "Điều X", "risk": "trái luật",
                          "severity": "high", "priority": "must_fix",
                          "legal_status": "illegal", "violated_law": ""}],
                          fallbacks=[], needs_human_review=False, review_reasons=[],
                          summary="", trace=[], strategy="")
     out = format_chat_reply(res)
-    assert "TRÁI LUẬT" in out and "vi phạm" not in out
+    assert "trái quy định của pháp luật" in out and "tại Điều" not in out
 
 
 def test_format_chat_reply_unfavorable_not_marked_illegal():
-    # điều khoản chỉ bất lợi → KHÔNG bị gắn nhãn TRÁI LUẬT nhầm.
+    # điều khoản chỉ bất lợi → KHÔNG bị quy trái luật nhầm.
     res = AnalysisResult(tenant="VN", risks=[{"clause": "Điều Y", "risk": "bất lợi",
                          "severity": "medium", "priority": "negotiate",
                          "legal_status": "unfavorable", "violated_law": ""}],
                          fallbacks=[], needs_human_review=False, review_reasons=[],
                          summary="", trace=[], strategy="")
     out = format_chat_reply(res)
-    assert "TRÁI LUẬT" not in out
+    assert "trái quy định" not in out
+
+
+def test_format_chat_reply_first_line_client_and_contract_type():
+    # Dòng đầu nêu loại HĐ + khách hàng bảo vệ (khi LLM xác định được).
+    res = AnalysisResult(tenant="VN", risks=[{"clause": "A", "risk": "b"}], fallbacks=[],
+                         needs_human_review=False, review_reasons=[], summary="", trace=[],
+                         contract_type="hợp đồng hợp tác đầu tư", protected_party="Công ty CP Du lịch Phú Quốc")
+    out = format_chat_reply(res)
+    assert out.startswith("Đây là hợp đồng hợp tác đầu tư.")
+    assert "có lợi cho khách hàng là Công ty CP Du lịch Phú Quốc" in out
 
 
 def test_handler_empty_prompts_for_input():

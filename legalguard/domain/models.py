@@ -164,6 +164,8 @@ class AnalysisResult:
     summary: str
     trace: list[dict]
     strategy: str = ""           # chiến lược đàm phán tổng thể (ưu tiên + BATNA/walk-away)
+    contract_type: str = ""      # loại hợp đồng (LLM tự xác định) — nêu ở dòng đầu reply luật sư
+    protected_party: str = ""    # TÊN ĐẦY ĐỦ khách hàng được bảo vệ (LLM trích từ HĐ) — dòng đầu reply
     notes: list[str] = field(default_factory=list)
     case_id: str = ""            # id bản ghi đã lưu (nếu có persistence)
     execution_summary: dict = field(default_factory=dict)  # đếm tool-call (evidence AI-Native, xem domain/runs.py)
