@@ -507,10 +507,12 @@ def test_slack_downloads_attachment_then_analyzes():
 
 
 # ---- Slack feedback (interactive buttons) ----
-def _slack_interaction(client, secret, action_id, value):
+def _slack_interaction(client, secret, action_id, value, extra=None):
     import urllib.parse
     payload = {"type": "block_actions", "user": {"id": "U1"}, "channel": {"id": "C1"},
                "actions": [{"action_id": action_id, "value": value}]}
+    if extra:
+        payload.update(extra)
     body = ("payload=" + urllib.parse.quote(json.dumps(payload))).encode()
     ts = str(int(time.time()))
     sig = "v0=" + hmac.new(secret.encode(), b"v0:" + ts.encode() + b":" + body, hashlib.sha256).hexdigest()
@@ -560,6 +562,100 @@ def test_slack_interaction_bad_signature_401():
     r = c.post("/channels/slack/interactions", content=b"payload=%7B%7D",
                headers={"X-Slack-Request-Timestamp": "0", "X-Slack-Signature": "v0=bad"})
     assert r.status_code == 401
+
+
+# ---- Phase 4: nút "Đồng ý sửa" per-risk → soạn điều khoản sửa (cũ→mới) ----
+def _amend_result():
+    return AnalysisResult(tenant="VN",
+        risks=[{"clause": "Phạt 15%", "risk": "vượt trần"}, {"clause": "Tòa SG", "risk": "bất lợi"}],
+        fallbacks=[{"clause": "Phạt 15%", "suggestion": "giảm về 8%"}],   # chỉ rủi ro 1 có đề xuất
+        needs_human_review=True, review_reasons=[], summary="", trace=[], strategy="Đưa về VIAC")
+
+
+def test_analysis_blocks_agree_button_only_when_suggestion():
+    from legalguard.adapters.inbound.channels import _analysis_blocks
+    blocks = _analysis_blocks(_amend_result(), "case1")
+    buttons = [b["accessory"] for b in blocks if b.get("accessory")]
+    assert len(buttons) == 1                                # nút CHỈ ở rủi ro có đề xuất sửa
+    btn = buttons[0]
+    assert btn["action_id"] == "amend_ok" and btn["text"]["text"] == "Đồng ý sửa"
+    assert json.loads(btn["value"]) == {"c": "case1", "i": 0}   # index0 của rủi ro có đề xuất
+    dump = json.dumps(blocks, ensure_ascii=False)
+    assert "(1) Phạt 15%" in dump and "(2) Tòa SG" in dump
+    assert "🔴" not in dump and "⚖️" not in dump and "📋" not in dump   # văn phong pháp lý, không icon
+
+
+def test_analysis_blocks_no_button_without_case_id():
+    from legalguard.adapters.inbound.channels import _analysis_blocks
+    blocks = _analysis_blocks(_amend_result(), "")         # không case_id → không thể nạp lại → không nút
+    assert not any(b.get("accessory") for b in blocks)
+
+
+def test_format_amend_bilingual_and_framework_flag():
+    from legalguard.adapters.inbound.channels import _format_amend
+    out = _format_amend("Phạt 15%", {"vi": "Mức phạt tối đa 8%.", "en": "Cap 8%.", "grounded": True})
+    assert "Phạt 15%" in out and "Mức phạt tối đa 8%" in out and "Cap 8%" in out and "AI" in out
+    assert "khung sơ bộ" in _format_amend("X", {"vi": "khung", "en": "", "grounded": False})
+
+
+def test_run_amend_drafts_and_posts_into_thread():
+    from legalguard.adapters.inbound.channels import _run_amend
+    from legalguard.domain.models import AnalysisCase
+    case = AnalysisCase(id="c1", org_id="default", tenant="VN", created_at="t", lang="vi",
+                        contract_excerpt="", summary="", needs_human_review=False,
+                        risks=[{"clause": "Phạt 15%", "risk": "vượt trần", "legal_basis": "Điều 301"}],
+                        fallbacks=[{"clause": "Phạt 15%", "suggestion": "giảm về 8%"}], trace=[])
+
+    class _Svc:
+        def __init__(self): self.called = {}
+        def get_case(self, cid): return case if cid == "c1" else None
+        def draft_counter_clause(self, **kw):
+            self.called = kw
+            return {"vi": "Mức phạt tối đa 8%.", "en": "Cap penalty at 8%.", "grounded": True}
+
+    svc, sender = _Svc(), _FakeSender()
+    _run_amend(svc, sender, "default", "c1", 0, "C1", "th1")
+    assert svc.called["clause"] == "Phạt 15%" and svc.called["suggestion"] == "giảm về 8%"
+    assert svc.called["legal_basis"] == "Điều 301"          # dùng legal_basis của fallback/risk
+    assert "Mức phạt tối đa 8%" in sender.sent[-1][1] and "Cap penalty at 8%" in sender.sent[-1][1]
+    assert sender.threads[-1] == "th1"                     # gửi ĐÚNG thread
+
+
+def test_run_amend_missing_case_notifies():
+    from legalguard.adapters.inbound.channels import _run_amend
+
+    class _Svc:
+        def get_case(self, cid): return None
+
+    sender = _FakeSender()
+    _run_amend(_Svc(), sender, "default", "nope", 0, "C1", None)
+    assert sender.sent and "hồ sơ" in sender.sent[-1][1].lower()
+
+
+def test_run_amend_wrong_org_blocked():
+    from legalguard.adapters.inbound.channels import _run_amend
+    from legalguard.domain.models import AnalysisCase
+    case = AnalysisCase(id="c1", org_id="default", tenant="VN", created_at="t", lang="vi",
+                        contract_excerpt="", summary="", needs_human_review=False,
+                        risks=[{"clause": "X", "risk": "y"}], fallbacks=[], trace=[])
+
+    class _Svc:
+        def get_case(self, cid): return case
+        def draft_counter_clause(self, **kw): raise AssertionError("không được soạn khi sai org")
+
+    sender = _FakeSender()
+    _run_amend(_Svc(), sender, "other-org", "c1", 0, "C1", None)   # sai org → chặn, KHÔNG soạn
+    assert sender.sent                                    # có báo (không im lặng)
+
+
+def test_slack_interaction_amend_ok_spawns_run():
+    sender = _FakeSender()
+    c = _client(slack="sek", slack_sender=sender)
+    r = _slack_interaction(c, "sek", "amend_ok", json.dumps({"c": "nocase", "i": 0}),
+                           extra={"container": {"thread_ts": "th9"}, "message": {"ts": "m1"}})
+    assert r.status_code == 200 and r.json() == {"ok": True}   # ack rỗng, giữ nút cho rủi ro khác
+    # background _run_amend chạy: case không tồn tại (stub) → báo vào ĐÚNG thread th9
+    assert sender.sent and sender.threads[-1] == "th9"
 
 
 def test_reply_ex_marks_lookup_and_analysis_kind():
