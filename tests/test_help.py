@@ -6,14 +6,16 @@ from legalguard.domain.help import format_help_text, help_sections
 
 
 def test_is_help_query_matches_common_phrasings():
-    for t in ["help", "/help", "trợ giúp", "hướng dẫn", "How to use", "hỗ trợ", "dùng thế nào"]:
+    for t in ["help", "/help", "trợ giúp", "hướng dẫn", "How to use", "dùng thế nào",
+              "hướng dẫn sử dụng", "làm sao dùng"]:
         assert _is_help_query(t), t
 
 
 def test_is_help_query_ignores_normal_questions():
-    # Câu hỏi pháp lý / tin thường KHÔNG được nuốt vào help.
+    # Câu hỏi pháp lý / tin thường / HĐ KHÔNG được nuốt vào help (neo ^ + bỏ cụm generic).
     for t in ["Phạt vi phạm hợp đồng tối đa bao nhiêu %?", "Chúng tôi không đồng ý điều khoản này",
-              "Điều 301 quy định gì"]:
+              "Điều 301 quy định gì", "có gì trong hợp đồng này rủi ro không?",
+              "hỗ trợ tôi phân tích hợp đồng đính kèm"]:
         assert not _is_help_query(t), t
 
 

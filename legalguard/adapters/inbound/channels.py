@@ -88,9 +88,11 @@ def _is_trust_query(text: str) -> bool:
 
 
 # Meta: người dùng xin HƯỚNG DẪN dùng / trợ giúp → trả bảng hướng dẫn + gỡ sự cố.
+# Neo ^ (chỉ khớp khi tin BẮT ĐẦU bằng các cụm này) — tránh nuốt câu hỏi/HĐ chứa từ khóa giữa câu.
+# KHÔNG dùng cụm quá generic ("có gì" → va "có gì trong HĐ rủi ro không?").
 _HELP_RE = re.compile(
     r"^\s*(help|/help|trợ giúp|tro giup|hướng dẫn|huong dan|dùng thế nào|dùng sao|"
-    r"how to use|hỗ trợ|bắt đầu thế nào|làm sao dùng|có gì)\b", re.IGNORECASE)
+    r"how to use|bắt đầu thế nào|làm sao dùng|dùng công cụ)\b", re.IGNORECASE)
 
 
 def _is_help_query(text: str) -> bool:
