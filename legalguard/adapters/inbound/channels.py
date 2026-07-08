@@ -21,7 +21,14 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from legalguard.domain.analysis import AnalysisService
-from legalguard.domain.models import AnalysisResult, Conversation, Feedback, Outcome, SourceMeta
+from legalguard.domain.models import (
+    AnalysisResult,
+    Conversation,
+    Feedback,
+    NegotiationPosition,
+    Outcome,
+    SourceMeta,
+)
 from legalguard.domain.negotiation import NegotiationState, state_from_json, state_to_json
 from legalguard.domain.ports import (
     ChatSenderPort,
@@ -97,6 +104,24 @@ _HELP_RE = re.compile(
 
 def _is_help_query(text: str) -> bool:
     return bool(text and _HELP_RE.search(text.strip()))
+
+
+# Gợi ý 'bên mình bảo vệ' từ CHỈ DẪN chat ("...for Phu Quoc side", "bảo vệ Công ty X", "cho bên B").
+# Gợi ý THÔ → LLM tinh thành TÊN ĐẦY ĐỦ khớp trong HĐ (analysis._classify_contract). Chỉ parse từ chỉ
+# dẫn NGẮN / caption file (không từ HĐ dán dài — tránh nhiễu từ thân hợp đồng).
+_PROTECT_HINT_RE = re.compile(
+    r"\b(?:for|represent(?:ing)?|on behalf of|bảo vệ|đại diện cho|cho bên|phía)\s+"
+    r"(?P<p>[\wÀ-ỹ .,&'\-]{2,60}?)\s*(?:\bside\b|\bparty\b|\bbên\b|[.,;\n]|$)", re.IGNORECASE)
+_HINT_STOP = {"the", "this", "this contract", "me", "us", "them", "you", "my client", "client", "bên"}
+
+
+def _extract_protected_hint(text: str) -> str:
+    """Rút gợi ý bên được bảo vệ từ chỉ dẫn chat. Rỗng nếu không rõ (LLM sẽ tự chọn bên yếu thế)."""
+    m = _PROTECT_HINT_RE.search(text or "")
+    if not m:
+        return ""
+    p = m.group("p").strip(" .,-'\"")
+    return "" if p.lower() in _HINT_STOP or len(p) < 2 else p
 _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ N lượt gần
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
@@ -143,6 +168,7 @@ def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, boo
                    "; phần vi phạm có thể bị tuyên vô hiệu."
         s = sugg.get(r["clause"], "")
         if s:
+            s = re.sub(r"^\s*đề xuất\s*:?\s*", "", s, flags=re.IGNORECASE)   # tránh 'Đề xuất sửa đổi: Đề xuất:'
             seg += f" Đề xuất sửa đổi: {s.rstrip('.')}."
         out.append((num, idx, r["clause"], seg, bool(s)))
     return out
@@ -296,8 +322,12 @@ class ChatHandler:
             # từng bị re-analyze oan vì chứa từ khóa HĐ ("trọng tài") → guardrail walk-away không chạy.
 
         if contract and contract.strip():                 # → RÀ SOÁT
+            # 'Bên mình bảo vệ' từ chỉ dẫn (caption file / tin ngắn) — KHÔNG parse từ HĐ dán dài (nhiễu).
+            hint = _extract_protected_hint(text or "") if (attachment is not None
+                                                           or len(text or "") < 300) else ""
+            position = NegotiationPosition(protected_party=hint) if hint else None
             try:
-                result = self.service.analyze(contract, org, lang=lang, source=source)
+                result = self.service.analyze(contract, org, lang=lang, position=position, source=source)
             except (ValueError, LLMError) as exc:
                 return ChatReply(f"Xin lỗi, chưa xử lý được: {exc}")
             conv.context = _context_from_result(result)    # nhớ deal đang bàn

@@ -564,6 +564,15 @@ def test_slack_interaction_bad_signature_401():
     assert r.status_code == 401
 
 
+# ---- Phase 2: rút gợi ý 'bên mình bảo vệ' từ chỉ dẫn chat ----
+def test_extract_protected_hint():
+    from legalguard.adapters.inbound.channels import _extract_protected_hint
+    assert _extract_protected_hint("help me review this contract for Phu Quoc side") == "Phu Quoc"
+    assert _extract_protected_hint("rà soát giúp, bảo vệ Công ty ABC.") == "Công ty ABC"
+    assert _extract_protected_hint("review for me") == ""            # stopword → không nhận
+    assert _extract_protected_hint("phân tích hợp đồng này giúp") == ""   # không có trigger
+
+
 # ---- Phase 4: nút "Đồng ý sửa" per-risk → soạn điều khoản sửa (cũ→mới) ----
 def _amend_result():
     return AnalysisResult(tenant="VN",

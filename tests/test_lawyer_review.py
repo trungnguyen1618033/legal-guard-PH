@@ -117,3 +117,64 @@ def test_prompt_differs_by_protected_party():
     assert a.system != b.system
     assert "Bên Vay" in a.system and "Bên Cho Vay" in b.system
     assert "Bên Cho Vay" not in a.system   # phía bên kia KHÔNG lẫn vào prompt phía mình
+
+
+# ---- Phase 3: chỉ thị NGÔN NGỮ pháp lý VN (cấm cụm bịa ngoài luật) trong prompt agent ----
+def test_agent_prompt_forbids_invented_terms():
+    spy = _Spy()
+    ctx = AgentContext(retriever=KeywordRetriever("knowledge_base", "VN"))
+    run_agent("HĐ", "Việt Nam", spy, ctx, lang="vi")
+    assert "thuật ngữ pháp lý Việt Nam" in spy.system.lower() or "NGÔN NGỮ PHÁP LÝ" in spy.system
+    assert "chế tài chồng lấn" in spy.system and "hợp đồng bất đối xứng" in spy.system  # cấm rõ
+
+
+# ---- Phase 2: phân loại loại HĐ + TÊN ĐẦY ĐỦ bên bảo vệ (dòng đầu reply luật sư) ----
+class _JsonJudge:
+    name = "qwen"
+
+    def __init__(self, payload="", available=True):
+        self._p, self._avail = payload, available
+
+    @property
+    def available(self):
+        return self._avail
+
+    def complete(self, prompt, *, system=None):
+        return self._p
+
+
+def test_extract_json_obj_tolerates_fence_and_prose():
+    from legalguard.domain.analysis import _extract_json_obj
+    assert _extract_json_obj('```json\n{"a": 1}\n```') == {"a": 1}
+    assert _extract_json_obj('Kết quả: {"contract_type":"x"} xong.') == {"contract_type": "x"}
+    assert _extract_json_obj("không có json ở đây") == {}
+    assert _extract_json_obj('[1,2,3]') == {}                   # không phải object → {}
+
+
+def test_classify_contract_extracts_type_and_full_party_name():
+    svc = build_service()
+    svc.judge = _JsonJudge('{"contract_type":"hợp đồng mua bán hàng hóa",'
+                           '"protected_party":"Công ty CP Du lịch Phú Quốc"}')
+    ctype, party = svc._classify_contract("… các bên …", hint="Phu Quoc side", lang="vi")
+    assert ctype == "hợp đồng mua bán hàng hóa" and party == "Công ty CP Du lịch Phú Quốc"
+
+
+def test_classify_contract_offline_returns_hint():
+    svc = build_service()
+    svc.judge = _JsonJudge(available=False)                     # judge chưa cấu hình → không bịa
+    assert svc._classify_contract("hđ", hint="Bên B", lang="vi") == ("", "Bên B")
+
+
+def test_classify_contract_empty_party_falls_back_to_hint():
+    svc = build_service()
+    svc.judge = _JsonJudge('{"contract_type":"hợp đồng vay","protected_party":""}')
+    ctype, party = svc._classify_contract("hđ", hint="Bên Vay", lang="vi")
+    assert ctype == "hợp đồng vay" and party == "Bên Vay"       # LLM để rỗng → dùng gợi ý
+
+
+def test_analyze_populates_contract_type_and_party():
+    svc = build_service()
+    svc.judge = _JsonJudge('{"contract_type":"hợp đồng thương mại","protected_party":"Công ty X"}')
+    res = svc.analyze(SAMPLE, ORG, lang="vi",
+                      position=NegotiationPosition(protected_party="X"))
+    assert res.contract_type == "hợp đồng thương mại" and res.protected_party == "Công ty X"
