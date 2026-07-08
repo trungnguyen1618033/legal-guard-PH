@@ -93,7 +93,17 @@ leverage/urgency/relationship/alternatives + **`protected_party`** "bên mình b
 `Risk.priority` (must_fix/negotiate/acceptable) + **`Risk.legal_status`** {illegal (trái luật, có thể vô
 hiệu — kèm `violated_law`) | unfavorable} + sinh `AnalysisResult.strategy` (giữ/nhượng + walk-away/BATNA).
 Lawyer-review (Phase A+B+C, `docs/internal/lawyer-review-flow.md`): party-aware + tách TRÁI-LUẬT vs bất-lợi;
-prompt rỗng protected_party → mặc định "SME client in {country}". Chat reply + web gắn nhãn ⚖️ TRÁI LUẬT.
+prompt rỗng protected_party → mặc định "SME client in {country}". Web gắn nhãn ⚖️ TRÁI LUẬT.
+**Reply rà soát VĂN PHONG LUẬT SƯ (Slack, `docs/internal/lawyer-review-format-plan.md`)**: `format_chat_reply`
+đánh số (1)(2)(3), BỎ icon/màu/nhãn ưu tiên, văn phong pháp lý; dòng đầu nêu **loại HĐ + TÊN ĐẦY ĐỦ khách
+hàng bảo vệ** (`AnalysisResult.contract_type`/`protected_party` do `analysis._classify_contract` — 1 call
+judge NHANH SONG SONG hậu-agent, ISOLATED khỏi vòng agent nên accuracy lookup KHÔNG đổi; tinh từ gợi ý chat
+`_extract_protected_hint` "for X side"/"bảo vệ X" + phần các bên trong HĐ). TRÁI LUẬT diễn đạt pháp lý
+("có dấu hiệu trái quy định tại <điều>; phần vi phạm có thể bị tuyên vô hiệu"). Prompt agent CẤM cụm bịa
+ngoài luật VN ("chế tài chồng lấn"/"hợp đồng bất đối xứng"). Mỗi rủi ro có nút **"Đồng ý sửa"** (Slack
+accessory, chỉ khi có đề xuất) → `amend_ok` nền `_run_amend` nạp case (cô lập org) → `draft_counter_clause`
+→ gửi điều khoản sửa song ngữ VN/EN vào thread. `_analysis_blocks`/`format_chat_reply` dùng chung
+`_risk_segments`. Công bố AI dạng pháp lý `_AI_DISCLOSURE_LEGAL` (giữ mốc "AI" cho Luật AI 134/2025).
 **Phase B — phát hiện TRÁI LUẬT có grounding (`_detect_illegal` trong `domain/analysis.py`, `ILLEGAL_DETECTION`)**:
 hậu-agent (sau legal_basis), với mỗi risk `unfavorable` đã có `legal_basis` (điều luật THẬT đã retrieve) →
 `nli_contradicts` hỏi judge "điều khoản CÓ trái điều luật này không"; YES rõ → nâng `unfavorable`→`illegal` +
