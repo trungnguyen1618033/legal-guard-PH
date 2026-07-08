@@ -1,0 +1,90 @@
+{
+  "note": "DN 76/2025 GOLDEN CANDIDATES — kiểm nội dung OCR (chủ sở hữu hưởng lợi) có RETRIEVE + trả lời đúng không, đồng thời chuẩn bị để LUẬT SƯ verify. AI-draft đáp án từ VĂN BẢN THẬT trong KB (luat_doanh_nghiep_76_2025_sua_doi.md, nguồn OCR Công báo CP — CHƯA luật sư đối chiếu số). KHÔNG merge vào accuracy_golden.json + KHÔNG dùng /trust tới khi (1) luật sư verify nội dung OCR, (2) duyệt đáp án. must_cite='76_2025' buộc hệ dẫn ĐÚNG luật sửa đổi (khái niệm chủ sở hữu hưởng lợi CHỈ có ở 76/2025). KẾT QUẢ ĐO (8/7, dev): 5/5=100% (repeat=3, flaky=0, dẫn-nguồn ✓ + dữ-kiện ✓) → XÁC NHẬN nội dung OCR retrieve + trả lời đúng end-to-end; CÒN LẠI = luật sư đối chiếu số OCR + duyệt đáp án trước merge (54→59). Chạy thử: uv run python -m evaluation.accuracy_eval --no-write --golden=evaluation/golden_candidates_DN76.json",
+  "cases": [
+    {
+      "category": "Doanh nghiệp (Luật DN 2020 sửa bởi 76/2025)",
+      "type": "tra_cuu",
+      "question": "Doanh nghiệp có nghĩa vụ gì về chủ sở hữu hưởng lợi?",
+      "expected": "Doanh nghiệp có nghĩa vụ thu thập, cập nhật, lưu giữ thông tin về chủ sở hữu hưởng lợi của doanh nghiệp; và cung cấp thông tin cho cơ quan nhà nước có thẩm quyền để xác định chủ sở hữu hưởng lợi khi được yêu cầu (khoản 5a Điều 8 Luật Doanh nghiệp, bổ sung bởi Luật 76/2025).",
+      "basis": "Khoản 5a Điều 8 Luật DN (bổ sung bởi Luật 76/2025/QH15)",
+      "must_cite": [
+        "76_2025"
+      ],
+      "must_say": [
+        "thu thập|cập nhật|lưu giữ",
+        "cơ quan nhà nước|khi được yêu cầu|có thẩm quyền"
+      ],
+      "abstain": false,
+      "_review": "AI-draft từ Đ.8 k5a bản OCR. CẦN luật sư verify nội dung OCR + đáp án.",
+      "_verdict": "ĐO ĐẠT 5/5 (repeat=3, flaky=0) — CHỜ LUẬT SƯ verify OCR + duyệt"
+    },
+    {
+      "category": "Doanh nghiệp (Luật DN 2020 sửa bởi 76/2025)",
+      "type": "tra_cuu",
+      "question": "Hồ sơ đăng ký doanh nghiệp có cần danh sách chủ sở hữu hưởng lợi không?",
+      "expected": "Có — hồ sơ đăng ký doanh nghiệp gồm danh sách chủ sở hữu hưởng lợi của doanh nghiệp (nếu có), theo các Điều 20, 21, 22 Luật Doanh nghiệp sửa đổi bởi Luật 76/2025.",
+      "basis": "Khoản 3 Điều 20/21/22 Luật DN (sửa bởi Luật 76/2025/QH15)",
+      "must_cite": [
+        "76_2025"
+      ],
+      "must_say": [
+        "chủ sở hữu hưởng lợi",
+        "nếu có"
+      ],
+      "abstain": false,
+      "_review": "AI-draft từ Đ.20/21/22 k3. CẦN luật sư verify.",
+      "_verdict": "ĐO ĐẠT 5/5 (repeat=3, flaky=0) — CHỜ LUẬT SƯ verify OCR + duyệt"
+    },
+    {
+      "category": "Doanh nghiệp (Luật DN 2020 sửa bởi 76/2025)",
+      "type": "tra_cuu",
+      "question": "Danh sách chủ sở hữu hưởng lợi có thuộc tài liệu doanh nghiệp phải lưu giữ không?",
+      "expected": "Có — danh sách chủ sở hữu hưởng lợi của doanh nghiệp (nếu có) là tài liệu doanh nghiệp phải lưu giữ (điểm h khoản 1 Điều 11 Luật Doanh nghiệp, bổ sung bởi Luật 76/2025).",
+      "basis": "Điểm h khoản 1 Điều 11 Luật DN (bổ sung bởi Luật 76/2025/QH15)",
+      "must_cite": [
+        "76_2025"
+      ],
+      "must_say": [
+        "chủ sở hữu hưởng lợi",
+        "lưu giữ|phải lưu"
+      ],
+      "abstain": false,
+      "_review": "AI-draft từ Đ.11 k1 điểm h. CẦN luật sư verify.",
+      "_verdict": "ĐO ĐẠT 5/5 (repeat=3, flaky=0) — CHỜ LUẬT SƯ verify OCR + duyệt"
+    },
+    {
+      "category": "Doanh nghiệp (Luật DN 2020 sửa bởi 76/2025)",
+      "type": "tinh_huong",
+      "question": "Công ty tôi được cơ quan nhà nước yêu cầu cung cấp thông tin chủ sở hữu hưởng lợi. Có bắt buộc phải cung cấp không?",
+      "expected": "Có — doanh nghiệp có nghĩa vụ cung cấp thông tin cho cơ quan nhà nước có thẩm quyền để xác định chủ sở hữu hưởng lợi khi được yêu cầu (khoản 5a Điều 8 Luật Doanh nghiệp, bổ sung bởi Luật 76/2025).",
+      "basis": "Khoản 5a Điều 8 Luật DN (bổ sung bởi Luật 76/2025/QH15)",
+      "must_cite": [
+        "76_2025"
+      ],
+      "must_say": [
+        "nghĩa vụ|bắt buộc|phải cung cấp|có",
+        "cung cấp"
+      ],
+      "abstain": false,
+      "_review": "AI-draft party-aware từ Đ.8 k5a. CẦN luật sư verify.",
+      "_verdict": "ĐO ĐẠT 5/5 (repeat=3, flaky=0) — CHỜ LUẬT SƯ verify OCR + duyệt"
+    },
+    {
+      "category": "Doanh nghiệp (Luật DN 2020 sửa bởi 76/2025)",
+      "type": "tra_cuu",
+      "question": "Cổ tức là gì theo Luật Doanh nghiệp?",
+      "expected": "Cổ tức là khoản lợi nhuận sau thuế được trả cho mỗi cổ phần bằng tiền hoặc bằng tài sản khác (khoản 5 Điều 4 Luật Doanh nghiệp, sửa đổi bởi Luật 76/2025).",
+      "basis": "Khoản 5 Điều 4 Luật DN (sửa bởi Luật 76/2025/QH15)",
+      "must_cite": [
+        "doanh_nghiep"
+      ],
+      "must_say": [
+        "lợi nhuận sau thuế",
+        "cổ phần"
+      ],
+      "abstain": false,
+      "_review": "AI-draft từ Đ.4 k5. Định nghĩa cũng có ở bản 2020 → must_cite lỏng 'doanh_nghiep'. CẦN luật sư verify.",
+      "_verdict": "ĐO ĐẠT 5/5 (repeat=3, flaky=0) — CHỜ LUẬT SƯ verify OCR + duyệt"
+    }
+  ]
+}
