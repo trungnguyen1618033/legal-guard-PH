@@ -5,6 +5,8 @@ title: Luật Thương mại 2005 — Chế tài trong thương mại
 doc_type: luat
 status: in_force
 effective_date: 2006-01-01
+amended_by: 05/2017/QH14; 44/2019/QH14; 75/2025/QH15
+stale_note: Verify qua VBHN 113/VBHN-VPQH (28/8/2025, hợp nhất LTM với 3 luật sửa) — cả 3 VB sửa chỉ đụng quản lý ngoại thương (05/2017), rượu bia (44/2019), quảng cáo (75/2025); Chương VII CHẾ TÀI (Đ.292-316, gồm Đ.301 trần phạt 8%) KHÔNG bị sửa → trích chế tài trong file này VẪN là luật hiện hành. Nguồn hợp nhất mới nhất nếu cần mở rộng ngoài chế tài = VBHN 113/VBHN-VPQH.
 source_url: https://datafiles.chinhphu.vn/cpp/files/vbpq/2006/07/15224_l36qh.rtf
 ---
 Luật Thương mại 2005 — Chương VII, Mục 1: Chế tài trong thương mại.
