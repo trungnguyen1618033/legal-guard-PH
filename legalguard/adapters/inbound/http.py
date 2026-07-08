@@ -256,15 +256,18 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
 
         html = f"""<!doctype html><html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Legal Guard — Hướng dẫn &amp; Sự cố</title>
+<title>Legal Guard — Giới thiệu, Chức năng &amp; Hướng dẫn</title>
 <style>body{{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:0 auto;
 padding:24px;line-height:1.55;color:#1a1a2e}}h1{{font-size:1.5rem}}h2{{font-size:1.1rem;margin-top:1.6rem;
 border-top:1px solid #eee;padding-top:1rem}}.row{{display:flex;gap:12px;margin:.8rem 0}}.ic{{font-size:1.4rem;
-flex:0 0 1.6rem}}p{{margin:.2rem 0;color:#333}}nav a{{margin-right:14px}}.note{{color:#666;font-size:.9rem;
+flex:0 0 1.6rem}}p{{margin:.2rem 0;color:#333}}nav a{{margin-right:14px}}.intro{{background:#f5f7ff;
+border-left:3px solid #4a5cff;padding:12px 16px;border-radius:6px}}.note{{color:#666;font-size:.9rem;
 margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body>
 <nav><a href="/app">Rà soát</a><a href="/lookup">Tra cứu</a><a href="/trust">Độ tin cậy</a></nav>
-<h1>🤝 Legal Guard — Hướng dẫn nhanh</h1>
-{block("Dùng để làm gì", s["usage"])}
+<h1>🤝 Legal Guard — Giới thiệu &amp; Hướng dẫn</h1>
+<p class="intro">{escape(s["intro"])}</p>
+{block("Chức năng chính", s["features"])}
+{block("Bắt đầu thế nào", s["usage"])}
 {block("Gặp sự cố", s["trouble"])}
 <p class="note">🤖 AI hỗ trợ — không thay thế tư vấn pháp lý chính thức. Trên Slack/Zalo: gõ
 <b>help</b> để xem hướng dẫn này.</p>

@@ -17,11 +17,13 @@ def test_is_help_query_ignores_normal_questions():
         assert not _is_help_query(t), t
 
 
-def test_format_help_text_covers_usage_and_trouble():
+def test_format_help_text_covers_all_four_sections():
     txt = format_help_text("slack")
     assert "HƯỚNG DẪN" in txt
-    assert "Rà soát hợp đồng" in txt and "Tra cứu luật" in txt   # dùng để làm gì
-    assert "sự cố" in txt.lower() and "Không đọc được file" in txt  # gỡ sự cố
+    assert "trợ lý pháp lý AI" in txt                            # (1) giới thiệu
+    assert "Chức năng chính" in txt and "party-aware" in txt     # (2) chức năng
+    assert "Bắt đầu thế nào" in txt and "Tra cứu luật" in txt    # (3) cách dùng
+    assert "Gặp sự cố" in txt and "Không đọc được file" in txt   # (4) sự cố
     assert "AI hỗ trợ" in txt                                    # minh bạch AI
 
 
@@ -37,8 +39,10 @@ def test_format_help_text_optional_support_contact():
 
 def test_help_sections_structured_for_web():
     s = help_sections()
-    assert {"usage", "trouble"} <= s.keys()
-    assert all(len(row) == 3 for row in s["usage"] + s["trouble"])  # (icon, title, desc)
+    assert {"intro", "features", "usage", "trouble"} <= s.keys()
+    assert isinstance(s["intro"], str) and s["intro"]
+    assert all(len(row) == 3 for row in s["features"] + s["usage"] + s["trouble"])  # (icon, title, desc)
+    assert len(s["features"]) >= 6                                   # danh sách chức năng đầy đủ
 
 
 def test_web_help_endpoint_renders_guide(tmp_path):
@@ -53,5 +57,5 @@ def test_web_help_endpoint_renders_guide(tmp_path):
     r = client.get("/help")
     assert r.status_code == 200
     body = r.text
-    assert "Hướng dẫn" in body and "Gặp sự cố" in body
+    assert "Giới thiệu" in body and "Chức năng chính" in body and "Gặp sự cố" in body
     assert "Rà soát hợp đồng" in body
