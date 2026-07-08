@@ -1,5 +1,5 @@
 {
-  "note": "DN 76/2025 GOLDEN CANDIDATES — kiểm nội dung OCR (chủ sở hữu hưởng lợi) có RETRIEVE + trả lời đúng không, đồng thời chuẩn bị để LUẬT SƯ verify. AI-draft đáp án từ VĂN BẢN THẬT trong KB (luat_doanh_nghiep_76_2025_sua_doi.md, nguồn OCR Công báo CP — CHƯA luật sư đối chiếu số). KHÔNG merge vào accuracy_golden.json + KHÔNG dùng /trust tới khi (1) luật sư verify nội dung OCR, (2) duyệt đáp án. must_cite='76_2025' buộc hệ dẫn ĐÚNG luật sửa đổi (khái niệm chủ sở hữu hưởng lợi CHỈ có ở 76/2025). KẾT QUẢ ĐO (8/7, dev): 5/5=100% (repeat=3, flaky=0, dẫn-nguồn ✓ + dữ-kiện ✓) → XÁC NHẬN nội dung OCR retrieve + trả lời đúng end-to-end; CÒN LẠI = luật sư đối chiếu số OCR + duyệt đáp án trước merge (54→59). Chạy thử: uv run python -m evaluation.accuracy_eval --no-write --golden=evaluation/golden_candidates_DN76.json",
+  "note": "DN 76/2025 GOLDEN CANDIDATES — kiểm nội dung OCR (chủ sở hữu hưởng lợi) có RETRIEVE + trả lời đúng không, đồng thời chuẩn bị để LUẬT SƯ verify. AI-draft đáp án từ VĂN BẢN THẬT trong KB (luat_doanh_nghiep_76_2025_sua_doi.md, nguồn OCR Công báo CP — CHƯA luật sư đối chiếu số). KHÔNG merge vào accuracy_golden.json + KHÔNG dùng /trust tới khi (1) luật sư verify nội dung OCR, (2) duyệt đáp án. must_cite='76_2025' buộc hệ dẫn ĐÚNG luật sửa đổi (khái niệm chủ sở hữu hưởng lợi CHỈ có ở 76/2025). KẾT QUẢ ĐO (8/7, dev): 5/5=100% (repeat=3, flaky=0, dẫn-nguồn ✓ + dữ-kiện ✓) → XÁC NHẬN nội dung OCR retrieve + trả lời đúng end-to-end; CÒN LẠI = luật sư đối chiếu số OCR + duyệt đáp án trước merge (54→59). Chạy thử: uv run python -m evaluation.accuracy_eval --no-write --golden=evaluation/golden_candidates_DN76.json [CẬP NHẬT 8/7 sau pilot VBHN: must_cite 76_2025→doanh_nghiep vì kiến trúc A (VBHN 67 THAY cặp cũ) → citation là luật HỢP NHẤT, không phải luật sửa đổi. Nội dung chủ-sở-hữu-hưởng-lợi retrieve+trả lời ĐÚNG trong VBHN (dữ-kiện ✓ cả 5 khi đo).]",
   "cases": [
     {
       "category": "Doanh nghiệp (Luật DN 2020 sửa bởi 76/2025)",
@@ -8,7 +8,7 @@
       "expected": "Doanh nghiệp có nghĩa vụ thu thập, cập nhật, lưu giữ thông tin về chủ sở hữu hưởng lợi của doanh nghiệp; và cung cấp thông tin cho cơ quan nhà nước có thẩm quyền để xác định chủ sở hữu hưởng lợi khi được yêu cầu (khoản 5a Điều 8 Luật Doanh nghiệp, bổ sung bởi Luật 76/2025).",
       "basis": "Khoản 5a Điều 8 Luật DN (bổ sung bởi Luật 76/2025/QH15)",
       "must_cite": [
-        "76_2025"
+        "doanh_nghiep"
       ],
       "must_say": [
         "thu thập|cập nhật|lưu giữ",
@@ -25,7 +25,7 @@
       "expected": "Có — hồ sơ đăng ký doanh nghiệp gồm danh sách chủ sở hữu hưởng lợi của doanh nghiệp (nếu có), theo các Điều 20, 21, 22 Luật Doanh nghiệp sửa đổi bởi Luật 76/2025.",
       "basis": "Khoản 3 Điều 20/21/22 Luật DN (sửa bởi Luật 76/2025/QH15)",
       "must_cite": [
-        "76_2025"
+        "doanh_nghiep"
       ],
       "must_say": [
         "chủ sở hữu hưởng lợi",
@@ -42,7 +42,7 @@
       "expected": "Có — danh sách chủ sở hữu hưởng lợi của doanh nghiệp (nếu có) là tài liệu doanh nghiệp phải lưu giữ (điểm h khoản 1 Điều 11 Luật Doanh nghiệp, bổ sung bởi Luật 76/2025).",
       "basis": "Điểm h khoản 1 Điều 11 Luật DN (bổ sung bởi Luật 76/2025/QH15)",
       "must_cite": [
-        "76_2025"
+        "doanh_nghiep"
       ],
       "must_say": [
         "chủ sở hữu hưởng lợi",
@@ -59,7 +59,7 @@
       "expected": "Có — doanh nghiệp có nghĩa vụ cung cấp thông tin cho cơ quan nhà nước có thẩm quyền để xác định chủ sở hữu hưởng lợi khi được yêu cầu (khoản 5a Điều 8 Luật Doanh nghiệp, bổ sung bởi Luật 76/2025).",
       "basis": "Khoản 5a Điều 8 Luật DN (bổ sung bởi Luật 76/2025/QH15)",
       "must_cite": [
-        "76_2025"
+        "doanh_nghiep"
       ],
       "must_say": [
         "nghĩa vụ|bắt buộc|phải cung cấp|có",
