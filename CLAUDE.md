@@ -308,9 +308,13 @@ nghiệp·SHTT·PDPD·hôn nhân-GĐ·đất đai·đầu tư·**xây dựng**).
 50/2014, 162 điều, eval-gated `--repeat=3` = 54/54 không regression + vá over-reach câu giấy phép XD).
 **Đợt vá KB-stale 8/7 (DEV-ONLY, prod đóng băng judging)**: rà front-matter → 3 file stale → ingest luật
 SỬA ĐỔI qua amendment-graph, gate 54/54 no-regress: **XD 62/2020** (sửa 50/2014, amends_articles Đ.89/107) ·
-**SHTT 131/2025** (sửa 50/2005) · **DN 76/2025** (sửa 59/2020, chủ sở hữu hưởng lợi Đ.4/8/11 — ⚠️ **OCR
-Công báo CP, CHƯA luật sư verify số, KHÔNG deploy tới khi đối chiếu bản gốc**; mirror rỗng VB 2025). NĐ63
-trọng tài (124/2018/112/2025/18/2026) = CHỦ ĐÍCH chưa nạp (chỉ TTHC, ghi stale_note). Golden vẫn 54 ca
+**SHTT 131/2025** (sửa 50/2005) · **SHTT 131/2025** (sửa 50/2005). NĐ63
+trọng tài (124/2018/112/2025/18/2026) = CHỦ ĐÍCH chưa nạp (chỉ TTHC, ghi stale_note). **VBHN-first (8/7,
+`docs/internal/vbhn-plan.md`)**: nguồn KB thế hệ 2 = văn bản HỢP NHẤT chính thức VPQH (congbaocdn.chinhphu.vn
+PDF text sạch, KHÔNG OCR). Audit 13 domain → phát hiện **PDPD NĐ 13/2023 = luật CHẾT** (bị 91/2025+NĐ356/2025
+thay 1/1/2026) + TTTM/HNGĐ bị 81/2025 sửa (front-matter nguồn MÙ). **PILOT DN XONG (commit 0889a4a)**: VBHN
+67/VBHN-VPQH (218 điều, hợp nhất 59/2020+03/2022+76/2025) THAY cặp 59/2020+76/2025-OCR → gate 54/54 flaky=0 +
+DN76 candidates 5/5; DN cũ (OCR) đã bỏ, VBHN là nguồn chính thức tốt hơn. Golden vẫn 54 ca
 (`evaluation/accuracy_golden.json`; candidate chờ merge HẬU judging = 5 Xây dựng `golden_candidates_B1.json` +
 5 DN 76/2025 `golden_candidates_DN76.json` (đo dev 5/5, chủ sở hữu hưởng lợi) = **+10 → 54→64**),
 **accuracy THẬT ~98% (53-54/54)** đo với config closure+rerank (`accuracy_report.json` → `/trust`). Đợt nâng
@@ -324,7 +328,7 @@ stochastic** (rerank API + judge + answer không byte-deterministic ngay ở tem
 là NHIỄU ĐO không phải regression. **Đã thử + BỎ**: tuning cổng relevance (whack-a-mole, regress ca khác);
 per-snippet judge-filter (50/54); PageIndex tree-nav spike (`docs/internal/pageindex-research-plan.md` §4b:
 52/54 vs hybrid 54/54, thua point-in-time — NO-GO cho KB hiện tại, revisit khi corpus lớn). **Vượt trần** cần
-reranker tốt hơn (self-host AITeamVN/GPU) hoặc domain-aware/paradigm khác. KB ~2.7MB/20 file →
+reranker tốt hơn (self-host AITeamVN/GPU) hoặc domain-aware/paradigm khác. KB ~3.0MB/19 file (DN chuyển sang VBHN 67 full-luật) →
 `PERSIST_EMBEDDINGS=1` bắt buộc; pgvector khi corpus rất lớn.
 
 **TT-SAR** (`TemporalTypedRerankRetriever`, `TT_SAR_RERANK` opt-in OFF): rerank đồ-thị lan truyền điểm theo
