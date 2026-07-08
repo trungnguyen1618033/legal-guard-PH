@@ -596,6 +596,15 @@ def test_distinct_resend_after_reply_keeps_both_turns():
     assert [m["role"] for m in conv.history] == ["user", "assistant", "user", "assistant"]
 
 
+def _retry_id_from_blocks(blocks):
+    for b in blocks or []:
+        if b.get("type") == "actions":
+            for el in b["elements"]:
+                if el.get("action_id") == "retry_run":
+                    return json.loads(el["value"])["k"]
+    return None
+
+
 # ---- Phase 1: nút 🔁 Thử lại khi lỗi (Slack) ----
 def test_retry_store_ttl_and_pop_once(monkeypatch):
     from legalguard.adapters.inbound import channels as ch
@@ -615,9 +624,10 @@ def test_process_failure_offers_retry_button():
     s = _FakeSender()
     _process(h, s, "slack:C1:r1", "C1", "Mức phạt vi phạm hợp đồng tối đa?",
              None, None, "t1", 10 * 1024 * 1024, True)
-    acts = [b for b in (s.blocks or []) if b.get("type") == "actions"]
-    assert any(el["action_id"] == "retry_run" for b in acts for el in b["elements"])   # có nút 🔁
-    assert _retry_store.pop("slack:C1:r1") is not None          # payload gốc đã lưu
+    rid = _retry_id_from_blocks(s.blocks)                       # retry_id = uuid trong value nút
+    assert rid                                                  # có nút 🔁
+    payload = _retry_store.pop(rid)
+    assert payload and payload[0] == "slack:C1:r1"             # payload lưu conv_key ĐẦU (để _process dùng đúng)
 
 
 def test_zalo_failure_no_retry_button_unchanged():
@@ -634,8 +644,8 @@ def test_interactions_retry_spawns_process():
     from legalguard.adapters.inbound.channels import _retry_store
     sender = _FakeSender()
     c = _client(slack="s", slack_sender=sender)
-    _retry_store.put("slack:C1:r2", ("C1", "Mức phạt vi phạm hợp đồng tối đa?", None, None, "t2"))
-    r = _slack_interaction(c, "s", "retry_run", json.dumps({"k": "slack:C1:r2"}))
+    _retry_store.put("rid-r2", ("slack:C1:r2", "C1", "Mức phạt vi phạm hợp đồng tối đa?", None, None, "t2"))
+    r = _slack_interaction(c, "s", "retry_run", json.dumps({"k": "rid-r2"}))
     assert r.status_code == 200 and "Đang thử lại" in r.json()["text"]
     assert sender.sent                                          # background _process đã chạy + gửi reply
 
@@ -705,9 +715,10 @@ def test_file_download_failure_offers_retry():
     s = _BoomSender()
     _process(_handler(), s, "slack:C1:dl", "C1", "", "https://files/x", "hd.pdf",
              "t", 10 * 1024 * 1024, True)
-    acts = [b for b in (s.blocks or []) if b.get("type") == "actions"]
-    assert any(el["action_id"] == "retry_run" for b in acts for el in b["elements"])   # có nút 🔁
-    assert _retry_store.pop("slack:C1:dl") is not None                                  # payload đã lưu
+    rid = _retry_id_from_blocks(s.blocks)
+    assert rid                                                                          # có nút 🔁
+    payload = _retry_store.pop(rid)
+    assert payload and payload[0] == "slack:C1:dl" and payload[3] == "https://files/x"  # conv_key + file_url lưu
     assert "không tải được" in s.sent[-1][1]
 
 
@@ -716,3 +727,28 @@ def test_file_too_large_no_retry_button():
     s = _FakeSender(file_bytes=b"x" * 4096)          # 4KB > max 1KB
     _process(_handler(), s, "slack:C1:big", "C1", "", "https://files/x", "hd.pdf", "t", 1024, True)
     assert s.blocks is None and "quá lớn" in s.sent[-1][1]   # lỗi cố định → KHÔNG nút thử lại
+
+
+# ---- Review fixes: follow-up không lặp câu hỏi (persist-first) + retry_id riêng mỗi lỗi ----
+def test_followup_prompt_does_not_duplicate_current_question():
+    h = _handler()
+    h.reply("cFU", text=MSG)                                  # analyze → set context (deal)
+    cap = {}
+    h.service.reasoner.complete = lambda p, *a, **k: cap.setdefault("p", p) or "ok"
+    q = "Nếu đối tác từ chối thì mình nên làm gì?"            # follow-up (không lookup/counter)
+    h.reply_ex("cFU", text=q)
+    assert "p" in cap and cap["p"].count(q) == 1              # câu hỏi hiện tại CHỈ 1 lần (không lặp trong hist)
+
+
+def test_two_failures_same_thread_distinct_retry_ids():
+    from legalguard.adapters.inbound.channels import _process, _retry_store
+    h = _handler()
+    h.reply_ex = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x"))
+    key = "slack:C1:th"
+    s1, s2 = _FakeSender(), _FakeSender()
+    _process(h, s1, key, "C1", "Mức phạt vi phạm hợp đồng A?", None, None, "th", 10 * 1024 * 1024, True)
+    _process(h, s2, key, "C1", "Mức phạt vi phạm hợp đồng B?", None, None, "th", 10 * 1024 * 1024, True)
+    rid1, rid2 = _retry_id_from_blocks(s1.blocks), _retry_id_from_blocks(s2.blocks)
+    assert rid1 and rid2 and rid1 != rid2                     # 2 lỗi cùng thread → retry_id RIÊNG (không ghi đè)
+    p1, p2 = _retry_store.pop(rid1), _retry_store.pop(rid2)
+    assert p1[2] == "Mức phạt vi phạm hợp đồng A?" and p2[2] == "Mức phạt vi phạm hợp đồng B?"

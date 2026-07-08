@@ -312,7 +312,10 @@ class ChatHandler:
         return format_negotiation_reply(r, lang)
 
     def _followup(self, conv: Conversation, question: str, lang: str) -> str:
-        hist = "\n".join(f"{m['role']}: {m['content']}" for m in conv.recent(6))
+        # BỎ turn cuối = câu hỏi HIỆN TẠI (persist-first đã append TRƯỚC _handle) — nếu không, câu hỏi
+        # lặp 2 lần trong prompt (bản redact trong hist + bản raw ở "Câu hỏi tiếp"). Khôi phục hành vi
+        # trước persist-first (khi ấy history CHƯA có turn hiện tại).
+        hist = "\n".join(f"{m['role']}: {m['content']}" for m in conv.history[:-1][-6:])
         tail = ", tiếng Việt." if lang == "vi" else ", in English."
         prompt = (f"Bối cảnh rà soát hợp đồng:\n{conv.context}\n\nLịch sử hội thoại:\n{hist}\n\n"
                   f"Câu hỏi tiếp của khách: {question}\nTrả lời CHUYÊN NGHIỆP, súc tích, đi thẳng vấn đề" + tail)
@@ -392,20 +395,25 @@ _RETRY_MAX = 200
 
 
 class _RetryStore:
+    # Lock: `put`/`pop` gọi từ NHIỀU thread (BackgroundTasks chạy threadpool). Không lock → prune iterate
+    # dict trong khi thread khác mutate = RuntimeError "dict changed size" (đúng lúc bão lỗi cần nút nhất).
     def __init__(self) -> None:
         self._items: dict[str, tuple[float, tuple]] = {}
+        self._lock = threading.Lock()
 
-    def put(self, key: str, payload: tuple) -> None:
+    def put(self, retry_id: str, payload: tuple) -> None:
         now = time.monotonic()
-        if len(self._items) >= _RETRY_MAX:               # prune hết-hạn trước, rồi evict cũ nhất
-            for k in [k for k, (t, _) in self._items.items() if now - t > _RETRY_TTL]:
-                self._items.pop(k, None)
-            while len(self._items) >= _RETRY_MAX:
-                self._items.pop(next(iter(self._items)), None)
-        self._items[key] = (now, payload)
+        with self._lock:
+            if len(self._items) >= _RETRY_MAX:           # prune hết-hạn trước, rồi evict cũ nhất
+                for k in [k for k, (t, _) in self._items.items() if now - t > _RETRY_TTL]:
+                    self._items.pop(k, None)
+                while len(self._items) >= _RETRY_MAX:
+                    self._items.pop(next(iter(self._items)), None)
+            self._items[retry_id] = (now, payload)
 
-    def pop(self, key: str) -> tuple | None:
-        item = self._items.pop(key, None)
+    def pop(self, retry_id: str) -> tuple | None:
+        with self._lock:
+            item = self._items.pop(retry_id, None)
         if item is None or time.monotonic() - item[0] > _RETRY_TTL:
             return None
         return item[1]
@@ -414,22 +422,24 @@ class _RetryStore:
 _retry_store = _RetryStore()
 
 
-def _retry_blocks(key: str) -> list[dict]:
-    val = json.dumps({"k": key[:300]}, ensure_ascii=False)
+def _retry_blocks(retry_id: str) -> list[dict]:
+    val = json.dumps({"k": retry_id}, ensure_ascii=False)   # retry_id = uuid ngắn, không cần cắt
     return [{"type": "actions", "block_id": "lg_retry", "elements": [
         {"type": "button", "text": {"type": "plain_text", "text": "🔁 Thử lại", "emoji": True},
          "action_id": "retry_run", "value": val, "style": "primary"}]}]
 
 
-def _send_error_with_retry(sender: ChatSenderPort, send_to: str, key: str, payload: tuple,
+def _send_error_with_retry(sender: ChatSenderPort, send_to: str, conv_key: str, payload: tuple,
                            thread_ts: str | None, msg: str, supports_buttons: bool) -> None:
     """Gửi tin lỗi kèm nút 🔁 (Slack) — lưu payload gốc để chạy lại. Dùng cho MỌI lỗi retry-được
     (tải file lỗi tạm thời, lỗi xử lý). Không hỗ trợ nút (Zalo) → gửi text thường. CHỈ dùng cho lỗi
-    TẠM THỜI (đáng thử lại), KHÔNG dùng cho lỗi user-cố-định (vd file quá lớn — thử lại vô ích)."""
+    TẠM THỜI (đáng thử lại), KHÔNG dùng cho lỗi user-cố-định (vd file quá lớn — thử lại vô ích).
+    Mỗi lần lỗi = 1 retry_id RIÊNG (uuid) → 2 lỗi cùng thread không ghi đè nhau; payload mang conv_key."""
     blocks = None
     if supports_buttons:
-        _retry_store.put(key, payload)
-        blocks = [*_mrkdwn_blocks(msg), *_retry_blocks(key)]
+        retry_id = uuid.uuid4().hex
+        _retry_store.put(retry_id, payload)
+        blocks = [*_mrkdwn_blocks(msg), *_retry_blocks(retry_id)]
     _safe_send(sender, send_to, msg, thread_ts, blocks)
 
 
@@ -520,7 +530,7 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         except Exception:  # noqa: BLE001 — tải file lỗi TẠM THỜI (mạng…) → nút 🔁 chạy lại, khỏi gửi lại
             _log.exception("Không tải được file đính kèm (%s)", key)
             _send_error_with_retry(sender, send_to, key,
-                                   (send_to, text, file_url, filename, thread_ts), thread_ts,
+                                   (key, send_to, text, file_url, filename, thread_ts), thread_ts,
                                    "Xin lỗi, không tải được file đính kèm. Vui lòng thử lại.",
                                    supports_buttons)
             return
@@ -541,7 +551,7 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
     except Exception:  # noqa: BLE001 — task nền: lỗi bất ngờ → vẫn báo khách kèm nút 🔁, không sập im lặng
         _log.exception("Lỗi xử lý tin nhắn (%s)", key)
         _send_error_with_retry(sender, send_to, key,
-                               (send_to, text, file_url, filename, thread_ts), thread_ts,
+                               (key, send_to, text, file_url, filename, thread_ts), thread_ts,
                                "Xin lỗi, có lỗi khi xử lý. Vui lòng thử lại.", supports_buttons)
         return
     _safe_send(sender, send_to, reply, thread_ts, blocks)
@@ -565,6 +575,18 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
     # `message` lẫn `app_mention` cho cùng 1 tin — event đến trước xử lý, event sau bỏ.
     # In-process (đủ cho 1 worker; đa instance cần Redis — cùng giới hạn như rate limiter).
     seen_events: dict[tuple, float] = {}
+
+    def _seen_dup(dkey: tuple) -> bool:
+        """True nếu event đã xử lý (dedup); else ghi nhận + prune. Dùng CHUNG nhánh message + edit
+        (nếu prune chỉ ở 1 nhánh → nhánh kia làm seen_events phình vô hạn)."""
+        if dkey in seen_events:
+            return True
+        seen_events[dkey] = time.monotonic()
+        if len(seen_events) > 500:                      # prune entry cũ (>10 phút)
+            cutoff = time.monotonic() - 600
+            for k in [k for k, t in seen_events.items() if t < cutoff]:
+                del seen_events[k]
+        return False
 
     if slack_signing_secret:
         @router.post("/channels/slack/events")
@@ -599,10 +621,8 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                     return {"ok": True}
                 ch2 = event.get("channel", "")
                 edit_ts = (inner.get("edited") or {}).get("ts") or event.get("event_ts") or ""
-                dkey = (ch2, inner.get("ts", ""), edit_ts)   # tin sửa GIỮ ts gốc → khóa 3 phần
-                if dkey in seen_events:
+                if _seen_dup((ch2, inner.get("ts", ""), edit_ts)):   # khóa 3 phần (tin sửa GIỮ ts gốc)
                     return {"ok": True}
-                seen_events[dkey] = time.monotonic()
                 th2 = inner.get("thread_ts") or inner.get("ts")
                 if slack_sender and slack_sender.available:
                     background.add_task(_process, handler, slack_sender,
@@ -618,14 +638,8 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             # Dedup theo (channel, ts) — KHÔNG dedup theo loại event: event `message` chắc chắn
             # mang `files`, còn `app_mention` không đảm bảo → event nào tới trước thì xử lý.
             ts = event.get("ts") or event.get("event_ts") or ""
-            if ts:
-                if (channel, ts) in seen_events:
-                    return {"ok": True}
-                seen_events[(channel, ts)] = time.monotonic()
-                if len(seen_events) > 500:                  # prune entry cũ (>10 phút)
-                    cutoff = time.monotonic() - 600
-                    for k in [k for k, t in seen_events.items() if t < cutoff]:
-                        del seen_events[k]
+            if ts and _seen_dup((channel, ts)):
+                return {"ok": True}
             text = event.get("text", "")
             # Bóc tag @bot khỏi nội dung (user ID bot có sẵn trong payload `authorizations`).
             bot_uid = ((payload.get("authorizations") or [{}])[0]).get("user_id") or ""
@@ -671,11 +685,11 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
 
             if aid == "retry_run":                 # nút 🔁 THỬ LẠI sau lỗi → chạy lại payload đã lưu
                 payload_r = _retry_store.pop(ctx.get("k", ""))   # pop = one-shot (double-click lần 2 → hết hạn)
-                if payload_r is None:
+                if payload_r is None or not (slack_sender and slack_sender.available):
                     return {"replace_original": True,
                             "text": "⏳ Hết hạn thử lại — vui lòng gửi lại tin nhắn giúp mình."}
-                send_to, r_text, r_url, r_fn, r_thread = payload_r
-                background.add_task(_process, handler, slack_sender, ctx.get("k", ""), send_to,
+                conv_key, send_to, r_text, r_url, r_fn, r_thread = payload_r   # conv_key riêng với retry_id
+                background.add_task(_process, handler, slack_sender, conv_key, send_to,
                                     r_text, r_url, r_fn, r_thread, max_upload_bytes, True)
                 return {"replace_original": True, "text": "🔁 Đang thử lại — kết quả sẽ trả vào thread…"}
 
