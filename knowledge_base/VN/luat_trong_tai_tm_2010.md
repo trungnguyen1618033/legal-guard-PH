@@ -10,6 +10,8 @@ guides: Không số
 guided_by: 63/2011/NĐ-CP; 12/2012/TT-BTP; 19/2011/QH13
 replaces: 08/2003/PL-UBTVQH11
 based_on: Không số
+amended_by: 81/2025/QH15
+stale_note: PHÁT HIỆN 8/7/2026 qua audit VBHN (front-matter nguồn KHÔNG có cạnh này — blind spot audit metadata) — Luật 81/2025/QH15 (24/6/2025, hiệu lực 1/7/2025, luật sửa Luật Tổ chức TAND theo tái cấu trúc tòa án bỏ cấp huyện) CÓ sửa Luật TTTM ở các điều tham chiếu "tòa án có thẩm quyền" (khối Đ.7 và liên quan). VBHN 60/VBHN-VPQH (hợp nhất chính thức) đã ban hành — ưu tiên nạp VBHN thay ghép tay. Nội dung LÕI use-case (Đ.6 từ chối thụ lý, Đ.19 độc lập thỏa thuận trọng tài) đánh giá sơ bộ KHÔNG thuộc khối bị sửa, NHƯNG chưa đối chiếu điều-theo-điều → câu về TÒA ÁN thẩm quyền với trọng tài có thể trả theo cơ cấu tòa CŨ. Verify khi nạp VBHN 60.
 source: th1nhng0/vietnamese-legal-documents (vbpl.vn, CC BY 4.0) — auto-ingest, CẦN luật sư duyệt
 ---
 Trọng tài thương mại — 54/2010/QH12. Trạng thái: Còn hiệu lực.
