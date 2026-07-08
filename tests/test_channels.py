@@ -694,3 +694,25 @@ def test_edit_dedup_same_edited_ts():
     _slack_post(c, "s", ev)                                           # cùng edited.ts → chỉ xử lý 1 lần
     reruns = [t for _, t in sender.sent if t.startswith("🔄")]        # đếm REPLY rerun (bỏ ack "🔎")
     assert len(reruns) == 1
+
+
+# ---- Cải tiến: nút 🔁 cho lỗi TẢI FILE (transient); file quá lớn KHÔNG nút (thử lại vô ích) ----
+def test_file_download_failure_offers_retry():
+    from legalguard.adapters.inbound.channels import _process, _retry_store
+    class _BoomSender(_FakeSender):
+        def download(self, url):
+            raise RuntimeError("net down")
+    s = _BoomSender()
+    _process(_handler(), s, "slack:C1:dl", "C1", "", "https://files/x", "hd.pdf",
+             "t", 10 * 1024 * 1024, True)
+    acts = [b for b in (s.blocks or []) if b.get("type") == "actions"]
+    assert any(el["action_id"] == "retry_run" for b in acts for el in b["elements"])   # có nút 🔁
+    assert _retry_store.pop("slack:C1:dl") is not None                                  # payload đã lưu
+    assert "không tải được" in s.sent[-1][1]
+
+
+def test_file_too_large_no_retry_button():
+    from legalguard.adapters.inbound.channels import _process
+    s = _FakeSender(file_bytes=b"x" * 4096)          # 4KB > max 1KB
+    _process(_handler(), s, "slack:C1:big", "C1", "", "https://files/x", "hd.pdf", "t", 1024, True)
+    assert s.blocks is None and "quá lớn" in s.sent[-1][1]   # lỗi cố định → KHÔNG nút thử lại

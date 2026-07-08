@@ -421,6 +421,18 @@ def _retry_blocks(key: str) -> list[dict]:
          "action_id": "retry_run", "value": val, "style": "primary"}]}]
 
 
+def _send_error_with_retry(sender: ChatSenderPort, send_to: str, key: str, payload: tuple,
+                           thread_ts: str | None, msg: str, supports_buttons: bool) -> None:
+    """Gửi tin lỗi kèm nút 🔁 (Slack) — lưu payload gốc để chạy lại. Dùng cho MỌI lỗi retry-được
+    (tải file lỗi tạm thời, lỗi xử lý). Không hỗ trợ nút (Zalo) → gửi text thường. CHỈ dùng cho lỗi
+    TẠM THỜI (đáng thử lại), KHÔNG dùng cho lỗi user-cố-định (vd file quá lớn — thử lại vô ích)."""
+    blocks = None
+    if supports_buttons:
+        _retry_store.put(key, payload)
+        blocks = [*_mrkdwn_blocks(msg), *_retry_blocks(key)]
+    _safe_send(sender, send_to, msg, thread_ts, blocks)
+
+
 # Nút GHI KẾT QUẢ đàm phán (flywheel) — chỉ gắn cho reply phân tích có case_id. value mang case_id.
 _OC_RESULT = {"oc_accepted": "accepted", "oc_partial": "partial", "oc_rejected": "rejected"}
 
@@ -505,12 +517,14 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
     if file_url:
         try:
             attachment = sender.download(file_url)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001 — tải file lỗi TẠM THỜI (mạng…) → nút 🔁 chạy lại, khỏi gửi lại
             _log.exception("Không tải được file đính kèm (%s)", key)
-            _safe_send(sender, send_to, "Xin lỗi, không tải được file đính kèm. "
-                                        "Vui lòng gửi lại.", thread_ts)
+            _send_error_with_retry(sender, send_to, key,
+                                   (send_to, text, file_url, filename, thread_ts), thread_ts,
+                                   "Xin lỗi, không tải được file đính kèm. Vui lòng thử lại.",
+                                   supports_buttons)
             return
-        if attachment and len(attachment) > max_bytes:
+        if attachment and len(attachment) > max_bytes:      # lỗi user CỐ ĐỊNH → KHÔNG nút (thử lại vô ích)
             _safe_send(sender, send_to,
                        f"File quá lớn (>{max_bytes // (1024 * 1024)}MB). "
                        "Vui lòng gửi bản gọn hơn.", thread_ts)
@@ -524,12 +538,12 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
             blocks = [*_mrkdwn_blocks(reply), *_feedback_blocks(res.kind, res.ref)]
             if res.kind == "analysis" and res.ref:  # reply phân tích (có case_id) → thêm nút ghi kết quả
                 blocks += _outcome_blocks(res.ref)
-    except Exception:  # noqa: BLE001 — task nền: lỗi bất ngờ → vẫn báo khách, không sập im lặng
+    except Exception:  # noqa: BLE001 — task nền: lỗi bất ngờ → vẫn báo khách kèm nút 🔁, không sập im lặng
         _log.exception("Lỗi xử lý tin nhắn (%s)", key)
-        reply = "Xin lỗi, có lỗi khi xử lý. Vui lòng thử lại sau."
-        if supports_buttons:                       # Slack: lưu payload gốc → nút 🔁 chạy lại, khỏi gõ lại
-            _retry_store.put(key, (send_to, text, file_url, filename, thread_ts))
-            blocks = [*_mrkdwn_blocks(reply), *_retry_blocks(key)]
+        _send_error_with_retry(sender, send_to, key,
+                               (send_to, text, file_url, filename, thread_ts), thread_ts,
+                               "Xin lỗi, có lỗi khi xử lý. Vui lòng thử lại.", supports_buttons)
+        return
     _safe_send(sender, send_to, reply, thread_ts, blocks)
 
 
