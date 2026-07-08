@@ -85,6 +85,16 @@ _TRUST_RE = re.compile(
 
 def _is_trust_query(text: str) -> bool:
     return bool(text and _TRUST_RE.search(text))
+
+
+# Meta: người dùng xin HƯỚNG DẪN dùng / trợ giúp → trả bảng hướng dẫn + gỡ sự cố.
+_HELP_RE = re.compile(
+    r"^\s*(help|/help|trợ giúp|tro giup|hướng dẫn|huong dan|dùng thế nào|dùng sao|"
+    r"how to use|hỗ trợ|bắt đầu thế nào|làm sao dùng|có gì)\b", re.IGNORECASE)
+
+
+def _is_help_query(text: str) -> bool:
+    return bool(text and _HELP_RE.search(text.strip()))
 _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ N lượt gần
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
@@ -227,6 +237,9 @@ class ChatHandler:
 
     def _handle(self, conv: Conversation, text, attachment, filename, lang) -> ChatReply:
         org = default_org(self.default_tenant)
+        if attachment is None and _is_help_query(text or ""):      # xin hướng dẫn / trợ giúp → bảng help
+            from legalguard.domain.help import format_help_text
+            return ChatReply(format_help_text("slack"))
         if attachment is None and _is_trust_query(text or ""):     # meta-câu-hỏi về độ tin cậy → công bố
             from legalguard.domain.trust import format_trust_text
             return ChatReply(format_trust_text())

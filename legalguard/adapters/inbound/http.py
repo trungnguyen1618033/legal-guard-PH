@@ -239,6 +239,38 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         from legalguard.domain.trust import trust_report
         return trust_report()
 
+    @app.get("/help", response_class=HTMLResponse)
+    def help_page():
+        # HƯỚNG DẪN sử dụng + xử lý sự cố (web) — cùng nguồn `domain/help.py` với Slack (_is_help_query).
+        from html import escape
+
+        from legalguard.domain.help import help_sections
+        s = help_sections()
+
+        def block(title: str, items: list) -> str:
+            rows = "".join(
+                f'<div class="row"><span class="ic">{escape(i)}</span>'
+                f'<div><b>{escape(t)}</b><p>{escape(d)}</p></div></div>'
+                for i, t, d in items)
+            return f"<h2>{escape(title)}</h2>{rows}"
+
+        html = f"""<!doctype html><html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Legal Guard — Hướng dẫn &amp; Sự cố</title>
+<style>body{{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:0 auto;
+padding:24px;line-height:1.55;color:#1a1a2e}}h1{{font-size:1.5rem}}h2{{font-size:1.1rem;margin-top:1.6rem;
+border-top:1px solid #eee;padding-top:1rem}}.row{{display:flex;gap:12px;margin:.8rem 0}}.ic{{font-size:1.4rem;
+flex:0 0 1.6rem}}p{{margin:.2rem 0;color:#333}}nav a{{margin-right:14px}}.note{{color:#666;font-size:.9rem;
+margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body>
+<nav><a href="/app">Rà soát</a><a href="/lookup">Tra cứu</a><a href="/trust">Độ tin cậy</a></nav>
+<h1>🤝 Legal Guard — Hướng dẫn nhanh</h1>
+{block("Dùng để làm gì", s["usage"])}
+{block("Gặp sự cố", s["trouble"])}
+<p class="note">🤖 AI hỗ trợ — không thay thế tư vấn pháp lý chính thức. Trên Slack/Zalo: gõ
+<b>help</b> để xem hướng dẫn này.</p>
+</body></html>"""
+        return HTMLResponse(html)
+
     @app.get("/health")
     def health() -> dict:           # liveness
         return service.health()
