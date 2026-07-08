@@ -311,8 +311,8 @@ SỬA ĐỔI qua amendment-graph, gate 54/54 no-regress: **XD 62/2020** (sửa 5
 **SHTT 131/2025** (sửa 50/2005) · **DN 76/2025** (sửa 59/2020, chủ sở hữu hưởng lợi Đ.4/8/11 — ⚠️ **OCR
 Công báo CP, CHƯA luật sư verify số, KHÔNG deploy tới khi đối chiếu bản gốc**; mirror rỗng VB 2025). NĐ63
 trọng tài (124/2018/112/2025/18/2026) = CHỦ ĐÍCH chưa nạp (chỉ TTHC, ghi stale_note). Golden vẫn 54 ca
-(`evaluation/accuracy_golden.json`; 5 candidate Xây dựng `golden_candidates_B1.json` DUYỆT, chờ merge 54→59
-HẬU judging),
+(`evaluation/accuracy_golden.json`; candidate chờ merge HẬU judging = 5 Xây dựng `golden_candidates_B1.json` +
+5 DN 76/2025 `golden_candidates_DN76.json` (đo dev 5/5, chủ sở hữu hưởng lợi) = **+10 → 54→64**),
 **accuracy THẬT ~98% (53-54/54)** đo với config closure+rerank (`accuracy_report.json` → `/trust`). Đợt nâng
 cấp 1/7/2026 (`docs/internal/qwen-tech-upgrades.md`): baseline thực 87% → **98.1%** nhờ (1) **fix moat-overlay
 đè điều luật ở /lookup** — `OverlayRetriever` fuse RRF thay vì prepend + `/lookup` dùng `for_org(overlay=False)`
