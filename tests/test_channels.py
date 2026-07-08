@@ -594,3 +594,53 @@ def test_distinct_resend_after_reply_keeps_both_turns():
     h.reply_ex("slack:c:p0c", text=msg)
     conv = h.store.get("slack:c:p0c")
     assert [m["role"] for m in conv.history] == ["user", "assistant", "user", "assistant"]
+
+
+# ---- Phase 1: nút 🔁 Thử lại khi lỗi (Slack) ----
+def test_retry_store_ttl_and_pop_once(monkeypatch):
+    from legalguard.adapters.inbound import channels as ch
+    store = ch._RetryStore()
+    store.put("k", ("to", "txt", None, None, "th"))
+    assert store.pop("k") == ("to", "txt", None, None, "th")   # lấy đúng payload
+    assert store.pop("k") is None                               # one-shot (đã pop)
+    store.put("k2", ("to", "txt", None, None, "th"))
+    monkeypatch.setattr(ch.time, "monotonic", lambda: 10 ** 9)  # nhảy quá TTL
+    assert store.pop("k2") is None                              # hết hạn → None
+
+
+def test_process_failure_offers_retry_button():
+    from legalguard.adapters.inbound.channels import _process, _retry_store
+    h = _handler()
+    h.reply_ex = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    s = _FakeSender()
+    _process(h, s, "slack:C1:r1", "C1", "Mức phạt vi phạm hợp đồng tối đa?",
+             None, None, "t1", 10 * 1024 * 1024, True)
+    acts = [b for b in (s.blocks or []) if b.get("type") == "actions"]
+    assert any(el["action_id"] == "retry_run" for b in acts for el in b["elements"])   # có nút 🔁
+    assert _retry_store.pop("slack:C1:r1") is not None          # payload gốc đã lưu
+
+
+def test_zalo_failure_no_retry_button_unchanged():
+    from legalguard.adapters.inbound.channels import _process
+    h = _handler()
+    h.reply_ex = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom"))
+    s = _FakeSender()
+    _process(h, s, "zalo:U1", "U1", "Mức phạt vi phạm hợp đồng?",
+             None, None, None, 10 * 1024 * 1024, False)   # supports_buttons=False (Zalo)
+    assert s.blocks is None and "có lỗi" in s.sent[-1][1]        # reply text cũ, KHÔNG nút
+
+
+def test_interactions_retry_spawns_process():
+    from legalguard.adapters.inbound.channels import _retry_store
+    sender = _FakeSender()
+    c = _client(slack="s", slack_sender=sender)
+    _retry_store.put("slack:C1:r2", ("C1", "Mức phạt vi phạm hợp đồng tối đa?", None, None, "t2"))
+    r = _slack_interaction(c, "s", "retry_run", json.dumps({"k": "slack:C1:r2"}))
+    assert r.status_code == 200 and "Đang thử lại" in r.json()["text"]
+    assert sender.sent                                          # background _process đã chạy + gửi reply
+
+
+def test_interactions_retry_expired():
+    c = _client(slack="s", slack_sender=_FakeSender())
+    r = _slack_interaction(c, "s", "retry_run", json.dumps({"k": "slack:C1:khong-ton-tai"}))
+    assert r.status_code == 200 and "Hết hạn" in r.json()["text"]

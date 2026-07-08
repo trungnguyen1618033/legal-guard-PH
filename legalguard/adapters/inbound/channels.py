@@ -383,6 +383,44 @@ def _feedback_blocks(kind: str, ref: str) -> list[dict]:
         btn("➖ Thiếu", "fb_incomplete")]}]
 
 
+# RETRY khi lỗi xử lý (Slack): lưu payload GỐC in-process → nút 🔁 chỉ mang KEY (value ≤2000 ký tự).
+# One-shot qua `pop` (chống double-click). Payload NGUYÊN VĂN chỉ sống trong RAM TTL 15' (KHÔNG ghi
+# disk — history đã có bản redact bền, đây không phải kho PII thứ hai). In-process như `seen_events`;
+# đa-instance cần Redis (cùng giới hạn dedup/rate-limit đã ghi nhận). Restart = mất payload → nút báo hết hạn.
+_RETRY_TTL = 15 * 60
+_RETRY_MAX = 200
+
+
+class _RetryStore:
+    def __init__(self) -> None:
+        self._items: dict[str, tuple[float, tuple]] = {}
+
+    def put(self, key: str, payload: tuple) -> None:
+        now = time.monotonic()
+        if len(self._items) >= _RETRY_MAX:               # prune hết-hạn trước, rồi evict cũ nhất
+            for k in [k for k, (t, _) in self._items.items() if now - t > _RETRY_TTL]:
+                self._items.pop(k, None)
+            while len(self._items) >= _RETRY_MAX:
+                self._items.pop(next(iter(self._items)), None)
+        self._items[key] = (now, payload)
+
+    def pop(self, key: str) -> tuple | None:
+        item = self._items.pop(key, None)
+        if item is None or time.monotonic() - item[0] > _RETRY_TTL:
+            return None
+        return item[1]
+
+
+_retry_store = _RetryStore()
+
+
+def _retry_blocks(key: str) -> list[dict]:
+    val = json.dumps({"k": key[:300]}, ensure_ascii=False)
+    return [{"type": "actions", "block_id": "lg_retry", "elements": [
+        {"type": "button", "text": {"type": "plain_text", "text": "🔁 Thử lại", "emoji": True},
+         "action_id": "retry_run", "value": val, "style": "primary"}]}]
+
+
 # Nút GHI KẾT QUẢ đàm phán (flywheel) — chỉ gắn cho reply phân tích có case_id. value mang case_id.
 _OC_RESULT = {"oc_accepted": "accepted", "oc_partial": "partial", "oc_rejected": "rejected"}
 
@@ -489,6 +527,9 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
     except Exception:  # noqa: BLE001 — task nền: lỗi bất ngờ → vẫn báo khách, không sập im lặng
         _log.exception("Lỗi xử lý tin nhắn (%s)", key)
         reply = "Xin lỗi, có lỗi khi xử lý. Vui lòng thử lại sau."
+        if supports_buttons:                       # Slack: lưu payload gốc → nút 🔁 chạy lại, khỏi gõ lại
+            _retry_store.put(key, (send_to, text, file_url, filename, thread_ts))
+            blocks = [*_mrkdwn_blocks(reply), *_retry_blocks(key)]
     _safe_send(sender, send_to, reply, thread_ts, blocks)
 
 
@@ -565,7 +606,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             return {"ok": True, "reply": handler.reply(key, text=text)}
 
         @router.post("/channels/slack/interactions")
-        async def slack_interactions(request: Request):
+        async def slack_interactions(request: Request, background: BackgroundTasks):
             # Nút feedback (block_actions) → ghi Feedback. Verify chữ ký trên RAW body TRƯỚC khi parse.
             body = await request.body()
             if not _verify_slack(slack_signing_secret,
@@ -586,6 +627,16 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 ctx = {}
             org = default_org(handler.default_tenant)
             user = (payload.get("user") or {}).get("id", "")
+
+            if aid == "retry_run":                 # nút 🔁 THỬ LẠI sau lỗi → chạy lại payload đã lưu
+                payload_r = _retry_store.pop(ctx.get("k", ""))   # pop = one-shot (double-click lần 2 → hết hạn)
+                if payload_r is None:
+                    return {"replace_original": True,
+                            "text": "⏳ Hết hạn thử lại — vui lòng gửi lại tin nhắn giúp mình."}
+                send_to, r_text, r_url, r_fn, r_thread = payload_r
+                background.add_task(_process, handler, slack_sender, ctx.get("k", ""), send_to,
+                                    r_text, r_url, r_fn, r_thread, max_upload_bytes, True)
+                return {"replace_original": True, "text": "🔁 Đang thử lại — kết quả sẽ trả vào thread…"}
 
             if aid in _OC_RESULT:                  # nút GHI KẾT QUẢ đàm phán → nuôi flywheel
                 n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), _OC_RESULT[aid])
