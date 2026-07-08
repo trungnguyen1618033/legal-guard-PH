@@ -119,7 +119,8 @@
 
     <div class="card"><h2>Rủi ro & đề xuất sửa đổi</h2>
       <p id="review-lead" class="md"></p>
-      <div id="risks"></div></div>
+      <div id="risks"></div>
+      <div id="drafting"></div></div>
 
     <div class="card" id="fallbacks-card"><h2>✉️ Câu gửi đối tác & kết quả thực tế</h2>
       <p class="locknote muted">🔒 Câu gửi đối tác sẽ hiện sau khi chuyên gia duyệt.</p>
@@ -316,6 +317,14 @@ function render(d) {
         <div id="am-${i}" class="rl" style="margin-top:6px"></div>`:''}
     </div>`;
   }).join('') || '<p class="muted">Không phát hiện điều khoản rủi ro rõ ràng ✅</p>';
+
+  // Mục cuối: lỗi soạn thảo / chính tả trong HĐ cần sửa (yêu cầu #8).
+  const dn = d.drafting_notes || [];
+  $('drafting').innerHTML = dn.length
+    ? `<div style="margin-top:14px"><b>Lỗi soạn thảo, chính tả cần sửa:</b><ul>`
+      + dn.map(n => `<li>${esc(n)}</li>`).join('') + `</ul></div>`
+    : '';
+
   $('memo').innerHTML = ''; $('memo-docx').style.display = 'none';
   $('fallbacks').innerHTML = (d.fallbacks||[]).map((f,i) => `<div style="margin-bottom:14px">
     <strong>${esc(f.clause)}</strong>${f.win_rate!=null?` <span class="badge b-acceptable">win ${(f.win_rate*100).toFixed(0)}%</span>`:''}

@@ -414,33 +414,47 @@ class AnalysisService:
         except Exception:  # noqa: BLE001 — probe: lỗi DB → chưa sẵn sàng
             return False
 
-    def _classify_contract(self, contract_text: str, hint: str, lang: str) -> tuple[str, str]:
-        """Xác định LOẠI HỢP ĐỒNG + TÊN ĐẦY ĐỦ bên được bảo vệ (lấy trong phần 'các bên' của HĐ) — cho
-        dòng đầu reply luật sư. 1 call MODEL NHANH (`self.judge`), chạy SONG SONG hậu-agent. `hint` = gợi
-        ý bên bảo vệ từ tin chat (vd 'Phu Quoc side') → LLM tinh thành tên pháp lý đầy đủ khớp trong HĐ.
-        KHÔNG đụng vòng agent (risk/citation/verify) → KHÔNG ảnh hưởng accuracy golden. Lỗi/offline →
-        ('', hint) an toàn (không bịa)."""
+    def _classify_contract(self, contract_text: str, hint: str, lang: str) -> tuple[str, str, list[str]]:
+        """Xác định LOẠI HỢP ĐỒNG + TÊN ĐẦY ĐỦ bên được bảo vệ + LỖI SOẠN THẢO/CHÍNH TẢ trong HĐ (mục cuối
+        reply luật sư) — cho dòng đầu reply. 1 call MODEL NHANH (`self.judge`), chạy SONG SONG hậu-agent.
+        `hint` = gợi ý bên bảo vệ từ tin chat (vd 'Phu Quoc side') → LLM tinh thành tên pháp lý đầy đủ khớp
+        trong HĐ. KHÔNG đụng vòng agent (risk/citation/verify) → KHÔNG ảnh hưởng accuracy golden. Lỗi/offline
+        → ('', hint, []) an toàn (không bịa)."""
         hint = (hint or "").strip()
         if not self.judge.available:
-            return "", hint
+            return "", hint, []
         hint_line = f"Gợi ý bên khách muốn bảo vệ (từ người dùng): {hint}\n" if hint else ""
         prompt = (
-            "Đọc hợp đồng dưới đây. Trả về DUY NHẤT một JSON (không giải thích thêm) gồm 2 khóa:\n"
+            "Đọc hợp đồng dưới đây. Trả về DUY NHẤT một JSON (không giải thích thêm) gồm 3 khóa:\n"
             '{"contract_type": "<loại hợp đồng ngắn gọn, vd: hợp đồng mua bán hàng hóa>", '
-            '"protected_party": "<TÊN PHÁP LÝ ĐẦY ĐỦ của bên được bảo vệ, lấy đúng trong phần các bên>"}\n'
+            '"protected_party": "<TÊN PHÁP LÝ ĐẦY ĐỦ của bên được bảo vệ, lấy đúng trong phần các bên>", '
+            '"drafting_issues": [{"quote":"<đoạn có lỗi>","fix":"<sửa lại>"}]}\n'
             f"{hint_line}"
-            "Nếu có gợi ý: chọn bên KHỚP gợi ý, điền TÊN ĐẦY ĐỦ của bên đó (vd 'Công ty Cổ phần …'). "
-            "Nếu KHÔNG có gợi ý: chọn bên là doanh nghiệp Việt Nam / bên yếu thế hơn. Không xác định được "
-            "thì để chuỗi rỗng — KHÔNG bịa.\n\n"
-            f"<<<HỢP ĐỒNG>>>\n{contract_text[:4000]}\n<<<HẾT>>>"
+            "- contract_type/protected_party: nếu có gợi ý → chọn bên KHỚP gợi ý, điền TÊN ĐẦY ĐỦ "
+            "(vd 'Công ty Cổ phần …'); không có gợi ý → chọn doanh nghiệp Việt Nam / bên yếu thế hơn; "
+            "không xác định được → chuỗi rỗng, KHÔNG bịa.\n"
+            "- drafting_issues: CHỈ LỖI SOẠN THẢO rõ ràng (chính tả, gõ sai/thừa ký tự, sai/thiếu đánh số "
+            "điều khoản, tham chiếu điều khoản để trống, format lộn xộn) — KHÔNG liệt kê rủi ro pháp lý ở "
+            "đây. Mỗi lỗi: quote đoạn sai + cách sửa. Không có lỗi → [].\n\n"
+            f"<<<HỢP ĐỒNG>>>\n{contract_text[:6000]}\n<<<HẾT>>>"
         )
         try:
             parsed = _extract_json_obj(self.judge.complete(prompt))
         except LLMError:
-            return "", hint
+            return "", hint, []
         ctype = str(parsed.get("contract_type") or "").strip()
         party = str(parsed.get("protected_party") or "").strip() or hint
-        return ctype, party
+        notes: list[str] = []
+        for it in (parsed.get("drafting_issues") or [])[:10]:     # trần 10 lỗi tránh reply phình
+            if isinstance(it, dict):
+                q, fix = str(it.get("quote") or "").strip(), str(it.get("fix") or "").strip()
+                if q and fix:
+                    notes.append(f"“{q}” → sửa: {fix}")
+                elif q or fix:
+                    notes.append(q or fix)
+            elif isinstance(it, str) and it.strip():
+                notes.append(it.strip())
+        return ctype, party, notes
 
     def _summarize(self, risks: list, lang: str) -> tuple[str, str | None]:
         """Tóm tắt rủi ro cho chủ SME bằng MODEL NHANH (`self.judge` = qwen-flash) — task nhẹ, right-size
@@ -554,7 +568,7 @@ class AnalysisService:
         do_basis = self.legal_basis_grounding and (ctx.risks or ctx.fallbacks)
         # Phân loại HĐ + tên đầy đủ bên bảo vệ (dòng đầu reply luật sư) — call NHANH, ĐỘC LẬP vòng agent.
         hint = position.protected_party if position else ""
-        contract_type, protected_party = "", (hint or "").strip()
+        contract_type, protected_party, drafting_notes = "", (hint or "").strip(), []
         t_post = time.monotonic()
         with ThreadPoolExecutor(max_workers=4) as pool:
             f_verify = (pool.submit(verify_risks, ctx.risks, contract_text, retriever, self.judge)
@@ -565,7 +579,7 @@ class AnalysisService:
             f_classify = (pool.submit(self._classify_contract, contract_text, hint, lang)
                           if self.judge.available else None)
         if f_classify is not None:
-            contract_type, protected_party = f_classify.result()
+            contract_type, protected_party, drafting_notes = f_classify.result()
         if f_verify is not None:
             notes += f_verify.result()
         if f_summary is not None:
@@ -605,6 +619,7 @@ class AnalysisService:
             strategy=strategy,
             contract_type=contract_type,
             protected_party=protected_party,
+            drafting_notes=drafting_notes,
             notes=notes,
         )
         result.execution_summary = execution_summary(result.trace)   # bằng chứng agent gọi tool (AI-Native)

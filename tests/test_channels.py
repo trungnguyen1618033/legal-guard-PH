@@ -74,6 +74,29 @@ def test_format_chat_reply():
     assert "🔴" not in out and "🟠" not in out and "📋" not in out and "must_fix" not in out
 
 
+def test_format_chat_reply_appends_drafting_notes():
+    # Req #8: mục cuối "Lỗi soạn thảo, chính tả cần sửa" khi có drafting_notes.
+    res = AnalysisResult(tenant="VN", risks=[{"clause": "Đ1", "risk": "x", "severity": "low"}],
+                         fallbacks=[], needs_human_review=False, review_reasons=[], summary="",
+                         trace=[], strategy="", drafting_notes=["“PHÁT TRIỂỂN” → sửa: PHÁT TRIỂN"])
+    out = format_chat_reply(res)
+    assert "Lỗi soạn thảo, chính tả cần sửa" in out and "PHÁT TRIỂỂN" in out
+    # không có drafting_notes → không hiện mục này
+    res2 = AnalysisResult(tenant="VN", risks=[{"clause": "Đ1", "risk": "x", "severity": "low"}],
+                          fallbacks=[], needs_human_review=False, review_reasons=[], summary="",
+                          trace=[], strategy="")
+    assert "Lỗi soạn thảo" not in format_chat_reply(res2)
+
+
+def test_analysis_blocks_include_drafting_section():
+    from legalguard.adapters.inbound.channels import _analysis_blocks
+    res = AnalysisResult(tenant="VN", risks=[{"clause": "Đ1", "risk": "x"}], fallbacks=[],
+                         needs_human_review=False, review_reasons=[], summary="", trace=[],
+                         drafting_notes=["“abcd” → sửa: abc"])
+    dump = json.dumps(_analysis_blocks(res, "c1"), ensure_ascii=False)
+    assert "Lỗi soạn thảo, chính tả cần sửa" in dump and "abcd" in dump
+
+
 def test_format_chat_reply_marks_illegal():
     # Điều khoản trái luật → diễn đạt PHÁP LÝ (không icon ⚖️): "dấu hiệu trái quy định tại <điều>… vô hiệu".
     res = AnalysisResult(tenant="VN", risks=[{"clause": "Phạt 15%", "risk": "vượt trần",

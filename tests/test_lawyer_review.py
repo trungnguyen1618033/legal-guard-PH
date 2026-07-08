@@ -155,26 +155,40 @@ def test_classify_contract_extracts_type_and_full_party_name():
     svc = build_service()
     svc.judge = _JsonJudge('{"contract_type":"hợp đồng mua bán hàng hóa",'
                            '"protected_party":"Công ty CP Du lịch Phú Quốc"}')
-    ctype, party = svc._classify_contract("… các bên …", hint="Phu Quoc side", lang="vi")
+    ctype, party, notes = svc._classify_contract("… các bên …", hint="Phu Quoc side", lang="vi")
     assert ctype == "hợp đồng mua bán hàng hóa" and party == "Công ty CP Du lịch Phú Quốc"
+    assert notes == []
 
 
 def test_classify_contract_offline_returns_hint():
     svc = build_service()
     svc.judge = _JsonJudge(available=False)                     # judge chưa cấu hình → không bịa
-    assert svc._classify_contract("hđ", hint="Bên B", lang="vi") == ("", "Bên B")
+    assert svc._classify_contract("hđ", hint="Bên B", lang="vi") == ("", "Bên B", [])
 
 
 def test_classify_contract_empty_party_falls_back_to_hint():
     svc = build_service()
     svc.judge = _JsonJudge('{"contract_type":"hợp đồng vay","protected_party":""}')
-    ctype, party = svc._classify_contract("hđ", hint="Bên Vay", lang="vi")
+    ctype, party, _ = svc._classify_contract("hđ", hint="Bên Vay", lang="vi")
     assert ctype == "hợp đồng vay" and party == "Bên Vay"       # LLM để rỗng → dùng gợi ý
 
 
-def test_analyze_populates_contract_type_and_party():
+def test_classify_contract_returns_drafting_issues():
+    # Req #8: rà lỗi soạn thảo/chính tả trong HĐ → chuỗi "«lỗi» → sửa: «đúng»".
     svc = build_service()
-    svc.judge = _JsonJudge('{"contract_type":"hợp đồng thương mại","protected_party":"Công ty X"}')
+    svc.judge = _JsonJudge('{"contract_type":"hợp đồng mua bán","protected_party":"Cty Phú Quốc",'
+                           '"drafting_issues":[{"quote":"PHÁT TRIỂỂN","fix":"PHÁT TRIỂN"},'
+                           '{"quote":"Điều __ chế tài","fix":"điền số điều"}]}')
+    _, _, notes = svc._classify_contract("hđ", hint="", lang="vi")
+    assert len(notes) == 2
+    assert "PHÁT TRIỂỂN" in notes[0] and "sửa:" in notes[0] and "PHÁT TRIỂN" in notes[0]
+
+
+def test_analyze_populates_contract_type_party_and_drafting():
+    svc = build_service()
+    svc.judge = _JsonJudge('{"contract_type":"hợp đồng thương mại","protected_party":"Công ty X",'
+                           '"drafting_issues":[{"quote":"thanht toán","fix":"thanh toán"}]}')
     res = svc.analyze(SAMPLE, ORG, lang="vi",
                       position=NegotiationPosition(protected_party="X"))
     assert res.contract_type == "hợp đồng thương mại" and res.protected_party == "Công ty X"
+    assert res.drafting_notes and "thanh toán" in res.drafting_notes[0]
