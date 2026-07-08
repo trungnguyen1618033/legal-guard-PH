@@ -1,12 +1,13 @@
 ---
 domain: doanh_nghiep
-doc_id: 67/VBHN-VPQH
+doc_id: 59/2020/QH14
+vbhn: 67/VBHN-VPQH
 title: Văn bản hợp nhất Luật Doanh nghiệp (67/VBHN-VPQH)
 doc_type: van_ban_hop_nhat
 status: in_force
 effective_date: 2021-01-01
 issuer: Văn phòng Quốc hội
-consolidates: 59/2020/QH14; 03/2022/QH15; 76/2025/QH15
+consolidates: 03/2022/QH15; 76/2025/QH15
 source: congbao.chinhphu.vn — Công báo 1105+1106+1107+1108/2025, VBHN 67/VBHN-VPQH (VPQH ban hành 15/8/2025); text-PDF Unicode sạch (pdftotext, KHÔNG OCR). VBHN KHÔNG có giá trị áp dụng độc lập — giá trị pháp lý theo VB gốc 59/2020 + sửa đổi 03/2022, 76/2025 (Pháp lệnh hợp nhất VBQPPL 2012). CẦN luật sư đối chiếu.
 ---
 Văn bản hợp nhất Luật Doanh nghiệp — 67/VBHN-VPQH (hợp nhất 59/2020 + 03/2022 + 76/2025). Trạng thái: Còn hiệu lực.
