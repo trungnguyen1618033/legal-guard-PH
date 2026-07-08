@@ -7,6 +7,8 @@ status: in_force
 effective_date: 2023-07-01
 issuer: Chính phủ
 based_on: 32/2004/QH11; 76/2015/QH13; 91/2015/QH13; 24/2018/QH14; 47/2019/QH14
+replaced_by: 91/2025/QH15; 356/2025/NĐ-CP
+stale_note: 🔴 STALE NGHIÊM TRỌNG (phát hiện 8/7/2026, audit VBHN) — NĐ 13/2023 HẾT HIỆU LỰC TỪ 1/1/2026, bị THAY bởi Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15 (26/6/2025, hiệu lực 1/1/2026) + NĐ 356/2025/NĐ-CP (31/12/2025). Hôm nay đã qua 1/1/2026 → KB đang phục vụ LUẬT CHẾT. status vẫn 'in_force' là SAI (chưa sửa vì đổi status ảnh hưởng eval trong freeze judging). ƯU TIÊN CAO Phase 2 (hậu-judging): nạp 91/2025 + 356/2025 THAY NĐ 13, cập nhật golden PDPD (đáp án hiện dẫn NĐ 13 = outdated dù eval xanh — đúng ca 'KB-stale nhưng eval mù'). Đây KHÔNG phải sửa đổi (amend) mà THAY THẾ (replace) — khác các domain khác.
 source: th1nhng0/vietnamese-legal-documents (vbpl.vn, CC BY 4.0) — auto-ingest, CẦN luật sư duyệt
 ---
 Bảo vệ dữ liệu cá nhân — 13/2023/NĐ-CP. Trạng thái: Còn hiệu lực.

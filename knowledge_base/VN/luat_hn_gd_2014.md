@@ -11,6 +11,8 @@ guided_by: 207/2025/NĐ-CP; 02/2016/TTLT-BNG-BTP; 34/2017/TT-BYT; 123/2015/NĐ-C
 replaces: 22/2000/QH10
 based_on: Không số
 references: 33/2005/QH11
+amended_by: 81/2025/QH15
+stale_note: Phát hiện 8/7/2026 (audit VBHN) — 81/2025/QH15 (24/6/2025, hiệu lực 1/7/2025, luật sửa Luật Tổ chức TAND theo tái cấu trúc tòa án — cùng luật đã đụng TTTM) CÓ sửa Luật HN&GĐ (thẩm quyền tòa giải quyết ly hôn + mở rộng người có quyền yêu cầu ly hôn + bạo lực GĐ làm căn cứ + chia tài sản theo lỗi). VBHN 121/VBHN-VPQH (2025) là bản hợp nhất chính thức. Ca golden ly hôn đơn phương (Đ.56): nội dung căn cứ ly hôn sơ bộ NHẤT QUÁN (bạo lực GĐ đã trong đáp án), nhưng THẨM QUYỀN TÒA (bỏ tòa cấp huyện) đổi → verify khi nạp VBHN 121. Ưu tiên trung bình.
 source: th1nhng0/vietnamese-legal-documents (vbpl.vn, CC BY 4.0) — auto-ingest, CẦN luật sư duyệt
 ---
 Hôn nhân và gia đình — 52/2014/QH13. Trạng thái: Còn hiệu lực.

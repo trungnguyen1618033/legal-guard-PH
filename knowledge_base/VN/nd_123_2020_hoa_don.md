@@ -5,7 +5,8 @@ title: Nghị định 123/2020/NĐ-CP — quy định về hóa đơn, chứng t
 doc_type: nghi_dinh
 status: in_force
 effective_date: 2022-07-01
-amended_by: 70/2025/NĐ-CP
+amended_by: 15/2022/NĐ-CP; 41/2022/NĐ-CP; 114/2024/NĐ-CP; 70/2025/NĐ-CP
+stale_note: Audit VBHN 8/7/2026 — VBHN 18/VBHN-BTC (30/7/2025) hợp nhất NĐ 123/2020 + 15/2022 + 41/2022 + 114/2024 + 70/2025. KB có 123/2020 + 70/2025, THIẾU text 15/2022+41/2022+114/2024 (chủ yếu giảm thuế GTGT/gia hạn — ngoại vi hóa đơn lõi). Nguồn hợp nhất chính thức = VBHN 18/VBHN-BTC → ưu tiên nạp bản này khi mở rộng (7 ca golden hóa đơn cần re-gate).
 source_url: https://vanban.chinhphu.vn/?pageid=27160&docid=201365
 ---
 Nghị định 123/2020/NĐ-CP về hóa đơn, chứng từ. Hiệu lực 01/07/2022. Còn hiệu lực nhưng Điều 4, 9, 10, 11 đã được sửa đổi bởi Nghị định 70/2025/NĐ-CP (hiệu lực 01/06/2025) — bản áp dụng từ 01/06/2025 cần dùng bản hợp nhất. Trích cho mục đích tra cứu/tham khảo; luật sư đối chiếu bản chính thức (vbpl.vn).

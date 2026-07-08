@@ -5,6 +5,8 @@ title: Luật Đất đai 2024 (31/2024/QH15)
 doc_type: luat
 status: in_force
 effective_date: 2024-08-01
+amended_by: 43/2024/QH15; 47/2024/QH15
+stale_note: Audit VBHN 8/7/2026 — VBHN 133/VBHN-VPQH (3/9/2025) hợp nhất Luật Đất đai 31/2024 + 43/2024 (sửa 4 luật đất đai/nhà ở/kinh doanh BĐS/TCTD, hoãn hiệu lực) + 47/2024 (Luật Quy hoạch đô thị nông thôn) + luật liên quan. KB chỉ có 31/2024. Nguồn hợp nhất chính thức = VBHN 133/VBHN-VPQH → nạp khi mở rộng (1 ca golden đất đai re-gate).
 source: undertheseanlp/UTS_VLC (split 2026 in-force verified, MIT) — CẦN luật sư duyệt
 ---
 # Luật Đất đai
