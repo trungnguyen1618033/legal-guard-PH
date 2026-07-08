@@ -57,6 +57,9 @@ _TROUBLE = [
      "Hãy hỏi cụ thể hơn, hoặc thuộc lĩnh vực đã phủ (hợp đồng/chế tài/lãi vay/hóa đơn/lao động/doanh nghiệp…)."),
     ("⚖️", "Kết quả cần người thật quyết",
      "Mọi khuyến nghị là HỖ TRỢ, không thay tư vấn chính thức — luật sư/người duyệt quyết cuối."),
+    ("🔁", "Lỗi giữa chừng / muốn chạy lại",
+     "Khi báo lỗi, bấm nút 🔁 Thử lại — hệ chạy lại đúng nội dung bạn đã gửi, KHỎI gõ/tải lại. "
+     "Sửa (edit) một CÂU TRA CỨU → tự chạy lại (đánh dấu 🔄); còn tin phân tích hợp đồng thì gửi tin MỚI."),
 ]
 
 

@@ -122,6 +122,13 @@ riêng, reply LUÔN threaded dưới tin người hỏi (`thread_ts or ts`); **l
 trong `reply_ex`) tuần tự hóa tin cùng hội thoại → chống race load→sửa→save, hội thoại khác chạy song song
 (verified test contention; đủ 1 instance, đa-instance cần Redis lock — `docs/internal/scale-concurrency.md`).
 History redact PII trước khi lưu; reply Slack chia nhiều block (`_mrkdwn_blocks`, ≤2900/block, không cụt).
+**Persist-first + retry + edit-rerun** (`docs/internal/retry-edit-rerun-research.md`): `reply_ex` lưu tin user
+(đã redact) NGAY khi nhận, TRƯỚC `_handle` → lỗi bất ngờ KHÔNG mất tin (dữ liệu audit/flywheel, không hiển thị
+lại); chống dup khi turn cuối là user-orphan giống hệt. Lỗi xử lý Slack → nút **🔁 Thử lại** (`_RetryStore`
+in-process TTL 15', lưu payload NGUYÊN VĂN trong RAM — không phải kho PII thứ hai; button chỉ mang KEY; pop
+one-shot; interactions respawn `_process` qua BackgroundTasks). **Sửa (edit) CÂU TRA CỨU → tự chạy lại** đánh
+dấu 🔄 (`message_changed`, chỉ `_is_legal_lookup` stateless; lọc unfurl/bot/text-không-đổi; dedup khóa 3-phần
+`(channel, ts, edited.ts)`); edit tin phân tích/đàm phán BỎ QUA (tránh merge nego ledger lần 2). Zalo/web không đổi.
 
 Web UI: `web/index.html` (landing, `GET /`) + `web/app.html` (demo UI, `GET /app`): form
 upload/dán HĐ + vị thế đàm phán → gọi `/analyze` → bảng risks/fallbacks/strategy/trace +
