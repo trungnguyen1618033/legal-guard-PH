@@ -3,12 +3,13 @@ domain: du_lieu_ca_nhan
 doc_id: 13/2023/NĐ-CP
 title: NĐ 13/2023 — Bảo vệ dữ liệu cá nhân
 doc_type: nghi_dinh
-status: in_force
+status: expired
 effective_date: 2023-07-01
+expiry_date: 2026-01-01
 issuer: Chính phủ
 based_on: 32/2004/QH11; 76/2015/QH13; 91/2015/QH13; 24/2018/QH14; 47/2019/QH14
 replaced_by: 91/2025/QH15; 356/2025/NĐ-CP
-stale_note: 🔴 STALE NGHIÊM TRỌNG (phát hiện 8/7/2026, audit VBHN) — NĐ 13/2023 HẾT HIỆU LỰC TỪ 1/1/2026, bị THAY bởi Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15 (26/6/2025, hiệu lực 1/1/2026) + NĐ 356/2025/NĐ-CP (31/12/2025). Hôm nay đã qua 1/1/2026 → KB đang phục vụ LUẬT CHẾT. status vẫn 'in_force' là SAI (chưa sửa vì đổi status ảnh hưởng eval trong freeze judging). ƯU TIÊN CAO Phase 2 (hậu-judging): nạp 91/2025 + 356/2025 THAY NĐ 13, cập nhật golden PDPD (đáp án hiện dẫn NĐ 13 = outdated dù eval xanh — đúng ca 'KB-stale nhưng eval mù'). Đây KHÔNG phải sửa đổi (amend) mà THAY THẾ (replace) — khác các domain khác.
+stale_note: ĐÃ HẾT HIỆU LỰC 1/1/2026 (Phase 2 VBHN 8/7) — bị THAY bởi Luật BVDLCN 91/2025/QH15 + NĐ 356/2025/NĐ-CP (đã nạp vào KB). status=expired + expiry_date để in-force filter LOẠI khỏi truy vấn mặc định (chống "luật chết"); GIỮ file cho point-in-time (câu hỏi "năm 2024/2025" → vẫn trả NĐ 13 valid-at-đó). Ca golden PDPD đã chuyển sang dẫn 91/2025 (nguyên tắc Điều 3). Đây là ca kiểm THẬT cho in-force filter — luật chết KHÔNG được lọt vào câu trả lời hiện hành.
 source: th1nhng0/vietnamese-legal-documents (vbpl.vn, CC BY 4.0) — auto-ingest, CẦN luật sư duyệt
 ---
 Bảo vệ dữ liệu cá nhân — 13/2023/NĐ-CP. Trạng thái: Còn hiệu lực.

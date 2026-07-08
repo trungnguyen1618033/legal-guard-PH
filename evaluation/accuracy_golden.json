@@ -666,19 +666,20 @@
       "abstain": false
     },
     {
-      "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
+      "category": "Bảo vệ dữ liệu cá nhân (Luật 91/2025)",
       "type": "tra_cuu",
-      "question": "Nguyên tắc xử lý dữ liệu cá nhân theo pháp luật Việt Nam?",
-      "expected": "8 nguyên tắc tại Điều 3 NĐ 13/2023: (1) hợp pháp, (2) chủ thể được biết về hoạt động xử lý (minh bạch), (3) đúng mục đích đã đăng ký, (4) giới hạn/tối thiểu + cấm mua bán, (5) chính xác/cập nhật, (6) bảo mật, (7) lưu trữ có thời hạn, (8) trách nhiệm chứng minh tuân thủ.",
-      "basis": "NĐ 13/2023, Điều 3",
+      "question": "Nguyên tắc bảo vệ dữ liệu cá nhân theo pháp luật Việt Nam?",
+      "expected": "6 nguyên tắc tại Điều 3 Luật Bảo vệ dữ liệu cá nhân 2025 (91/2025/QH15): (1) tuân thủ Hiến pháp/pháp luật; (2) chỉ thu thập, xử lý đúng phạm vi, mục đích cụ thể, rõ ràng; (3) bảo đảm chính xác, cập nhật, lưu trữ có thời hạn phù hợp mục đích; (4) áp dụng đồng bộ biện pháp thể chế/kỹ thuật/con người; (5) chủ động phòng ngừa, xử lý vi phạm; (6) gắn với lợi ích quốc gia, hài hòa với quyền lợi hợp pháp.",
+      "basis": "Luật Bảo vệ dữ liệu cá nhân 2025 (91/2025/QH15), Điều 3",
       "_note_fix": "must_say đổi 'minh bạch'→'mục đích': VĂN BẢN Điều 3 KHÔNG dùng chữ 'minh bạch' (khoản 2 = 'chủ thể được biết') → đòi 'minh bạch' ép model diễn giải ra-ngoài-nguồn → flaky. 'mục đích' CÓ trong Điều 3 (khoản 3/4/5/7) → grounded + tất định.",
       "must_cite": [
-        "13_2023"
+        "91_2025"
       ],
       "must_say": [
         "mục đích"
       ],
-      "abstain": false
+      "abstain": false,
+      "_note_vbhn": "CẬP NHẬT 8/7 (Phase 2 VBHN): NĐ 13/2023 HẾT HIỆU LỰC 1/1/2026 → chuyển sang Luật 91/2025 (nguyên tắc Điều 3, có 'mục đích' k2). must_cite 13_2023→91_2025. CẦN luật sư verify."
     },
     {
       "category": "Đất đai (Luật Đất đai 2024)",
