@@ -644,3 +644,53 @@ def test_interactions_retry_expired():
     c = _client(slack="s", slack_sender=_FakeSender())
     r = _slack_interaction(c, "s", "retry_run", json.dumps({"k": "slack:C1:khong-ton-tai"}))
     assert r.status_code == 200 and "Hết hạn" in r.json()["text"]
+
+
+# ---- Phase 2: sửa tin CÂU TRA CỨU → tự chạy lại ----
+def _edit_event(channel, ts, new_text, prev_text, edited_ts="e1", bot=False):
+    inner = {"text": new_text, "ts": ts, "edited": {"ts": edited_ts}}
+    if bot:
+        inner["bot_id"] = "B1"
+    return {"event": {"type": "message", "subtype": "message_changed", "channel": channel,
+                      "message": inner, "previous_message": {"text": prev_text}, "event_ts": "ev1"}}
+
+
+def test_edited_lookup_question_reruns_with_prefix():
+    sender = _FakeSender()
+    c = _client(slack="s", slack_sender=sender)
+    _slack_post(c, "s", _edit_event("C1", "100.1", "Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?",
+                                    "Mức phạt vi phạm hợp đồng?"))
+    assert sender.sent and sender.sent[-1][1].startswith("🔄")   # chạy lại, đánh dấu cập nhật
+
+
+def test_edited_unfurl_same_text_ignored():
+    sender = _FakeSender()
+    c = _client(slack="s", slack_sender=sender)
+    _slack_post(c, "s", _edit_event("C1", "100.2", "Mức phạt vi phạm hợp đồng?",
+                                    "Mức phạt vi phạm hợp đồng?"))    # text KHÔNG đổi (unfurl)
+    assert sender.sent == []                                          # bỏ qua
+
+
+def test_edited_contract_message_ignored():
+    sender = _FakeSender()
+    c = _client(slack="s", slack_sender=sender)
+    _slack_post(c, "s", _edit_event("C1", "100.3", MSG + " sửa thêm", MSG))   # đoạn HĐ, không phải câu hỏi
+    assert sender.sent == []                                          # không chạy lại (tránh mutate deal)
+
+
+def test_edited_by_bot_ignored():
+    sender = _FakeSender()
+    c = _client(slack="s", slack_sender=sender)
+    _slack_post(c, "s", _edit_event("C1", "100.4", "Mức phạt vi phạm hợp đồng tối đa %?",
+                                    "cũ", bot=True))
+    assert sender.sent == []
+
+
+def test_edit_dedup_same_edited_ts():
+    sender = _FakeSender()
+    c = _client(slack="s", slack_sender=sender)
+    ev = _edit_event("C1", "100.5", "Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?", "cũ", edited_ts="e9")
+    _slack_post(c, "s", ev)
+    _slack_post(c, "s", ev)                                           # cùng edited.ts → chỉ xử lý 1 lần
+    reruns = [t for _, t in sender.sent if t.startswith("🔄")]        # đếm REPLY rerun (bỏ ack "🔎")
+    assert len(reruns) == 1

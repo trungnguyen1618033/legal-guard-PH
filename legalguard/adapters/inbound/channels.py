@@ -491,7 +491,7 @@ def _mrkdwn_blocks(text: str, limit: int = 2900, max_blocks: int = 12) -> list[d
 def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: str,
              text: str, file_url: str | None, filename: str | None,
              thread_ts: str | None = None, max_bytes: int = 10 * 1024 * 1024,
-             supports_buttons: bool = False) -> None:
+             supports_buttons: bool = False, reply_prefix: str = "") -> None:
     """Chạy nền: tải file (nếu có) + analyze + gửi reply (webhook chỉ ack nhanh)."""
     # Ack ngay khi sắp PHÂN TÍCH HĐ (lâu ~vài phút). Câu hỏi tra cứu (lookup) nhanh → KHÔNG ack
     # (khớp routing: tín hiệu HĐ mà là câu hỏi thì đi lookup, không phân tích).
@@ -518,7 +518,7 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
     blocks = None
     try:
         res = handler.reply_ex(key, text=text, attachment=attachment, filename=filename)
-        reply = res.text
+        reply = (reply_prefix + res.text) if reply_prefix else res.text   # vd "🔄 (cập nhật…)" khi chạy lại từ tin sửa
         if supports_buttons and res.kind:          # gắn nút feedback (Slack) cho câu trả lời thật
             # Chia reply thành nhiều block (không cụt ở 2900) rồi mới tới nút feedback.
             blocks = [*_mrkdwn_blocks(reply), *_feedback_blocks(res.kind, res.ref)]
@@ -568,6 +568,33 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 return {"challenge": payload.get("challenge")}
             event = payload.get("event") or {}
             etype = event.get("type", "message")
+            # SỬA TIN NHẮN → chạy lại CHỈ nếu là câu TRA CỨU (stateless). Đặt TRƯỚC guard bỏ-qua subtype.
+            # KHÔNG chạy lại tin phân tích/đàm phán (re-run sẽ merge nego ledger lần 2 / lệch deal context).
+            if etype == "message" and event.get("subtype") == "message_changed":
+                inner = event.get("message") or {}
+                prev = event.get("previous_message") or {}
+                new_text = (inner.get("text") or "").strip()
+                # Lọc noisy: bot sửa · rỗng · text KHÔNG đổi (Slack unfurl link cũng bắn message_changed).
+                if inner.get("bot_id") or not new_text \
+                        or new_text == (prev.get("text") or "").strip():
+                    return {"ok": True}
+                bot_uid = ((payload.get("authorizations") or [{}])[0]).get("user_id") or ""
+                if bot_uid:
+                    new_text = new_text.replace(f"<@{bot_uid}>", "").strip()
+                if not _is_legal_lookup(new_text):        # chỉ câu tra cứu (không đụng deal state)
+                    return {"ok": True}
+                ch2 = event.get("channel", "")
+                edit_ts = (inner.get("edited") or {}).get("ts") or event.get("event_ts") or ""
+                dkey = (ch2, inner.get("ts", ""), edit_ts)   # tin sửa GIỮ ts gốc → khóa 3 phần
+                if dkey in seen_events:
+                    return {"ok": True}
+                seen_events[dkey] = time.monotonic()
+                th2 = inner.get("thread_ts") or inner.get("ts")
+                if slack_sender and slack_sender.available:
+                    background.add_task(_process, handler, slack_sender,
+                                        f"slack:{ch2}:{th2}", ch2, new_text, None, None, th2,
+                                        max_upload_bytes, True, "🔄 _(cập nhật theo tin đã sửa)_\n")
+                return {"ok": True}
             # Bỏ qua tin của bot (tránh vòng lặp tự trả lời) + các subtype không phải tin mới
             # (message_changed/deleted...). file_share = tin nhắn kèm file → vẫn xử lý.
             if event.get("bot_id") or (etype == "message"
