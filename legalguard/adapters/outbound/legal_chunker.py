@@ -17,9 +17,12 @@ from __future__ import annotations
 import re
 import unicodedata
 
-# "Điều 12", "Điều 12a" (đầu dòng). Cho phép tiền tố markdown/trích dẫn (#, *, >, -, khoảng trắng)
-# để không vỡ khi luật được dán dạng markdown ("## Điều 5", "**Điều 5.**", "> Điều 5").
-_ARTICLE_RE = re.compile(r"(?m)^[#*>\s\-]*(Điều\s+\d+[a-z]?)\b")
+# "Điều 12.", "Điều 12a." (đầu dòng). Cho phép tiền tố markdown/trích dẫn (#, *, >, -, khoảng trắng)
+# để không vỡ khi luật được dán dạng markdown ("## Điều 5.", "**Điều 5.**", "> Điều 5.").
+# YÊU CẦU DẤU CHẤM sau số điều: header THẬT luôn là "Điều N. <Tiêu đề>"; loại dẫn-chiếu đầu-dòng
+# "Điều N của Luật này"/"Điều N khoản M" (do văn bản hợp nhất/pdftotext ngắt dòng) — chống gán nhãn
+# citation SAI số điều (đo: khử 85 match cross-ref trên KB, 0 điều thật bị mất).
+_ARTICLE_RE = re.compile(r"(?m)^[#*>\s\-]*(Điều\s+\d+[a-z]?)\s*\.")
 # Khoản đánh số đầu dòng: "1.", "12." — để sub-split điều luật quá dài (cũng chịu tiền tố markdown).
 _CLAUSE_RE = re.compile(r"(?m)^[#*>\s]*(\d+)\.\s")
 # Dẫn chiếu trong thân văn bản (rút cho Phase 2). Bắt cả "khoản 1 Điều 5", "điểm a khoản 2 Điều 5",
