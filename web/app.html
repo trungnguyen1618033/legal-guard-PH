@@ -117,11 +117,11 @@
         <span id="fb-thanks" class="muted"></span>
       </div></div>
 
-    <div class="card"><h2>🚨 Điều khoản rủi ro</h2>
-      <table><thead><tr><th>Điều khoản</th><th>Rủi ro</th><th>Mức</th><th>Ưu tiên</th><th>Bằng chứng (trích HĐ)</th><th>Nguồn KB</th></tr></thead>
-      <tbody id="risks"></tbody></table></div>
+    <div class="card"><h2>Rủi ro & đề xuất sửa đổi</h2>
+      <p id="review-lead" class="md"></p>
+      <div id="risks"></div></div>
 
-    <div class="card" id="fallbacks-card"><h2>♟️ Chiến thuật fallback</h2>
+    <div class="card" id="fallbacks-card"><h2>✉️ Câu gửi đối tác & kết quả thực tế</h2>
       <p class="locknote muted">🔒 Câu gửi đối tác sẽ hiện sau khi chuyên gia duyệt.</p>
       <div id="fallbacks"></div></div>
 
@@ -290,27 +290,38 @@ function render(d) {
     (techN.length ? `<details style="margin-top:6px"><summary class="muted" style="font-size:13px">chi tiết kỹ thuật / audit</summary>` +
       techN.map(n => `<p class="note muted">${esc(n)}</p>`).join('') + `</details>` : '');
 
-  $('risks').innerHTML = (d.risks||[]).map(r => `<tr>
-    <td><strong>${esc(r.clause)}</strong>${r.verified===false?' <span class="badge b-medium">chưa verify</span>':''}
-      ${r.legal_status==='illegal'?`<br><span class="badge b-high">⚖️ TRÁI LUẬT</span>${r.violated_law?` <span class="muted">${esc(r.violated_law)}</span>`:''}`:''}</td>
-    <td>${esc(r.risk)}</td>
-    <td><span class="badge b-${esc(r.severity)}">${esc(r.severity)}</span></td>
-    <td>${r.priority?`<span class="badge b-${esc(r.priority)}">${esc(r.priority)}</span>`:''}</td>
-    <td class="muted">${esc((r.evidence||'').slice(0,160))}</td>
-    <td class="muted">${esc((r.source||'').slice(0,100))}${r.legal_basis?`<br>📎 ${esc(r.legal_basis.slice(0,140))}`:''}</td></tr>`).join('')
-    || '<tr><td colspan="6" class="muted">Không phát hiện rủi ro đáng kể ✅</td></tr>';
-
   window._fb = d.fallbacks || [];
   window._risks = d.risks || [];
+
+  // Dòng ĐẦU: loại HĐ + TÊN ĐẦY ĐỦ khách hàng bảo vệ (văn phong luật sư) — đồng bộ với reply Slack.
+  const _fbByClause = {};
+  (d.fallbacks||[]).forEach(f => { if (f.clause) _fbByClause[f.clause] = f; });
+  let lead = 'Sau đây là các rủi ro và đề xuất sửa đổi';
+  if (d.protected_party) lead += ' có lợi cho khách hàng là ' + esc(d.protected_party);
+  lead = (d.contract_type ? 'Đây là ' + esc(d.contract_type) + '. ' : '') + lead + ':';
+  $('review-lead').innerHTML = '<strong>' + lead + '</strong>';
+
+  // Rủi ro: đánh số (1)(2)(3), văn phong pháp lý — KHÔNG icon màu/nhãn ưu tiên; gộp đề xuất sửa +
+  // nút "Đồng ý sửa" (chỉ khi có đề xuất) → soạn điều khoản cũ→mới. TRÁI LUẬT diễn đạt pháp lý.
+  $('risks').innerHTML = (d.risks||[]).map((r,i) => {
+    const f = _fbByClause[r.clause] || {};
+    const sugg = (f.suggestion||'').replace(/^\s*đề xuất\s*:?\s*/i,'').trim();
+    const illegal = r.legal_status==='illegal'
+      ? ` Điều khoản này có dấu hiệu trái quy định${r.violated_law?(' tại '+esc(r.violated_law)):' của pháp luật'}; phần vi phạm có thể bị tuyên vô hiệu.` : '';
+    return `<div class="risk-item" style="margin-bottom:16px">
+      <div>(${i+1}) <strong>${esc(r.clause)}</strong>: ${esc(r.risk)}.${illegal}${sugg?` <em>Đề xuất sửa đổi:</em> ${esc(sugg)}.`:''}${r.verified===false?' <span class="muted">(chưa đối chiếu tự động — luật sư kiểm)</span>':''}</div>
+      ${r.evidence?`<div class="muted" style="margin-top:2px">Trích hợp đồng: ${esc(r.evidence.slice(0,180))}</div>`:''}
+      ${(r.legal_basis||r.source)?`<div class="muted">📎 ${esc((r.legal_basis||r.source).slice(0,160))}</div>`:''}
+      ${sugg?`<button class="ghost" style="margin-top:6px" onclick="amendRisk(${i})">Đồng ý sửa → soạn điều khoản mới</button>
+        <div id="am-${i}" class="rl" style="margin-top:6px"></div>`:''}
+    </div>`;
+  }).join('') || '<p class="muted">Không phát hiện điều khoản rủi ro rõ ràng ✅</p>';
   $('memo').innerHTML = ''; $('memo-docx').style.display = 'none';
   $('fallbacks').innerHTML = (d.fallbacks||[]).map((f,i) => `<div style="margin-bottom:14px">
     <strong>${esc(f.clause)}</strong>${f.win_rate!=null?` <span class="badge b-acceptable">win ${(f.win_rate*100).toFixed(0)}%</span>`:''}
-    <div>${esc(f.suggestion)}</div>
-    ${f.english_reply?`<div class="reply">✉️ ${esc(f.english_reply)}</div>`:''}
+    ${f.english_reply?`<div class="reply">✉️ ${esc(f.english_reply)}</div>`:'<div class="muted">(không có câu gửi đối tác)</div>'}
     ${f.legal_basis?`<div class="muted">📎 căn cứ: ${esc(f.legal_basis.slice(0,140))}</div>`:''}
     ${f.source?`<div class="muted">nguồn: ${esc(f.source.slice(0,100))}</div>`:''}
-    <button class="ghost" style="margin-top:6px" onclick="counter(${i})">📝 Soạn điều khoản phản-đề (VN/EN)</button>
-    <div id="cc-${i}" class="rl" style="margin-top:6px"></div>
     <div class="muted" style="margin-top:6px;font-size:13px">📊 Kết quả đàm phán thực tế?
       <button class="ghost" onclick="recordOutcome(${i},'accepted',this)">✓ Chấp nhận</button>
       <button class="ghost" onclick="recordOutcome(${i},'partial',this)">~ Một phần</button>
@@ -418,21 +429,25 @@ async function recordOutcome(i, result, btn) {
   } catch (e) { $('oc-'+i).textContent = ' — lỗi: ' + e.message; }
 }
 
-async function counter(i) {
-  const f = (window._fb || [])[i]; if (!f) return;
-  const box = $('cc-' + i);
-  box.textContent = 'Đang soạn…';
+// Nút "Đồng ý sửa" per-risk → soạn điều khoản cũ→mới (đồng bộ với nút Slack). Map rủi ro→fallback theo
+// clause để lấy suggestion/legal_basis; không có fallback vẫn soạn được từ chính rủi ro.
+async function amendRisk(i) {
+  const r = (window._risks || [])[i]; if (!r) return;
+  const f = (window._fb || []).find(x => x.clause === r.clause) || {};
+  const box = $('am-' + i);
+  box.textContent = 'Đang soạn điều khoản sửa…';
   try {
-    const r = await fetch('/counter', { method:'POST',
+    const res = await fetch('/counter', { method:'POST',
       headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ clause: f.clause, suggestion: f.suggestion || '',
-        legal_basis: f.legal_basis || '', leverage: $('leverage').value }) });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const d = await r.json();
+      body: JSON.stringify({ clause: r.clause, risk: r.risk || '', suggestion: f.suggestion || '',
+        legal_basis: f.legal_basis || r.legal_basis || '', leverage: $('leverage').value }) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
     box.innerHTML =
-      (d.grounded ? '' : '<div class="muted">⚠️ Khung sơ bộ (chưa có LLM) — cần luật sư hoàn thiện.</div>') +
-      `<div><b>🇻🇳 VN:</b> ${esc(d.vi)}</div>` +
-      (d.en ? `<div style="margin-top:4px"><b>🇬🇧 EN:</b> ${esc(d.en)}</div>` : '') +
+      (d.grounded ? '' : '<div class="muted">Bản khung sơ bộ — cần luật sư hoàn thiện.</div>') +
+      `<div><b>Điều khoản hiện tại:</b> ${esc(r.clause)}</div>` +
+      `<div style="margin-top:4px"><b>Điều khoản đề xuất (Tiếng Việt):</b> ${esc(d.vi)}</div>` +
+      (d.en ? `<div style="margin-top:4px"><b>Suggested clause (English):</b> ${esc(d.en)}</div>` : '') +
       (d.rationale ? `<div class="muted" style="margin-top:4px">Lý do: ${esc(d.rationale)}</div>` : '');
   } catch (e) { box.textContent = 'Lỗi: ' + e.message; }
 }
