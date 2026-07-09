@@ -143,6 +143,46 @@ _AI_DISCLOSURE_LEGAL = ("\n\n(Nội dung trên do trí tuệ nhân tạo (AI) h�
 # Mục CUỐI phần tư vấn: lỗi soạn thảo/chính tả trong HĐ cần sửa (yêu cầu khách #8).
 _DRAFTING_HEAD = "Lỗi soạn thảo, chính tả cần sửa:"
 
+# Ngân sách ngữ cảnh thread (catch-up khi mention giữa hội thoại / đọc link thread) — khớp _CHUNK analyze.
+_THREAD_CTX_LIMIT = 6000
+
+
+def _build_thread_context(msgs: list[dict], bot_uid: str, known: set[str] | None = None,
+                          limit: int = _THREAD_CTX_LIMIT) -> str:
+    """Dựng ngữ cảnh EPHEMERAL từ tin thread Slack (fetch_thread) — THUẦN, test offline.
+
+    - REDACT PII từng tin trước khi vào prompt; KHÔNG persist (không tạo kho PII thứ hai).
+    - Bóc tag mention; tin của CHÍNH bot (user == bot_uid) → 'trợ lý:'; bot KHÁC → bỏ (nhiễu);
+      còn lại → 'người dùng:'. Dedup với `known` (nội dung đã có trong conv.history + tin hiện tại).
+    - Budget: giữ TIN ĐẦU thread (thường là chủ đề/hợp đồng gốc) + các tin CUỐI, tổng ≤ limit —
+      thread dài cắt giữa, chèn '…(lược bớt)…'."""
+    known = known or set()
+    lines: list[str] = []
+    for m in msgs:
+        t = _MENTION_RE.sub("", (m.get("text") or "")).strip()
+        if not t:
+            continue
+        t = redact(t)[0]
+        if t in known:
+            continue
+        if m.get("bot_id") and m.get("user") != bot_uid:
+            continue                                   # bot khác → bỏ
+        role = "trợ lý" if (bot_uid and m.get("user") == bot_uid) else "người dùng"
+        lines.append(f"{role}: {t}")
+    if not lines:
+        return ""
+    total = sum(len(x) + 1 for x in lines)
+    if total <= limit:
+        return "\n".join(lines)
+    head, budget = [lines[0]], limit - len(lines[0]) - 20     # chừa chỗ cho marker
+    tail: list[str] = []
+    for x in reversed(lines[1:]):
+        if budget - len(x) - 1 < 0:
+            break
+        tail.append(x)
+        budget -= len(x) + 1
+    return "\n".join(head + ["…(lược bớt)…"] + list(reversed(tail)))
+
 
 def _review_head(result: AnalysisResult) -> str:
     """Dòng ĐẦU reply rà soát: loại HĐ + khách hàng được bảo vệ (khi LLM xác định được)."""
@@ -264,7 +304,8 @@ class ChatHandler:
             return self._locks.setdefault(conversation_id, threading.Lock())
 
     def reply_ex(self, conversation_id: str, text: str | None = None, attachment: bytes | None = None,
-                 filename: str | None = None, lang: str = "vi") -> ChatReply:
+                 filename: str | None = None, lang: str = "vi",
+                 thread_msgs: list[dict] | None = None, bot_uid: str = "") -> ChatReply:
         with self._conv_lock(conversation_id):     # tuần tự hóa theo hội thoại (chống race)
             conv = self.store.get(conversation_id) or Conversation(id=conversation_id)
             # PERSIST-FIRST: lưu tin user (đã REDACT PII) TRƯỚC khi xử lý → lỗi bất ngờ trong `_handle`
@@ -272,12 +313,18 @@ class ChatHandler:
             # conv.context/nego_state — không đọc history → prepend an toàn. Chống DUP (retry / user tự
             # gửi lại y hệt): turn cuối đã là user + content giống → không append lần 2.
             user_msg = redact((text or "").strip())[0] or "(đã gửi tệp)"
+            # Catch-up thread (mention giữa hội thoại / link thread): ngữ cảnh EPHEMERAL — dedup với
+            # history đã lưu + tin hiện tại, KHÔNG persist (history vẫn chỉ chứa tin đi qua bot).
+            thread_context = ""
+            if thread_msgs:
+                known = {m.get("content", "") for m in conv.history} | {user_msg}
+                thread_context = _build_thread_context(thread_msgs, bot_uid, known)
             if not (conv.history and conv.history[-1].get("role") == "user"
                     and conv.history[-1].get("content") == user_msg):
                 conv.add("user", user_msg)
                 conv.updated_at = datetime.now(timezone.utc).isoformat()
                 self.store.save(conv)               # save #1 — tin user đã BỀN (trước điểm có thể chết)
-            res = self._handle(conv, text, attachment, filename, lang)
+            res = self._handle(conv, text, attachment, filename, lang, thread_context)
             conv.add("assistant", res.text)
             self._summarize(conv)
             conv.updated_at = datetime.now(timezone.utc).isoformat()   # 'last active'
@@ -302,7 +349,8 @@ class ChatHandler:
             except LLMError:
                 pass
 
-    def _handle(self, conv: Conversation, text, attachment, filename, lang) -> ChatReply:
+    def _handle(self, conv: Conversation, text, attachment, filename, lang,
+                thread_context: str = "") -> ChatReply:
         org = default_org(self.default_tenant)
         if attachment is None and _is_help_query(text or ""):      # xin hướng dẫn / trợ giúp → bảng help
             from legalguard.domain.help import format_help_text
@@ -341,28 +389,34 @@ class ChatHandler:
             return ChatReply(format_chat_reply(result, lang), "analysis", result.case_id or "", result)
         # Trong deal: tin là PHẢN HỒI/COUNTER của đối tác → VÒNG ĐÀM PHÁN có cấu trúc (không phải Q&A chung).
         if conv.context and _is_counter_offer(text or ""):
-            return ChatReply(self._negotiate(conv, text or "", lang, org.id), "negotiate", "")
-        # Follow-up theo deal — TRỪ câu hỏi pháp lý CHUNG (→ ưu tiên lookup template+dẫn nguồn cho nhất quán).
-        if conv.context and not _is_legal_lookup(text or ""):
-            return ChatReply(self._followup(conv, text or "", lang))
+            return ChatReply(self._negotiate(conv, text or "", lang, org.id, thread_context),
+                             "negotiate", "")
+        # Follow-up theo deal HOẶC theo NGỮ CẢNH THREAD (mention giữa hội thoại/link thread) — TRỪ câu hỏi
+        # pháp lý CHUNG (→ ưu tiên lookup template+dẫn nguồn cho nhất quán).
+        if (conv.context or thread_context) and not _is_legal_lookup(text or ""):
+            return ChatReply(self._followup(conv, text or "", lang, thread_context))
         if text and _looks_like_question(text):            # → TRA CỨU LUẬT có grounding (template + nguồn)
             answer, snippets = self.service.lookup(text, org, lang=lang)
             if snippets:                                   # hiện nguồn (dẫn điều/khoản) gọn dưới câu trả lời
                 srcs = " · ".join(s.source for s in snippets[:3])
                 answer = f"{answer}\n\nNguồn tham khảo: {srcs}"
             return ChatReply(answer + _AI_DISCLOSURE_LEGAL, "lookup", text)   # công bố AI văn phong pháp lý (không icon)
-        if conv.context:                                   # có deal, không phải câu hỏi → follow-up
-            return ChatReply(self._followup(conv, text or "", lang))
+        if conv.context or thread_context:                 # có deal/ngữ cảnh, không phải câu hỏi → follow-up
+            return ChatReply(self._followup(conv, text or "", lang, thread_context))
         return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "
                          "hoặc đặt câu hỏi pháp lý nhé.")
 
-    def _negotiate(self, conv: Conversation, partner_message: str, lang: str, org_id: str = "") -> str:
+    def _negotiate(self, conv: Conversation, partner_message: str, lang: str, org_id: str = "",
+                   thread_context: str = "") -> str:
         """Vòng đàm phán đa phiên trên Slack: bối cảnh deal + SỔ nhượng-bộ + tin đối tác → round có cấu trúc.
         Sổ nhượng-bộ (`conv.nego_state`) mang qua các vòng → agent NHỚ đã nhượng/chốt gì (không 'quên' do
-        context free-text cắt cụt) + guardrail walk-away theo red-line. org_id → win-rate flywheel cô lập org."""
+        context free-text cắt cụt) + guardrail walk-away theo red-line. org_id → win-rate flywheel cô lập org.
+        `thread_context` (catch-up khi mention giữa thread) nối vào deal context — EPHEMERAL, không persist."""
         state = state_from_json(conv.nego_state)
+        deal = conv.context + (f"\n\nDiễn biến trong thread (tham khảo):\n{thread_context}"
+                               if thread_context else "")
         try:
-            r = self.service.negotiate_round(conv.context, partner_message, position=None,
+            r = self.service.negotiate_round(deal, partner_message, position=None,
                                              state=state, lang=lang, org_id=org_id or None)
         except LLMError as exc:
             return f"Xin lỗi, chưa xử lý được vòng đàm phán: {exc}"
@@ -374,13 +428,15 @@ class ChatHandler:
         conv.context = (conv.context + f"\n--- Đối tác: {partner_message}\n--- Ta: {nxt}")[:1800]
         return format_negotiation_reply(r, lang)
 
-    def _followup(self, conv: Conversation, question: str, lang: str) -> str:
+    def _followup(self, conv: Conversation, question: str, lang: str, thread_context: str = "") -> str:
         # BỎ turn cuối = câu hỏi HIỆN TẠI (persist-first đã append TRƯỚC _handle) — nếu không, câu hỏi
         # lặp 2 lần trong prompt (bản redact trong hist + bản raw ở "Câu hỏi tiếp"). Khôi phục hành vi
         # trước persist-first (khi ấy history CHƯA có turn hiện tại).
         hist = "\n".join(f"{m['role']}: {m['content']}" for m in conv.history[:-1][-6:])
         tail = ", tiếng Việt." if lang == "vi" else ", in English."
-        prompt = (f"Bối cảnh rà soát hợp đồng:\n{conv.context}\n\nLịch sử hội thoại:\n{hist}\n\n"
+        tc = (f"Nội dung thread trước đó (tham khảo, do người dùng trao đổi trong kênh):\n"
+              f"{thread_context}\n\n") if thread_context else ""
+        prompt = (f"Bối cảnh rà soát hợp đồng:\n{conv.context}\n\n{tc}Lịch sử hội thoại:\n{hist}\n\n"
                   f"Câu hỏi tiếp của khách: {question}\nTrả lời CHUYÊN NGHIỆP, súc tích, đi thẳng vấn đề" + tail)
         try:
             return self.service.reasoner.complete(prompt) + _AI_DISCLOSURE_LEGAL   # công bố AI đồng bộ
@@ -665,11 +721,48 @@ def _mrkdwn_blocks(text: str, limit: int = 2900, max_blocks: int = 12) -> list[d
     return [{"type": "section", "text": {"type": "mrkdwn", "text": c}} for c in chunks]
 
 
+# Permalink Slack: https://<ws>.slack.com/archives/<CHANNEL>/p<16 số>[?thread_ts=<root>...]
+# p1720512345678901 → ts 1720512345.678901 (chèn dấu chấm trước 6 số cuối). Event text có thể wrap
+# link dạng <url> hoặc <url|label> — regex chặn ở khoảng trắng/>/| nên match cả trong wrap.
+_PERMALINK_RE = re.compile(
+    r"https://[\w.-]+\.slack\.com/archives/(?P<ch>[A-Z0-9]+)/p(?P<pts>\d{16})"
+    r"(?:\?[^\s>|]*?thread_ts=(?P<root>\d+\.\d+)[^\s>|]*)?")
+
+
+def _parse_permalink(text: str) -> tuple[str, str, str] | None:
+    """Rút (channel, root_thread_ts, chuỗi-link-khớp) từ permalink Slack trong tin. None nếu không có.
+    Link trỏ 1 reply trong thread (?thread_ts=) → root = thread_ts; link tin gốc → root = chính ts đó
+    (conversations.replies với tin lẻ trả về đúng 1 tin — vẫn đúng)."""
+    m = _PERMALINK_RE.search(text or "")
+    if not m:
+        return None
+    ts = f"{m.group('pts')[:10]}.{m.group('pts')[10:]}"
+    return m.group("ch"), m.group("root") or ts, m.group(0)
+
+
 def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: str,
              text: str, file_url: str | None, filename: str | None,
              thread_ts: str | None = None, max_bytes: int = 10 * 1024 * 1024,
-             supports_buttons: bool = False, reply_prefix: str = "") -> None:
-    """Chạy nền: tải file (nếu có) + analyze + gửi reply (webhook chỉ ack nhanh)."""
+             supports_buttons: bool = False, reply_prefix: str = "",
+             thread_fetch: tuple[str, str] | None = None, thread_required: bool = False,
+             bot_uid: str = "") -> None:
+    """Chạy nền: tải file (nếu có) + [đọc thread ngữ cảnh] + analyze + gửi reply (webhook chỉ ack nhanh).
+
+    `thread_fetch=(channel, root_ts)`: đọc toàn bộ thread làm NGỮ CẢNH (catch-up khi mention giữa hội
+    thoại — M2, hoặc thread từ permalink — M3). `thread_required=True` (link do user dán): đọc không
+    được → báo lỗi thân thiện thay vì trả lời thiếu ngữ cảnh."""
+    # Đọc thread TRƯỚC khi giữ lock hội thoại (HTTP call — không chặn tin khác cùng thread).
+    thread_msgs: list[dict] = []
+    if thread_fetch is not None:
+        try:
+            thread_msgs = sender.fetch_thread(*thread_fetch)
+        except Exception:  # noqa: BLE001 — ngữ cảnh là phụ: lỗi đọc → degrade (trừ khi bắt buộc)
+            _log.exception("Không đọc được thread %s", thread_fetch)
+        if thread_required and not thread_msgs:
+            _safe_send(sender, send_to,
+                       "Chưa đọc được thread được dẫn — có thể bot chưa ở trong kênh đó "
+                       "(mời bot bằng /invite) hoặc thread không tồn tại.", thread_ts)
+            return
     # Ack ngay khi sắp PHÂN TÍCH HĐ (lâu ~vài phút). Câu hỏi tra cứu (lookup) nhanh → KHÔNG ack
     # (khớp routing: tín hiệu HĐ mà là câu hỏi thì đi lookup, không phân tích).
     will_analyze = bool(file_url) or (
@@ -696,7 +789,8 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
             return
     blocks = None
     try:
-        res = handler.reply_ex(key, text=text, attachment=attachment, filename=filename)
+        res = handler.reply_ex(key, text=text, attachment=attachment, filename=filename,
+                               thread_msgs=thread_msgs, bot_uid=bot_uid)
         reply = (reply_prefix + res.text) if reply_prefix else res.text   # vd "🔄 (cập nhật…)" khi chạy lại từ tin sửa
         if supports_buttons and res.kind:          # gắn nút feedback (Slack) cho câu trả lời thật
             if res.kind == "analysis" and res.result is not None:
@@ -730,7 +824,8 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                           zalo_oa_secret: str = "", zalo_app_id: str = "",
                           slack_sender: ChatSenderPort | None = None,
                           zalo_sender: ChatSenderPort | None = None,
-                          max_upload_bytes: int = 10 * 1024 * 1024) -> APIRouter:
+                          max_upload_bytes: int = 10 * 1024 * 1024,
+                          mention_only: bool = True) -> APIRouter:
     router = APIRouter()
     # Dedup event Slack theo (channel, ts): mention trong channel bot là member sinh CẢ
     # `message` lẫn `app_mention` cho cùng 1 tin — event đến trước xử lý, event sau bỏ.
@@ -776,6 +871,11 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                         or new_text == (prev.get("text") or "").strip():
                     return {"ok": True}
                 bot_uid = ((payload.get("authorizations") or [{}])[0]).get("user_id") or ""
+                # MENTION GATE (đồng bộ nhánh tin mới): tin sửa phải CÓ mention bot (tag còn nguyên
+                # trong text tin sửa) hoặc DM — không thì user đang sửa tin nói với người khác.
+                if mention_only and event.get("channel_type") != "im" \
+                        and not (bot_uid and f"<@{bot_uid}>" in new_text):
+                    return {"ok": True}
                 if bot_uid:
                     new_text = new_text.replace(f"<@{bot_uid}>", "").strip()
                 if not _is_legal_lookup(new_text):        # chỉ câu tra cứu (không đụng deal state)
@@ -802,8 +902,15 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             if ts and _seen_dup((channel, ts)):
                 return {"ok": True}
             text = event.get("text", "")
-            # Bóc tag @bot khỏi nội dung (user ID bot có sẵn trong payload `authorizations`).
             bot_uid = ((payload.get("authorizations") or [{}])[0]).get("user_id") or ""
+            # MENTION GATE: chỉ trả lời khi được GỌI ĐÍCH DANH (@bot) hoặc DM — không mention = user
+            # đang nói với người khác trong kênh → bot IM LẶNG tuyệt đối (không ack/log ồn). app_mention
+            # tự nó là mention. bot_uid thiếu (hiếm) → không xác minh được → im lặng (strict, an toàn).
+            is_dm = event.get("channel_type") == "im"
+            mentioned = etype == "app_mention" or (bot_uid and f"<@{bot_uid}>" in text)
+            if mention_only and not (is_dm or mentioned):
+                return {"ok": True}
+            # Bóc tag @bot khỏi nội dung (user ID bot có sẵn trong payload `authorizations`).
             if bot_uid:
                 text = text.replace(f"<@{bot_uid}>", "").strip()
             elif etype == "app_mention":
@@ -814,10 +921,36 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             # Hội thoại theo THREAD (không theo cả channel) → mỗi thread/người = 1 deal riêng, không
             # lẫn ngữ cảnh khi nhiều người dùng chung 1 channel.
             key = f"slack:{channel}:{thread_ts}"
+            # M3 — mention + PERMALINK thread: đọc toàn bộ thread được dẫn làm ngữ cảnh. V1 chỉ cho
+            # CÙNG kênh (quyền riêng tư: kênh khác bot có thể là member nhưng NGƯỜI HỎI thì không).
+            thread_fetch: tuple[str, str] | None = None
+            thread_required = False
+            link = _parse_permalink(text)
+            if link:
+                l_ch, l_root, l_url = link
+                if l_ch != channel:
+                    if slack_sender and slack_sender.available:
+                        background.add_task(_safe_send, slack_sender, channel,
+                                            "Vì lý do quyền riêng tư, bot chỉ đọc được thread trong "
+                                            "CÙNG kênh này. Vui lòng dùng link thread của kênh hiện tại.",
+                                            thread_ts)
+                    return {"ok": True}
+                thread_fetch, thread_required = (l_ch, l_root), True
+                # Bỏ link (kể cả dạng wrap <url|label>) khỏi câu hỏi; không còn gì → mặc định tóm tắt.
+                text = re.sub(r"<" + re.escape(l_url) + r"(\|[^>]*)?>", " ", text)
+                text = text.replace(l_url, " ").strip(" .,;:–—-")
+                if not text:
+                    text = "Tóm tắt nội dung thread được tham chiếu, nêu các điểm chính và việc cần làm."
+            elif event.get("thread_ts") and event.get("thread_ts") != event.get("ts"):
+                # M2 — mention GIỮA thread: catch-up các tin bot đã bỏ qua (do mention-gate) để trả lời
+                # đúng ngữ cảnh; dedup/redact/budget ở _build_thread_context.
+                thread_fetch = (channel, event["thread_ts"])
             if slack_sender and slack_sender.available:         # ack nhanh, xử lý nền + gửi reply
                 url, fn = _slack_file(event)
                 background.add_task(_process, handler, slack_sender, key, channel, text,
-                                    url, fn, thread_ts, max_upload_bytes, True)
+                                    url, fn, thread_ts, max_upload_bytes, True,
+                                    thread_fetch=thread_fetch, thread_required=thread_required,
+                                    bot_uid=bot_uid)
                 return {"ok": True}
             return {"ok": True, "reply": handler.reply(key, text=text)}
 

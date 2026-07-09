@@ -103,7 +103,7 @@ class OcrPort(Protocol):
 
 @runtime_checkable
 class ChatSenderPort(Protocol):
-    """Gửi trả lời + tải file đính kèm trên nền tảng chat (Zalo/Slack)."""
+    """Gửi trả lời + tải file đính kèm + đọc thread trên nền tảng chat (Zalo/Slack)."""
 
     @property
     def available(self) -> bool: ...
@@ -112,6 +112,10 @@ class ChatSenderPort(Protocol):
              blocks: list | None = None) -> None: ...
 
     def download(self, url: str) -> bytes: ...
+
+    # Đọc toàn bộ tin trong 1 thread (catch-up ngữ cảnh khi được mention giữa hội thoại / dán link
+    # thread). Trả [{"user","bot_id","text","ts"}] theo thời gian; [] nếu không hỗ trợ/lỗi/không quyền.
+    def fetch_thread(self, channel: str, thread_ts: str) -> list[dict]: ...
 
 
 @runtime_checkable

@@ -24,12 +24,14 @@ MSG = "Tranh chấp bằng trọng tài tại Bắc Kinh."
 
 
 class _FakeSender:
-    def __init__(self, available=True, file_bytes=b""):
+    def __init__(self, available=True, file_bytes=b"", thread_msgs=None):
         self._a = available
         self.sent = []
         self.threads = []
         self.downloaded = []
+        self.fetched = []                  # các (channel, thread_ts) đã fetch_thread
         self._fb = file_bytes
+        self._tm = thread_msgs or []
 
     @property
     def available(self):
@@ -44,13 +46,20 @@ class _FakeSender:
         self.downloaded.append(url)
         return self._fb
 
+    def fetch_thread(self, channel, thread_ts):
+        self.fetched.append((channel, thread_ts))
+        return self._tm
 
-def _client(slack="", zalo="", appid="", slack_sender=None, zalo_sender=None):
+
+def _client(slack="", zalo="", appid="", slack_sender=None, zalo_sender=None, mention_only=False):
+    # mention_only=False mặc định trong TEST: các test routing/flow cũ gửi event không mention
+    # (legacy mode vẫn phải chạy đúng — flag tắt được trên prod). Gate test riêng bật True.
     handler = _handler()
     app = FastAPI()
     app.include_router(build_channels_router(handler, slack_signing_secret=slack,
                                              zalo_oa_secret=zalo, zalo_app_id=appid,
-                                             slack_sender=slack_sender, zalo_sender=zalo_sender))
+                                             slack_sender=slack_sender, zalo_sender=zalo_sender,
+                                             mention_only=mention_only))
     return TestClient(app)
 
 
@@ -513,7 +522,8 @@ def test_slack_rejects_oversize_attachment():
     handler = _handler()
     app = FastAPI()
     app.include_router(build_channels_router(handler, slack_signing_secret="s",
-                                             slack_sender=sender, max_upload_bytes=1024))
+                                             slack_sender=sender, max_upload_bytes=1024,
+                                             mention_only=False))
     c = TestClient(app)
     _slack_post(c, "s", {"event": {"text": "", "channel": "C1",
                                    "files": [{"url_private": "https://files/big", "name": "x.pdf"}]}})
@@ -929,3 +939,149 @@ def test_two_failures_same_thread_distinct_retry_ids():
     assert rid1 and rid2 and rid1 != rid2                     # 2 lỗi cùng thread → retry_id RIÊNG (không ghi đè)
     p1, p2 = _retry_store.pop(rid1), _retry_store.pop(rid2)
     assert p1[2] == "Mức phạt vi phạm hợp đồng A?" and p2[2] == "Mức phạt vi phạm hợp đồng B?"
+
+
+# ---- MENTION GATE (M1): chỉ trả lời khi @bot hoặc DM ----
+def _mention_client(sender):
+    handler = _handler()
+    app = FastAPI()
+    app.include_router(build_channels_router(handler, slack_signing_secret="s",
+                                             slack_sender=sender, mention_only=True))
+    return TestClient(app)
+
+
+def _auth(payload):
+    payload["authorizations"] = [{"user_id": "UBOT"}]
+    return payload
+
+
+def test_gate_channel_message_without_mention_silent():
+    sender = _FakeSender()
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "C1", "ts": "g1.1",
+                                         "text": "Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?"}}))
+    assert sender.sent == []                       # không mention → IM LẶNG tuyệt đối (không cả ack)
+
+
+def test_gate_mention_other_user_silent():
+    sender = _FakeSender()
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "C1", "ts": "g1.2",
+                                         "text": "<@UKHAC> mức phạt vi phạm hợp đồng tối đa bao nhiêu %?"}}))
+    assert sender.sent == []                       # mention NGƯỜI KHÁC → vẫn im lặng
+
+
+def test_gate_mention_bot_processed():
+    sender = _FakeSender()
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "C1", "ts": "g1.3",
+                                         "text": "<@UBOT> Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?"}}))
+    assert sender.sent                             # có mention bot → xử lý
+
+
+def test_gate_app_mention_processed():
+    sender = _FakeSender()
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "app_mention", "channel": "C1", "ts": "g1.4",
+                                         "text": "<@UBOT> Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?"}}))
+    assert sender.sent
+
+
+def test_gate_dm_without_mention_processed():
+    sender = _FakeSender()
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "D1", "channel_type": "im",
+                                         "ts": "g1.5",
+                                         "text": "Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?"}}))
+    assert sender.sent                             # DM → miễn mention
+
+
+def test_gate_edited_message_requires_mention():
+    sender = _FakeSender()
+    c = _mention_client(sender)
+    ev = _edit_event("C1", "g1.6", "Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?", "cũ")
+    _slack_post(c, "s", _auth(ev))                 # tin sửa KHÔNG mention → bỏ qua
+    assert sender.sent == []
+    ev2 = _edit_event("C1", "g1.7", "<@UBOT> Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?", "cũ")
+    _slack_post(c, "s", _auth(ev2))                # tin sửa CÓ mention → rerun
+    assert any(t.startswith("_(Cập nhật") for _, t in sender.sent)
+
+
+# ---- M2: catch-up thread khi mention giữa hội thoại ----
+def test_mention_mid_thread_fetches_context():
+    msgs = [{"user": "U1", "text": "HĐ phạt 15% nếu giao chậm", "ts": "1.0"},
+            {"user": "U2", "text": "vậy có vượt trần không nhỉ", "ts": "1.1"},
+            {"user": "U1", "text": "<@UBOT> ý bạn thế nào về đoạn trên", "ts": "1.2"}]
+    sender = _FakeSender(thread_msgs=msgs)
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "C1", "ts": "1.2",
+                                         "thread_ts": "1.0",
+                                         "text": "<@UBOT> ý bạn thế nào về đoạn trên"}}))
+    assert sender.fetched == [("C1", "1.0")]       # đọc ĐÚNG thread gốc
+    assert sender.sent                             # có trả lời (stub reasoner)
+
+
+def test_mention_at_root_no_fetch():
+    sender = _FakeSender(thread_msgs=[{"user": "U1", "text": "x", "ts": "2.0"}])
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "C1", "ts": "2.0",
+                                         "text": "<@UBOT> Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?"}}))
+    assert sender.fetched == []                    # tin gốc (không trong thread) → khỏi fetch
+
+
+def test_build_thread_context_roles_redact_dedup():
+    from legalguard.adapters.inbound.channels import _build_thread_context
+    msgs = [{"user": "U1", "text": "hợp đồng phạt 15%, mail tôi ab@x.vn", "ts": "1"},
+            {"user": "UBOT", "text": "Đã ghi nhận.", "ts": "2"},
+            {"user": "UB2", "bot_id": "B9", "text": "tin bot khác", "ts": "3"},
+            {"user": "U2", "text": "đã có trong history", "ts": "4"}]
+    out = _build_thread_context(msgs, "UBOT", known={"đã có trong history"})
+    assert "người dùng: hợp đồng phạt 15%" in out and "ab@x.vn" not in out   # redact PII
+    assert "trợ lý: Đã ghi nhận." in out                                     # tin bot mình = trợ lý
+    assert "tin bot khác" not in out and "đã có trong history" not in out    # bỏ bot khác + dedup
+
+
+def test_build_thread_context_budget_keeps_head_tail():
+    from legalguard.adapters.inbound.channels import _build_thread_context
+    msgs = [{"user": "U1", "text": f"tin số {i} " + "x" * 200, "ts": str(i)} for i in range(100)]
+    out = _build_thread_context(msgs, "UBOT", limit=2000)
+    assert len(out) <= 2100 and "tin số 0" in out and "tin số 99" in out    # giữ đầu + đuôi
+    assert "…(lược bớt)…" in out
+
+
+# ---- M3: đọc thread từ permalink ----
+def test_parse_permalink_variants():
+    from legalguard.adapters.inbound.channels import _parse_permalink
+    ch, root, _ = _parse_permalink("xem https://acme.slack.com/archives/C0AB1/p1720512345678901 nhé")
+    assert ch == "C0AB1" and root == "1720512345.678901"
+    ch2, root2, _ = _parse_permalink(
+        "<https://a.slack.com/archives/C9/p1720512345678901?thread_ts=1720512000.000100&cid=C9|link>")
+    assert ch2 == "C9" and root2 == "1720512000.000100"       # link reply → root = thread_ts
+    assert _parse_permalink("không có link") is None
+
+
+def test_mention_with_link_same_channel_fetches_that_thread():
+    msgs = [{"user": "U1", "text": "nội dung thread cũ về hợp đồng", "ts": "9.0"}]
+    sender = _FakeSender(thread_msgs=msgs)
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "C0AB1", "ts": "9.9",
+        "text": "<@UBOT> tóm tắt giúp <https://acme.slack.com/archives/C0AB1/p1720512345678901>"}}))
+    assert sender.fetched == [("C0AB1", "1720512345.678901")]   # fetch đúng thread từ link
+    assert sender.sent                                          # có trả lời
+
+
+def test_mention_with_link_other_channel_refused():
+    sender = _FakeSender(thread_msgs=[{"user": "U1", "text": "bí mật", "ts": "1"}])
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "CKHAC", "ts": "9.8",
+        "text": "<@UBOT> đọc giúp <https://acme.slack.com/archives/C0AB1/p1720512345678901>"}}))
+    assert sender.fetched == []                                 # KHÔNG fetch kênh khác (privacy V1)
+    assert sender.sent and "quyền riêng tư" in sender.sent[-1][1]
+
+
+def test_mention_with_link_unreadable_thread_notifies():
+    sender = _FakeSender(thread_msgs=[])                        # fetch trả rỗng (not_in_channel…)
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "C0AB1", "ts": "9.7",
+        "text": "<@UBOT> tóm tắt <https://acme.slack.com/archives/C0AB1/p1720512345678901>"}}))
+    assert sender.sent and "Chưa đọc được thread" in sender.sent[-1][1]

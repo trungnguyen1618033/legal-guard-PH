@@ -131,6 +131,17 @@ Concurrency/threading: hội thoại định danh theo THREAD (`slack:{channel}:
 riêng, reply LUÔN threaded dưới tin người hỏi (`thread_ts or ts`); **lock per-conversation** (`threading.Lock`
 trong `reply_ex`) tuần tự hóa tin cùng hội thoại → chống race load→sửa→save, hội thoại khác chạy song song
 (verified test contention; đủ 1 instance, đa-instance cần Redis lock — `docs/internal/scale-concurrency.md`).
+**MENTION-GATED + đọc thread (`docs/internal/slack-mention-gating-plan.md`, `SLACK_MENTION_ONLY` default
+ON)**: bot Slack CHỈ trả lời khi @mention hoặc DM — không mention = user nói với nhau → IM LẶNG tuyệt đối
+(gate cả nhánh edit-rerun; mention người KHÁC không kích hoạt; bot_uid từ `authorizations`). Mention GIỮA
+thread → **catch-up**: `sender.fetch_thread` (`conversations.replies`, port `ChatSenderPort.fetch_thread`,
+Zalo trả []) đọc các tin bot đã bỏ qua → `_build_thread_context` (THUẦN: redact PII từng tin, bóc mention,
+tin bot mình='trợ lý'/bot khác=bỏ, dedup với history, budget 6k giữ tin đầu+đuôi) → ngữ cảnh EPHEMERAL
+truyền `reply_ex(thread_msgs=, bot_uid=)` → `_handle(thread_context)` vào _followup/_negotiate (KHÔNG
+persist — history vẫn chỉ chứa tin đi qua bot). Mention + **permalink thread** (`_parse_permalink`:
+`/archives/<CH>/p<16 số>` → ts chèn chấm trước 6 số cuối; `?thread_ts=` = root) → đọc thread được dẫn
+(`thread_required=True`, đọc fail → báo mời bot vào kênh); **V1 chỉ CÙNG kênh** (khác kênh → từ chối,
+chống rò rỉ chéo kênh khi bot là member mà người hỏi không); không kèm câu hỏi → mặc định tóm tắt.
 History redact PII trước khi lưu; reply Slack chia nhiều block (`_mrkdwn_blocks`, ≤2900/block, không cụt).
 **Persist-first + retry + edit-rerun** (`docs/internal/retry-edit-rerun-research.md`): `reply_ex` lưu tin user
 (đã redact) NGAY khi nhận, TRƯỚC `_handle` → lỗi bất ngờ KHÔNG mất tin (dữ liệu audit/flywheel, không hiển thị

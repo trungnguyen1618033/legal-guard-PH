@@ -44,6 +44,36 @@ class SlackSender:
         resp.raise_for_status()   # 4xx/5xx → lỗi rõ, không trả trang lỗi làm "nội dung file"
         return resp.content
 
+    def fetch_thread(self, channel: str, thread_ts: str) -> list[dict]:
+        """Đọc toàn bộ tin của 1 thread (conversations.replies, Tier 3) — catch-up ngữ cảnh khi bot được
+        mention giữa hội thoại / user dán link thread. Tối đa 2 trang (400 tin); lỗi/không quyền → []
+        (caller degrade, không crash). Cần scope channels:history/groups:history/im:history."""
+        out: list[dict] = []
+        cursor = ""
+        for _ in range(2):                               # chặn phân trang vô hạn (thread cực dài → cắt)
+            params: dict = {"channel": channel, "ts": thread_ts, "limit": 200}
+            if cursor:
+                params["cursor"] = cursor
+            try:
+                resp = httpx.get("https://slack.com/api/conversations.replies",
+                                 headers={"Authorization": f"Bearer {self.bot_token}"},
+                                 params=params, timeout=30)
+                data = resp.json()
+            except Exception:  # noqa: BLE001 — mạng/parse lỗi → degrade về [] (ngữ cảnh là phụ)
+                _log.exception("Slack conversations.replies lỗi (channel=%s)", channel)
+                return out
+            if not data.get("ok"):                       # not_in_channel / thiếu scope → [] + log rõ
+                _log.warning("Slack conversations.replies từ chối: %s (channel=%s)",
+                             data.get("error"), channel)
+                return out
+            out += [{"user": m.get("user", ""), "bot_id": m.get("bot_id", ""),
+                     "text": m.get("text", ""), "ts": m.get("ts", "")}
+                    for m in data.get("messages", [])]
+            cursor = (data.get("response_metadata") or {}).get("next_cursor", "")
+            if not cursor:
+                break
+        return out
+
 
 class ZaloSender:
     name = "zalo"
@@ -70,3 +100,6 @@ class ZaloSender:
         resp = httpx.get(url, timeout=60, follow_redirects=True)
         resp.raise_for_status()
         return resp.content
+
+    def fetch_thread(self, channel: str, thread_ts: str) -> list[dict]:
+        return []                      # Zalo OA không có khái niệm thread — luôn rỗng (degrade an toàn)

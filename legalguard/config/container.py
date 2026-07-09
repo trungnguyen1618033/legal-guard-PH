@@ -156,5 +156,6 @@ def build_app(cfg: Settings = settings) -> FastAPI:
         zalo_oa_secret=cfg.zalo_oa_secret, zalo_app_id=cfg.zalo_app_id,
         slack_sender=slack_sender,
         zalo_sender=zalo_sender,
-        max_upload_bytes=cfg.max_upload_bytes))
+        max_upload_bytes=cfg.max_upload_bytes,
+        mention_only=cfg.slack_mention_only))
     return app

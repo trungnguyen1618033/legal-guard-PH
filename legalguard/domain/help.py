@@ -36,6 +36,11 @@ _FEATURES = [
 
 # (3) Bắt đầu thế nào — bước NHẬP thực tế (khác theo kênh).
 _USAGE = [
+    ("", "Gọi bot (Slack)",
+     "Trong kênh, bot CHỈ trả lời khi được nhắc tên (@Legal Guard) — không nhắc tên, bot im lặng để "
+     "mọi người trao đổi tự nhiên. Nhắn riêng (DM) thì không cần nhắc tên. Nhắc tên giữa thread → bot "
+     "tự đọc các tin trước đó trong thread để trả lời đúng ngữ cảnh; kèm link một thread khác (cùng "
+     "kênh) → bot đọc thread đó (không kèm câu hỏi thì bot tóm tắt)."),
     ("", "Rà soát hợp đồng",
      "{how_contract}. Nêu VỊ THẾ (bên mình bảo vệ, đòn bẩy) để phân tích sát hơn."),
     ("", "Tra cứu luật",
@@ -48,6 +53,9 @@ _USAGE = [
 
 # (4) Gỡ sự cố.
 _TROUBLE = [
+    ("", "Bot không trả lời",
+     "Trong kênh, bot chỉ trả lời khi được nhắc tên (@Legal Guard) — kiểm tra tin nhắn đã nhắc tên "
+     "chưa. Nhắn riêng (DM) thì không cần."),
     ("", "Lâu chưa thấy trả lời",
      "Rà soát hợp đồng mất vài phút (hợp đồng dài lâu hơn) — kết quả trả vào cùng chỗ hỏi. "
      "Câu hỏi tra cứu thường vài giây; quá 1 phút thì gửi lại."),
