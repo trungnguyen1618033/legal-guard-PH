@@ -735,9 +735,10 @@ class AnalysisService:
             return f"Chưa trả lời được: {exc}", snippets
         # NLI (model nhanh): câu trả lời có được CHÍNH các nguồn hậu thuẫn không? Không → cảnh báo.
         if self.nli_verification and nli_supports(answer, sources, self.judge) is False:
-            answer += ("\n\n⚠️ Lưu ý: câu trả lời có thể CHƯA được nguồn hậu thuẫn đầy đủ — hãy kiểm chứng "
-                       "với văn bản gốc." if lang == "vi" else
-                       "\n\n⚠️ Note: this answer may not be fully supported by the cited sources — verify.")
+            answer += ("\n\nLưu ý: câu trả lời có thể chưa được nguồn dẫn hậu thuẫn đầy đủ; đề nghị đối chiếu "
+                       "văn bản gốc trước khi áp dụng." if lang == "vi" else
+                       "\n\nNote: this answer may not be fully supported by the cited sources; please verify "
+                       "against the original text.")
         if self.observer is not None:
             self.observer.event("lookup", {"tenant": get_tenant(org.country).id,
                                            "lang": lang, "hits": len(snippets)})

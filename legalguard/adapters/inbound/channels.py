@@ -351,8 +351,8 @@ class ChatHandler:
             answer, snippets = self.service.lookup(text, org, lang=lang)
             if snippets:                                   # hiện nguồn (dẫn điều/khoản) gọn dưới câu trả lời
                 srcs = " · ".join(s.source for s in snippets[:3])
-                answer = f"{answer}\n\n📎 Nguồn: {srcs}"
-            return ChatReply(answer + _AI_DISCLOSURE, "lookup", text)
+                answer = f"{answer}\n\nNguồn tham khảo: {srcs}"
+            return ChatReply(answer + _AI_DISCLOSURE_LEGAL, "lookup", text)   # công bố AI văn phong pháp lý (không icon)
         if conv.context:                                   # có deal, không phải câu hỏi → follow-up
             return ChatReply(self._followup(conv, text or "", lang))
         return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "
@@ -664,7 +664,7 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
     if will_analyze:
         _safe_send(sender, send_to, _ACK, thread_ts)
     elif text and _looks_like_question(text):       # lookup/follow-up cũng chậm (~30s) → ack để không "chờ im"
-        _safe_send(sender, send_to, "🔎 Đang tra cứu, chờ chút nhé…", thread_ts)
+        _safe_send(sender, send_to, "Đang tra cứu văn bản pháp luật, vui lòng chờ trong giây lát…", thread_ts)
     attachment: bytes | None = None
     if file_url:
         try:
