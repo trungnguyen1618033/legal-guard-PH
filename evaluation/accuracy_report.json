@@ -1,9 +1,9 @@
 {
-  "answer_accuracy": 0.981,
-  "passed": 53,
+  "answer_accuracy": 1.0,
+  "passed": 54,
   "total": 54,
   "repeat": 3,
-  "flaky_cases": 1,
+  "flaky_cases": 0,
   "by_category": {
     "Chế tài thương mại (LTM 2005)": {
       "passed": 14,
@@ -41,9 +41,9 @@
       "accuracy": 1.0
     },
     "Đầu tư (Luật Đầu tư 2025)": {
-      "passed": 0,
+      "passed": 1,
       "total": 1,
-      "accuracy": 0.0
+      "accuracy": 1.0
     },
     "Sở hữu trí tuệ (Luật SHTT 2005)": {
       "passed": 2,
@@ -60,7 +60,7 @@
       "total": 3,
       "accuracy": 1.0
     },
-    "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)": {
+    "Bảo vệ dữ liệu cá nhân (Luật 91/2025)": {
       "passed": 1,
       "total": 1,
       "accuracy": 1.0
@@ -98,7 +98,7 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 301",
         "luat_xay_dung_2014.md#Điều 146 khoản 2"
       ],
-      "answer": "**Trả lời:** Tối đa 8% giá trị phần nghĩa vụ hợp đồng bị vi phạm.  \n**Căn cứ:** Điều 301 Luật Thương mại 2005 — mức phạt vi phạm không quá 8% giá trị phần nghĩa"
+      "answer": "**Trả lời:** Mức phạt vi phạm hợp đồng thương mại tối đa là 8% giá trị phần nghĩa vụ hợp đồng bị vi phạm.  \n**Căn cứ:** Điều 301 Luật Thương mại 2005 — mức phạt"
     },
     {
       "q": "Khi nào bên bị vi phạm được yêu cầu phạt vi phạm trong thương mại?",
@@ -111,7 +111,7 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 300",
         "luat_thuong_mai_2005_che_tai.md#Điều 297 khoản 1"
       ],
-      "answer": "**Trả lời:** Bên bị vi phạm được yêu cầu phạt vi phạm khi hợp đồng có thỏa thuận về phạt vi phạm, trừ các trường hợp miễn trách nhiệm quy định tại Điều 294 Luật"
+      "answer": "**Trả lời:** Bên bị vi phạm được yêu cầu phạt vi phạm khi hợp đồng có thỏa thuận về phạt vi phạm và không thuộc các trường hợp miễn trách nhiệm quy định tại Điề"
     },
     {
       "q": "Bồi thường thiệt hại trong thương mại bao gồm những khoản nào?",
@@ -124,7 +124,7 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 302",
         "luat_thuong_mai_2005_che_tai.md#Điều 292"
       ],
-      "answer": "**Trả lời:** Bồi thường thiệt hại trong thương mại bao gồm giá trị tổn thất thực tế, trực tiếp và khoản lợi trực tiếp mà bên bị vi phạm đáng lẽ được hưởng nếu k"
+      "answer": "**Trả lời:** Bồi thường thiệt hại trong thương mại bao gồm giá trị tổn thất thực tế, trực tiếp mà bên bị vi phạm phải chịu và khoản lợi trực tiếp mà bên bị vi p"
     },
     {
       "q": "Có được vừa phạt vi phạm vừa đòi bồi thường thiệt hại trong thương mại không?",
@@ -176,7 +176,7 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 297 khoản 1",
         "luat_thuong_mai_2005_che_tai.md#Điều 297 khoản 5"
       ],
-      "answer": "**Trả lời:** Buộc thực hiện đúng hợp đồng là việc bên bị vi phạm yêu cầu bên vi phạm thực hiện đúng hợp đồng hoặc áp dụng các biện pháp khác để đảm bảo hợp đồng"
+      "answer": "**Trả lời:** Buộc thực hiện đúng hợp đồng là việc bên bị vi phạm yêu cầu bên vi phạm thực hiện đúng hợp đồng hoặc dùng các biện pháp khác để hợp đồng được thực "
     },
     {
       "q": "Khi gặp bất khả kháng, bên vi phạm có phải thông báo cho bên kia không?",
@@ -189,7 +189,7 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 295",
         "luat_dau_tu_2025.md#Điều 35 khoản 1"
       ],
-      "answer": "**Trả lời:** Có, bên vi phạm phải thông báo ngay bằng văn bản cho bên kia về trường hợp được miễn trách nhiệm và khi trường hợp đó chấm dứt.  \n**Căn cứ:** Điều "
+      "answer": "**Trả lời:** Có, bên vi phạm phải thông báo ngay bằng văn bản cho bên kia về trường hợp miễn trách nhiệm và khi sự kiện chấm dứt.  \n**Căn cứ:** Điều 295.1 Luật "
     },
     {
       "q": "Bên mua chậm thanh toán thì bên bán được yêu cầu gì?",
@@ -202,7 +202,7 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 297 khoản 5",
         "luat_thuong_mai_2005_che_tai.md#Điều 306"
       ],
-      "answer": "**Trả lời:** Bên bán được yêu cầu bên mua trả tiền chậm thanh toán và lãi trên số tiền chậm trả; lãi suất không vượt quá 20%/năm nếu có thỏa thuận, hoặc 10%/năm"
+      "answer": "**Trả lời:** Bên bán được yêu cầu bên mua trả tiền chậm thanh toán và lãi trên số tiền chậm trả; mức lãi suất không vượt quá 20%/năm nếu có thỏa thuận, hoặc 10%"
     },
     {
       "q": "Hợp đồng mua bán quy định phạt 12% giá trị nếu giao chậm. Mức này có hợp lệ theo luật Việt Nam không?",
@@ -215,7 +215,7 @@
         "luat_xay_dung_2014.md#Điều 146 khoản 2",
         "luat_thuong_mai_2005_che_tai.md#Điều 301"
       ],
-      "answer": "**Trả lời:** Mức phạt 12% chỉ hợp lệ nếu hợp đồng thuộc loại sử dụng vốn nhà nước (theo Luật Xây dựng 2014); với hợp đồng thương mại thông thường, mức trần là 8"
+      "answer": "**Trả lời:** Mức phạt 12% giá trị phần hợp đồng bị vi phạm chỉ hợp lệ nếu là hợp đồng xây dựng sử dụng vốn nhà nước; với hợp đồng thương mại thông thường, mức p"
     },
     {
       "q": "Đối tác đòi bồi thường cả thiệt hại gián tiếp do vi phạm hợp đồng thương mại. Luật cho phép không?",
@@ -228,7 +228,7 @@
         "blds_2015_hop_dong.md#Điều 419",
         "luat_thuong_mai_2005_che_tai.md#Điều 307"
       ],
-      "answer": "**Trả lời:** Không được bồi thường thiệt hại gián tiếp; chỉ bồi thường tổn thất thực tế, trực tiếp và khoản lợi trực tiếp đáng lẽ được hưởng.  \n**Căn cứ:**  \nĐi"
+      "answer": "**Trả lời:** Không được bồi thường thiệt hại gián tiếp; chỉ bồi thường tổn thất thực tế, trực tiếp và khoản lợi trực tiếp đáng lẽ được hưởng.  \n**Căn cứ:** Điều"
     },
     {
       "q": "Có phải mức phạt vi phạm hợp đồng thương mại tối đa là 20% không?",
@@ -251,10 +251,10 @@
       "flaky": false,
       "votes": "3/3",
       "sources": [
-        "luat_thuong_mai_2005_che_tai.md#Điều 294",
-        "blds_2015_hop_dong.md#Điều 351"
+        "blds_2015_hop_dong.md#Điều 351",
+        "luat_thuong_mai_2005_che_tai.md#Điều 294"
       ],
-      "answer": "**Trả lời:** Bên vi phạm không phải chịu trách nhiệm dân sự (bao gồm phạt vi phạm) nếu chứng minh được vi phạm do sự kiện bất khả kháng, trừ trường hợp có thỏa "
+      "answer": "**Trả lời:** Bên vi phạm không phải chịu trách nhiệm dân sự nếu chứng minh được vi phạm do sự kiện bất khả kháng, trừ trường hợp có thỏa thuận khác hoặc pháp lu"
     },
     {
       "q": "Mức phạt vi phạm trong hợp đồng DÂN SỰ có bị giới hạn 8% không?",
@@ -267,7 +267,7 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 301",
         "blds_2015_hop_dong.md"
       ],
-      "answer": "**Trả lời:** Không bị giới hạn 8%; mức phạt do các bên thỏa thuận, trừ trường hợp luật liên quan có quy định khác.  \n**Căn cứ:** Điều 418. Thỏa thuận phạt vi ph"
+      "answer": "**Trả lời:** Không bị giới hạn 8%; mức phạt do các bên thỏa thuận, trừ trường hợp luật liên quan có quy định khác.  \n**Căn cứ:**  \nĐiều 418 Khoản 2 Bộ luật Dân "
     },
     {
       "q": "Hợp đồng dân sự (không phải thương mại) thỏa thuận phạt 30%. Có hợp lệ không?",
@@ -280,7 +280,7 @@
         "blds_2015_hop_dong.md",
         "luat_thuong_mai_2005_che_tai.md#Điều 301"
       ],
-      "answer": "**Trả lời:** Hợp lệ, không bị giới hạn mức trần 8%; mức phạt do các bên tự thỏa thuận theo Điều 418 Bộ luật Dân sự 2015.  \n**Căn cứ:** Điều 418 Bộ luật Dân sự 2"
+      "answer": "**Trả lời:** Hợp đồng dân sự thỏa thuận phạt 30% là hợp lệ, không bị giới hạn mức trần.  \n**Căn cứ:** Điều 418 Bộ luật Dân sự 2015 — mức phạt vi phạm do các bên"
     },
     {
       "q": "Thiệt hại được bồi thường do vi phạm hợp đồng dân sự gồm những gì?",
@@ -306,7 +306,7 @@
         "blds_2015_hop_dong.md#Điều 419",
         "blds_2015_hop_dong.md#Điều 360"
       ],
-      "answer": "**Trả lời:** Nguyên tắc bồi thường thiệt hại do vi phạm nghĩa vụ là bồi thường toàn bộ thiệt hại gây ra, trừ trường hợp các bên có thỏa thuận khác hoặc luật có "
+      "answer": "**Trả lời:** Nguyên tắc bồi thường thiệt hại do vi phạm nghĩa vụ là bồi thường toàn bộ thiệt hại gây ra, trừ trường hợp có thỏa thuận khác hoặc luật có quy định"
     },
     {
       "q": "Đặt cọc là gì và nếu bên nhận đặt cọc từ chối giao kết thì phải trả gì?",
@@ -332,7 +332,7 @@
         "blds_2015_hop_dong.md#Điều 351",
         "blds_2015_hop_dong.md#Điều 360"
       ],
-      "answer": "**Trả lời:** Trách nhiệm dân sự do vi phạm nghĩa vụ phát sinh khi bên có nghĩa vụ không thực hiện đúng nghĩa vụ về thời hạn, nội dung hoặc mức độ đầy đủ; trừ tr"
+      "answer": "**Trả lời:** Trách nhiệm dân sự do vi phạm nghĩa vụ phát sinh khi bên có nghĩa vụ không thực hiện đúng nghĩa vụ về thời hạn, nội dung hoặc mức độ đầy đủ.  \n**Că"
     },
     {
       "q": "Hợp đồng dân sự cũng bị giới hạn mức phạt 8% như hợp đồng thương mại đúng không?",
@@ -345,7 +345,7 @@
         "blds_2015_hop_dong.md",
         "luat_thuong_mai_2005_che_tai.md#Điều 301"
       ],
-      "answer": "**Trả lời:** Không, hợp đồng dân sự không bị giới hạn mức phạt 8%; mức phạt do các bên thỏa thuận, trừ trường hợp luật liên quan có quy định khác.  \n**Căn cứ:**"
+      "answer": "**Trả lời:** Không đúng; hợp đồng dân sự không bị giới hạn mức phạt 8% — mức phạt do các bên thỏa thuận, trừ trường hợp luật liên quan có quy định khác.  \n**Căn"
     },
     {
       "q": "Trần lãi suất cho vay theo Bộ luật Dân sự là bao nhiêu một năm?",
@@ -358,7 +358,7 @@
         "blds_2015_hop_dong.md",
         "blds_2015_hop_dong.md#Điều 468"
       ],
-      "answer": "**Trả lời:** Mức trần lãi suất cho vay theo Bộ luật Dân sự 2015 là 20%/năm của khoản tiền vay.  \n**Căn cứ:** Điều 468 Khoản 1 Bộ luật Dân sự 2015 — lãi suất thỏ"
+      "answer": "**Trả lời:** Trần lãi suất cho vay theo Bộ luật Dân sự 2015 là 20%/năm.  \n**Căn cứ:** Điều 468 Khoản 1 Bộ luật Dân sự 2015 — Lãi suất theo thỏa thuận không được"
     },
     {
       "q": "Lãi trên nợ gốc quá hạn tối đa bằng bao nhiêu phần trăm lãi suất trong hợp đồng?",
@@ -371,7 +371,7 @@
         "blds_2015_hop_dong.md#Điều 466",
         "blds_2015_hop_dong.md#Điều 357"
       ],
-      "answer": "**Trả lời:** Lãi trên nợ gốc quá hạn tối đa bằng 150% lãi suất vay theo hợp đồng.  \n**Căn cứ:** Điều 466 khoản 5 điểm b Bộ luật Dân sự năm 2015 — quy định lãi t"
+      "answer": "**Trả lời:** Lãi trên nợ gốc quá hạn tối đa bằng 150% lãi suất vay theo hợp đồng.  \n**Căn cứ:** Điều 466 khoản 5 điểm b Bộ luật Dân sự năm 2015 – quy định lãi t"
     },
     {
       "q": "Vay KHÔNG có lãi mà đến hạn không trả thì có phải trả lãi không?",
@@ -384,7 +384,7 @@
         "blds_2015_hop_dong.md#Điều 466",
         "luat_thuong_mai_2005_che_tai.md#Điều 306"
       ],
-      "answer": "**Trả lời:** Có phải trả lãi trên số tiền chậm trả với mức lãi suất theo quy định tại khoản 2 Điều 468 BLDS 2015.  \n**Căn cứ:** Điều 466 khoản 4 Bộ luật Dân sự "
+      "answer": "**Trả lời:** Có, bên vay phải trả lãi với mức lãi suất theo quy định tại khoản 2 Điều 468 BLDS 2015 trên số tiền chậm trả tương ứng với thời gian chậm trả.  \n**"
     },
     {
       "q": "Chậm thực hiện nghĩa vụ trả tiền thì lãi suất chậm trả xác định thế nào?",
@@ -397,7 +397,7 @@
         "blds_2015_hop_dong.md#Điều 357",
         "luat_thuong_mai_2005_che_tai.md#Điều 306"
       ],
-      "answer": "**Trả lời:** Lãi suất chậm trả được xác định theo thỏa thuận của các bên nhưng không vượt quá 20%/năm; nếu không có thỏa thuận, áp dụng mức 50% lãi suất giới hạ"
+      "answer": "**Trả lời:** Lãi suất chậm trả được xác định theo thỏa thuận của các bên nhưng không vượt quá 20%/năm; nếu không có thỏa thuận, áp dụng mức 10%/năm (bằng 50% mứ"
     },
     {
       "q": "Hợp đồng vay thỏa thuận lãi suất 25%/năm. Có hợp lệ không?",
@@ -408,9 +408,9 @@
       "votes": "3/3",
       "sources": [
         "blds_2015_hop_dong.md#Điều 468",
-        "luat_trong_tai_tm_2010.md#Điều 44 khoản 3"
+        "luat_doanh_nghiep_67_vbhn.md#Điều 167 khoản 3"
       ],
-      "answer": "**Trả lời:** Không hợp lệ; mức lãi suất vượt trần 20%/năm, phần vượt không có hiệu lực.  \n**Căn cứ:** Điều 468 khoản 1 Bộ luật Dân sự 2015 – lãi suất thỏa thuận"
+      "answer": "**Trả lời:** Không hợp lệ; mức lãi suất vượt trần 20%/năm, phần vượt không có hiệu lực.  \n**Căn cứ:** Điều 468 khoản 1 Bộ luật Dân sự 2015 — Lãi suất theo thỏa "
     },
     {
       "q": "Lãi do chậm trả tiền tối đa là bao nhiêu một năm?",
@@ -423,7 +423,7 @@
         "blds_2015_hop_dong.md#Điều 357",
         "blds_2015_hop_dong.md#Điều 466"
       ],
-      "answer": "**Trả lời:** Lãi do chậm trả tiền tối đa là 20%/năm đối với khoản tiền vay có lãi đã thỏa thuận; nếu không có thỏa thuận về lãi suất chậm trả, mức lãi suất áp d"
+      "answer": "**Trả lời:** Mức lãi do chậm trả tiền tối đa là 20%/năm đối với khoản tiền vay có lãi; nếu không có thỏa thuận về lãi suất chậm trả, mức lãi suất áp dụng là 10%"
     },
     {
       "q": "Thời điểm lập hóa đơn khi bán hàng hóa quy định thế nào?",
@@ -449,7 +449,7 @@
         "nd_123_2020_hoa_don.md#Điều 4 khoản 1",
         "nd_123_2020_hoa_don.md#Điều 10"
       ],
-      "answer": "**Trả lời:** Hóa đơn điện tử phải có tên hóa đơn, ký hiệu hóa đơn, ký hiệu mẫu số hóa đơn, tên liên hóa đơn (nếu áp dụng), số hóa đơn (tối đa 8 chữ số, lập liên"
+      "answer": "**Trả lời:** Hóa đơn điện tử phải có các nội dung bắt buộc quy định tại Điều 10 Nghị định 123/2020/NĐ-CP, bao gồm: tên hóa đơn, ký hiệu hóa đơn, ký hiệu mẫu số "
     },
     {
       "q": "Công ty tặng hàng mẫu/khuyến mại cho khách, có phải lập hóa đơn không?",
@@ -473,7 +473,7 @@
       "votes": "3/3",
       "sources": [
         "nd_123_2020_hoa_don.md#Điều 9",
-        "nd_70_2025_sua_doi_hoa_don.md#Điều 1"
+        "nd_123_2020_hoa_don.md#Điều 4 khoản 1"
       ],
       "answer": "**Trả lời:** Đã phải xuất hóa đơn ngay khi giao hàng, bất kể khách chưa thanh toán.  \n**Căn cứ:** Điều 9 khoản 1 Nghị định 123/2020/NĐ-CP — Thời điểm lập hóa đơ"
     },
@@ -488,7 +488,7 @@
         "tt_39_2014_hoa_don_HET_HIEU_LUC.md",
         "tt_39_2014_hoa_don_HET_HIEU_LUC.md#Điều 16"
       ],
-      "answer": "**Trả lời:** Trong năm 2020, văn bản hướng dẫn về hóa đơn bán hàng hóa, cung ứng dịch vụ đang có hiệu lực thi hành là Thông tư 39/2014/TT-BTC. Nghị định 123/202"
+      "answer": "**Trả lời:** Năm 2020, văn bản đang có hiệu lực thi hành hướng dẫn về hóa đơn bán hàng là Thông tư 39/2014/TT-BTC (duy trì hiệu lực đến hết ngày 30/06/2022). Cũ"
     },
     {
       "q": "Hiện nay (sau 2022) văn bản nào quy định về hóa đơn, chứng từ?",
@@ -501,7 +501,7 @@
         "nd_123_2020_hoa_don.md",
         "nd_70_2025_sua_doi_hoa_don.md"
       ],
-      "answer": "**Trả lời:** Hiện nay, văn bản quy định về hóa đơn, chứng từ là Nghị định 123/2020/NĐ-CP (hiệu lực từ 01/07/2022) và Nghị định 70/2025/NĐ-CP sửa đổi, bổ sung (h"
+      "answer": "**Trả lời:** Hiện nay, văn bản quy định về hóa đơn, chứng từ là Nghị định 123/2020/NĐ-CP (có hiệu lực từ ngày 01/07/2022). Tuy nhiên, một số điều của Nghị định "
     },
     {
       "q": "Văn bản nào sửa đổi, bổ sung Nghị định 123/2020 về hóa đơn?",
@@ -527,7 +527,7 @@
         "luat_thuong_mai_2005_che_tai.md#Điều 301",
         "fallback_matrix.md"
       ],
-      "answer": "**Trả lời:** Mức phạt vi phạm hợp đồng không được vượt quá 8% giá trị phần nghĩa vụ bị vi phạm, trừ trường hợp đặc biệt quy định tại Điều 266 Luật Thương mại 20"
+      "answer": "**Trả lời:** Mức phạt vi phạm hợp đồng thương mại không được vượt quá 8% giá trị phần nghĩa vụ bị vi phạm.  \n**Căn cứ:** Điều 301. Mức phạt vi phạm — Luật Thươn"
     },
     {
       "q": "Bên đặt cọc từ chối giao kết hợp đồng thì mất gì?",
@@ -540,7 +540,7 @@
         "blds_2015_hop_dong.md#Điều 328",
         "fallback_matrix.md"
       ],
-      "answer": "**Trả lời:** Bên đặt cọc từ chối giao kết hợp đồng thì tài sản đặt cọc thuộc về bên nhận đặt cọc.  \n**Căn cứ:** Điều 328 khoản 2 Bộ luật Dân sự năm 2015 — nếu b"
+      "answer": "**Trả lời:** Bên đặt cọc từ chối giao kết hợp đồng thì tài sản đặt cọc thuộc về bên nhận đặt cọc.  \n**Căn cứ:** Điều 328 khoản 2 Bộ luật Dân sự năm 2015 — quy đ"
     },
     {
       "q": "Vay CÓ lãi mà đến hạn không trả thì phải trả những loại lãi nào?",
@@ -553,7 +553,7 @@
         "blds_2015_hop_dong.md#Điều 466",
         "blds_2015_hop_dong.md#Điều 357"
       ],
-      "answer": "**Trả lời:** Bên vay phải trả (a) lãi trên nợ gốc theo lãi suất thỏa thuận tương ứng với thời hạn vay chưa trả; nếu chậm trả, còn phải trả thêm lãi theo mức quy"
+      "answer": "**Trả lời:** Bên vay phải trả (a) lãi trên nợ gốc theo lãi suất thỏa thuận tương ứng với thời hạn vay đến hạn chưa trả, và nếu chậm trả thì còn phải trả thêm lã"
     },
     {
       "q": "Số giờ làm thêm tối đa trong một năm theo Bộ luật Lao động là bao nhiêu?",
@@ -566,7 +566,7 @@
         "nd_145_2020_huong_dan_blld.md#Điều 61",
         "nd_145_2020_huong_dan_blld.md#Điều 62"
       ],
-      "answer": "**Trả lời:** Số giờ làm thêm tối đa trong một năm là 300 giờ.  \n**Căn cứ:** Điều 61. Các trường hợp được tổ chức làm thêm từ trên 200 giờ đến 300 giờ trong một "
+      "answer": "**Trả lời:** Số giờ làm thêm tối đa trong một năm là 300 giờ.  \n**Căn cứ:** Điều 61 + Nghị định số 145/2020/NĐ-CP + quy định các trường hợp được tổ chức làm thê"
     },
     {
       "q": "Mức lương tối thiểu vùng hiện nay là bao nhiêu?",
@@ -589,7 +589,7 @@
         "nd_145_2020_huong_dan_blld.md#Điều 8 khoản 5",
         "nd_145_2020_huong_dan_blld.md#Điều 8 khoản 3"
       ],
-      "answer": "**Trả lời:** Trợ cấp thôi việc được tính trên cơ sở thời gian làm việc thực tế (tính theo năm, tháng lẻ ≤ 6 tháng được tính 0,5 năm, > 6 tháng tính 1 năm) và ti"
+      "answer": "**Trả lời:** Trợ cấp thôi việc được tính trên cơ sở tiền lương bình quân của 06 tháng liền kề trước khi chấm dứt hợp đồng lao động và thời gian làm việc thực tế"
     },
     {
       "q": "Điều kiện và thủ tục thành lập công ty TNHH một thành viên?",
@@ -599,10 +599,10 @@
       "flaky": false,
       "votes": "3/3",
       "sources": [
-        "luat_doanh_nghiep_2020.md#Điều 74",
-        "luat_doanh_nghiep_2020.md#Điều 75"
+        "luat_doanh_nghiep_67_vbhn.md#Điều 74",
+        "luat_doanh_nghiep_67_vbhn.md#Điều 75"
       ],
-      "answer": "**Trả lời:** Thành lập công ty TNHH một thành viên yêu cầu đăng ký doanh nghiệp theo quy định, trong đó vốn điều lệ là tổng giá trị tài sản chủ sở hữu cam kết g"
+      "answer": "**Trả lời:** Thành lập công ty TNHH một thành viên yêu cầu đăng ký doanh nghiệp với Giấy chứng nhận đăng ký doanh nghiệp; vốn điều lệ là tổng giá trị tài sản do"
     },
     {
       "q": "Đại hội đồng cổ đông công ty cổ phần có những quyền gì?",
@@ -612,23 +612,23 @@
       "flaky": false,
       "votes": "3/3",
       "sources": [
-        "luat_doanh_nghiep_2020.md#Điều 138",
-        "luat_doanh_nghiep_2020.md#Điều 115 khoản 2"
+        "luat_doanh_nghiep_67_vbhn.md#Điều 138",
+        "luat_doanh_nghiep_67_vbhn.md#Điều 115 khoản 2"
       ],
       "answer": "**Trả lời:** Đại hội đồng cổ đông là cơ quan quyết định cao nhất của công ty cổ phần, có quyền quyết định các vấn đề trọng đại như định hướng phát triển, loại v"
     },
     {
       "q": "Dự án FDI được hưởng những ưu đãi đầu tư nào?",
       "category": "Đầu tư (Luật Đầu tư 2025)",
-      "ok": false,
-      "why": "dẫn-nguồn=✓ dữ-kiện=✗ ['miễn thuế']",
-      "flaky": true,
-      "votes": "1/3",
+      "ok": true,
+      "why": "dẫn-nguồn=✓ dữ-kiện=✓",
+      "flaky": false,
+      "votes": "3/3",
       "sources": [
         "luat_dau_tu_2025.md#Điều 14 khoản 1",
         "luat_dau_tu_2025.md#Điều 14 khoản 5"
       ],
-      "answer": "**Trả lời:** Dự án FDI được hưởng ưu đãi đầu tư nếu thuộc ngành, nghề hoặc địa bàn ưu đãi theo Điều 15; hoặc có quy mô vốn lớn, sử dụng nhiều lao động, hoặc là "
+      "answer": "**Trả lời:** Dự án FDI được hưởng ưu đãi đầu tư nếu thuộc ngành, nghề hoặc địa bàn ưu đãi đầu tư theo Điều 15; hoặc có quy mô vốn lớn, sử dụng nhiều lao động, h"
     },
     {
       "q": "Quy định về đăng ký bảo hộ nhãn hiệu thế nào?",
@@ -639,7 +639,7 @@
       "votes": "3/3",
       "sources": [
         "luat_shtt_2005.md#Điều 87 khoản 7",
-        "luat_shtt_2005.md#Điều 105 khoản 1"
+        "luat_shtt_2005.md#Điều 87 khoản 5"
       ],
       "answer": "**Trả lời:** Tổ chức, cá nhân có quyền đăng ký nhãn hiệu dùng cho hàng hoá do mình sản xuất hoặc dịch vụ do mình cung cấp; trường hợp nhãn hiệu được bảo hộ tại "
     },
@@ -652,7 +652,7 @@
       "votes": "3/3",
       "sources": [
         "luat_shtt_2005.md#Điều 93",
-        "luat_shtt_2005.md#Điều 145"
+        "luat_shtt_2005.md#Điều 113"
       ],
       "answer": "**Trả lời:** Thời hạn bảo hộ độc quyền sáng chế là hai mươi năm kể từ ngày nộp đơn.  \n**Căn cứ:** Điều 93 khoản 2 Luật Sở hữu trí tuệ 2005 — Bằng độc quyền sáng"
     },
@@ -684,10 +684,10 @@
       "flaky": false,
       "votes": "3/3",
       "sources": [
-        "luat_trong_tai_tm_2010.md#Điều 5",
+        "luat_trong_tai_60_vbhn.md#Điều 5",
         "nq_01_2014_hdtp_trong_tai.md#Điều 18"
       ],
-      "answer": "**Trả lời:** Thỏa thuận trọng tài có hiệu lực nếu: (i) được các bên thỏa thuận trước hoặc sau khi tranh chấp phát sinh; (ii) thuộc thẩm quyền trọng tài theo Điề"
+      "answer": "**Trả lời:** Thỏa thuận trọng tài có hiệu lực nếu: (i) được các bên thỏa thuận trước hoặc sau khi tranh chấp phát sinh; (ii) không thuộc các trường hợp vô hiệu "
     },
     {
       "q": "Hợp đồng vô hiệu thì thỏa thuận trọng tài trong hợp đồng đó có còn hiệu lực không?",
@@ -697,10 +697,10 @@
       "flaky": false,
       "votes": "3/3",
       "sources": [
-        "luat_trong_tai_tm_2010.md#Điều 19",
-        "luat_trong_tai_tm_2010.md#Điều 43 khoản 1"
+        "luat_trong_tai_60_vbhn.md#Điều 19",
+        "luat_trong_tai_60_vbhn.md#Điều 43 khoản 1"
       ],
-      "answer": "**Trả lời:** Thỏa thuận trọng tài vẫn có hiệu lực, bất kể hợp đồng vô hiệu.  \n**Căn cứ:** Điều 19 + Luật Trọng tài thương mại 2010 + Thỏa thuận trọng tài hoàn t"
+      "answer": "**Trả lời:** Thỏa thuận trọng tài vẫn có hiệu lực, bất kể hợp đồng vô hiệu.  \n**Căn cứ:** Điều 19 + Luật Trọng tài thương mại + Thỏa thuận trọng tài hoàn toàn đ"
     },
     {
       "q": "Đã có thỏa thuận trọng tài nhưng một bên khởi kiện ra Tòa án thì Tòa giải quyết thế nào?",
@@ -711,22 +711,22 @@
       "votes": "3/3",
       "sources": [
         "nq_01_2014_hdtp_trong_tai.md#Điều 2 khoản 2",
-        "nq_01_2014_hdtp_trong_tai.md#Điều 2 khoản 4"
+        "luat_trong_tai_60_vbhn.md#Điều 6"
       ],
-      "answer": "**Trả lời:** Tòa án trả lại đơn khởi kiện nếu thỏa thuận trọng tài còn hiệu lực và không thuộc các trường hợp đặc biệt; nếu đã thụ lý thì ra quyết định đình chỉ"
+      "answer": "**Trả lời:** Tòa án phải từ chối thụ lý đơn khởi kiện, trừ trường hợp thỏa thuận trọng tài vô hiệu hoặc không thể thực hiện được.  \n**Căn cứ:** Điều 6 Luật Trọn"
     },
     {
-      "q": "Nguyên tắc xử lý dữ liệu cá nhân theo pháp luật Việt Nam?",
-      "category": "Bảo vệ dữ liệu cá nhân (NĐ 13/2023)",
+      "q": "Nguyên tắc bảo vệ dữ liệu cá nhân theo pháp luật Việt Nam?",
+      "category": "Bảo vệ dữ liệu cá nhân (Luật 91/2025)",
       "ok": true,
       "why": "dẫn-nguồn=✓ dữ-kiện=✓",
       "flaky": false,
       "votes": "3/3",
       "sources": [
-        "nd_13_2023_bvdlcn.md#Điều 3",
-        "nd_13_2023_bvdlcn.md#Điều 8"
+        "luat_bvdlcn_91_2025.md#Điều 3",
+        "luat_bvdlcn_91_2025.md#Điều 4 khoản 3"
       ],
-      "answer": "**Trả lời:** Nguyên tắc xử lý dữ liệu cá nhân gồm 8 nguyên tắc được quy định tại Điều 3 Nghị định số 13/2023/NĐ-CP, bao gồm: tuân thủ pháp luật; minh bạch với c"
+      "answer": "**Trả lời:** Nguyên tắc bảo vệ dữ liệu cá nhân gồm: (1) tuân thủ Hiến pháp, Luật Bảo vệ dữ liệu cá nhân và pháp luật có liên quan; (2) thu thập, xử lý đúng phạm"
     },
     {
       "q": "Thời hạn thuê đất trong khu công nghiệp tối đa bao lâu?",
@@ -736,10 +736,10 @@
       "flaky": false,
       "votes": "3/3",
       "sources": [
-        "luat_dat_dai_2024.md#Điều 202 khoản 4",
-        "luat_dat_dai_2024.md#Điều 204 khoản 2"
+        "luat_dat_dai_133_vbhn.md#Điều 202 khoản 4",
+        "luat_dat_dai_133_vbhn.md#Điều 204 khoản 2"
       ],
-      "answer": "**Trả lời:** Thời hạn thuê đất trong khu công nghiệp tối đa là 70 năm.  \n**Căn cứ:** Điều 202 khoản 4 Luật Đất đai 2024 — Thời hạn sử dụng đất của dự án đầu tư "
+      "answer": "**Trả lời:** Thời hạn thuê đất trong khu công nghiệp tối đa là 70 năm.  \n**Căn cứ:** Điều 202 khoản 4 Luật Đất đai số 133/VBHN-VPQH — Thời hạn sử dụng đất của d"
     },
     {
       "q": "Thủ tục ly hôn đơn phương tại tòa án gồm những bước nào?",
@@ -749,10 +749,10 @@
       "flaky": false,
       "votes": "3/3",
       "sources": [
-        "luat_hn_gd_2014.md#Điều 53",
-        "luat_hn_gd_2014.md#Điều 56"
+        "luat_hn_gd_121_vbhn.md#Điều 53",
+        "luat_hn_gd_121_vbhn.md#Điều 56"
       ],
-      "answer": "**Trả lời:** Thủ tục ly hôn đơn phương gồm: (1) Tòa án thụ lý đơn yêu cầu ly hôn; (2) Tiến hành hòa giải; (3) Nếu hòa giải không thành và có căn cứ ly hôn theo "
+      "answer": "**Trả lời:** Thủ tục ly hôn đơn phương gồm: (1) Tòa án thụ lý đơn theo quy định tố tụng dân sự; (2) Tiến hành hòa giải; (3) Nếu hòa giải không thành và có căn c"
     },
     {
       "q": "Tội lừa đảo chiếm đoạt tài sản bị xử phạt thế nào?",
