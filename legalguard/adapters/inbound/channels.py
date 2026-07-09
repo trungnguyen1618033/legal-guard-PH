@@ -620,6 +620,15 @@ def _run_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, ca
         r = risks[idx]
         clause = r.get("clause", "")
         original = (r.get("evidence") or "").strip() or clause      # nguyên văn từ HĐ; thiếu → nhãn
+        # Ghi EVENT "đã đồng ý sửa" (audit + tín hiệu risk-hợp-lệ). result="agreed_fix" — KHÔNG lọt win-rate
+        # (win_rates chỉ tính accepted/partial/rejected) nên không pha loãng flywheel. Lỗi ghi → bỏ qua (phụ).
+        try:
+            service.record_outcome(Outcome(
+                id=uuid.uuid4().hex, org_id=org_id, case_id=case_id, clause=clause,
+                tactic="agreed_amendment", result="agreed_fix",
+                created_at=datetime.now(timezone.utc).isoformat()))
+        except Exception:  # noqa: BLE001 — ghi event là phụ, không chặn việc soạn điều khoản
+            _log.exception("Không ghi được event 'đồng ý sửa' (%s)", case_id)
         fb = next((f for f in (case.fallbacks or []) if f.get("clause") == clause), {})
         cc = service.draft_counter_clause(
             clause=original, risk=r.get("risk", ""), suggestion=fb.get("suggestion", ""),

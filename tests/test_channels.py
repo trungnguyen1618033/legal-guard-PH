@@ -665,8 +665,11 @@ def test_run_amend_drafts_and_posts_into_thread():
                         fallbacks=[{"clause": "Phạt 15%", "suggestion": "giảm về 8%"}], trace=[])
 
     class _Svc:
-        def __init__(self): self.called = {}
+        def __init__(self):
+            self.called = {}
+            self.outcomes = []
         def get_case(self, cid): return case if cid == "c1" else None
+        def record_outcome(self, o): self.outcomes.append(o)
         def draft_counter_clause(self, **kw):
             self.called = kw
             return {"vi": "Mức phạt tối đa 8%.", "en": "Cap penalty at 8%.", "grounded": True}
@@ -680,6 +683,11 @@ def test_run_amend_drafts_and_posts_into_thread():
     assert "Điều khoản hiện tại (trích hợp đồng):" in out and "Bên A chịu phạt 15%" in out
     assert "Mức phạt tối đa 8%" in out and "Cap penalty at 8%" in out
     assert sender.threads[-1] == "th1"                     # gửi ĐÚNG thread
+    # EVENT "đã đồng ý sửa" được LƯU (result=agreed_fix, đúng clause/org/case) — không lọt win-rate
+    assert len(svc.outcomes) == 1
+    ev = svc.outcomes[0]
+    assert ev.result == "agreed_fix" and ev.clause == "Phạt 15%" and ev.org_id == "default" \
+        and ev.case_id == "c1"
 
 
 def test_run_amend_missing_case_notifies():
