@@ -107,6 +107,12 @@ def _is_help_query(text: str) -> bool:
     return bool(text and _HELP_RE.search(text.strip()))
 
 
+def _mentions(text: str, uid: str) -> bool:
+    """text có mention user `uid` không — chịu cả 2 dạng Slack: `<@Uxxx>` và `<@Uxxx|tên hiển thị>`.
+    Dùng cho MENTION GATE (dạng có `|tên` mà chỉ so substring `<@Uxxx>` sẽ TRƯỢT → bot im lặng oan)."""
+    return bool(uid and re.search(rf"<@{re.escape(uid)}(\|[^>]*)?>", text or ""))
+
+
 # Gợi ý 'bên mình bảo vệ' từ CHỈ DẪN chat ("...for Phu Quoc side", "bảo vệ Công ty X", "cho bên B").
 # Gợi ý THÔ → LLM tinh thành TÊN ĐẦY ĐỦ khớp trong HĐ (analysis._classify_contract). Chỉ parse từ chỉ
 # dẫn NGẮN / caption file (không từ HĐ dán dài — tránh nhiễu từ thân hợp đồng).
@@ -216,7 +222,8 @@ def _build_thread_context(msgs: list[dict], bot_uid: str, known: set[str] | None
 
     # 2) Làm sạch + redact + dedup. Khóa dedup = bản BÓC hết mention (khớp `known` reply_ex dựng từ
     # history + tin hiện tại); bản HIỂN THỊ giữ co-mention dạng @tên.
-    entries: list[tuple[str, str]] = []
+    rendered: list[str] = []
+    present: dict[str, str] = {}       # uid → nhãn, CHỈ người thật sự có dòng hiển thị (cho header)
     for m in msgs:
         raw = (m.get("text") or "").strip()
         if not raw or (m.get("bot_id") and m.get("user") != bot_uid):
@@ -225,45 +232,63 @@ def _build_thread_context(msgs: list[dict], bot_uid: str, known: set[str] | None
         if not key or key in known:
             continue
         disp = redact(_MENTION_RE.sub(_sub_mention, raw).strip())[0]
-        spk = "trợ lý" if m.get("user") == bot_uid else labels.get(m.get("user", ""), "người dùng")
-        entries.append((spk, disp))
-    if not entries:
+        uid = m.get("user", "")
+        if uid == bot_uid:
+            spk = "trợ lý"
+        else:
+            spk = labels.get(uid, "người dùng")
+            if uid:
+                present.setdefault(uid, spk)
+        rendered.append(f"{spk}: {disp}")
+    if not rendered:
         return ""
     header = ""
-    if labels:
+    if present:                        # chỉ kê người CÓ tin hiển thị (không kê người chỉ mention/đã dedup)
         who = ", ".join(lb + (" (người hỏi)" if uid == asker_id else "")
-                        for uid, lb in labels.items())
+                        for uid, lb in present.items())
         header = f"Người tham gia: {who}\n"
-    rendered = [f"{s}: {t}" for s, t in entries]
-    budget = limit - len(header) - 3 * (len(_GAP_MARK) + 1)   # chừa chỗ tối đa ~3 marker
-    keep: set[int] = set()
-    used = 0
+    # Budget trừ header + 1 marker (chốt chặn cùng vòng trim ở dưới → out LUÔN ≤ limit dù nhiều gap).
+    budget = max(0, limit - len(header) - (len(_GAP_MARK) + 1))
+    # LUÔN giữ tin ĐẦU (chủ đề/HĐ gốc) — cắt ngắn nếu riêng nó đã vượt budget (không bao giờ mất tin đầu).
+    if len(rendered[0]) + 1 > budget:
+        rendered[0] = rendered[0][:max(0, budget - 1)]
+    keep: set[int] = {0}
+    used = len(rendered[0]) + 1
+    order: list[int] = []             # middle picks theo thứ tự thêm (điểm cao→thấp) để trim khi vượt
 
-    def _try(i: int) -> None:
+    def _try(i: int) -> bool:
         nonlocal used
         cost = len(rendered[i]) + 1
         if i not in keep and used + cost <= budget:
             keep.add(i)
             used += cost
+            return True
+        return False
 
-    _try(0)                                                    # tin đầu: chủ đề/HĐ gốc
-    for i in range(len(rendered) - 1, max(-1, len(rendered) - 1 - _CTX_TAIL_KEEP), -1):
+    for i in range(len(rendered) - 1, max(0, len(rendered) - 1 - _CTX_TAIL_KEEP), -1):
         _try(i)                                                # đuôi K tin: mạch đối thoại
-    if not keep:                                               # 1 tin đầu đã vượt budget → cắt cứng
-        return header + rendered[0][:max(0, budget)]
     middle = [i for i in range(len(rendered)) if i not in keep]
     if middle:                                                 # phần giữa: chọn theo LIÊN QUAN
         scores = _relevance_scores(question, [rendered[i] for i in middle], rank_fn)
         for _s, i in sorted(zip(scores, middle), key=lambda x: (-x[0], -x[1])):
-            _try(i)
-    out_lines: list[str] = []
-    prev = -1
-    for i in sorted(keep):
-        if prev != -1 and i > prev + 1:
-            out_lines.append(_GAP_MARK)                        # đánh dấu chỗ đã lược cho LLM biết
-        out_lines.append(rendered[i])
-        prev = i
-    return header + "\n".join(out_lines)
+            if _try(i):
+                order.append(i)
+
+    def _render(ks: set[int]) -> str:
+        lines: list[str] = []
+        prev = -1
+        for i in sorted(ks):
+            if prev != -1 and i > prev + 1:
+                lines.append(_GAP_MARK)                        # đánh dấu chỗ đã lược cho LLM biết
+            lines.append(rendered[i])
+            prev = i
+        return header + "\n".join(lines)
+
+    out = _render(keep)
+    while len(out) > limit and order:      # marker của các gap đẩy vượt limit → bỏ middle pick điểm thấp nhất
+        keep.discard(order.pop())
+        out = _render(keep)
+    return out
 
 
 def _review_head(result: AnalysisResult) -> str:
@@ -987,7 +1012,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 # MENTION GATE (đồng bộ nhánh tin mới): tin sửa phải CÓ mention bot (tag còn nguyên
                 # trong text tin sửa) hoặc DM — không thì user đang sửa tin nói với người khác.
                 if mention_only and event.get("channel_type") != "im" \
-                        and not (bot_uid and f"<@{bot_uid}>" in new_text):
+                        and not _mentions(new_text, bot_uid):
                     return {"ok": True}
                 if bot_uid:
                     new_text = new_text.replace(f"<@{bot_uid}>", "").strip()
@@ -1017,7 +1042,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             # dedup để event bị-gate KHÔNG chiếm slot dedup của cặp (message ⇄ app_mention) cùng ts — nếu
             # không, event message bị gate loại vẫn ăn slot khiến app_mention (qua gate) bị dedup oan.
             is_dm = event.get("channel_type") == "im"
-            mentioned = etype == "app_mention" or (bot_uid and f"<@{bot_uid}>" in text)
+            mentioned = etype == "app_mention" or _mentions(text, bot_uid)
             if mention_only and not (is_dm or mentioned):
                 return {"ok": True}
             # Dedup theo (channel, ts) — KHÔNG dedup theo loại event: event `message` chắc chắn

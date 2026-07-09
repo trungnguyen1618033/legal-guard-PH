@@ -1235,3 +1235,45 @@ def test_thread_context_instruction_with_signal_word_not_analyzed_as_contract():
     r = h._handle(Conversation(id="t"), "nhận xét giúp về mức phạt ở điều khoản đang bàn phía trên",
                   None, None, "vi", thread_context="người dùng: Điều 5 phạt 15% nếu giao chậm")
     assert r.text == "FU" and calls[0][0] == "followup" and "phạt 15%" in calls[0][1]
+
+
+def test_build_thread_context_never_exceeds_limit_with_scattered_gaps():
+    # Review #1: chọn giữa rải rác (nhiều gap) → output VẪN ≤ limit (vòng trim + reserve marker).
+    from legalguard.adapters.inbound.channels import _build_thread_context
+    pad = "z" * 120
+    # câu hỏi khớp rải rác các tin lẻ ở giữa → nhiều gap
+    msgs = [{"user": "U1", "text": "đầu " + pad, "ts": "0"}]
+    for i in range(1, 40):
+        kw = "phạt vi phạm" if i % 3 == 0 else "chuyện phiếm"
+        msgs.append({"user": "U2", "text": f"{kw} {i} " + pad, "ts": str(i)})
+    out = _build_thread_context(msgs, "UBOT", limit=1500, question="mức phạt vi phạm là bao nhiêu")
+    assert len(out) <= 1500                          # KHÔNG vượt limit dù nhiều gap
+
+
+def test_build_thread_context_always_keeps_first_even_if_huge():
+    # Review #2: tin đầu dài hơn budget → vẫn có mặt (cắt ngắn), KHÔNG bị bỏ.
+    from legalguard.adapters.inbound.channels import _build_thread_context
+    msgs = [{"user": "U1", "text": "HỢP ĐỒNG GỐC " + "a" * 5000, "ts": "0"},
+            {"user": "U2", "text": "tin ngắn sau", "ts": "1"}]
+    out = _build_thread_context(msgs, "UBOT", limit=800)
+    assert "HỢP ĐỒNG GỐC" in out and len(out) <= 800   # tin đầu luôn có mặt, vẫn trong limit
+
+
+def test_header_only_lists_speakers_with_visible_line():
+    # Review #4: người chỉ mention bot (dòng rỗng sau strip) / bị dedup → KHÔNG lên header.
+    from legalguard.adapters.inbound.channels import _build_thread_context
+    msgs = [{"user": "U1", "text": "hợp đồng phạt 15%", "ts": "1"},
+            {"user": "U2", "text": "<@UBOT>", "ts": "2"},          # chỉ tag bot → dòng rỗng
+            {"user": "U3", "text": "đã có trong history", "ts": "3"}]
+    out = _build_thread_context(msgs, "UBOT", known={"đã có trong history"})
+    assert "Người A" in out                                        # U1 có tin
+    assert "Người B" not in out and "Người C" not in out           # U2 (rỗng) + U3 (dedup) không lên header
+
+
+def test_gate_mention_with_display_name_variant():
+    # Review #5: mention dạng <@BOT|Legal Guard> (có tên) vẫn kích hoạt gate (không im lặng oan).
+    sender = _FakeSender()
+    c = _mention_client(sender)
+    _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "C1", "ts": "v1",
+        "text": "<@UBOT|Legal Guard> phạt vi phạm hợp đồng thương mại tối đa bao nhiêu %?"}}))
+    assert sender.sent                                             # dạng có |tên vẫn được trả lời
