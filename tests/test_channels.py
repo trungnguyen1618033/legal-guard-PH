@@ -218,7 +218,8 @@ def test_format_negotiation_reply():
     from legalguard.adapters.inbound.channels import format_negotiation_reply
     out = format_negotiation_reply({"status": "close", "assessment": "đối tác nhượng đủ",
                                     "strategy": "chốt", "reply_vi": "Đồng ý", "grounded": True})
-    assert "Nên CHỐT deal" in out and "đối tác nhượng đủ" in out and "Đồng ý" in out
+    assert "Nên chốt thỏa thuận" in out and "đối tác nhượng đủ" in out and "Đồng ý" in out
+    assert "🔄" not in out and "📊" not in out and "✅" not in out   # văn phong pháp lý, không icon
 
 
 def test_ai_disclosure_on_chat_replies():
@@ -238,7 +239,7 @@ def test_format_negotiation_reply_shows_ledger_and_walk_away():
     out = format_negotiation_reply({"status": "walk_away", "assessment": "đối tác giữ Bắc Kinh",
                                     "reply_vi": "x", "grounded": True, "walk_away_recommended": True,
                                     "state": {"secured": ["phạt 8%"], "conceded": ["gia hạn 5 ngày"]}})
-    assert "Đã chốt:" in out and "phạt 8%" in out and "Ta đã nhượng:" in out and "cân nhắc RÚT" in out
+    assert "Đã chốt:" in out and "phạt 8%" in out and "Ta đã nhượng:" in out and "cân nhắc rút" in out
 
 
 def test_format_negotiation_reply_shows_next_moves():
@@ -248,7 +249,7 @@ def test_format_negotiation_reply_shows_next_moves():
                                                     "near_red_line": False},
                                                    {"offer": "đổi trọng tài", "near_red_line": True}]})
     assert "thang nhượng-bộ" in out and "gia hạn giao 5 ngày" in out
-    assert "đổi lấy: chốt phạt 8%" in out and "gần red-line" in out
+    assert "đổi lấy: chốt phạt 8%" in out and "gần điểm sống còn" in out
 
 
 def test_analyze_seeds_red_lines_into_nego_state():
@@ -812,7 +813,7 @@ def test_interactions_retry_spawns_process():
 def test_interactions_retry_expired():
     c = _client(slack="s", slack_sender=_FakeSender())
     r = _slack_interaction(c, "s", "retry_run", json.dumps({"k": "slack:C1:khong-ton-tai"}))
-    assert r.status_code == 200 and "Hết hạn" in r.json()["text"]
+    assert r.status_code == 200 and "hết hạn" in r.json()["text"]
 
 
 # ---- Phase 2: sửa tin CÂU TRA CỨU → tự chạy lại ----
@@ -829,7 +830,7 @@ def test_edited_lookup_question_reruns_with_prefix():
     c = _client(slack="s", slack_sender=sender)
     _slack_post(c, "s", _edit_event("C1", "100.1", "Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?",
                                     "Mức phạt vi phạm hợp đồng?"))
-    assert sender.sent and sender.sent[-1][1].startswith("🔄")   # chạy lại, đánh dấu cập nhật
+    assert sender.sent and sender.sent[-1][1].startswith("_(Cập nhật theo tin đã sửa)")   # chạy lại, đánh dấu cập nhật
 
 
 def test_edited_unfurl_same_text_ignored():
@@ -861,7 +862,7 @@ def test_edit_dedup_same_edited_ts():
     ev = _edit_event("C1", "100.5", "Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?", "cũ", edited_ts="e9")
     _slack_post(c, "s", ev)
     _slack_post(c, "s", ev)                                           # cùng edited.ts → chỉ xử lý 1 lần
-    reruns = [t for _, t in sender.sent if t.startswith("🔄")]        # đếm REPLY rerun (bỏ ack "🔎")
+    reruns = [t for _, t in sender.sent if t.startswith("_(Cập nhật theo tin đã sửa)")]   # đếm REPLY rerun (bỏ ack)
     assert len(reruns) == 1
 
 

@@ -127,8 +127,8 @@ _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
 
 _MAX_REPLY = 3900    # Slack hiển thị đẹp ≤~4000 ký tự / message
-_ACK = ("📥 Đã nhận! Em đang rà soát — thường mất vài phút (hợp đồng dài có thể lâu hơn). "
-        "Kết quả sẽ trả vào đây.")
+_ACK = ("Đã nhận hợp đồng. Hệ thống đang rà soát — thường mất vài phút (hợp đồng dài có thể lâu hơn). "
+        "Kết quả sẽ được gửi vào đây.")
 _MENTION_RE = re.compile(r"<@[A-Z0-9]+>")   # tag @user trong text Slack
 
 _log = logging.getLogger(__name__)
@@ -136,10 +136,7 @@ _log = logging.getLogger(__name__)
 
 # Minh bạch AI — Luật AI 134/2025 (hiệu lực 1/3/2026): hệ thống AI tương tác trực tiếp với người phải
 # cho người dùng BIẾT đang làm việc với máy. Marker này gắn vào MỌI reply chat (analyze/lookup/negotiate).
-_AI_DISCLOSURE = "\n_(🤖 Trả lời bởi AI — hỗ trợ, không thay thế tư vấn luật chính thức.)_"
-
-
-# Công bố AI dạng VĂN PHONG PHÁP LÝ (không icon) — cho reply rà soát HĐ gửi luật sư.
+# Công bố AI dạng VĂN PHONG PHÁP LÝ (không icon) — dùng CHUNG cho mọi reply tư vấn (rà soát/tra cứu/đàm phán).
 _AI_DISCLOSURE_LEGAL = ("\n\n(Nội dung trên do trí tuệ nhân tạo (AI) hỗ trợ soạn, mang tính tham khảo, "
                         "không thay thế tư vấn pháp lý chính thức của luật sư.)")
 
@@ -201,39 +198,40 @@ def _context_from_result(result: AnalysisResult) -> str:
     return f"Rủi ro: {risks or 'không'}. Chiến lược: {result.strategy[:400]}"
 
 
-_NEGO_STATUS = {"continue": "🔄 Tiếp tục đàm phán", "close": "✅ Nên CHỐT deal",
-                "walk_away": "🚪 Nên RÚT (walk-away)"}
+_NEGO_STATUS = {"continue": "Tiếp tục đàm phán", "close": "Nên chốt thỏa thuận",
+                "walk_away": "Nên cân nhắc rút khỏi đàm phán (walk-away)"}
 
 
 def format_negotiation_reply(r: dict, lang: str = "vi") -> str:
-    """Định dạng 1 vòng đàm phán (negotiate_round) cho Slack: status + đánh giá + chiến lược + câu trả lời."""
-    lines = [f"*{_NEGO_STATUS.get(r.get('status'), '🔄 Đàm phán')}*"]
+    """Định dạng 1 vòng đàm phán (negotiate_round) cho Slack — VĂN PHONG PHÁP LÝ, KHÔNG icon (đồng bộ với
+    reply rà soát/tra cứu): trạng thái + đánh giá + chiến lược + sổ nhượng-bộ + câu trả lời gửi đối tác."""
+    lines = [f"*Trạng thái:* {_NEGO_STATUS.get(r.get('status'), 'Tiếp tục đàm phán')}"]
     if r.get("assessment"):
-        lines.append(f"📊 *Đánh giá phản hồi:* {r['assessment']}")
+        lines.append(f"*Đánh giá phản hồi đối tác:* {r['assessment']}")
     if r.get("strategy"):
-        lines.append(f"🧭 *Vòng tới:* {r['strategy']}")
+        lines.append(f"*Chiến lược vòng tới:* {r['strategy']}")
     st = r.get("state") or {}
     if st.get("secured"):
-        lines.append("✅ *Đã chốt:* " + "; ".join(st["secured"]))
+        lines.append("*Đã chốt:* " + "; ".join(st["secured"]))
     if st.get("conceded"):
-        lines.append("↩️ *Ta đã nhượng:* " + "; ".join(st["conceded"]))
+        lines.append("*Ta đã nhượng:* " + "; ".join(st["conceded"]))
     if r.get("walk_away_recommended"):
-        lines.append("🚨 *Red-line bị chặn + ta có BATNA → cân nhắc RÚT.*")
+        lines.append("*Lưu ý:* điểm sống còn (red-line) bị chặn và ta có phương án thay thế (BATNA) — "
+                     "nên cân nhắc rút khỏi đàm phán.")
     moves = r.get("next_moves") or []
     if moves:
         mv = []
         for m in moves:
-            flag = " ⚠️ _gần red-line — cân nhắc_" if m.get("near_red_line") else ""
-            ret = f" → đổi lấy: {m['in_return_for']}" if m.get("in_return_for") else ""
-            mv.append(f"• Nhượng: {m.get('offer', '')}{ret}{flag}")
-        lines.append("🪜 *Nước đi đề xuất (thang nhượng-bộ):*\n" + "\n".join(mv))
+            flag = " (gần điểm sống còn — cân nhắc)" if m.get("near_red_line") else ""
+            ret = f" — đổi lấy: {m['in_return_for']}" if m.get("in_return_for") else ""
+            mv.append(f"- Nhượng: {m.get('offer', '')}{ret}{flag}")
+        lines.append("*Nước đi đề xuất (thang nhượng-bộ):*\n" + "\n".join(mv))
     reply = r.get("reply_vi") if lang == "vi" else (r.get("reply_en") or r.get("reply_vi"))
     if reply:
-        lines.append(f"💬 *Câu trả lời đối tác:*\n{reply}")
+        lines.append(f"*Câu trả lời đề xuất gửi đối tác:*\n{reply}")
     if not r.get("grounded"):
-        lines.append("_(khung sơ bộ — chưa cấu hình AI)_")
-    lines.append(_AI_DISCLOSURE.strip())
-    out = "\n\n".join(lines)
+        lines.append("(Khung sơ bộ — chưa cấu hình AI.)")
+    out = "\n\n".join(lines) + _AI_DISCLOSURE_LEGAL
     return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
 
@@ -446,9 +444,9 @@ def _feedback_blocks(kind: str, ref: str) -> list[dict]:
         return b
 
     return [{"type": "actions", "block_id": "lg_feedback", "elements": [
-        btn("👍 Đúng", "fb_helpful", "primary"),
-        btn("⚠️ Sai", "fb_wrong", "danger"),
-        btn("➖ Thiếu", "fb_incomplete")]}]
+        btn("Hữu ích", "fb_helpful", "primary"),
+        btn("Chưa đúng", "fb_wrong", "danger"),
+        btn("Còn thiếu", "fb_incomplete")]}]
 
 
 # RETRY khi lỗi xử lý (Slack): lưu payload GỐC in-process → nút 🔁 chỉ mang KEY (value ≤2000 ký tự).
@@ -490,7 +488,7 @@ _retry_store = _RetryStore()
 def _retry_blocks(retry_id: str) -> list[dict]:
     val = json.dumps({"k": retry_id}, ensure_ascii=False)   # retry_id = uuid ngắn, không cần cắt
     return [{"type": "actions", "block_id": "lg_retry", "elements": [
-        {"type": "button", "text": {"type": "plain_text", "text": "🔁 Thử lại", "emoji": True},
+        {"type": "button", "text": {"type": "plain_text", "text": "Thử lại", "emoji": False},
          "action_id": "retry_run", "value": val, "style": "primary"}]}]
 
 
@@ -523,9 +521,9 @@ def _outcome_blocks(case_id: str) -> list[dict]:
         return b
 
     return [{"type": "actions", "block_id": "lg_outcome", "elements": [
-        btn("✓ Chốt được (thắng)", "oc_accepted", "primary"),
-        btn("~ Một phần", "oc_partial"),
-        btn("✗ Không đạt", "oc_rejected", "danger")]}]
+        btn("Chốt được", "oc_accepted", "primary"),
+        btn("Một phần", "oc_partial"),
+        btn("Không đạt", "oc_rejected", "danger")]}]
 
 
 def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, result: str) -> int:
@@ -775,7 +773,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 if slack_sender and slack_sender.available:
                     background.add_task(_process, handler, slack_sender,
                                         f"slack:{ch2}:{th2}", ch2, new_text, None, None, th2,
-                                        max_upload_bytes, True, "🔄 _(cập nhật theo tin đã sửa)_\n")
+                                        max_upload_bytes, True, "_(Cập nhật theo tin đã sửa)_\n")
                 return {"ok": True}
             # Bỏ qua tin của bot (tránh vòng lặp tự trả lời) + các subtype không phải tin mới
             # (message_changed/deleted...). file_share = tin nhắn kèm file → vẫn xử lý.
@@ -835,11 +833,11 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 payload_r = _retry_store.pop(ctx.get("k", ""))   # pop = one-shot (double-click lần 2 → hết hạn)
                 if payload_r is None or not (slack_sender and slack_sender.available):
                     return {"replace_original": True,
-                            "text": "⏳ Hết hạn thử lại — vui lòng gửi lại tin nhắn giúp mình."}
+                            "text": "Phiên thử lại đã hết hạn — vui lòng gửi lại tin nhắn."}
                 conv_key, send_to, r_text, r_url, r_fn, r_thread = payload_r   # conv_key riêng với retry_id
                 background.add_task(_process, handler, slack_sender, conv_key, send_to,
                                     r_text, r_url, r_fn, r_thread, max_upload_bytes, True)
-                return {"replace_original": True, "text": "🔁 Đang thử lại — kết quả sẽ trả vào thread…"}
+                return {"replace_original": True, "text": "Đang thử lại — kết quả sẽ được gửi vào thread…"}
 
             if aid == "amend_ok":                  # nút 'Đồng ý sửa' per-risk → soạn điều khoản sửa (cũ→mới)
                 if not (slack_sender and slack_sender.available):
@@ -856,7 +854,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             if aid in _OC_RESULT:                  # nút GHI KẾT QUẢ đàm phán → nuôi flywheel
                 n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), _OC_RESULT[aid])
                 return {"replace_original": True,
-                        "text": f"📊 Đã ghi kết quả cho {n} điều khoản — cảm ơn! (nuôi win-rate)"}
+                        "text": f"Đã ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."}
 
             rating = _FB_RATING.get(aid)
             if not rating:
@@ -869,7 +867,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
                 _log.exception("Không ghi được feedback từ Slack")
             # Thay tin gốc bằng xác nhận (replace_original) — ack <3s, không hammer LLM.
-            return {"replace_original": True, "text": "✅ Cảm ơn phản hồi của bạn — đã ghi nhận."}
+            return {"replace_original": True, "text": "Đã ghi nhận phản hồi của bạn. Cảm ơn bạn."}
 
     if zalo_oa_secret:
         @router.post("/channels/zalo/webhook")
