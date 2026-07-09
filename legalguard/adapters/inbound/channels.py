@@ -383,7 +383,7 @@ class ChatHandler:
         prompt = (f"Bối cảnh rà soát hợp đồng:\n{conv.context}\n\nLịch sử hội thoại:\n{hist}\n\n"
                   f"Câu hỏi tiếp của khách: {question}\nTrả lời CHUYÊN NGHIỆP, súc tích, đi thẳng vấn đề" + tail)
         try:
-            return self.service.reasoner.complete(prompt)
+            return self.service.reasoner.complete(prompt) + _AI_DISCLOSURE_LEGAL   # công bố AI đồng bộ
         except LLMError as exc:
             return f"Xin lỗi, chưa trả lời được: {exc}"
 
