@@ -174,14 +174,15 @@ def _build_thread_context(msgs: list[dict], bot_uid: str, known: set[str] | None
     total = sum(len(x) + 1 for x in lines)
     if total <= limit:
         return "\n".join(lines)
-    head, budget = [lines[0]], limit - len(lines[0]) - 20     # chừa chỗ cho marker
+    head = lines[0][:limit - 20]                              # cắt cả tin đầu nếu 1 tin đã vượt budget
+    budget = limit - len(head) - 20                           # chừa chỗ cho marker '…(lược bớt)…'
     tail: list[str] = []
     for x in reversed(lines[1:]):
         if budget - len(x) - 1 < 0:
             break
         tail.append(x)
         budget -= len(x) + 1
-    return "\n".join(head + ["…(lược bớt)…"] + list(reversed(tail)))
+    return "\n".join([head, "…(lược bớt)…"] + list(reversed(tail)))
 
 
 def _review_head(result: AnalysisResult) -> str:
@@ -317,7 +318,10 @@ class ChatHandler:
             # history đã lưu + tin hiện tại, KHÔNG persist (history vẫn chỉ chứa tin đi qua bot).
             thread_context = ""
             if thread_msgs:
-                known = {m.get("content", "") for m in conv.history} | {user_msg}
+                # known = nội dung đã có (history) + tin hiện tại. Thêm bản CHUẨN-HOÁ-GIỐNG-BUILDER
+                # (bóc MỌI mention rồi redact) để dedup đúng cả khi tin hiện tại còn tag @người-khác.
+                cur_norm = redact(_MENTION_RE.sub("", (text or "")).strip())[0]
+                known = {m.get("content", "") for m in conv.history} | {user_msg, cur_norm}
                 thread_context = _build_thread_context(thread_msgs, bot_uid, known)
             if not (conv.history and conv.history[-1].get("role") == "user"
                     and conv.history[-1].get("content") == user_msg):
@@ -391,9 +395,13 @@ class ChatHandler:
         if conv.context and _is_counter_offer(text or ""):
             return ChatReply(self._negotiate(conv, text or "", lang, org.id, thread_context),
                              "negotiate", "")
-        # Follow-up theo deal HOẶC theo NGỮ CẢNH THREAD (mention giữa hội thoại/link thread) — TRỪ câu hỏi
-        # pháp lý CHUNG (→ ưu tiên lookup template+dẫn nguồn cho nhất quán).
-        if (conv.context or thread_context) and not _is_legal_lookup(text or ""):
+        # CÓ NGỮ CẢNH THREAD (mention giữa hội thoại / dán link thread) → LUÔN trả lời THEO NGỮ CẢNH đó
+        # (kể cả câu hỏi luật — vì user đã tham chiếu nội dung cụ thể, cần trả lời sát hơn là lookup KB
+        # chung; nếu rơi vào lookup sẽ VỨT thread_context → hỏng đúng ca hay gặp nhất trong thread).
+        if thread_context:
+            return ChatReply(self._followup(conv, text or "", lang, thread_context))
+        # Follow-up theo deal — TRỪ câu hỏi pháp lý CHUNG (→ ưu tiên lookup template+dẫn nguồn cho nhất quán).
+        if conv.context and not _is_legal_lookup(text or ""):
             return ChatReply(self._followup(conv, text or "", lang, thread_context))
         if text and _looks_like_question(text):            # → TRA CỨU LUẬT có grounding (template + nguồn)
             answer, snippets = self.service.lookup(text, org, lang=lang)
@@ -401,8 +409,8 @@ class ChatHandler:
                 srcs = " · ".join(s.source for s in snippets[:3])
                 answer = f"{answer}\n\nNguồn tham khảo: {srcs}"
             return ChatReply(answer + _AI_DISCLOSURE_LEGAL, "lookup", text)   # công bố AI văn phong pháp lý (không icon)
-        if conv.context or thread_context:                 # có deal/ngữ cảnh, không phải câu hỏi → follow-up
-            return ChatReply(self._followup(conv, text or "", lang, thread_context))
+        if conv.context:                                   # có deal, không phải câu hỏi → follow-up
+            return ChatReply(self._followup(conv, text or "", lang))
         return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "
                          "hoặc đặt câu hỏi pháp lý nhé.")
 
@@ -896,19 +904,21 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                        and event.get("subtype") not in (None, "file_share")):
                 return {"ok": True}
             channel = event.get("channel", "")
+            text = event.get("text", "")
+            bot_uid = ((payload.get("authorizations") or [{}])[0]).get("user_id") or ""
+            # MENTION GATE (TRƯỚC dedup): chỉ trả lời khi được GỌI ĐÍCH DANH (@bot) hoặc DM — không mention
+            # = user đang nói với người khác → bot IM LẶNG tuyệt đối (không ack/log ồn). app_mention tự nó
+            # là mention. bot_uid thiếu (hiếm) → không xác minh được → im lặng (strict, an toàn). Đặt TRƯỚC
+            # dedup để event bị-gate KHÔNG chiếm slot dedup của cặp (message ⇄ app_mention) cùng ts — nếu
+            # không, event message bị gate loại vẫn ăn slot khiến app_mention (qua gate) bị dedup oan.
+            is_dm = event.get("channel_type") == "im"
+            mentioned = etype == "app_mention" or (bot_uid and f"<@{bot_uid}>" in text)
+            if mention_only and not (is_dm or mentioned):
+                return {"ok": True}
             # Dedup theo (channel, ts) — KHÔNG dedup theo loại event: event `message` chắc chắn
             # mang `files`, còn `app_mention` không đảm bảo → event nào tới trước thì xử lý.
             ts = event.get("ts") or event.get("event_ts") or ""
             if ts and _seen_dup((channel, ts)):
-                return {"ok": True}
-            text = event.get("text", "")
-            bot_uid = ((payload.get("authorizations") or [{}])[0]).get("user_id") or ""
-            # MENTION GATE: chỉ trả lời khi được GỌI ĐÍCH DANH (@bot) hoặc DM — không mention = user
-            # đang nói với người khác trong kênh → bot IM LẶNG tuyệt đối (không ack/log ồn). app_mention
-            # tự nó là mention. bot_uid thiếu (hiếm) → không xác minh được → im lặng (strict, an toàn).
-            is_dm = event.get("channel_type") == "im"
-            mentioned = etype == "app_mention" or (bot_uid and f"<@{bot_uid}>" in text)
-            if mention_only and not (is_dm or mentioned):
                 return {"ok": True}
             # Bóc tag @bot khỏi nội dung (user ID bot có sẵn trong payload `authorizations`).
             if bot_uid:

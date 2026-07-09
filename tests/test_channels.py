@@ -1085,3 +1085,29 @@ def test_mention_with_link_unreadable_thread_notifies():
     _slack_post(c, "s", _auth({"event": {"type": "message", "channel": "C0AB1", "ts": "9.7",
         "text": "<@UBOT> tóm tắt <https://acme.slack.com/archives/C0AB1/p1720512345678901>"}}))
     assert sender.sent and "Chưa đọc được thread" in sender.sent[-1][1]
+
+
+def test_thread_context_legal_question_uses_followup_not_lookup():
+    # Finding #1: câu hỏi LUẬT giữa thread (có ? + thuật ngữ) mà CÓ thread_context → phải trả lời THEO
+    # NGỮ CẢNH (followup), KHÔNG rơi vào lookup (sẽ vứt thread_context).
+    from legalguard.domain.models import Conversation
+    h = _handler()
+    calls = []
+    h._followup = lambda conv, q, lang, tc="": calls.append(("followup", tc)) or "FU"
+    h.service.lookup = lambda *a, **k: calls.append(("lookup", None)) or ("LK", [])
+    h._handle(Conversation(id="t"), "phạt vi phạm hợp đồng tối đa bao nhiêu %?", None, None, "vi",
+              thread_context="người dùng: bàn về hợp đồng phạt 15% nếu giao chậm")
+    assert calls and calls[0][0] == "followup"                 # KHÔNG gọi lookup
+    assert "phạt 15%" in calls[0][1]                           # thread_context được truyền vào
+
+
+def test_gate_gated_message_does_not_poison_dedup_for_app_mention():
+    # Finding #2: bot_uid rỗng (thiếu authorizations) — event `message` bị gate loại KHÔNG được ăn slot
+    # dedup, để `app_mention` cùng ts (qua gate) vẫn được xử lý (mention thật không bị nuốt oan).
+    sender = _FakeSender()
+    c = _mention_client(sender)
+    q = "<@UBOT> mức phạt vi phạm hợp đồng thương mại tối đa bao nhiêu %?"
+    _slack_post(c, "s", {"event": {"type": "message", "channel": "C1", "ts": "z2", "text": q}})
+    assert sender.sent == []                                    # message + bot_uid rỗng → gate loại
+    _slack_post(c, "s", {"event": {"type": "app_mention", "channel": "C1", "ts": "z2", "text": q}})
+    assert sender.sent                                          # app_mention cùng ts vẫn được trả lời
