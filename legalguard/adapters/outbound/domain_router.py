@@ -95,9 +95,16 @@ class DomainScopedRetriever:
             return self._base.retrieve(query, top_k)
         hits = self._base.retrieve(query, top_k * self._fetch_mult)
         allowed = set(domains)
-        scoped = [h for h in hits
-                  if self._file_domain.get(self._file_of(h.source), None) in allowed
-                  or self._file_of(h.source) not in self._file_domain]   # file không nhãn → giữ
-        if len(scoped) < top_k:                            # trong-domain quá mỏng → fallback kết quả gốc
+        scoped_idx: set[int] = set()
+        scoped: list[Snippet] = []
+        for i, h in enumerate(hits):
+            fd = self._file_domain.get(self._file_of(h.source))     # None = file không nhãn → luôn giữ
+            if fd in allowed or fd is None:
+                scoped.append(h)
+                scoped_idx.add(i)
+        if not scoped:                                     # KHÔNG hit nào trong domain → fallback base (an toàn)
             return hits[:top_k]
-        return scoped[:top_k]
+        # In-domain LÊN ĐẦU; nếu chưa đủ top_k thì PAD bằng hit ngoài-domain (giữ recall, KHÔNG để crowder
+        # ngoài-domain đẩy in-domain ra khỏi top_k — lỗi cũ: pool in-domain mỏng → trả nguyên hits chưa lọc).
+        rest = [h for i, h in enumerate(hits) if i not in scoped_idx]
+        return (scoped + rest)[:top_k]

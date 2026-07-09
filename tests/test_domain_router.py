@@ -65,10 +65,11 @@ def test_scoped_no_domain_match_passthrough(tmp_path):
     assert base.calls == [3] and [g.source for g in got] == ["hn.md#Điều 5"]   # gọi thẳng top_k gốc
 
 
-def test_scoped_thin_indomain_falls_back_to_original(tmp_path):
-    # chỉ 1 hit trong-domain (< top_k=2) → fallback kết quả gốc, KHÔNG trả mỏng hơn hành vi cũ
+def test_scoped_thin_indomain_leads_then_pads(tmp_path):
+    # Pool in-domain mỏng (chỉ 1 hit lao_dong < top_k=2): in-domain LÊN ĐẦU, PAD đuôi bằng hit ngoài-domain
+    # → KHÔNG trả mỏng hơn top_k, NHƯNG crowder ngoài-domain KHÔNG đẩy in-domain ra (lỗi cũ: trả nguyên hits).
     hits = [Snippet("hn.md#Điều 5", "a", 0.9), Snippet("hn.md#Điều 7", "b", 0.8),
             Snippet("ld.md#Điều 111", "c", 0.7)]
     r = DomainScopedRetriever(_FakeBase(hits), _kb(tmp_path), "VN", fetch_mult=2)
     got = r.retrieve("Thời hạn thử việc?", top_k=2)          # lao_dong chỉ có 1 hit
-    assert [g.source for g in got] == ["hn.md#Điều 5", "hn.md#Điều 7"]
+    assert [g.source for g in got] == ["ld.md#Điều 111", "hn.md#Điều 5"]   # in-domain đầu, rồi pad
