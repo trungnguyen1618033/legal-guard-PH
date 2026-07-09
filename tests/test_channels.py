@@ -1111,3 +1111,16 @@ def test_gate_gated_message_does_not_poison_dedup_for_app_mention():
     assert sender.sent == []                                    # message + bot_uid rỗng → gate loại
     _slack_post(c, "s", {"event": {"type": "app_mention", "channel": "C1", "ts": "z2", "text": q}})
     assert sender.sent                                          # app_mention cùng ts vẫn được trả lời
+
+
+def test_thread_context_instruction_with_signal_word_not_analyzed_as_contract():
+    # Live test C: mention giữa thread + chỉ dẫn có từ khóa HĐ ("điều khoản/mức phạt") nhưng KHÔNG phải
+    # HĐ mới → phải đi followup-theo-ngữ-cảnh, KHÔNG bị nhánh phân tích HĐ bắt.
+    from legalguard.domain.models import Conversation
+    h = _handler()
+    calls = []
+    h._followup = lambda conv, q, lang, tc="": calls.append(("followup", tc)) or "FU"
+    h.service.analyze = lambda *a, **k: (_ for _ in ()).throw(AssertionError("KHÔNG được analyze"))
+    r = h._handle(Conversation(id="t"), "nhận xét giúp về mức phạt ở điều khoản đang bàn phía trên",
+                  None, None, "vi", thread_context="người dùng: Điều 5 phạt 15% nếu giao chậm")
+    assert r.text == "FU" and calls[0][0] == "followup" and "phạt 15%" in calls[0][1]

@@ -370,11 +370,14 @@ class ChatHandler:
             except ValueError as exc:
                 return ChatReply(f"Không đọc được file: {exc}")
         elif (text and not _is_question(text) and any(s in text.lower() for s in _SIGNALS)
+              and not thread_context     # có ngữ cảnh thread → text là CHỈ DẪN về thread, KHÔNG phải HĐ mới
               and not (conv.context and (_is_counter_offer(text) or len(text.strip()) < 220))):
             contract = text                            # tín hiệu HĐ & KHÔNG phải câu hỏi → rà soát
             # ĐANG TRONG DEAL: phản hồi đối tác HOẶC tin NGẮN (<220 ký tự) → KHÔNG re-analyze (tin ngắn không
             # phải HĐ mới; để rơi xuống nhánh đàm phán). Đo từ test live: tin từ chối "chúng tôi không thể đổi…"
             # từng bị re-analyze oan vì chứa từ khóa HĐ ("trọng tài") → guardrail walk-away không chạy.
+            # CÓ thread_context (mention giữa thread/link): chỉ dẫn kiểu "nhận xét điều khoản phía trên" có
+            # từ khóa HĐ nhưng KHÔNG phải HĐ mới → để rơi xuống nhánh followup-theo-ngữ-cảnh (fix live test C).
 
         if contract and contract.strip():                 # → RÀ SOÁT
             # 'Bên mình bảo vệ' từ chỉ dẫn (caption file / tin ngắn) — KHÔNG parse từ HĐ dán dài (nhiễu).
