@@ -573,6 +573,25 @@ def test_record_deal_outcome_per_clause():
     assert _record_deal_outcome(svc, "default", "nope", "accepted") == 0   # không có case
 
 
+def test_record_deal_outcome_covers_risk_clauses_when_no_fallback():
+    # Agent thỉnh thoảng bỏ propose_fallback → vẫn ghi outcome theo clause của RISK (không 0).
+    from legalguard.adapters.inbound.channels import _record_deal_outcome
+    from legalguard.domain.models import AnalysisCase
+
+    case = AnalysisCase(id="c1", org_id="default", tenant="VN", created_at="t", lang="vi",
+                        contract_excerpt="", summary="", needs_human_review=False,
+                        risks=[{"clause": "Điều 5"}, {"clause": "Điều 8"}], fallbacks=[], trace=[])
+
+    class _Svc:
+        def __init__(self): self.recorded = []
+        def get_case(self, cid): return case
+        def record_outcome(self, o): self.recorded.append(o)
+
+    svc = _Svc()
+    assert _record_deal_outcome(svc, "default", "c1", "partial") == 2   # theo risk clause khi thiếu fallback
+    assert {o.clause for o in svc.recorded} == {"Điều 5", "Điều 8"}
+
+
 def test_slack_interaction_records_outcome():
     c = _client(slack="sek")
     r = _slack_interaction(c, "sek", "oc_accepted", json.dumps({"c": "case-xyz"}))
@@ -604,14 +623,14 @@ def _amend_result():
         needs_human_review=True, review_reasons=[], summary="", trace=[], strategy="Đưa về VIAC")
 
 
-def test_analysis_blocks_agree_button_only_when_suggestion():
+def test_analysis_blocks_agree_button_per_risk():
     from legalguard.adapters.inbound.channels import _analysis_blocks
     blocks = _analysis_blocks(_amend_result(), "case1")
     buttons = [b["accessory"] for b in blocks if b.get("accessory")]
-    assert len(buttons) == 1                                # nút CHỈ ở rủi ro có đề xuất sửa
-    btn = buttons[0]
-    assert btn["action_id"] == "amend_ok" and btn["text"]["text"] == "Đồng ý sửa"
-    assert json.loads(btn["value"]) == {"c": "case1", "i": 0}   # index0 của rủi ro có đề xuất
+    assert len(buttons) == 2                                # nút cho MỌI rủi ro (kể cả không có fallback)
+    assert all(b["action_id"] == "amend_ok" and b["text"]["text"] == "Đồng ý sửa" for b in buttons)
+    assert json.loads(buttons[0]["value"]) == {"c": "case1", "i": 0}
+    assert json.loads(buttons[1]["value"]) == {"c": "case1", "i": 1}   # rủi ro không có đề xuất VẪN có nút
     dump = json.dumps(blocks, ensure_ascii=False)
     assert "(1) Phạt 15%" in dump and "(2) Tòa SG" in dump
     assert "🔴" not in dump and "⚖️" not in dump and "📋" not in dump   # văn phong pháp lý, không icon

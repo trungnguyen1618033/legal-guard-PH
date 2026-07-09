@@ -313,8 +313,8 @@ function render(d) {
       <div>(${i+1}) <strong>${esc(r.clause)}</strong>: ${esc(r.risk)}.${illegal}${sugg?` <em>Đề xuất sửa đổi:</em> ${esc(sugg)}.`:''}${r.verified===false?' <span class="muted">(chưa đối chiếu tự động — luật sư kiểm)</span>':''}</div>
       ${r.evidence?`<div class="muted" style="margin-top:2px">Trích hợp đồng: ${esc(r.evidence.slice(0,180))}</div>`:''}
       ${(r.legal_basis||r.source)?`<div class="muted">📎 ${esc((r.legal_basis||r.source).slice(0,160))}</div>`:''}
-      ${sugg?`<button class="ghost" style="margin-top:6px" onclick="amendRisk(${i})">Đồng ý sửa → soạn điều khoản mới</button>
-        <div id="am-${i}" class="rl" style="margin-top:6px"></div>`:''}
+      <button class="ghost" style="margin-top:6px" onclick="amendRisk(${i})">Đồng ý sửa → soạn điều khoản mới</button>
+      <div id="am-${i}" class="rl" style="margin-top:6px"></div>
     </div>`;
   }).join('') || '<p class="muted">Không phát hiện điều khoản rủi ro rõ ràng ✅</p>';
 

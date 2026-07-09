@@ -536,7 +536,10 @@ def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, re
     case = service.get_case(case_id)
     if case is None or getattr(case, "org_id", None) != org_id:
         return 0
-    clauses = list(dict.fromkeys(f.get("clause", "") for f in (case.fallbacks or []) if f.get("clause")))
+    # Ghi theo clause của risks ∪ fallbacks (agent thỉnh thoảng bỏ fallback → vẫn nuôi win-rate theo risk).
+    clauses = list(dict.fromkeys(
+        c for c in ([r.get("clause", "") for r in (case.risks or [])]
+                    + [f.get("clause", "") for f in (case.fallbacks or [])]) if c))
     n = 0
     for cl in clauses:
         try:
@@ -553,17 +556,18 @@ def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, re
 # value mang {c: case_id, i: index0}; handler nạp lại case (đã BỀN) → draft_counter_clause. KHÔNG cần
 # store in-process: case đã persist với risks+fallbacks (sống sót restart, không TTL — bền hơn _RetryStore).
 def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> list[dict]:
-    """Slack blocks reply rà soát HĐ: MỖI rủi ro = 1 section + nút 'Đồng ý sửa' (chỉ khi CÓ đề xuất để
-    đồng ý). Head/chiến lược/miễn trừ như text reply. Nhất quán với `format_chat_reply` qua `_risk_segments`."""
+    """Slack blocks reply rà soát HĐ: MỖI rủi ro = 1 section + nút 'Đồng ý sửa' → soạn điều khoản cũ→mới.
+    Nút hiện cho MỌI rủi ro (draft_counter soạn từ clause+risk, KHÔNG cần fallback — agent thỉnh thoảng
+    bỏ propose_fallback nhưng người dùng vẫn cần nút, yêu cầu #2). Nhất quán text reply qua `_risk_segments`."""
     head = prefix + _review_head(result)
     blocks: list[dict] = [{"type": "section", "text": {"type": "mrkdwn", "text": head[:2900]}}]
     if not result.risks:
         blocks.append({"type": "section", "text": {"type": "mrkdwn",
             "text": "Không phát hiện điều khoản rủi ro rõ ràng trong nội dung được cung cấp."}})
-    for num, idx, _clause, seg, has_sugg in _risk_segments(result):
+    for num, idx, _clause, seg, _has_sugg in _risk_segments(result):
         sec: dict = {"type": "section", "block_id": f"lg_amend_{num}",
                      "text": {"type": "mrkdwn", "text": seg[:2900]}}
-        if has_sugg and case_id:                     # có đề xuất + case đã lưu → nút soạn điều khoản sửa
+        if case_id:                                  # case đã lưu → nút soạn điều khoản sửa cho MỖI rủi ro
             sec["accessory"] = {
                 "type": "button", "text": {"type": "plain_text", "text": "Đồng ý sửa", "emoji": False},
                 "action_id": "amend_ok",
