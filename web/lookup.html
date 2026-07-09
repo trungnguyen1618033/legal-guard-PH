@@ -46,17 +46,17 @@
 </style>
 </head>
 <body>
-  <h1>⚖️ Tra cứu pháp luật Việt Nam</h1>
+  <h1>Tra cứu pháp luật Việt Nam</h1>
   <p class="muted">Hỏi câu hỏi pháp lý — nhận câu trả lời dẫn <b>đúng Điều/Khoản còn hiệu lực</b>.
-    <a href="/app">Phân tích HĐ</a> · <a href="/dashboard">Bảng điều khiển</a> · <a href="/trust">🔎 Độ tin cậy</a> · <a href="/help">❓ Hướng dẫn</a>.</p>
-  <p class="muted">🤖 Bạn đang tương tác với <b>hệ thống AI</b> — đây là công cụ <b>tra cứu &amp; thông tin pháp luật có trích nguồn</b>, không phải dịch vụ tư vấn pháp luật.</p>
+    <a href="/app">Phân tích HĐ</a> · <a href="/dashboard">Bảng điều khiển</a> · <a href="/trust">Độ tin cậy</a> · <a href="/help">Hướng dẫn</a>.</p>
+  <p class="muted">Bạn đang tương tác với <b>hệ thống AI</b> — đây là công cụ <b>tra cứu &amp; thông tin pháp luật có trích nguồn</b>, không phải dịch vụ tư vấn pháp luật.</p>
 
   <textarea id="q" placeholder="Vd: Mức phạt vi phạm hợp đồng tối đa bao nhiêu phần trăm?"></textarea>
   <div class="row">
     <select id="lang" style="width:auto"><option value="vi">Tiếng Việt</option><option value="en">English</option></select>
     <input id="apikey" placeholder="API key (nếu có)" style="width:auto;flex:1">
     <button id="go">Tra cứu</button>
-    <span id="spin" style="display:none">⏳…</span>
+    <span id="spin" style="display:none">Đang tra cứu…</span>
   </div>
   <p id="err"></p>
 
@@ -65,17 +65,17 @@
     <div id="sources" class="src"></div>
     <div id="fb" style="margin-top:12px;font-size:14px">
       <span class="muted">Hữu ích?</span>
-      <button class="ghost" onclick="fb('helpful')">👍 Đúng</button>
-      <button class="ghost" onclick="fb('wrong')">⚠️ Sai</button>
-      <button class="ghost" onclick="fb('incomplete')">➖ Thiếu</button>
+      <button class="ghost" onclick="fb('helpful')">Đúng</button>
+      <button class="ghost" onclick="fb('wrong')">Sai</button>
+      <button class="ghost" onclick="fb('incomplete')">Thiếu</button>
       <span id="fbmsg" class="muted"></span>
     </div>
   </div>
 
-  <p class="muted" style="margin-top:6px">💡 Mẹo: thêm mốc thời gian vào câu hỏi (vd <i>"…năm 2020"</i>) để tra <b>luật tại thời điểm đó</b>.</p>
+  <p class="muted" style="margin-top:6px">Mẹo: thêm mốc thời gian vào câu hỏi (vd <i>"…năm 2020"</i>) để tra <b>luật tại thời điểm đó</b>.</p>
 
   <details>
-    <summary>📜 Thay đổi của một văn bản (sửa đổi / thay thế)</summary>
+    <summary>Thay đổi của một văn bản (sửa đổi / thay thế)</summary>
     <div class="row">
       <input id="docid" placeholder="Số hiệu, vd 123/2020/NĐ-CP" style="flex:1">
       <button class="ghost" onclick="loadChanges()">Xem</button>
@@ -84,7 +84,7 @@
   </details>
 
   <details>
-    <summary>✅ Văn bản còn hiệu lực pháp luật không?</summary>
+    <summary>Văn bản còn hiệu lực pháp luật không?</summary>
     <p class="muted" style="margin-top:6px">Nhập số hiệu → kiểm tra văn bản <b>CÒN hiệu lực</b> hay đã
       <b>bị thay thế / hết hiệu lực</b> — kèm bản hiện hành và ghi chú đã bị sửa đổi, bổ sung (nếu có).</p>
     <div class="row">
@@ -95,7 +95,7 @@
   </details>
 
   <details>
-    <summary>🛎️ Văn bản mới ảnh hưởng hợp đồng nào? (cảnh báo chủ động)</summary>
+    <summary>Văn bản mới ảnh hưởng hợp đồng nào? (cảnh báo chủ động)</summary>
     <p class="muted" style="margin-top:6px">Nhập số hiệu <b>văn bản MỚI</b> ban hành → liệt kê các hợp đồng đã rà soát có căn cứ pháp lý bị nó sửa đổi/thay thế → cần soát lại.</p>
     <div class="row">
       <input id="impactid" placeholder="Số hiệu VB mới, vd 70/2025/NĐ-CP" style="flex:1">
@@ -105,7 +105,7 @@
   </details>
 
   <details>
-    <summary>🤖 Autopilot — quét luật MỚI ảnh hưởng hợp đồng (giám sát chủ động)</summary>
+    <summary>Autopilot — quét luật MỚI ảnh hưởng hợp đồng (giám sát chủ động)</summary>
     <p class="muted" style="margin-top:6px">Chọn mốc ngày → agent <b>tự quét MỌI văn bản luật mới</b> (hiệu lực từ ngày đó)
       và liệt kê hợp đồng đã rà soát bị ảnh hưởng — không cần nhập từng số hiệu. Chạy định kỳ qua cron để "agent làm việc khi bạn ngủ".</p>
     <div class="row">
@@ -116,7 +116,7 @@
   </details>
 
   <details>
-    <summary>🔀 So sánh 2 phiên bản (redline)</summary>
+    <summary>So sánh 2 phiên bản (redline)</summary>
     <textarea id="old" placeholder="Dán bản CŨ" style="min-height:60px;margin-top:8px"></textarea>
     <textarea id="new" placeholder="Dán bản MỚI" style="min-height:60px;margin-top:8px"></textarea>
     <div class="row"><button class="ghost" onclick="doRedline()">So sánh</button>
@@ -124,7 +124,7 @@
     <div id="rl" class="rl"></div>
   </details>
 
-  <div class="warn">⚠️ Thông tin tham khảo, <b>không thay tư vấn pháp lý chính thức</b>. Văn bản cần luật sư đối chiếu bản gốc.</div>
+  <div class="warn">Thông tin tham khảo, <b>không thay tư vấn pháp lý chính thức</b>. Văn bản cần luật sư đối chiếu bản gốc.</div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -199,10 +199,10 @@ async function checkInForce() {
       `<div style="margin-top:6px">${esc(d.reason)}</div>` +
       (d.effective_date ? `<div class="muted">Ngày hiệu lực: ${esc(d.effective_date)}</div>` : '');
     if (d.replaced && d.latest)
-      html += `<div class="banner" style="margin-top:6px">🆕 Văn bản hiện hành: <b>${esc(d.latest)}</b>` +
+      html += `<div class="banner" style="margin-top:6px">Văn bản hiện hành: <b>${esc(d.latest)}</b>` +
         (d.latest_title ? ` — ${esc(d.latest_title)}` : '') + `</div>`;
     if ((d.amended_by || []).length)
-      html += `<div class="muted" style="margin-top:4px">✏️ Đã bị sửa đổi, bổ sung bởi: ` +
+      html += `<div class="muted" style="margin-top:4px">Đã bị sửa đổi, bổ sung bởi: ` +
         d.amended_by.map(a => esc(a.doc_id) + (a.title ? ` (${esc(a.title)})` : '')).join(', ') + `</div>`;
     $('inforce').innerHTML = html;
   } catch (e) { $('inforce').textContent = 'Lỗi: ' + e.message; }
@@ -218,13 +218,13 @@ async function loadImpact() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     if (!d.impacted_cases) {
-      $('impact').innerHTML = '<p class="muted">✅ Không có hợp đồng đã rà soát nào bị văn bản này ảnh hưởng.</p>';
+      $('impact').innerHTML = '<p class="muted">Không có hợp đồng đã rà soát nào bị văn bản này ảnh hưởng.</p>';
       return;
     }
     const items = (d.items || []).map(x =>
       `<li><b>${esc(x.case_id)}</b> — ${esc(x.clause || '(điều khoản)')} ` +
       `<span class="muted">(${esc(x.kind === 'risk' ? 'rủi ro' : 'phương án')}, ${esc(_REL_VI[x.relation] || x.relation)} ${esc(x.affected_file)}${x.affected_article ? ' ' + esc(x.affected_article) : ''})</span></li>`).join('');
-    $('impact').innerHTML = `<div class="warn">🛎️ <b>${d.impacted_cases}</b> hợp đồng cần rà soát lại do <b>${esc(d.doc_id)}</b>.</div>` +
+    $('impact').innerHTML = `<div class="warn"><b>${d.impacted_cases}</b> hợp đồng cần rà soát lại do <b>${esc(d.doc_id)}</b>.</div>` +
       `<ul>${items}</ul>`;
   } catch (e) { $('impact').textContent = 'Lỗi: ' + e.message; }
 }
@@ -239,14 +239,14 @@ async function runMonitor() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const d = await r.json();
     if (!d.affected.length) {
-      $('monitor').innerHTML = `<p class="muted">✅ Đã quét ${d.new_laws_scanned} văn bản mới — không hợp đồng nào bị ảnh hưởng.</p>`;
+      $('monitor').innerHTML = `<p class="muted">Đã quét ${d.new_laws_scanned} văn bản mới — không hợp đồng nào bị ảnh hưởng.</p>`;
       return;
     }
     const blocks = d.affected.map(a =>
-      `<li>📌 <b>${esc(a.doc_id)}</b>${a.title ? ' — ' + esc(a.title) : ''}` +
+      `<li><b>${esc(a.doc_id)}</b>${a.title ? ' — ' + esc(a.title) : ''}` +
       (a.effective_date ? ` <span class="muted">(hiệu lực ${esc(a.effective_date)})</span>` : '') +
       `<br><span class="muted">→ ${a.cases.length} hợp đồng cần rà soát lại: ${esc(a.cases.join(', '))}</span></li>`).join('');
-    $('monitor').innerHTML = `<div class="warn">🛎️ Quét ${d.new_laws_scanned} VB mới → <b>${d.affected.length}</b> VB ảnh hưởng hợp đồng:</div><ul>${blocks}</ul>`;
+    $('monitor').innerHTML = `<div class="warn">Quét ${d.new_laws_scanned} VB mới → <b>${d.affected.length}</b> VB ảnh hưởng hợp đồng:</div><ul>${blocks}</ul>`;
   } catch (e) { $('monitor').textContent = 'Lỗi: ' + e.message; }
 }
 

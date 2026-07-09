@@ -64,9 +64,9 @@
 </head>
 <body>
 <header><div class="wrap">
-  <h1>⚖️ Legal Guard — Rà soát hợp đồng</h1>
-  <a href="/">← trang giới thiệu</a> <a href="/lookup">⚖️ Tra cứu pháp luật</a> <a href="/dashboard">📊 Bảng điều khiển</a> <a href="/trust">🔎 Độ tin cậy</a> <a href="/help">❓ Hướng dẫn</a> <a href="/docs">API docs</a>
-  <p class="muted" style="margin-top:8px">🤖 Bạn đang tương tác với <b>hệ thống AI</b>. Đây là <b>công cụ phân tích &amp; thông tin pháp luật có trích nguồn</b>, có chuyên gia duyệt — <b>không phải dịch vụ tư vấn pháp luật</b> và không thay thế ý kiến luật sư.</p>
+  <h1>Legal Guard — Rà soát hợp đồng</h1>
+  <a href="/">← trang giới thiệu</a> <a href="/lookup">Tra cứu pháp luật</a> <a href="/dashboard">Bảng điều khiển</a> <a href="/trust">Độ tin cậy</a> <a href="/help">Hướng dẫn</a> <a href="/docs">API docs</a>
+  <p class="muted" style="margin-top:8px">Bạn đang tương tác với <b>hệ thống AI</b>. Đây là <b>công cụ phân tích &amp; thông tin pháp luật có trích nguồn</b>, có chuyên gia duyệt — <b>không phải dịch vụ tư vấn pháp luật</b> và không thay thế ý kiến luật sư.</p>
 </div></header>
 
 <div class="wrap">
@@ -97,9 +97,9 @@
     </div>
 
     <p style="margin-top:18px">
-      <button class="btn" id="go">🔍 Phân tích hợp đồng</button>
-      <button type="button" class="btn" id="sample" style="background:#fff;color:var(--brand);border:1px solid var(--brand)">📄 Dùng hợp đồng mẫu</button>
-      <span id="spinner">⏳ <span id="spin-msg">Đang khởi động agent…</span> <span id="spin-time" class="muted"></span></span>
+      <button class="btn" id="go">Phân tích hợp đồng</button>
+      <button type="button" class="btn" id="sample" style="background:#fff;color:var(--brand);border:1px solid var(--brand)">Dùng hợp đồng mẫu</button>
+      <span id="spinner"><span id="spin-msg">Đang khởi động agent…</span> <span id="spin-time" class="muted"></span></span>
     </p>
     <p class="err" id="err"></p>
   </div>
@@ -107,13 +107,13 @@
   <div id="result" style="display:none">
     <div class="banner" id="review-banner"></div>
 
-    <div class="card"><h2>📋 Tóm tắt cho chủ doanh nghiệp</h2><div id="summary" class="md"></div>
+    <div class="card"><h2>Tóm tắt cho chủ doanh nghiệp</h2><div id="summary" class="md"></div>
       <div id="notes" style="margin-top:10px"></div>
       <div id="feedback" style="margin-top:12px;font-size:14px">
         <span class="muted">Kết quả này thế nào?</span>
-        <button type="button" onclick="sendFeedback('helpful')">👍 Hữu ích</button>
-        <button type="button" onclick="sendFeedback('wrong')">⚠️ Sai</button>
-        <button type="button" onclick="sendFeedback('incomplete')">➖ Thiếu</button>
+        <button type="button" onclick="sendFeedback('helpful')">Hữu ích</button>
+        <button type="button" onclick="sendFeedback('wrong')">Sai</button>
+        <button type="button" onclick="sendFeedback('incomplete')">Thiếu</button>
         <span id="fb-thanks" class="muted"></span>
       </div></div>
 
@@ -122,44 +122,44 @@
       <div id="risks"></div>
       <div id="drafting"></div></div>
 
-    <div class="card" id="fallbacks-card"><h2>✉️ Câu gửi đối tác & kết quả thực tế</h2>
-      <p class="locknote muted">🔒 Câu gửi đối tác sẽ hiện sau khi chuyên gia duyệt.</p>
+    <div class="card" id="fallbacks-card"><h2>Câu gửi đối tác & kết quả thực tế</h2>
+      <p class="locknote muted">Câu gửi đối tác sẽ hiện sau khi chuyên gia duyệt.</p>
       <div id="fallbacks"></div></div>
 
-    <div class="card"><h2>🧭 Chiến lược đàm phán (giữ / nhượng / walk-away)</h2><div id="strategy" class="md"></div></div>
+    <div class="card"><h2>Chiến lược đàm phán (giữ / nhượng / walk-away)</h2><div id="strategy" class="md"></div></div>
 
     <div class="card">
-      <h2>📄 Bản ghi nhớ sửa đổi (cho luật sư)</h2>
+      <h2>Bản ghi nhớ sửa đổi (cho luật sư)</h2>
       <p class="muted">Gộp các điều khoản (TRÁI LUẬT lên đầu) thành bản ghi nhớ: Điều · Vấn đề · Căn cứ · Đề xuất · Ưu tiên — dán/gửi được.</p>
       <p><button type="button" class="btn" id="memo-go">Gộp bản ghi nhớ</button>
-        <button type="button" class="ghost" id="memo-docx" style="display:none">⬇️ Tải Word (.docx)</button></p>
+        <button type="button" class="ghost" id="memo-docx" style="display:none">Tải Word (.docx)</button></p>
       <div id="memo" class="md"></div>
     </div>
 
     <div class="card">
-      <h2>⚖️ Hồ sơ kiểm chứng AI (cho luật sư)</h2>
+      <h2>Hồ sơ kiểm chứng AI (cho luật sư)</h2>
       <p class="muted">Bằng chứng luật sư đã đối chiếu output AI: vân tay tài liệu (SHA-256) · phát hiện + căn cứ ·
         dấu vết agent · ô ký kiểm chứng. Đính kèm hồ sơ vụ việc (chuẩn ABA 512 / MinLaw Singapore).</p>
-      <p><button type="button" class="ghost" id="audit-go">⬇️ Tải hồ sơ kiểm chứng (.md)</button>
+      <p><button type="button" class="ghost" id="audit-go">Tải hồ sơ kiểm chứng (.md)</button>
         <span id="audit-msg" class="muted"></span></p>
     </div>
 
-    <div class="card"><details><summary>🤖 Trace — agent đã làm gì (tool calls)</summary>
+    <div class="card"><details><summary>Trace — agent đã làm gì (tool calls)</summary>
       <div id="trace"></div></details></div>
 
     <div class="card" id="nego-card">
-      <h2>💬 Đàm phán đa phiên — đối tác phản hồi thì sao?</h2>
+      <h2>Đàm phán đa phiên — đối tác phản hồi thì sao?</h2>
       <p class="muted">Dán <b>tin nhắn/counter-offer của đối tác</b> → agent đánh giá họ nhượng/giữ gì,
         cập nhật chiến lược vòng tới + soạn câu trả lời. Mỗi vòng nối tiếp (agent dẫn đàm phán).</p>
       <textarea id="partner-msg" placeholder="Vd: Chúng tôi đồng ý giảm phạt còn 10%, nhưng giữ trọng tài tại Bắc Kinh và thanh toán T/T 45 ngày." style="min-height:70px"></textarea>
-      <p><button type="button" class="btn" id="nego-go">↪️ Phân tích phản hồi & đàm phán tiếp</button>
-        <span id="nego-spin" style="display:none">⏳ Agent đang đàm phán…</span></p>
+      <p><button type="button" class="btn" id="nego-go">↪Phân tích phản hồi & đàm phán tiếp</button>
+        <span id="nego-spin" style="display:none">Agent đang đàm phán…</span></p>
       <div id="nego-result"></div>
     </div>
   </div>
 
   <footer class="muted" style="margin:32px 0 16px;border-top:1px solid var(--line);padding-top:14px;font-size:.85rem">
-    🤖 Kết quả do <b>hệ thống AI</b> tạo, có trích nguồn văn bản pháp luật còn hiệu lực + chuyên gia duyệt (human-in-the-loop).
+    Kết quả do <b>hệ thống AI</b> tạo, có trích nguồn văn bản pháp luật còn hiệu lực + chuyên gia duyệt (human-in-the-loop).
     Legal Guard là <b>công cụ hỗ trợ phân tích</b>, <b>không thay thế tư vấn pháp luật chính thức</b> — hãy đối chiếu bản gốc & hỏi luật sư trước khi quyết định.
     Dữ liệu cá nhân trong hợp đồng được che (redact) trước khi gửi mô hình.
   </footer>
@@ -251,7 +251,7 @@ $('go').onclick = async () => {
     }
     if (!res) throw new Error('Quá thời gian chờ phân tích — thử lại.');
     render(res);
-  } catch (e) { $('err').textContent = '❌ ' + e.message + ' — thử lại (LLM có thể quá tải tạm thời).'; }
+  } catch (e) { $('err').textContent = '' + e.message + ' — thử lại (LLM có thể quá tải tạm thời).'; }
   finally { $('go').disabled = false; $('spinner').style.display = 'none'; stopProgress(); }
 };
 
@@ -312,11 +312,11 @@ function render(d) {
     return `<div class="risk-item" style="margin-bottom:16px">
       <div>(${i+1}) <strong>${esc(r.clause)}</strong>: ${esc(r.risk)}.${illegal}${sugg?` <em>Đề xuất sửa đổi:</em> ${esc(sugg)}.`:''}${r.verified===false?' <span class="muted">(chưa đối chiếu tự động — luật sư kiểm)</span>':''}</div>
       ${r.evidence?`<div class="muted" style="margin-top:2px">Trích hợp đồng: ${esc(r.evidence.slice(0,180))}</div>`:''}
-      ${(r.legal_basis||r.source)?`<div class="muted">📎 ${esc((r.legal_basis||r.source).slice(0,160))}</div>`:''}
+      ${(r.legal_basis||r.source)?`<div class="muted">${esc((r.legal_basis||r.source).slice(0,160))}</div>`:''}
       <button class="ghost" style="margin-top:6px" onclick="amendRisk(${i})">Đồng ý sửa → soạn điều khoản mới</button>
       <div id="am-${i}" class="rl" style="margin-top:6px"></div>
     </div>`;
-  }).join('') || '<p class="muted">Không phát hiện điều khoản rủi ro rõ ràng ✅</p>';
+  }).join('') || '<p class="muted">Không phát hiện điều khoản rủi ro rõ ràng </p>';
 
   // Mục cuối: lỗi soạn thảo / chính tả trong HĐ cần sửa (yêu cầu #8).
   const dn = d.drafting_notes || [];
@@ -328,13 +328,13 @@ function render(d) {
   $('memo').innerHTML = ''; $('memo-docx').style.display = 'none';
   $('fallbacks').innerHTML = (d.fallbacks||[]).map((f,i) => `<div style="margin-bottom:14px">
     <strong>${esc(f.clause)}</strong>${f.win_rate!=null?` <span class="badge b-acceptable">win ${(f.win_rate*100).toFixed(0)}%</span>`:''}
-    ${f.english_reply?`<div class="reply">✉️ ${esc(f.english_reply)}</div>`:'<div class="muted">(không có câu gửi đối tác)</div>'}
-    ${f.legal_basis?`<div class="muted">📎 căn cứ: ${esc(f.legal_basis.slice(0,140))}</div>`:''}
+    ${f.english_reply?`<div class="reply">${esc(f.english_reply)}</div>`:'<div class="muted">(không có câu gửi đối tác)</div>'}
+    ${f.legal_basis?`<div class="muted">căn cứ: ${esc(f.legal_basis.slice(0,140))}</div>`:''}
     ${f.source?`<div class="muted">nguồn: ${esc(f.source.slice(0,100))}</div>`:''}
-    <div class="muted" style="margin-top:6px;font-size:13px">📊 Kết quả đàm phán thực tế?
-      <button class="ghost" onclick="recordOutcome(${i},'accepted',this)">✓ Chấp nhận</button>
+    <div class="muted" style="margin-top:6px;font-size:13px">Kết quả đàm phán thực tế?
+      <button class="ghost" onclick="recordOutcome(${i},'accepted',this)">Chấp nhận</button>
       <button class="ghost" onclick="recordOutcome(${i},'partial',this)">~ Một phần</button>
-      <button class="ghost" onclick="recordOutcome(${i},'rejected',this)">✗ Từ chối</button>
+      <button class="ghost" onclick="recordOutcome(${i},'rejected',this)">Từ chối</button>
       <span id="oc-${i}" class="muted"></span></div></div>`).join('')
     || '<p class="muted">(không có)</p>';
 
@@ -349,29 +349,29 @@ function render(d) {
     : 'Không có rủi ro cao, nhưng vẫn cần một người xác nhận trước khi gửi đối tác.';
   const banner = $('review-banner');
   banner.className = 'banner';
-  banner.innerHTML = `<strong>🧑‍⚖️ Human checkpoint:</strong> ${esc(reasons)}
+  banner.innerHTML = `<strong>Human checkpoint:</strong> ${esc(reasons)}
     <p class="muted" style="margin:6px 0 10px">Câu đàm phán gửi đối tác bị khóa cho tới khi chuyên gia duyệt.
       AI làm phần nặng — quyết định cuối thuộc về con người.</p>
-    <button class="btn ok" id="approve">✓ Duyệt khuyến nghị</button>
-    <button class="btn danger ghost" id="reject" style="margin-left:8px">✗ Từ chối — chuyển chuyên gia</button>`;
+    <button class="btn ok" id="approve">Duyệt khuyến nghị</button>
+    <button class="btn danger ghost" id="reject" style="margin-left:8px">Từ chối — chuyển chuyên gia</button>`;
   $('fallbacks-card').classList.add('locked');
   $('approve').onclick = () => {
     $('fallbacks-card').classList.remove('locked');
     banner.className = 'banner approved';
-    banner.innerHTML = '<strong>✅ Đã duyệt</strong> — câu đàm phán gửi đối tác đã được mở khóa bên dưới.';
+    banner.innerHTML = '<strong>Đã duyệt</strong> — câu đàm phán gửi đối tác đã được mở khóa bên dưới.';
   };
   $('reject').onclick = async () => {
     banner.className = 'banner rejected';
-    banner.innerHTML = '<strong>⛔ Đã từ chối</strong> — đang chuyển case cho chuyên gia pháp lý…';
+    banner.innerHTML = '<strong>Đã từ chối</strong> — đang chuyển case cho chuyên gia pháp lý…';
     let note = 'Khuyến nghị AI <em>không</em> được gửi cho đối tác.';
     try {   // escalation THẬT: gửi case cho luật sư qua kênh chuyên gia (nếu cấu hình)
       const r = await fetch('/escalate', { method:'POST',
         headers: { 'Content-Type':'application/json', ...authHeaders() },
         body: JSON.stringify({ case_id:_caseId||'', reason:'Reviewer từ chối khuyến nghị AI' }) });
       const d = await r.json().catch(()=>({}));
-      note += d.sent ? ' 📨 Đã thông báo kênh chuyên gia.' : ' (chưa cấu hình kênh chuyên gia — đã đánh dấu.)';
+      note += d.sent ? ' Đã thông báo kênh chuyên gia.' : ' (chưa cấu hình kênh chuyên gia — đã đánh dấu.)';
     } catch { note += ' (không gửi được thông báo.)'; }
-    banner.innerHTML = '<strong>⛔ Đã từ chối</strong> — case chuyển cho chuyên gia pháp lý. ' + note;
+    banner.innerHTML = '<strong>Đã từ chối</strong> — case chuyển cho chuyên gia pháp lý. ' + note;
   };
 }
 
@@ -421,7 +421,7 @@ $('audit-go').onclick = async () => {
     const blob = new Blob([md], { type:'text/markdown' }), url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `ho-so-kiem-chung-${_caseId.slice(0,8)}.md`; a.click(); URL.revokeObjectURL(url);
-    $('audit-msg').textContent = ' ✅ đã tải.';
+    $('audit-msg').textContent = ' đã tải.';
   } catch (e) { $('audit-msg').textContent = ' — lỗi: ' + e.message; }
 };
 
@@ -434,7 +434,7 @@ async function recordOutcome(i, result, btn) {
       headers: { 'Content-Type':'application/json', ...authHeaders() },
       body: JSON.stringify({ clause: f.clause, tactic: f.suggestion||'', result }) });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    $('oc-'+i).textContent = ' ✓ đã ghi — dữ liệu này nuôi win-rate (càng dùng càng khôn).';
+    $('oc-'+i).textContent = ' đã ghi — dữ liệu này nuôi win-rate (càng dùng càng khôn).';
   } catch (e) { $('oc-'+i).textContent = ' — lỗi: ' + e.message; }
 }
 
@@ -462,8 +462,8 @@ async function amendRisk(i) {
 }
 
 const _NEGO_STATUS = {
-  continue: ['🔄 Tiếp tục đàm phán', '#eef3fb'], close: ['✅ Nên CHỐT deal', '#e6f7ec'],
-  walk_away: ['🚪 Nên RÚT (walk-away)', '#fdecea'] };
+  continue: ['Tiếp tục đàm phán', '#eef3fb'], close: ['Nên CHỐT deal', '#e6f7ec'],
+  walk_away: ['Nên RÚT (walk-away)', '#fdecea'] };
 $('nego-go').onclick = async () => {
   const msg = $('partner-msg').value.trim();
   if (!msg) { $('nego-result').innerHTML = '<p class="err">Dán phản hồi của đối tác trước đã.</p>'; return; }
@@ -481,23 +481,23 @@ $('nego-go').onclick = async () => {
     const [label, bg] = _NEGO_STATUS[d.status] || _NEGO_STATUS.continue;
     const st = d.state || {};
     const ledger =
-      ((st.secured||[]).length ? `<div style="margin-top:8px"><b>✅ Đã chốt:</b> ${st.secured.join('; ')}</div>` : '') +
-      ((st.conceded||[]).length ? `<div style="margin-top:4px"><b>↩️ Ta đã nhượng:</b> ${st.conceded.join('; ')}</div>` : '') +
-      (d.walk_away_recommended ? `<div class="banner" style="background:var(--high);margin-top:8px"><strong>🚨 Red-line bị chặn + ta có BATNA → cân nhắc RÚT.</strong></div>` : '') +
-      ((d.next_moves||[]).length ? `<div style="margin-top:8px"><b>🪜 Nước đi đề xuất (thang nhượng-bộ):</b><ul style="margin:4px 0 0 18px">` +
-        d.next_moves.map(m => `<li>Nhượng: ${m.offer||''}${m.in_return_for?` → đổi lấy: ${m.in_return_for}`:''}${m.near_red_line?' <span style="color:#c00">⚠️ gần red-line</span>':''}${m.why?`<br><span class="muted" style="font-size:.9em">${m.why}</span>`:''}</li>`).join('') +
+      ((st.secured||[]).length ? `<div style="margin-top:8px"><b>Đã chốt:</b> ${st.secured.join('; ')}</div>` : '') +
+      ((st.conceded||[]).length ? `<div style="margin-top:4px"><b>↩Ta đã nhượng:</b> ${st.conceded.join('; ')}</div>` : '') +
+      (d.walk_away_recommended ? `<div class="banner" style="background:var(--high);margin-top:8px"><strong>Red-line bị chặn + ta có BATNA → cân nhắc RÚT.</strong></div>` : '') +
+      ((d.next_moves||[]).length ? `<div style="margin-top:8px"><b>Nước đi đề xuất (thang nhượng-bộ):</b><ul style="margin:4px 0 0 18px">` +
+        d.next_moves.map(m => `<li>Nhượng: ${m.offer||''}${m.in_return_for?` → đổi lấy: ${m.in_return_for}`:''}${m.near_red_line?' <span style="color:#c00">gần red-line</span>':''}${m.why?`<br><span class="muted" style="font-size:.9em">${m.why}</span>`:''}</li>`).join('') +
         `</ul></div>` : '');
     $('nego-result').innerHTML =
       `<div class="banner" style="background:${bg}"><strong>${label}</strong></div>` +
-      `<div style="margin-top:8px"><b>📊 Đánh giá phản hồi:</b><div class="md">${mdLite(d.assessment)}</div></div>` +
-      (d.strategy ? `<div style="margin-top:8px"><b>🧭 Chiến lược vòng tới:</b><div class="md">${mdLite(d.strategy)}</div></div>` : '') +
+      `<div style="margin-top:8px"><b>Đánh giá phản hồi:</b><div class="md">${mdLite(d.assessment)}</div></div>` +
+      (d.strategy ? `<div style="margin-top:8px"><b>Chiến lược vòng tới:</b><div class="md">${mdLite(d.strategy)}</div></div>` : '') +
       ledger +
-      (d.reply_vi ? `<div style="margin-top:8px"><b>💬 Trả lời đối tác (VN):</b><div class="md">${mdLite(d.reply_vi)}</div></div>` : '') +
-      (d.reply_en ? `<div style="margin-top:6px"><b>💬 Reply (EN):</b><div class="md">${mdLite(d.reply_en)}</div></div>` : '') +
-      (d.grounded ? '' : '<p class="note muted">⚠️ Khung sơ bộ (chưa có LLM).</p>');
+      (d.reply_vi ? `<div style="margin-top:8px"><b>Trả lời đối tác (VN):</b><div class="md">${mdLite(d.reply_vi)}</div></div>` : '') +
+      (d.reply_en ? `<div style="margin-top:6px"><b>Reply (EN):</b><div class="md">${mdLite(d.reply_en)}</div></div>` : '') +
+      (d.grounded ? '' : '<p class="note muted">Khung sơ bộ (chưa có LLM).</p>');
     // Nối vòng: phản hồi này thành bối cảnh cho vòng sau.
     _deal += `\n\n--- Đối tác: ${msg}\n--- Ta: ${d.reply_vi || d.assessment}`;
-  } catch (e) { $('nego-result').innerHTML = '<p class="err">❌ ' + e.message + '</p>'; }
+  } catch (e) { $('nego-result').innerHTML = '<p class="err">' + e.message + '</p>'; }
   finally { $('nego-go').disabled = false; $('nego-spin').style.display = 'none'; }
 };
 </script>

@@ -249,9 +249,8 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
 
         def block(title: str, items: list) -> str:
             rows = "".join(
-                f'<div class="row"><span class="ic">{escape(i)}</span>'
-                f'<div><b>{escape(t)}</b><p>{escape(d)}</p></div></div>'
-                for i, t, d in items)
+                f'<div class="row"><div><b>{escape(t)}</b><p>{escape(d)}</p></div></div>'
+                for _i, t, d in items)
             return f"<h2>{escape(title)}</h2>{rows}"
 
         html = f"""<!doctype html><html lang="vi"><head><meta charset="utf-8">
@@ -264,12 +263,12 @@ flex:0 0 1.6rem}}p{{margin:.2rem 0;color:#333}}nav a{{margin-right:14px}}.intro{
 border-left:3px solid #4a5cff;padding:12px 16px;border-radius:6px}}.note{{color:#666;font-size:.9rem;
 margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body>
 <nav><a href="/">← Trang giới thiệu</a><a href="/app">Rà soát</a><a href="/lookup">Tra cứu</a><a href="/trust">Độ tin cậy</a></nav>
-<h1>🤝 Legal Guard — Giới thiệu &amp; Hướng dẫn</h1>
+<h1>Legal Guard — Giới thiệu &amp; Hướng dẫn</h1>
 <p class="intro">{escape(s["intro"])}</p>
 {block("Chức năng chính", s["features"])}
 {block("Cách sử dụng", s["usage"])}
 {block("Gặp sự cố", s["trouble"])}
-<p class="note">🤖 AI hỗ trợ — không thay thế tư vấn pháp lý chính thức. Trên Slack/Zalo: gõ
+<p class="note">Nội dung do AI hỗ trợ — không thay thế tư vấn pháp lý chính thức. Trên Slack/Zalo: gõ
 <b>help</b> để xem hướng dẫn này.</p>
 </body></html>"""
         return HTMLResponse(html)

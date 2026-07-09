@@ -32,13 +32,13 @@
 </style>
 </head>
 <body>
-  <h1>📊 Bảng điều khiển công ty</h1>
+  <h1>Bảng điều khiển công ty</h1>
   <p class="muted">Tổng hợp hoạt động pháp lý của công ty bạn — bằng chứng "hệ thống ghi nhận" (càng dùng càng giá trị).
     <a href="/app">Rà soát HĐ</a> · <a href="/lookup">Tra cứu luật</a>.</p>
   <div class="row">
     <input id="apikey" placeholder="API key (nếu có)" style="flex:1">
     <button id="go">Tải số liệu</button>
-    <span id="spin" style="display:none">⏳…</span>
+    <span id="spin" style="display:none">Đang tải…</span>
   </div>
   <p id="err"></p>
 
@@ -94,7 +94,7 @@ function render(d) {
     || '<tr><td class="muted">Chưa có dữ liệu.</td></tr>';
 
   const fb = d.feedback.by_rating || {};
-  $('fb').innerHTML = `👍 Đúng: <b>${fb.helpful||0}</b> &nbsp; ⚠️ Sai: <b>${fb.wrong||0}</b> &nbsp; ➖ Thiếu: <b>${fb.incomplete||0}</b>`
+  $('fb').innerHTML = `Đúng: <b>${fb.helpful||0}</b> &nbsp; Sai: <b>${fb.wrong||0}</b> &nbsp; Thiếu: <b>${fb.incomplete||0}</b>`
     + (d.feedback.total ? '' : ' <span class="muted">(chưa có phản hồi)</span>');
 
   $('tactics').querySelector('tbody').innerHTML = (d.top_tactics||[]).map(t =>

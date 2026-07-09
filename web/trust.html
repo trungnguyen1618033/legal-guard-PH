@@ -26,18 +26,18 @@
 </style>
 </head>
 <body>
-  <h1>🔎 Độ tin cậy của Legal Guard</h1>
+  <h1>Độ tin cậy của Legal Guard</h1>
   <p class="muted">Cách chúng tôi đảm bảo trả lời <b>có căn cứ, không bịa</b> — và số đo thực tế.
     <a href="/app">Rà soát HĐ</a> · <a href="/lookup">Tra cứu luật</a></p>
   <p id="err"></p>
 
   <div class="card">
-    <h2 style="margin-top:0;font-size:17px">🛡️ Phương pháp đảm bảo</h2>
+    <h2 style="margin-top:0;font-size:17px">Phương pháp đảm bảo</h2>
     <div id="methodology"></div>
   </div>
 
   <div class="card">
-    <h2 style="margin-top:0;font-size:17px">📊 Số đo (golden set nội bộ)</h2>
+    <h2 style="margin-top:0;font-size:17px">Số đo (golden set nội bộ)</h2>
     <div id="metrics"></div>
   </div>
 
@@ -56,7 +56,7 @@ const esc = s => { const d=document.createElement('div'); d.textContent=s??''; r
     $('metrics').innerHTML = (d.metrics||[]).map(m =>
       `<div class="metric"><div><div>${esc(m.name)}</div><div class="n muted">${esc(m.note)}</div></div>` +
       `<div class="v">${esc(m.value)}</div></div>`).join('');
-    $('disclaimer').textContent = '⚠️ ' + (d.disclaimer||'');
+    $('disclaimer').textContent = '' + (d.disclaimer||'');
   } catch (e) { $('err').textContent = 'Lỗi tải số liệu: ' + e.message; }
 })();
 </script>
