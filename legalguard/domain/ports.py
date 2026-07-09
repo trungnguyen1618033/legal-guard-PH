@@ -117,6 +117,10 @@ class ChatSenderPort(Protocol):
     # thread). Trả [{"user","bot_id","text","ts"}] theo thời gian; [] nếu không hỗ trợ/lỗi/không quyền.
     def fetch_thread(self, channel: str, thread_ts: str) -> list[dict]: ...
 
+    # Tên hiển thị của user (thread nhiều người: bot xưng hô/attribution đúng ai-nói-gì).
+    # Trả {user_id: display_name} cho các id resolve được; {} nếu không hỗ trợ/lỗi/thiếu scope.
+    def resolve_names(self, user_ids: list[str]) -> dict[str, str]: ...
+
 
 @runtime_checkable
 class ConversationStorePort(Protocol):

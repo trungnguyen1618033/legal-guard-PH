@@ -150,12 +150,16 @@ def build_app(cfg: Settings = settings) -> FastAPI:
                     senders={"slack": slack_sender, "zalo": zalo_sender},
                     expert_channel=cfg.expert_channel)
     # Kênh nhắn tin (Zalo/Slack) — chỉ mount webhook khi có secret tương ứng.
-    handler = ChatHandler(service, parser, build_conversation_store(cfg), cfg.default_tenant)
+    # rank_fn = cross-encoder qwen3-rerank dùng chung với KB retrieval (semantic scoring cho việc
+    # CHỌN TIN LIÊN QUAN trong thread nhiều người — M4b); None → builder fallback lexical/recency.
+    handler = ChatHandler(service, parser, build_conversation_store(cfg), cfg.default_tenant,
+                          rank_fn=getattr(service.kb, "rerank_fn", None))
     app.include_router(build_channels_router(
         handler, slack_signing_secret=cfg.slack_signing_secret,
         zalo_oa_secret=cfg.zalo_oa_secret, zalo_app_id=cfg.zalo_app_id,
         slack_sender=slack_sender,
         zalo_sender=zalo_sender,
         max_upload_bytes=cfg.max_upload_bytes,
-        mention_only=cfg.slack_mention_only))
+        mention_only=cfg.slack_mention_only,
+        resolve_names=cfg.slack_resolve_names))
     return app

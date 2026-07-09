@@ -50,6 +50,9 @@ class _FakeSender:
         self.fetched.append((channel, thread_ts))
         return self._tm
 
+    def resolve_names(self, user_ids):
+        return {}                      # mặc định không resolve — builder dùng nhãn ẩn danh
+
 
 def _client(slack="", zalo="", appid="", slack_sender=None, zalo_sender=None, mention_only=False):
     # mention_only=False mặc định trong TEST: các test routing/flow cũ gửi event không mention
@@ -1036,7 +1039,7 @@ def test_build_thread_context_roles_redact_dedup():
             {"user": "UB2", "bot_id": "B9", "text": "tin bot khác", "ts": "3"},
             {"user": "U2", "text": "đã có trong history", "ts": "4"}]
     out = _build_thread_context(msgs, "UBOT", known={"đã có trong history"})
-    assert "người dùng: hợp đồng phạt 15%" in out and "ab@x.vn" not in out   # redact PII
+    assert "Người A: hợp đồng phạt 15%" in out and "ab@x.vn" not in out     # nhãn speaker + redact PII
     assert "trợ lý: Đã ghi nhận." in out                                     # tin bot mình = trợ lý
     assert "tin bot khác" not in out and "đã có trong history" not in out    # bỏ bot khác + dedup
 
@@ -1045,8 +1048,116 @@ def test_build_thread_context_budget_keeps_head_tail():
     from legalguard.adapters.inbound.channels import _build_thread_context
     msgs = [{"user": "U1", "text": f"tin số {i} " + "x" * 200, "ts": str(i)} for i in range(100)]
     out = _build_thread_context(msgs, "UBOT", limit=2000)
-    assert len(out) <= 2100 and "tin số 0" in out and "tin số 99" in out    # giữ đầu + đuôi
-    assert "…(lược bớt)…" in out
+    assert len(out) <= 2100 and "tin số 0 " in out and "tin số 99 " in out  # giữ đầu + đuôi
+    assert "…(đã lược tin không liên quan)…" in out
+
+
+# ---- M4: thread NHIỀU NGƯỜI — ai-nói-gì + lọc liên quan ----
+def test_multiuser_labels_names_and_asker():
+    from legalguard.adapters.inbound.channels import _build_thread_context
+    msgs = [{"user": "U1", "text": "hợp đồng phạt 15%", "ts": "1"},
+            {"user": "U2", "text": "khoản này cao đấy", "ts": "2"},
+            {"user": "U3", "text": "đồng ý sửa về 8%", "ts": "3"}]
+    # Có tên thật → dùng tên; asker được đánh dấu (người hỏi).
+    out = _build_thread_context(msgs, "UBOT", names={"U1": "An", "U2": "Bình"}, asker_id="U2")
+    assert "Người tham gia: An, Bình (người hỏi), Người C" in out            # U3 không resolve → nhãn
+    assert "An: hợp đồng phạt 15%" in out and "Bình: khoản này cao" in out
+    # Không tên → nhãn ẩn danh ổn định theo thứ tự xuất hiện.
+    out2 = _build_thread_context(msgs, "UBOT")
+    assert "Người A: hợp đồng phạt 15%" in out2 and "Người B: khoản này cao" in out2
+
+
+def test_multiuser_comention_preserved():
+    from legalguard.adapters.inbound.channels import _build_thread_context
+    msgs = [{"user": "U1", "text": "Điều 5 phạt 15%", "ts": "1"},
+            {"user": "U2", "text": "<@UBOT> hỏi ý <@U1> về mức phạt, cả <@U9> nữa", "ts": "2"}]
+    out = _build_thread_context(msgs, "UBOT", names={"U1": "An"})
+    assert "hỏi ý @An về mức phạt" in out                 # co-mention giữ referent (tên thật)
+    assert "@người khác" in out                           # mention user ngoài thread, không tên
+    assert "<@UBOT>" not in out and "<@U1>" not in out    # tag thô không lọt vào prompt
+
+
+def test_multiuser_relevance_selection_drops_chitchat():
+    from legalguard.adapters.inbound.channels import _build_thread_context
+    pad = "x" * 150
+    msgs = ([{"user": "U1", "text": "Hợp đồng: Điều 5 phạt vi phạm 15% nếu giao chậm " + pad, "ts": "0"}]
+            + [{"user": "U2", "text": f"trưa nay ăn bún chả không {i} " + pad, "ts": str(i)}
+               for i in range(1, 20)]
+            + [{"user": "U1", "text": "đối tác gửi phụ lục bảo hành 6 tháng " + pad, "ts": "20"}]
+            + [{"user": "U2", "text": f"chuyện phiếm cuối {i} " + pad, "ts": str(i)}
+               for i in range(21, 26)])
+    q = "chốt mức phạt với thời hạn bảo hành thế nào?"
+    out = _build_thread_context(msgs, "UBOT", limit=1600, question=q)
+    assert "phạt vi phạm 15%" in out                      # tin đầu (chủ đề) luôn giữ
+    assert "bảo hành 6 tháng" in out                      # tin GIỮA liên quan được chọn (lexical)
+    assert "…(đã lược tin không liên quan)…" in out       # có lược
+    assert out.count("bún chả") <= 2                      # chuyện phiếm giữa thread bị bỏ gần hết
+
+
+def test_multiuser_rank_fn_semantic_priority():
+    from legalguard.adapters.inbound.channels import _build_thread_context
+    pad = "y" * 150
+    msgs = ([{"user": "U1", "text": "chủ đề gốc " + pad, "ts": "0"}]
+            + [{"user": "U2", "text": f"tin giữa số {i} " + pad, "ts": str(i)} for i in range(1, 20)])
+
+    def rank(q, texts):                                   # semantic giả: 'số 7' liên quan nhất
+        return [10.0 if "số 7 " in t else 0.1 for t in texts]
+
+    out = _build_thread_context(msgs, "UBOT", limit=1200, question="câu hỏi bất kỳ", rank_fn=rank)
+    assert "tin giữa số 7 " in out                        # semantic chọn đúng tin
+    assert "chủ đề gốc" in out and "tin giữa số 19" in out  # đầu + đuôi vẫn giữ
+
+
+def test_relevance_scores_three_tiers():
+    from legalguard.adapters.inbound.channels import _relevance_scores
+    texts = ["bàn về mức phạt hợp đồng", "trưa ăn gì", "phạt vi phạm 8%"]
+    assert _relevance_scores("q", texts, rank_fn=lambda q, t: [1, 2, 3]) == [1.0, 2.0, 3.0]
+
+    def boom(q, t):                                       # tầng 1 lỗi → lexical
+        raise RuntimeError("api down")
+
+    lex = _relevance_scores("mức phạt vi phạm", texts, rank_fn=boom)
+    assert lex[0] > lex[1] and lex[2] > lex[1]
+    assert _relevance_scores("ơi?", texts) == [0.0, 1.0, 2.0]   # không token đặc trưng → recency
+
+
+def test_short_thread_kept_fully_no_marker():
+    from legalguard.adapters.inbound.channels import _build_thread_context
+    msgs = [{"user": "U1", "text": f"tin {i} nội dung", "ts": str(i)} for i in range(8)]
+    out = _build_thread_context(msgs, "UBOT", question="hỏi gì đó")
+    assert all(f"tin {i} nội dung" in out for i in range(8))   # vừa budget → giữ 100%
+    assert "…(đã lược" not in out
+
+
+def test_process_resolves_names_and_passes_asker():
+    # _process: resolve_names=True → gọi sender.resolve_names với user NÓI + user được CO-MENTION
+    # (không gồm bot), rồi truyền names + asker_id vào reply_ex.
+    from legalguard.adapters.inbound.channels import ChatReply, _process
+    msgs = [{"user": "U1", "text": "nội dung về hợp đồng phạt", "ts": "1"},
+            {"user": "U2", "text": "nhắc <@U9> xem nhé", "ts": "2"}]
+
+    class _NameSender(_FakeSender):
+        def __init__(self):
+            super().__init__(thread_msgs=msgs)
+            self.resolved = []
+
+        def resolve_names(self, ids):
+            self.resolved.append(list(ids))
+            return {"U1": "An"}
+
+    class _H:
+        def __init__(self):
+            self.kw = None
+
+        def reply_ex(self, key, **kw):
+            self.kw = kw
+            return ChatReply("ok", "", "")
+
+    s, h = _NameSender(), _H()
+    _process(h, s, "k", "C1", "câu hỏi", None, None, "th", 10 * 1024 * 1024, True,
+             thread_fetch=("C1", "1.0"), bot_uid="UBOT", asker_id="U2", resolve_names=True)
+    assert s.resolved and set(s.resolved[0]) == {"U1", "U2", "U9"}   # nói + co-mention, KHÔNG gồm bot
+    assert h.kw["names"] == {"U1": "An"} and h.kw["asker_id"] == "U2"
 
 
 # ---- M3: đọc thread từ permalink ----

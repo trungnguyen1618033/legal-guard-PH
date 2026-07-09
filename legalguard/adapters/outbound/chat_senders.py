@@ -16,6 +16,7 @@ class SlackSender:
 
     def __init__(self, bot_token: str) -> None:
         self.bot_token = bot_token
+        self._names: dict[str, str] = {}   # cache users.info (tên hiển thị ít đổi; restart = làm mới)
 
     @property
     def available(self) -> bool:
@@ -74,6 +75,34 @@ class SlackSender:
                 break
         return out
 
+    def resolve_names(self, user_ids: list[str]) -> dict[str, str]:
+        """Tên hiển thị của user (`users.info`, scope users:read) — attribution ai-nói-gì trong thread
+        nhiều người. Cache in-process (tên ít đổi); id lỗi/thiếu scope → bỏ qua id đó (caller fallback
+        nhãn ẩn danh). Danh tính là NGỮ CẢNH hội thoại (mọi người trong thread đều thấy tên nhau) —
+        redact PII vẫn áp cho THÂN tin nhắn như cũ."""
+        out: dict[str, str] = {}
+        for uid in dict.fromkeys(u for u in user_ids if u):     # dedup, giữ thứ tự
+            if uid in self._names:
+                out[uid] = self._names[uid]
+                continue
+            try:
+                data = httpx.get("https://slack.com/api/users.info",
+                                 headers={"Authorization": f"Bearer {self.bot_token}"},
+                                 params={"user": uid}, timeout=15).json()
+            except Exception:  # noqa: BLE001 — tên là phụ: lỗi mạng → bỏ, caller dùng nhãn ẩn danh
+                _log.exception("Slack users.info lỗi (user=%s)", uid)
+                continue
+            if not data.get("ok"):
+                _log.warning("Slack users.info từ chối: %s (user=%s)", data.get("error"), uid)
+                continue
+            prof = (data.get("user") or {}).get("profile") or {}
+            name = (prof.get("display_name") or prof.get("real_name")
+                    or (data.get("user") or {}).get("real_name") or "").strip()
+            if name:
+                self._names[uid] = name
+                out[uid] = name
+        return out
+
 
 class ZaloSender:
     name = "zalo"
@@ -103,3 +132,6 @@ class ZaloSender:
 
     def fetch_thread(self, channel: str, thread_ts: str) -> list[dict]:
         return []                      # Zalo OA không có khái niệm thread — luôn rỗng (degrade an toàn)
+
+    def resolve_names(self, user_ids: list[str]) -> dict[str, str]:
+        return {}                      # Zalo OA: chat 1-1, không cần attribution — caller dùng nhãn mặc định

@@ -39,8 +39,9 @@ _USAGE = [
     ("", "Gọi bot (Slack)",
      "Trong kênh, bot CHỈ trả lời khi được nhắc tên (@Legal Guard) — không nhắc tên, bot im lặng để "
      "mọi người trao đổi tự nhiên. Nhắn riêng (DM) thì không cần nhắc tên. Nhắc tên giữa thread → bot "
-     "tự đọc các tin trước đó trong thread để trả lời đúng ngữ cảnh; kèm link một thread khác (cùng "
-     "kênh) → bot đọc thread đó (không kèm câu hỏi thì bot tóm tắt)."),
+     "tự đọc các tin trước đó trong thread để trả lời đúng ngữ cảnh; thread nhiều người thì bot nhận "
+     "biết ai nói gì và tự lọc các tin liên quan tới câu hỏi (bỏ trao đổi ngoài lề). Kèm link một "
+     "thread khác (cùng kênh) → bot đọc thread đó (không kèm câu hỏi thì bot tóm tắt)."),
     ("", "Rà soát hợp đồng",
      "{how_contract}. Nêu VỊ THẾ (bên mình bảo vệ, đòn bẩy) để phân tích sát hơn."),
     ("", "Tra cứu luật",

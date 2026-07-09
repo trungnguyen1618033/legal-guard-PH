@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     illegal_detection: bool = True      # Phase B: NLI-mâu-thuẫn nâng unfavorable→illegal khi trái điều luật đã grounding
     lookup_cache_size: int = 256        # cache câu trả lời tra cứu (hỏi lặp → trả tức thì + tiết kiệm token); 0 = tắt
     slack_mention_only: bool = True     # Slack: CHỈ trả lời khi được mention (@bot) hoặc DM — không mention = user đang nói với người khác, bot im lặng; =0 khôi phục hành vi cũ (trả lời mọi tin)
+    slack_resolve_names: bool = True    # Slack: resolve TÊN THẬT người nói trong thread (users.info, scope users:read) cho attribution ai-nói-gì; =0 → nhãn ẩn danh Người A/B/C (thân tin vẫn redact PII như cũ)
 
     # Chat session store: sql (persist + đa instance) | memory (dev) | redis
     conversation_backend: str = "sql"

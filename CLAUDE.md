@@ -142,6 +142,13 @@ persist — history vẫn chỉ chứa tin đi qua bot). Mention + **permalink t
 `/archives/<CH>/p<16 số>` → ts chèn chấm trước 6 số cuối; `?thread_ts=` = root) → đọc thread được dẫn
 (`thread_required=True`, đọc fail → báo mời bot vào kênh); **V1 chỉ CÙNG kênh** (khác kênh → từ chối,
 chống rò rỉ chéo kênh khi bot là member mà người hỏi không); không kèm câu hỏi → mặc định tóm tắt.
+**M4 — thread NHIỀU NGƯỜI (`slack-multiuser-context-plan.md`, chốt phương án HIỆN ĐẠI)**: (a) TÊN THẬT
+người nói (`resolve_names`/users.info + cache, scope `users:read`, `SLACK_RESOLVE_NAMES` default ON;
+thiếu → nhãn ẩn danh 'Người A/B/C' theo thứ tự xuất hiện — tất định); co-mention `<@U…>`→`@tên` (giữ
+referent); header 'Người tham gia: … (người hỏi)'; (b) **budget-packing LUÔN-BẬT** 24k ký tự (≈8k token)
+— head + tail-4 luôn giữ, phần giữa chọn theo điểm LIÊN QUAN, `_GAP_MARK` chỗ lược, thread ngắn giữ 100%;
+(c) **semantic scoring `qwen3-rerank`** (tái dùng rerank_fn KB, wire `ChatHandler(rank_fn=)`) fallback
+3 tầng semantic→lexical(stopword VN)→recency (`_relevance_scores`) — tầng lỗi rơi xuống, test offline.
 History redact PII trước khi lưu; reply Slack chia nhiều block (`_mrkdwn_blocks`, ≤2900/block, không cụt).
 **Persist-first + retry + edit-rerun** (`docs/internal/retry-edit-rerun-research.md`): `reply_ex` lưu tin user
 (đã redact) NGAY khi nhận, TRƯỚC `_handle` → lỗi bất ngờ KHÔNG mất tin (dữ liệu audit/flywheel, không hiển thị
