@@ -286,6 +286,13 @@ HÀNG TRIỆU vector. SQLite/không-pgvector → tự fallback brute-force (hàn
 compose = `pgvector/pgvector:pg16` (pg16→pg16 giữ data volume; chỉ cần `CREATE EXTENSION`, store tự chạy).
 **LƯU Ý: pgvector giải LATENCY/CPU, KHÔNG giải regression accuracy do vocab-collision** — mở rộng KB vẫn
 phải selective + eval-gated (`docs/internal/ingest-eval-gated-process.md`).
+**Domain-scoped retrieval ĐÃ BẬT MẶC ĐỊNH (9/7, `DOMAIN_SCOPED_RETRIEVAL`, qua gate)**: router tất định
+(`outbound/domain_router.py`, đếm keyword theo lĩnh vực, KHÔNG LLM) → top-2 domain của truy vấn → lọc ứng
+viên theo `domain:` front-matter (file không nhãn luôn giữ; trong-domain < top_k → fallback base, không bao
+giờ tệ hơn). Giải "VB mới vocab-trùng nuốt domain lõi" ở tầng retrieval: ca THẬT phát hiện qua test live —
+"phạt vi phạm hợp đồng THƯƠNG MẠI tối đa %?" bị **PDPD Đ.8 (phạt HÀNH CHÍNH 5% doanh thu, 5 khoản)** chiếm
+top-k chunk → LLM abstain; domain_scoped route→thuong_mai/dan_su, lọc PDPD → LTM Điều 301 lên rank 1. Gate:
+`accuracy_eval` 53→**54/54** (chế tài 14/14), `legal_eval` không regress. Tắt: env `DOMAIN_SCOPED_RETRIEVAL=0`.
 Prod TODO: encrypt-at-rest (RDS/KMS), RLS (cô lập org hiện ở tầng app), pgvector ANN khi >chục nghìn chunk.
 
 Docker (Postgres + app): `make up` (build+run+migrate), `make down`, `make logs`, `make psql`,

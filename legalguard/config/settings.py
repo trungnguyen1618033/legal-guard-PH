@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     in_force_filter: bool = True     # mặc định CHỈ trả văn bản còn hiệu lực (lọc theo front-matter status)
     persist_embeddings: bool = False  # lưu embedding bền trong DB (chỉ embed chunk mới) → mở khóa corpus lớn
     pgvector_ann: bool = True         # dùng pgvector ANN nếu DB Postgres có extension (tự phát hiện); False = ép brute-force
-    domain_scoped_retrieval: bool = False  # định tuyến truy vấn theo lĩnh vực (chống cạnh-tranh-toàn-cục khi KB lớn) — bật sau khi qua gate
+    domain_scoped_retrieval: bool = True   # định tuyến truy vấn theo lĩnh vực (chống cạnh-tranh-toàn-cục khi KB lớn) — ĐÃ qua gate 9/7: accuracy 53→54/54, sửa ca "phạt vi phạm thương mại" bị PDPD Đ.8 (phạt hành chính) nuốt; đặt env=0 để tắt
     legal_basis_grounding: bool = True  # gắn căn cứ điều luật (tất định, từ KB) cho mỗi risk/fallback
     nli_verification: bool = True       # kiểm entailment: nguồn có hậu thuẫn claim không (chống hallucinate; tốn thêm LLM call)
     coverage_gated_abstain: bool = True  # cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain lookup
