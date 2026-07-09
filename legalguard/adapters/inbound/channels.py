@@ -584,12 +584,15 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
     return blocks
 
 
-def _format_amend(clause: str, cc: dict) -> str:
-    """Điều khoản sửa (song ngữ) sau khi luật sư bấm 'Đồng ý sửa' — văn phong pháp lý, không icon."""
+def _format_amend(clause: str, original: str, cc: dict) -> str:
+    """Điều khoản sửa (song ngữ) sau 'Đồng ý sửa' — hiện NGUYÊN VĂN điều khoản CŨ (trích HĐ) → điều khoản
+    MỚI, để luật sư biết chính xác thay đoạn nào. Văn phong pháp lý, không icon."""
     vi = (cc.get("vi") or "").strip()
     en = (cc.get("en") or "").strip()
-    parts = [f"Đề xuất sửa đổi điều khoản: {clause}", "",
-             "Điều khoản đề xuất (Tiếng Việt):", vi or "(chưa soạn được)"]
+    parts = [f"Đề xuất sửa đổi: {clause}"]
+    if original and original.strip() and original.strip() != clause.strip():
+        parts += ["", "Điều khoản hiện tại (trích hợp đồng):", original.strip()]
+    parts += ["", "Điều khoản đề xuất (Tiếng Việt):", vi or "(chưa soạn được)"]
     if en:
         parts += ["", "Suggested clause (English):", en]
     if not cc.get("grounded", True):
@@ -601,7 +604,9 @@ def _format_amend(clause: str, cc: dict) -> str:
 def _run_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, case_id: str,
                idx: int, send_to: str, thread_ts: str | None) -> None:
     """Chạy nền: nạp case (cô lập org) → soạn điều khoản sửa cho rủi ro thứ `idx` → gửi vào thread.
-    Tách khỏi handler interactions (phải ack <3s); draft_counter_clause gọi LLM nên chậm."""
+    Tách khỏi handler interactions (phải ack <3s); draft_counter_clause gọi LLM nên chậm.
+    Dùng NGUYÊN VĂN `evidence` (đoạn trích HĐ) làm điều khoản gốc → LLM viết lại CHÍNH đoạn đó (cũ→mới
+    đúng nghĩa); thiếu evidence → lùi về nhãn `clause`."""
     try:
         case = service.get_case(case_id)
         if case is None or getattr(case, "org_id", None) != org_id or idx is None or idx < 0:
@@ -614,11 +619,12 @@ def _run_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, ca
             return
         r = risks[idx]
         clause = r.get("clause", "")
+        original = (r.get("evidence") or "").strip() or clause      # nguyên văn từ HĐ; thiếu → nhãn
         fb = next((f for f in (case.fallbacks or []) if f.get("clause") == clause), {})
         cc = service.draft_counter_clause(
-            clause=clause, risk=r.get("risk", ""), suggestion=fb.get("suggestion", ""),
+            clause=original, risk=r.get("risk", ""), suggestion=fb.get("suggestion", ""),
             legal_basis=fb.get("legal_basis") or r.get("legal_basis", ""))
-        _safe_send(sender, send_to, _format_amend(clause, cc), thread_ts)
+        _safe_send(sender, send_to, _format_amend(clause, original, cc), thread_ts)
     except Exception:  # noqa: BLE001 — task nền: lỗi soạn không được làm sập, báo khách nhẹ nhàng
         _log.exception("Không soạn được điều khoản sửa (%s)", case_id)
         _safe_send(sender, send_to, "Xin lỗi, chưa soạn được điều khoản sửa. Vui lòng thử lại.", thread_ts)

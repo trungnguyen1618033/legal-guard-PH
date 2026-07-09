@@ -645,9 +645,14 @@ def test_analysis_blocks_no_button_without_case_id():
 
 def test_format_amend_bilingual_and_framework_flag():
     from legalguard.adapters.inbound.channels import _format_amend
-    out = _format_amend("Phạt 15%", {"vi": "Mức phạt tối đa 8%.", "en": "Cap 8%.", "grounded": True})
-    assert "Phạt 15%" in out and "Mức phạt tối đa 8%" in out and "Cap 8%" in out and "AI" in out
-    assert "khung sơ bộ" in _format_amend("X", {"vi": "khung", "en": "", "grounded": False})
+    # nguyên văn điều khoản CŨ (trích HĐ) → điều khoản MỚI song ngữ
+    out = _format_amend("Phạt 15%", "Bên A chịu phạt 15% giá trị hợp đồng nếu giao chậm.",
+                        {"vi": "Mức phạt tối đa 8%.", "en": "Cap 8%.", "grounded": True})
+    assert "Phạt 15%" in out and "Điều khoản hiện tại (trích hợp đồng):" in out
+    assert "Bên A chịu phạt 15%" in out and "Mức phạt tối đa 8%" in out and "Cap 8%" in out and "AI" in out
+    # thiếu evidence (original == clause) → không lặp dòng "hiện tại"
+    out2 = _format_amend("X", "X", {"vi": "y", "en": "", "grounded": False})
+    assert "khung sơ bộ" in out2 and "Điều khoản hiện tại" not in out2
 
 
 def test_run_amend_drafts_and_posts_into_thread():
@@ -655,7 +660,8 @@ def test_run_amend_drafts_and_posts_into_thread():
     from legalguard.domain.models import AnalysisCase
     case = AnalysisCase(id="c1", org_id="default", tenant="VN", created_at="t", lang="vi",
                         contract_excerpt="", summary="", needs_human_review=False,
-                        risks=[{"clause": "Phạt 15%", "risk": "vượt trần", "legal_basis": "Điều 301"}],
+                        risks=[{"clause": "Phạt 15%", "risk": "vượt trần", "legal_basis": "Điều 301",
+                                "evidence": "Bên A chịu phạt 15% giá trị hợp đồng nếu giao chậm."}],
                         fallbacks=[{"clause": "Phạt 15%", "suggestion": "giảm về 8%"}], trace=[])
 
     class _Svc:
@@ -667,9 +673,12 @@ def test_run_amend_drafts_and_posts_into_thread():
 
     svc, sender = _Svc(), _FakeSender()
     _run_amend(svc, sender, "default", "c1", 0, "C1", "th1")
-    assert svc.called["clause"] == "Phạt 15%" and svc.called["suggestion"] == "giảm về 8%"
-    assert svc.called["legal_basis"] == "Điều 301"          # dùng legal_basis của fallback/risk
-    assert "Mức phạt tối đa 8%" in sender.sent[-1][1] and "Cap penalty at 8%" in sender.sent[-1][1]
+    # LLM nhận NGUYÊN VĂN điều khoản gốc (evidence) để viết lại chính đoạn đó
+    assert svc.called["clause"] == "Bên A chịu phạt 15% giá trị hợp đồng nếu giao chậm."
+    assert svc.called["suggestion"] == "giảm về 8%" and svc.called["legal_basis"] == "Điều 301"
+    out = sender.sent[-1][1]
+    assert "Điều khoản hiện tại (trích hợp đồng):" in out and "Bên A chịu phạt 15%" in out
+    assert "Mức phạt tối đa 8%" in out and "Cap penalty at 8%" in out
     assert sender.threads[-1] == "th1"                     # gửi ĐÚNG thread
 
 

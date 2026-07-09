@@ -443,18 +443,21 @@ async function recordOutcome(i, result, btn) {
 async function amendRisk(i) {
   const r = (window._risks || [])[i]; if (!r) return;
   const f = (window._fb || []).find(x => x.clause === r.clause) || {};
+  // Dùng NGUYÊN VĂN điều khoản gốc (evidence, trích HĐ) làm "cũ" → LLM viết lại CHÍNH đoạn đó; thiếu → nhãn.
+  const original = (r.evidence || '').trim() || r.clause;
   const box = $('am-' + i);
   box.textContent = 'Đang soạn điều khoản sửa…';
   try {
     const res = await fetch('/counter', { method:'POST',
       headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ clause: r.clause, risk: r.risk || '', suggestion: f.suggestion || '',
+      body: JSON.stringify({ clause: original, risk: r.risk || '', suggestion: f.suggestion || '',
         legal_basis: f.legal_basis || r.legal_basis || '', leverage: $('leverage').value }) });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const d = await res.json();
     box.innerHTML =
       (d.grounded ? '' : '<div class="muted">Bản khung sơ bộ — cần luật sư hoàn thiện.</div>') +
-      `<div><b>Điều khoản hiện tại:</b> ${esc(r.clause)}</div>` +
+      `<div><b>Đề xuất sửa đổi:</b> ${esc(r.clause)}</div>` +
+      (original !== r.clause ? `<div style="margin-top:4px"><b>Điều khoản hiện tại (trích HĐ):</b> ${esc(original)}</div>` : '') +
       `<div style="margin-top:4px"><b>Điều khoản đề xuất (Tiếng Việt):</b> ${esc(d.vi)}</div>` +
       (d.en ? `<div style="margin-top:4px"><b>Suggested clause (English):</b> ${esc(d.en)}</div>` : '') +
       (d.rationale ? `<div class="muted" style="margin-top:4px">Lý do: ${esc(d.rationale)}</div>` : '');
