@@ -438,10 +438,13 @@ class AnalysisService:
             "đây. Mỗi lỗi: quote đoạn sai + cách sửa. Không có lỗi → [].\n\n"
             f"<<<HỢP ĐỒNG>>>\n{contract_text[:6000]}\n<<<HẾT>>>"
         )
-        try:
-            parsed = _extract_json_obj(self.judge.complete(prompt))
-        except LLMError:
-            return "", hint, []
+        parsed: dict = {}
+        for _ in range(2):        # 1 retry: endpoint dashscope thỉnh thoảng rớt kết nối → thử lại (call rẻ)
+            try:
+                parsed = _extract_json_obj(self.judge.complete(prompt))
+                break
+            except LLMError:
+                parsed = {}
         ctype = str(parsed.get("contract_type") or "").strip()
         party = str(parsed.get("protected_party") or "").strip() or hint
         notes: list[str] = []
@@ -566,20 +569,22 @@ class AnalysisService:
         summary = strategy
         judge = self.judge if self.nli_verification else None        # NLI (model nhanh): điều luật hậu thuẫn claim
         do_basis = self.legal_basis_grounding and (ctx.risks or ctx.fallbacks)
-        # Phân loại HĐ + tên đầy đủ bên bảo vệ (dòng đầu reply luật sư) — call NHANH, ĐỘC LẬP vòng agent.
+        # Phân loại HĐ + tên đầy đủ bên bảo vệ + lỗi soạn thảo (dòng đầu + mục cuối reply luật sư) —
+        # call NHANH, ĐỘC LẬP vòng agent. Chạy TRƯỚC "bão" NLI hậu-agent (verify/basis fire nhiều call
+        # qwen-flash đồng thời): nếu để chung pool, dashscope rate-limit/rớt kết nối chính call này (đo
+        # thật trên HĐ 18 rủi ro → classify rỗng). Chạy riêng ~1-2s, KHÔNG đáng kể so với vòng agent.
         hint = position.protected_party if position else ""
         contract_type, protected_party, drafting_notes = "", (hint or "").strip(), []
+        if self.judge.available:
+            contract_type, protected_party, drafting_notes = \
+                self._classify_contract(contract_text, hint, lang)
         t_post = time.monotonic()
-        with ThreadPoolExecutor(max_workers=4) as pool:
+        with ThreadPoolExecutor(max_workers=3) as pool:
             f_verify = (pool.submit(verify_risks, ctx.risks, contract_text, retriever, self.judge)
                         if ctx.risks else None)
             f_summary = pool.submit(self._summarize, ctx.risks, lang) if ctx.risks else None
             f_basis = (pool.submit(_attach_legal_basis, ctx.risks, ctx.fallbacks, retriever, judge)
                        if do_basis else None)
-            f_classify = (pool.submit(self._classify_contract, contract_text, hint, lang)
-                          if self.judge.available else None)
-        if f_classify is not None:
-            contract_type, protected_party, drafting_notes = f_classify.result()
         if f_verify is not None:
             notes += f_verify.result()
         if f_summary is not None:
