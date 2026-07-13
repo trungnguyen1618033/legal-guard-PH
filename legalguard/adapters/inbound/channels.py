@@ -795,6 +795,8 @@ def _send_error_with_retry(sender: ChatSenderPort, send_to: str, conv_key: str, 
 
 
 # Nút GHI KẾT QUẢ đàm phán (flywheel) — chỉ gắn cho reply phân tích có case_id. value mang case_id.
+# GIỮ cho tương thích NGƯỢC: tin phân tích đã gửi trước đây vẫn còn nút oc_* → handler dưới xử lý được.
+# Reply MỚI dùng _review_action_blocks (Chốt / Sửa lại) gộp cả kết quả + feedback.
 _OC_RESULT = {"oc_accepted": "accepted", "oc_partial": "partial", "oc_rejected": "rejected"}
 
 
@@ -812,6 +814,28 @@ def _outcome_blocks(case_id: str) -> list[dict]:
         btn("Chốt được", "oc_accepted", "primary"),
         btn("Một phần", "oc_partial"),
         btn("Không đạt", "oc_rejected", "danger")]}]
+
+
+# Nút QUYẾT ĐỊNH trên reply RÀ SOÁT — GỘP kết quả đàm phán + feedback thành 2 nút:
+#   Chốt  → outcome=accepted + feedback=helpful  (đồng ý, chốt deal)
+#   Sửa lại → outcome=rejected + feedback=wrong  (cần chỉnh, chưa ổn)
+# value mang cả {k: kind, r: ref-feedback, c: case_id} (với reply phân tích, ref == case_id).
+_RV_ACTION = {"rv_close": ("accepted", "helpful"), "rv_revise": ("rejected", "wrong")}
+
+
+def _review_action_blocks(kind: str, ref: str) -> list[dict]:
+    val = json.dumps({"k": kind, "r": ref[:300], "c": ref[:120]}, ensure_ascii=False)
+
+    def btn(txt: str, aid: str, style: str | None = None) -> dict:
+        b = {"type": "button", "text": {"type": "plain_text", "text": txt, "emoji": True},
+             "action_id": aid, "value": val}
+        if style:
+            b["style"] = style
+        return b
+
+    return [{"type": "actions", "block_id": "lg_review", "elements": [
+        btn("Chốt", "rv_close", "primary"),
+        btn("Sửa lại", "rv_revise", "danger")]}]
 
 
 def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, result: str) -> int:
@@ -1090,11 +1114,9 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         if supports_buttons and res.kind:          # gắn nút feedback (Slack) cho câu trả lời thật
             if res.kind == "analysis" and res.result is not None:
                 # Reply rà soát: MỖI rủi ro 1 section + nút 'Đồng ý sửa' (→ soạn điều khoản sửa), rồi
-                # nút feedback + ghi kết quả đàm phán (flywheel). prefix vd "🔄 (cập nhật…)" khi chạy lại.
+                # 2 nút quyết định Chốt / Sửa lại (gộp kết quả đàm phán + feedback). prefix vd "🔄" khi chạy lại.
                 blocks = _analysis_blocks(res.result, res.ref, reply_prefix)
-                blocks += _feedback_blocks(res.kind, res.ref)
-                if res.ref:
-                    blocks += _outcome_blocks(res.ref)
+                blocks += _review_action_blocks(res.kind, res.ref)
             else:
                 # Chia reply thành nhiều block (không cụt ở 2900) rồi mới tới nút feedback.
                 blocks = [*_mrkdwn_blocks(reply), *_feedback_blocks(res.kind, res.ref)]
@@ -1319,7 +1341,22 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                     ctx.get("c", ""), ctx.get("i", -1), send_to, thread_ts)
                 return {"ok": True}
 
-            if aid in _OC_RESULT:                  # nút GHI KẾT QUẢ đàm phán → nuôi flywheel
+            if aid in _RV_ACTION:                  # nút QUYẾT ĐỊNH gộp: Chốt / Sửa lại
+                result, rating = _RV_ACTION[aid]
+                n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), result)  # win-rate
+                try:                               # + feedback golden-set (lỗi DB KHÔNG được làm 500)
+                    handler.service.record_feedback(Feedback(
+                        id=uuid.uuid4().hex, org_id=org.id, kind=ctx.get("k", "analysis"),
+                        ref=ctx.get("r", ""), rating=rating, note=f"slack:{user}",
+                        created_at=datetime.now(timezone.utc).isoformat()))
+                except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
+                    _log.exception("Không ghi được feedback từ Slack")
+                msg = (f"Đã chốt — ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."
+                       if aid == "rv_close" else
+                       "Đã ghi nhận: cần sửa lại. Cảm ơn phản hồi của bạn.")
+                return {"replace_original": True, "text": msg}
+
+            if aid in _OC_RESULT:                  # (tương thích ngược) nút kết quả đàm phán tin CŨ → flywheel
                 n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), _OC_RESULT[aid])
                 return {"replace_original": True,
                         "text": f"Đã ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."}

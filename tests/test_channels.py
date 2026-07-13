@@ -722,10 +722,37 @@ def test_record_deal_outcome_covers_risk_clauses_when_no_fallback():
 
 
 def test_slack_interaction_records_outcome():
+    # (tương thích ngược) tin phân tích CŨ vẫn còn nút oc_* → handler xử lý được.
     c = _client(slack="sek")
     r = _slack_interaction(c, "sek", "oc_accepted", json.dumps({"c": "case-xyz"}))
     assert r.status_code == 200 and r.json().get("replace_original") is True
     assert "kết quả" in r.json()["text"].lower()        # xác nhận ghi kết quả (flywheel)
+
+
+def test_review_action_blocks_two_buttons():
+    # Reply rà soát MỚI: chỉ 2 nút quyết định Chốt / Sửa lại (gộp kết quả + feedback).
+    from legalguard.adapters.inbound.channels import _review_action_blocks
+    blocks = _review_action_blocks("analysis", "case1")
+    assert len(blocks) == 1 and blocks[0]["block_id"] == "lg_review"
+    els = blocks[0]["elements"]
+    assert [e["action_id"] for e in els] == ["rv_close", "rv_revise"]
+    assert [e["text"]["text"] for e in els] == ["Chốt", "Sửa lại"]
+
+
+def test_slack_interaction_rv_close_records_accepted_and_helpful():
+    c = _client(slack="sek")
+    r = _slack_interaction(c, "sek", "rv_close",
+                           json.dumps({"k": "analysis", "r": "case-xyz", "c": "case-xyz"}))
+    assert r.status_code == 200 and r.json().get("replace_original") is True
+    assert "chốt" in r.json()["text"].lower()
+
+
+def test_slack_interaction_rv_revise_records_rejected_and_wrong():
+    c = _client(slack="sek")
+    r = _slack_interaction(c, "sek", "rv_revise",
+                           json.dumps({"k": "analysis", "r": "case-xyz", "c": "case-xyz"}))
+    assert r.status_code == 200 and r.json().get("replace_original") is True
+    assert "sửa lại" in r.json()["text"].lower()
 
 
 def test_slack_interaction_bad_signature_401():
