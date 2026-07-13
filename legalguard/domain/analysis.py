@@ -13,7 +13,7 @@ import uuid
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING
 
 from legalguard.domain.agent import run_agent
@@ -23,6 +23,7 @@ from legalguard.domain.models import (
     AnalysisResult,
     Feedback,
     NegotiationPosition,
+    Obligation,
     Outcome,
     SourceMeta,
 )
@@ -32,6 +33,7 @@ from legalguard.domain.ports import (
     KnowledgeBaseProvider,
     LLMError,
     LLMPort,
+    ObligationRepositoryPort,
     ObservabilityPort,
     OutcomeRepositoryPort,
 )
@@ -288,6 +290,8 @@ class AnalysisService:
                  observer: ObservabilityPort | None = None,
                  legal_basis_grounding: bool = True,
                  feedback: FeedbackRepositoryPort | None = None,
+                 obligations: "ObligationRepositoryPort | None" = None,
+                 obligation_tracking: bool = False,
                  nli_verification: bool = True,
                  judge: LLMPort | None = None,
                  lookup_cache_size: int = 256,
@@ -308,6 +312,8 @@ class AnalysisService:
         self.observer = observer      # telemetry (tùy chọn)
         self.legal_basis_grounding = legal_basis_grounding   # gắn căn cứ điều luật cho risk/fallback
         self.feedback = feedback      # vòng học: phản hồi người dùng (tùy chọn)
+        self.obligations = obligations   # nghĩa vụ & hạn chót (SAU KÝ) — system-of-record riêng org
+        self.obligation_tracking = obligation_tracking   # flag OFF: trích nghĩa vụ khi analyze
         self.nli_verification = nli_verification  # kiểm entailment (nguồn có hậu thuẫn claim) — chống hallucinate
         # Phase B: lớp NLI-mâu-thuẫn nâng unfavorable→illegal khi điều khoản TRÁI điều luật đã grounding.
         self.illegal_detection = illegal_detection
@@ -448,7 +454,40 @@ class AnalysisService:
                 self.outcomes.delete_by_case(case_id)
             if self.feedback is not None:
                 self.feedback.delete_by_ref(case_id)   # feedback analysis: ref = case_id
+            if self.obligations is not None:
+                self.obligations.delete_by_case(case_id)
         return deleted
+
+    # ── Nghĩa vụ & hạn chót (SAU KÝ) — API dùng chung cho MỌI kênh (HTTP/Slack/Zalo/MCP) ──
+    def extract_and_store_obligations(self, contract_text: str, org_id: str, case_id: str,
+                                      contract_end: "date | None" = None) -> int:
+        """Trích nghĩa-vụ-có-mốc từ HĐ (thuần domain + reasoner) → gắn id/org/case → lưu. Trả số đã lưu.
+        Offline/stub → 0. ISOLATED khỏi vòng agent (không đụng accuracy)."""
+        from legalguard.domain.obligations import extract_obligations
+        if self.obligations is None:
+            return 0
+        raw = extract_obligations(self.reasoner, contract_text, contract_end=contract_end)
+        now = datetime.now(timezone.utc).isoformat()
+        items = [Obligation(id=uuid.uuid4().hex, org_id=org_id, case_id=case_id, created_at=now, **d)
+                 for d in raw]
+        self.obligations.add_many(items)
+        if self.observer:
+            self.observer.event("obligations_extracted", {"case_id": case_id, "n": len(items)})
+        return len(items)
+
+    def list_obligations(self, org_id: str, within_days: int | None = None,
+                         status: str = "pending") -> list[Obligation]:
+        return self.obligations.list_by_org(org_id, within_days, status) if self.obligations else []
+
+    def set_obligation_status(self, obligation_id: str, org_id: str, status: str) -> None:
+        if self.obligations is not None:
+            self.obligations.set_status(obligation_id, org_id, status)
+
+    def obligation_digest(self, org_id: str, within_days: int = 14) -> tuple[list, str]:
+        """(danh sách sắp-đến-hạn, digest text KÊNH-AGNOSTIC) — cron/Slack/Zalo/web dùng chung."""
+        from legalguard.domain.obligations import format_obligation_digest
+        items = self.list_obligations(org_id, within_days=within_days)
+        return items, format_obligation_digest(items, date.today())
 
     def health(self) -> dict:
         return {
@@ -707,6 +746,12 @@ class AnalysisService:
             except Exception:  # noqa: BLE001 — persistence là phụ, không chặn kết quả
                 _log.exception("Không lưu được case (org=%s)", org.id)
                 result.notes.append("⚠️ Không lưu được case (DB).")
+            # SAU KÝ: trích nghĩa vụ & hạn chót (ISOLATED khỏi vòng agent → accuracy KHÔNG đổi). Flag OFF.
+            if self.obligation_tracking and self.obligations is not None and result.case_id:
+                try:
+                    self.extract_and_store_obligations(contract_text, org.id, result.case_id)
+                except Exception:  # noqa: BLE001 — trích là phụ, KHÔNG chặn kết quả phân tích
+                    _log.exception("Không trích được nghĩa vụ (case=%s)", result.case_id)
 
         duration_ms = round((time.monotonic() - t0) * 1000)
         _log.info("analyze tenant=%s risks=%d review=%s windows=%d failed=%d %dms",

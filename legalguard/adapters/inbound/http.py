@@ -144,6 +144,16 @@ class MonitorIn(BaseModel):
     limit: int = 200
 
 
+class ObligationRunIn(BaseModel):
+    within_days: int = 14       # quét nghĩa vụ đến hạn trong N ngày tới
+    via: str | None = None      # slack | zalo (tùy chọn) — gửi digest nhắc hạn
+    channel: str | None = None
+
+
+class ObligationStatusIn(BaseModel):
+    status: str                 # done | dismissed | pending
+
+
 class FeedbackIn(BaseModel):
     kind: str = "lookup"        # analysis | lookup
     ref: str = ""               # case_id (analysis) hoặc câu hỏi (lookup)
@@ -594,6 +604,37 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
             if sender is None or not getattr(sender, "available", False):
                 raise HTTPException(status_code=400, detail=f"Kênh '{body.via}' chưa cấu hình.")
             text = format_monitor_digest(res["affected"], res["since"])
+            try:
+                sender.send(body.channel, text)
+                res["sent"] = True
+            except Exception as exc:  # noqa: BLE001 — gửi lỗi không nên 500
+                raise HTTPException(status_code=502, detail=f"Gửi {body.via} thất bại: {exc}") from exc
+        return res
+
+    # ── Nghĩa vụ & hạn chót (SAU KÝ) — cùng service, dùng chung mọi kênh ──
+    @app.get("/obligations")
+    def list_obligations(within: int | None = None, status: str = "pending",
+                         org: Organization = Depends(require_auth)) -> dict:
+        items = service.list_obligations(org.id, within_days=within, status=status)
+        return {"obligations": [asdict(o) for o in items], "count": len(items)}
+
+    @app.post("/obligations/{obligation_id}/status")
+    def set_obligation_status(obligation_id: str, body: ObligationStatusIn,
+                              org: Organization = Depends(require_auth)) -> dict:
+        if body.status not in ("done", "dismissed", "pending"):
+            raise HTTPException(status_code=400, detail="status: done | dismissed | pending")
+        service.set_obligation_status(obligation_id, org.id, body.status)
+        return {"ok": True}
+
+    @app.post("/obligations/run")
+    def obligations_run(body: ObligationRunIn, org: Organization = Depends(require_auth)) -> dict:
+        # AUTOPILOT SAU-KÝ: quét nghĩa vụ đến hạn trong N ngày → gửi digest nhắc (cron ECS hằng ngày).
+        items, text = service.obligation_digest(org.id, within_days=body.within_days)
+        res = {"upcoming": len(items), "within_days": body.within_days, "sent": False}
+        if body.via and body.channel and items:
+            sender = _senders.get(body.via)
+            if sender is None or not getattr(sender, "available", False):
+                raise HTTPException(status_code=400, detail=f"Kênh '{body.via}' chưa cấu hình.")
             try:
                 sender.send(body.channel, text)
                 res["sent"] = True

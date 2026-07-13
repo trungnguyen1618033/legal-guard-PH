@@ -88,6 +88,24 @@ class Fallback:
 
 
 @dataclass
+class Obligation:
+    """Nghĩa vụ CÓ MỐC trích từ hợp đồng (giai đoạn SAU KÝ) — để nhắc trước khi lỡ hạn. Dữ liệu tích lũy
+    riêng org (system-of-record). THUẦN dữ liệu — không phụ thuộc kênh (Slack/Zalo/web/MCP dùng chung)."""
+    id: str
+    org_id: str            # cô lập công ty (index)
+    case_id: str           # thuộc lần rà soát nào
+    kind: str              # payment | delivery | renewal | termination_notice | warranty | other
+    description: str       # "Thanh toán đợt 2 40% giá trị hợp đồng"
+    due_date: str = ""     # ISO 'YYYY-MM-DD' nếu ra được mốc TUYỆT ĐỐI; rỗng nếu chỉ có rule tương đối
+    rule: str = ""         # mốc TƯƠNG ĐỐI chưa quy ra ngày: "30 ngày trước ngày hết hạn hợp đồng"
+    party: str = ""        # bên chịu nghĩa vụ
+    consequence: str = ""  # hệ quả nếu lỡ ("hợp đồng tự gia hạn 12 tháng", "phạt 0,05%/ngày")
+    source_clause: str = ""# trích điều khoản gốc
+    status: str = "pending"# pending | done | dismissed
+    created_at: str = ""
+
+
+@dataclass
 class Conversation:
     """Phiên chat: working memory (history) + deal context (long-term của phiên)."""
     id: str

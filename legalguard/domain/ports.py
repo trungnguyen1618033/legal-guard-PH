@@ -13,6 +13,7 @@ from legalguard.domain.models import (
     ChatTurn,
     Conversation,
     Feedback,
+    Obligation,
     Outcome,
     RevenueEntry,
     Snippet,
@@ -181,3 +182,17 @@ class FeedbackRepositoryPort(Protocol):
     def list_by_org(self, org_id: str, limit: int = 100) -> list[Feedback]: ...
 
     def delete_by_ref(self, ref: str) -> int: ...   # cascade erasure (xóa feedback của case bị xóa)
+
+
+@runtime_checkable
+class ObligationRepositoryPort(Protocol):
+    """Lưu nghĩa vụ & hạn chót (giai đoạn SAU KÝ) — system-of-record riêng org. Dùng chung mọi kênh."""
+
+    def add_many(self, items: list[Obligation]) -> None: ...
+
+    def list_by_org(self, org_id: str, within_days: int | None = None,
+                    status: str = "pending") -> list[Obligation]: ...
+
+    def set_status(self, obligation_id: str, org_id: str, status: str) -> None: ...
+
+    def delete_by_case(self, case_id: str) -> int: ...   # cascade erasure (xóa case → xóa obligations)
