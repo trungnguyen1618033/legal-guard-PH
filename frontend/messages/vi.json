@@ -90,6 +90,8 @@
     "amendEn": "Suggested clause (English)",
     "amendRationale": "Lý do",
     "draftingTitle": "Lỗi soạn thảo, chính tả cần sửa",
+    "policyTitle": "Vi phạm chính sách công ty",
+    "policyViolatePre": "trái chính sách",
     "trace": "Dấu vết suy luận (audit)",
     "legalBasis": "Căn cứ",
     "illegal": "TRÁI LUẬT",

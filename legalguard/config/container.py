@@ -26,6 +26,7 @@ from legalguard.adapters.outbound.revenue_log import CsvRevenueLog
 from legalguard.adapters.outbound.sql_case_repository import SqlAlchemyCaseRepository
 from legalguard.adapters.outbound.sql_feedback_repository import SqlAlchemyFeedbackRepository
 from legalguard.adapters.outbound.sql_obligation_repository import SqlAlchemyObligationRepository
+from legalguard.adapters.outbound.sql_org_policy_repository import SqlAlchemyOrgPolicyRepository
 from legalguard.adapters.outbound.sql_outcome_repository import SqlAlchemyOutcomeRepository
 from legalguard.config.settings import Settings, settings
 from legalguard.domain.analysis import AnalysisService
@@ -87,6 +88,7 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     outcomes = SqlAlchemyOutcomeRepository(cfg.database_url)
     feedback = SqlAlchemyFeedbackRepository(cfg.database_url)
     obligations = SqlAlchemyObligationRepository(cfg.database_url)
+    org_policies = SqlAlchemyOrgPolicyRepository(cfg.database_url)
     observer = (LangfuseObserver(cfg.langfuse_public_key, cfg.langfuse_secret_key, cfg.langfuse_host)
                 if cfg.langfuse_secret_key else NoOpObserver())
     return AnalysisService(reasoner=reasoner, kb=kb,
@@ -100,7 +102,8 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                            hyde_query_expansion=cfg.hyde_query_expansion,
                            auto_counter_on_analyze=cfg.auto_counter_on_analyze,
                            auto_counter_max=cfg.auto_counter_max,
-                           obligations=obligations, obligation_tracking=cfg.obligation_tracking)
+                           obligations=obligations, obligation_tracking=cfg.obligation_tracking,
+                           org_policies=org_policies, org_playbook=cfg.org_playbook)
 
 
 def build_evidence(cfg: Settings = settings) -> EvidenceService:

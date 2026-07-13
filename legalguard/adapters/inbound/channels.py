@@ -365,6 +365,22 @@ def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, boo
     return out
 
 
+_POLICY_HEAD = "Vi phạm chính sách công ty (playbook):"
+
+
+def _policy_lines(result: AnalysisResult) -> list[str]:
+    """Mục 'Vi phạm chính sách công ty' (playbook org) — TÁCH khỏi trái-luật-VN. Rỗng khi flag OFF/không vi phạm."""
+    pv = getattr(result, "policy_violations", None) or []
+    if not pv:
+        return []
+    out = [_POLICY_HEAD]
+    for v in pv:
+        clause = (v.get("clause") or "").strip()
+        rule = (v.get("rule_text") or "").strip()
+        out.append(f"- {clause + ': ' if clause else ''}trái chính sách \"{rule}\".")
+    return out
+
+
 def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
     """Trả lời rà soát HĐ cho LUẬT SƯ — văn phong pháp lý, KHÔNG icon/màu/nhãn ưu tiên; rủi ro đánh số
     (1)(2)(3); dòng đầu nêu loại HĐ + khách hàng được bảo vệ (nếu LLM xác định được)."""
@@ -379,6 +395,8 @@ def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
         lines.append(seg)
     if result.strategy:
         lines += ["", result.strategy]
+    if (pl := _policy_lines(result)):
+        lines += [""] + pl
     if result.needs_human_review:
         lines.append("Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng.")
     if result.drafting_notes:
@@ -843,6 +861,8 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
         blocks.append(sec)
     if result.strategy:
         blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": result.strategy[:2900]}})
+    if (pl := _policy_lines(result)):
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(pl)[:2900]}})
     if result.needs_human_review:
         blocks.append({"type": "section", "text": {"type": "mrkdwn",
             "text": "Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng."}})

@@ -20,16 +20,20 @@ _KINDS = {"payment", "delivery", "renewal", "termination_notice", "warranty", "o
 _SYSTEM = ("Bạn là trợ lý pháp lý. Trích NGHĨA VỤ CÓ MỐC THỜI GIAN/HẠN từ hợp đồng. "
            "Chỉ trả JSON array, không giải thích.")
 
-_PROMPT = """Liệt kê các NGHĨA VỤ CÓ MỐC THỜI GIAN/HẠN trong hợp đồng (thanh toán, giao hàng, gia hạn,
-hạn báo chấm dứt, bảo hành…). CHỈ nghĩa vụ thực sự có yếu tố thời gian. Trả JSON array, mỗi phần tử:
+_PROMPT = """Đọc hợp đồng, trả JSON OBJECT:
+{{"contract_end":"ngày HẾT HẠN hợp đồng YYYY-MM-DD nếu xác định được, else rỗng",
+"obligations":[  // các NGHĨA VỤ CÓ MỐC THỜI GIAN/HẠN (thanh toán, giao hàng, gia hạn, báo chấm dứt, bảo hành…)
 {{"kind":"payment|delivery|renewal|termination_notice|warranty|other","description":"...",
 "due_date":"YYYY-MM-DD nếu có ngày tuyệt đối, else rỗng",
 "rule":"mốc tương đối nếu không có ngày, vd '30 ngày trước ngày hết hạn hợp đồng'",
 "party":"bên chịu","consequence":"hệ quả nếu lỡ","source_clause":"trích điều khoản gốc ngắn"}}
-Không có nghĩa vụ có mốc → trả [].
+]}}
+CHỈ nghĩa vụ thực sự có yếu tố thời gian. Không có → "obligations":[].
 
 HỢP ĐỒNG:
 {contract}"""
+
+_END_RE = re.compile(r'"contract_end"\s*:\s*"(\d{4}-\d{2}-\d{2})"')
 
 
 def _field(o, name: str):
@@ -95,10 +99,16 @@ def extract_obligations(reasoner: LLMPort, contract_text: str, *,
     except Exception:  # noqa: BLE001 — trích là phụ: lỗi LLM → [] (KHÔNG chặn analyze)
         _log.exception("extract_obligations lỗi LLM")
         return []
-    items = _parse_obligations(raw)
+    items = _parse_obligations(raw)          # regex bóc mảng 'obligations' (kể cả lồng trong object)
+    ce = contract_end
+    if ce is None and (m := _END_RE.search(raw)):   # LLM trả ngày hết hạn HĐ → quy mốc tương đối
+        try:
+            ce = date.fromisoformat(m.group(1))
+        except ValueError:
+            ce = None
     for it in items:
         if not it["due_date"] and it["rule"]:
-            it["due_date"] = resolve_due_date(it["rule"], contract_end=contract_end)
+            it["due_date"] = resolve_due_date(it["rule"], contract_end=ce)
     return items
 
 

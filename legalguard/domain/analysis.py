@@ -24,6 +24,7 @@ from legalguard.domain.models import (
     Feedback,
     NegotiationPosition,
     Obligation,
+    OrgPolicy,
     Outcome,
     SourceMeta,
 )
@@ -35,6 +36,7 @@ from legalguard.domain.ports import (
     LLMPort,
     ObligationRepositoryPort,
     ObservabilityPort,
+    OrgPolicyRepositoryPort,
     OutcomeRepositoryPort,
 )
 from legalguard.domain.redaction import redact
@@ -292,6 +294,8 @@ class AnalysisService:
                  feedback: FeedbackRepositoryPort | None = None,
                  obligations: "ObligationRepositoryPort | None" = None,
                  obligation_tracking: bool = False,
+                 org_policies: "OrgPolicyRepositoryPort | None" = None,
+                 org_playbook: bool = False,
                  nli_verification: bool = True,
                  judge: LLMPort | None = None,
                  lookup_cache_size: int = 256,
@@ -314,6 +318,8 @@ class AnalysisService:
         self.feedback = feedback      # vòng học: phản hồi người dùng (tùy chọn)
         self.obligations = obligations   # nghĩa vụ & hạn chót (SAU KÝ) — system-of-record riêng org
         self.obligation_tracking = obligation_tracking   # flag OFF: trích nghĩa vụ khi analyze
+        self.org_policies = org_policies   # playbook công ty (chính sách bền cấp org)
+        self.org_playbook = org_playbook   # flag OFF: đối chiếu HĐ với chính sách khi analyze
         self.nli_verification = nli_verification  # kiểm entailment (nguồn có hậu thuẫn claim) — chống hallucinate
         # Phase B: lớp NLI-mâu-thuẫn nâng unfavorable→illegal khi điều khoản TRÁI điều luật đã grounding.
         self.illegal_detection = illegal_detection
@@ -488,6 +494,16 @@ class AnalysisService:
         from legalguard.domain.obligations import format_obligation_digest
         items = self.list_obligations(org_id, within_days=within_days)
         return items, format_obligation_digest(items, date.today())
+
+    # ── Playbook công ty — API dùng chung mọi kênh ──
+    def list_policies(self, org_id: str, active_only: bool = True) -> list[OrgPolicy]:
+        return self.org_policies.list_by_org(org_id, active_only) if self.org_policies else []
+
+    def upsert_policy(self, policy: OrgPolicy) -> str | None:
+        return self.org_policies.upsert(policy) if self.org_policies else None
+
+    def delete_policy(self, policy_id: str, org_id: str) -> bool:
+        return self.org_policies.delete(policy_id, org_id) if self.org_policies else False
 
     def health(self) -> dict:
         return {
@@ -725,6 +741,16 @@ class AnalysisService:
             notes=notes,
         )
         result.execution_summary = execution_summary(result.trace)   # bằng chứng agent gọi tool (AI-Native)
+
+        # PLAYBOOK CÔNG TY: đối chiếu HĐ với chính sách org (ISOLATED khỏi vòng agent → accuracy KHÔNG đổi).
+        # Flag OFF. TÁCH khỏi "trái luật VN" — đây là "trái CHUẨN công ty" (có thể vẫn hợp pháp).
+        if self.org_playbook and self.org_policies is not None:
+            try:
+                from legalguard.domain.policy import check_policy
+                pols = self.org_policies.list_by_org(org.id)
+                result.policy_violations = check_policy(result.risks, pols, self.judge)
+            except Exception:  # noqa: BLE001 — đối chiếu là phụ, KHÔNG chặn kết quả
+                _log.exception("Không đối chiếu được playbook (org=%s)", org.id)
 
         # Persist case (audit + lịch sử + evidence). Lỗi DB không làm hỏng phân tích.
         if self.cases is not None:

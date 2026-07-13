@@ -25,6 +25,7 @@ from legalguard.domain.evidence import EvidenceService
 from legalguard.domain.models import (
     Feedback,
     NegotiationPosition,
+    OrgPolicy,
     Outcome,
     RevenueEntry,
     SourceMeta,
@@ -152,6 +153,14 @@ class ObligationRunIn(BaseModel):
 
 class ObligationStatusIn(BaseModel):
     status: str                 # done | dismissed | pending
+
+
+class OrgPolicyIn(BaseModel):
+    id: str = ""                # rỗng → tạo mới
+    rule_text: str
+    kind: str = "mandatory"     # threshold | mandatory | forbidden
+    severity: str = "must_fix"  # must_fix | negotiate
+    active: bool = True
 
 
 class FeedbackIn(BaseModel):
@@ -625,6 +634,25 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
             raise HTTPException(status_code=400, detail="status: done | dismissed | pending")
         service.set_obligation_status(obligation_id, org.id, body.status)
         return {"ok": True}
+
+    # ── Playbook công ty (chính sách cấp org) — cùng service, dùng chung mọi kênh ──
+    @app.get("/org/policy")
+    def list_policy(org: Organization = Depends(require_auth)) -> dict:
+        pols = service.list_policies(org.id, active_only=False)   # cả active+inactive để sửa
+        return {"policies": [asdict(p) for p in pols], "count": len(pols)}
+
+    @app.post("/org/policy")
+    def upsert_policy(body: OrgPolicyIn, org: Organization = Depends(require_auth)) -> dict:
+        if not body.rule_text.strip():
+            raise HTTPException(status_code=400, detail="rule_text không được rỗng.")
+        pid = service.upsert_policy(OrgPolicy(
+            id=body.id.strip() or uuid.uuid4().hex, org_id=org.id, rule_text=body.rule_text.strip(),
+            kind=body.kind, severity=body.severity, active=body.active))
+        return {"ok": True, "id": pid}
+
+    @app.delete("/org/policy/{policy_id}")
+    def delete_policy(policy_id: str, org: Organization = Depends(require_auth)) -> dict:
+        return {"ok": service.delete_policy(policy_id, org.id)}
 
     @app.post("/obligations/run")
     def obligations_run(body: ObligationRunIn, org: Organization = Depends(require_auth)) -> dict:

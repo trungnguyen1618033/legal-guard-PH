@@ -14,6 +14,7 @@ from legalguard.domain.models import (
     Conversation,
     Feedback,
     Obligation,
+    OrgPolicy,
     Outcome,
     RevenueEntry,
     Snippet,
@@ -196,3 +197,14 @@ class ObligationRepositoryPort(Protocol):
     def set_status(self, obligation_id: str, org_id: str, status: str) -> None: ...
 
     def delete_by_case(self, case_id: str) -> int: ...   # cascade erasure (xóa case → xóa obligations)
+
+
+@runtime_checkable
+class OrgPolicyRepositoryPort(Protocol):
+    """Lưu playbook cấp org (chính sách bền) — đối chiếu mọi HĐ. Dùng chung mọi kênh."""
+
+    def list_by_org(self, org_id: str, active_only: bool = True) -> list[OrgPolicy]: ...
+
+    def upsert(self, policy: OrgPolicy) -> str: ...
+
+    def delete(self, policy_id: str, org_id: str) -> bool: ...

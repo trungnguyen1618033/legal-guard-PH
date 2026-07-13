@@ -282,6 +282,11 @@ function render(d) {
   $('partner-msg').value = '';
   $('summary').innerHTML = mdLite(d.summary || '(không có)');
   $('strategy').innerHTML = mdLite(d.strategy || '(không có)');
+  // Vi phạm CHÍNH SÁCH CÔNG TY (playbook org) — tách khỏi trái-luật-VN. Rỗng khi flag OFF/không vi phạm.
+  if ((d.policy_violations||[]).length)
+    $('strategy').innerHTML += '<div style="margin-top:12px"><b>Vi phạm chính sách công ty:</b><ul>'
+      + d.policy_violations.map(v => `<li>${v.clause?esc(v.clause)+': ':''}trái chính sách "${esc(v.rule_text||'')}"</li>`).join('')
+      + '</ul></div>';
   // Tách note: cảnh báo cho người dùng (hiện) vs kỹ thuật/audit (gấp lại, đỡ rối demo).
   const _tech = n => /^(🧭|🔐|📎)/.test(n);
   const notes = d.notes || [];

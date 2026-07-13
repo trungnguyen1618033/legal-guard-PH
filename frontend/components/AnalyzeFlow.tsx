@@ -277,6 +277,16 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
 
           {result.strategy && <Section title={L.strategy}><p className="whitespace-pre-wrap leading-relaxed">{result.strategy}</p></Section>}
 
+          {result.policy_violations && result.policy_violations.length > 0 && (
+            <Section title={t("policyTitle")}>
+              <ul className="list-disc space-y-1 pl-5 text-sm">
+                {result.policy_violations.map((v, i) => (
+                  <li key={i}>{v.clause ? <strong>{v.clause}: </strong> : null}{t("policyViolatePre")} “{v.rule_text}”</li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
           {result.risks?.length > 0 && (() => {
             // Dòng ĐẦU: loại HĐ + tên khách hàng bảo vệ (văn phong luật sư) — đồng bộ web/app.html + Slack.
             let lead = t("leadIntro");

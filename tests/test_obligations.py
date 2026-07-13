@@ -67,6 +67,15 @@ def test_extract_obligations_parses_and_resolves():
     assert out[0]["due_date"] == "2026-08-02"     # rule tương đối → quy ra ngày
 
 
+def test_extract_obligations_resolves_from_llm_contract_end():
+    # LLM tự trả ngày hết hạn HĐ (object form) → quy mốc tương đối KHÔNG cần caller truyền contract_end
+    llm = _LLM('{"contract_end":"2026-09-01","obligations":['
+               '{"kind":"termination_notice","description":"Báo không gia hạn","due_date":"",'
+               '"rule":"30 ngày trước ngày hết hạn"}]}')
+    out = extract_obligations(llm, "hợp đồng...")     # KHÔNG truyền contract_end
+    assert out[0]["due_date"] == "2026-08-02"
+
+
 # ---- upcoming + digest ----
 def _obl(due, status="pending", desc="X", cons=""):
     return Obligation(id="i", org_id="o", case_id="c", kind="payment", description=desc,

@@ -88,6 +88,18 @@ class Fallback:
 
 
 @dataclass
+class OrgPolicy:
+    """Quy tắc playbook cấp CÔNG TY (bền, org tự khai) — đối chiếu MỌI hợp đồng. KHÁC red_lines đàm phán
+    (ephemeral, tự-sinh per-deal). THUẦN dữ liệu — dùng chung mọi kênh."""
+    id: str
+    org_id: str
+    rule_text: str         # "Phạt vi phạm không quá 8%" / "Trọng tài phải là VIAC"
+    kind: str = "mandatory"  # threshold | mandatory | forbidden (gợi ý phân loại; đối chiếu bằng NLI)
+    severity: str = "must_fix"  # must_fix | negotiate
+    active: bool = True
+
+
+@dataclass
 class Obligation:
     """Nghĩa vụ CÓ MỐC trích từ hợp đồng (giai đoạn SAU KÝ) — để nhắc trước khi lỡ hạn. Dữ liệu tích lũy
     riêng org (system-of-record). THUẦN dữ liệu — không phụ thuộc kênh (Slack/Zalo/web/MCP dùng chung)."""
@@ -190,6 +202,7 @@ class AnalysisResult:
     notes: list[str] = field(default_factory=list)
     case_id: str = ""            # id bản ghi đã lưu (nếu có persistence)
     execution_summary: dict = field(default_factory=dict)  # đếm tool-call (evidence AI-Native, xem domain/runs.py)
+    policy_violations: list[dict] = field(default_factory=list)  # vi phạm CHÍNH SÁCH CÔNG TY (playbook org) — TÁCH khỏi trái-luật-VN
 
 
 @dataclass
