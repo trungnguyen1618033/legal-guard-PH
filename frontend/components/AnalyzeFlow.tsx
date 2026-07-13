@@ -317,8 +317,9 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
 
           {result.drafting_notes && result.drafting_notes.length > 0 && (
             <Section title={t("draftingTitle")}>
-              <ul className="list-disc space-y-1 pl-5 text-sm">
-                {result.drafting_notes.map((n, i) => <li key={i}>{n}</li>)}
+              <ul className="list-disc space-y-2 pl-5 text-sm">
+                {/* whitespace-pre-line: đề xuất song ngữ VN/EN xuống dòng đúng */}
+                {result.drafting_notes.map((n, i) => <li key={i} className="whitespace-pre-line">{n}</li>)}
               </ul>
             </Section>
           )}

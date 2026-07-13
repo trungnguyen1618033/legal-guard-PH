@@ -178,9 +178,6 @@ def _with_ai_disclosure(text: str) -> str:
     core = (text or "").replace(_AI_DISCLOSURE_LEGAL.strip(), "").rstrip()
     return core + _AI_DISCLOSURE_LEGAL
 
-# Mục CUỐI phần tư vấn: lỗi soạn thảo/chính tả trong HĐ cần sửa (yêu cầu khách #8).
-_DRAFTING_HEAD = "Lỗi soạn thảo, chính tả cần sửa:"
-
 # Ngân sách ngữ cảnh thread — pack theo budget LUÔN-BẬT (thread ngắn tự vừa 100%, dài tự chọn lọc).
 # ~24k ký tự ≈ 8k token tiếng Việt — model 128k context dư sức; đây là trần an toàn, không phải mục tiêu.
 _THREAD_CTX_LIMIT = 24000
@@ -323,28 +320,29 @@ def _build_thread_context(msgs: list[dict], bot_uid: str, known: set[str] | None
 
 
 def _review_head(result: AnalysisResult) -> str:
-    """Dòng ĐẦU reply rà soát: loại HĐ + khách hàng được bảo vệ (khi LLM xác định được)."""
+    """Câu MỞ ĐẦU reply rà soát (văn phong pháp lý như thư gửi khách): 'Sau khi rà soát <loại HĐ> <cho
+    khách>, chúng tôi đề xuất điều chỉnh một số nội dung sau:'."""
     ctype = (result.contract_type or "").strip()
     client = (result.protected_party or "").strip()
-    lead = "Sau đây là các rủi ro và đề xuất sửa đổi"
-    if client:
-        lead += f" có lợi cho khách hàng là {client}"
-    return (f"Đây là {ctype}. " if ctype else "") + lead + ":"
+    what = ctype or "hợp đồng"
+    tail = f" nhằm bảo vệ quyền lợi của {client}" if client else ""
+    return f"Sau khi rà soát {what}{tail}, chúng tôi đề xuất điều chỉnh một số nội dung sau:"
 
 
 def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, bool]]:
-    """(số hiển thị, index0, clause, KHỐI 4 phần, cần-nút-'Đồng ý sửa') cho MỖI rủi ro — dùng CHUNG cho
-    text reply (Zalo/web) và Slack blocks. Văn phong luật sư, không icon. Khối trình bày như văn bản luật sư:
-      (N) <core cần sửa> [+ nhãn trái luật]
-      Điều khoản cũ (trích hợp đồng): <evidence nguyên văn>
-      Đề xuất điều khoản mới: <bản dán-được-ngay VN/EN>   (inline khi có counter_clause; else 'Đề xuất sửa đổi: <suggestion>')
-      Lý do: <bối cảnh + căn cứ pháp lý>
+    """(số hiển thị, index0, clause, ĐOẠN văn xuôi, cần-nút-'Đồng ý sửa') cho MỖI rủi ro — dùng CHUNG cho
+    text reply (Zalo/web) và Slack blocks. VĂN XUÔI PHÁP LÝ ĐÁNH SỐ (kiểu thư gửi khách), KHÔNG nhãn/icon:
+      (N) Tại điều khoản “<clause>”: <rủi ro>[; dấu hiệu trái quy định tại <điều luật>…].
+      Nội dung hiện tại: “<evidence>”.
+      Đề xuất sửa như sau:  (rồi 'Tiếng Việt:'/'Tiếng Anh:' khi có điều khoản mới song ngữ)
+      Căn cứ: <bối cảnh + căn cứ pháp lý>.
     Nút 'Đồng ý sửa' CHỈ hiện khi CHƯA có điều khoản mới inline (tránh trùng — rủi ro illegal/must_fix đã auto)."""
     sugg = {f.get("clause", ""): (f.get("suggestion") or "").strip() for f in result.fallbacks}
     out: list[tuple[int, int, str, str, bool]] = []
     for idx, r in enumerate(result.risks):
         num = idx + 1
-        core = f"({num}) {r['clause']}: {r['risk']}".rstrip(".") + "."
+        risk_txt = (r.get("risk") or "").strip().rstrip(".")
+        core = f"({num}) Tại điều khoản “{r['clause']}”: {risk_txt}."
         if r.get("legal_status") == "illegal":       # nêu trái luật bằng văn phong pháp lý (không icon)
             vl = (r.get("violated_law") or "").strip()
             core += f" Điều khoản này có dấu hiệu trái quy định{(' tại ' + vl) if vl else ' của pháp luật'}" \
@@ -352,26 +350,37 @@ def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, boo
         lines = [core]
         ev = (r.get("evidence") or "").strip()
         if ev:
-            lines += ["*Điều khoản cũ (trích hợp đồng):* " + ev[:600]]
+            lines.append(f"Nội dung hiện tại: “{ev[:600]}”.")
         cc = r.get("counter_clause") or {}
         _disc = _AI_DISCLOSURE_LEGAL.strip()          # bỏ công bố AI nếu lọt vào nội dung (chống lặp 2 lần)
         vi = (cc.get("vi") or "").replace(_disc, "").strip()
         en = (cc.get("en") or "").replace(_disc, "").strip()
         has_inline = bool(vi)
-        if has_inline:                               # rủi ro quan trọng: điều khoản mới dán-được-ngay
-            lines.append("*Đề xuất điều khoản mới:* " + vi)
+        if has_inline:                               # rủi ro quan trọng: điều khoản mới dán-được-ngay (song ngữ)
+            lines.append("Đề xuất sửa như sau:")
+            lines.append(f"Tiếng Việt: {vi}")
             if en:
-                lines.append("(EN: " + en + ")")
+                lines.append(f"Tiếng Anh: {en}")
         else:                                        # rủi ro nhẹ: gợi ý sửa (bản dán-được qua nút 'Đồng ý sửa')
             s = sugg.get(r["clause"], "")
             if s:
                 s = re.sub(r"^\s*đề xuất\s*:?\s*", "", s, flags=re.IGNORECASE)
-                lines.append("*Đề xuất sửa đổi:* " + s.rstrip(".") + ".")
+                lines.append(f"Đề xuất sửa: {s.rstrip('.')}.")
         reason = (cc.get("rationale") or "").strip() or (r.get("legal_basis") or "").strip()
         if reason:
-            lines.append("*Lý do:* " + reason)
-        # Ngăn cách CÁC PHẦN bằng dòng trống (giãn dòng, dễ đọc) + nhãn IN ĐẬM (đồng bộ web).
-        out.append((num, idx, r["clause"], "\n\n".join(lines), not has_inline))
+            lines.append(f"Căn cứ: {reason.rstrip('.')}.")
+        out.append((num, idx, r["clause"], "\n".join(lines), not has_inline))
+    return out
+
+
+def _drafting_segments(result: AnalysisResult, start_num: int) -> list[str]:
+    """Lỗi soạn thảo / khác biệt VN–EN → văn xuôi ĐÁNH SỐ TIẾP TỤC sau rủi ro (kiểu demo). Mỗi note đã được
+    `_classify_contract` soạn sẵn dạng câu 'Tại <vị trí>, <vấn đề>; đề xuất sửa…' → chỉ gắn số '(M)'."""
+    out: list[str] = []
+    for i, note in enumerate(result.drafting_notes or []):
+        n = (note or "").strip()
+        if n:
+            out.append(f"({start_num + i}) {n}")
     return out
 
 
@@ -392,15 +401,18 @@ def _policy_lines(result: AnalysisResult) -> list[str]:
 
 
 def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
-    """Trả lời rà soát HĐ cho LUẬT SƯ — văn phong pháp lý, KHÔNG icon/màu/nhãn ưu tiên; rủi ro đánh số
-    (1)(2)(3); dòng đầu nêu loại HĐ + khách hàng được bảo vệ (nếu LLM xác định được)."""
+    """Trả lời rà soát HĐ — VĂN XUÔI PHÁP LÝ ĐÁNH SỐ liên tục (kiểu thư gửi khách): câu mở đầu + (1)(2)(3)…
+    gộp CẢ rủi ro pháp lý lẫn lỗi soạn thảo/khác biệt VN–EN, rồi chiến lược. Dễ đọc, không nhãn/icon."""
     head = _review_head(result)
-    if not result.risks:
+    risk_segs = _risk_segments(result)
+    draft_segs = _drafting_segments(result, len(risk_segs) + 1)     # đánh số TIẾP sau rủi ro
+    segs = [seg for (_n, _i, _c, seg, _b) in risk_segs] + draft_segs
+    if not segs:
         return _with_ai_disclosure(
-            head + "\n\nKhông phát hiện điều khoản rủi ro rõ ràng trong nội dung được cung cấp.")
+            head + "\n\nKhông phát hiện điều khoản rủi ro hay lỗi soạn thảo rõ ràng trong nội dung được cung cấp.")
     lines = [head, ""]
-    for i, (_num, _idx, _clause, seg, _btn) in enumerate(_risk_segments(result)):
-        if i:                                        # dòng trống ngăn cách các KHỐI rủi ro (khối nhiều dòng)
+    for i, seg in enumerate(segs):
+        if i:                                        # DÒNG TRỐNG ngăn cách mỗi mục (giãn dòng, dễ đọc)
             lines.append("")
         lines.append(seg)
     if result.strategy:
@@ -408,9 +420,7 @@ def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
     if (pl := _policy_lines(result)):
         lines += [""] + pl
     if result.needs_human_review:
-        lines.append("Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng.")
-    if result.drafting_notes:
-        lines += ["", _DRAFTING_HEAD] + [f"- {n}" for n in result.drafting_notes]
+        lines += ["", "Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng."]
     out = _with_ai_disclosure("\n".join(lines))
     return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
@@ -880,10 +890,12 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
     bỏ propose_fallback nhưng người dùng vẫn cần nút, yêu cầu #2). Nhất quán text reply qua `_risk_segments`."""
     head = prefix + _review_head(result)
     blocks: list[dict] = [{"type": "section", "text": {"type": "mrkdwn", "text": head[:2900]}}]
-    if not result.risks:
+    risk_segs = _risk_segments(result)
+    draft_segs = _drafting_segments(result, len(risk_segs) + 1)     # đánh số TIẾP sau rủi ro
+    if not risk_segs and not draft_segs:
         blocks.append({"type": "section", "text": {"type": "mrkdwn",
-            "text": "Không phát hiện điều khoản rủi ro rõ ràng trong nội dung được cung cấp."}})
-    for num, idx, _clause, seg, needs_draft in _risk_segments(result):
+            "text": "Không phát hiện điều khoản rủi ro hay lỗi soạn thảo rõ ràng trong nội dung được cung cấp."}})
+    for num, idx, _clause, seg, needs_draft in risk_segs:
         sec: dict = {"type": "section", "block_id": f"lg_amend_{num}",
                      "text": {"type": "mrkdwn", "text": seg[:2900]}}
         # Nút 'Đồng ý sửa' cho MỌI rủi ro (nhãn NHẤT QUÁN theo yêu cầu). Hành vi theo trạng thái: rủi ro
@@ -897,6 +909,8 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
                 "action_id": "amend_ok",
                 "value": json.dumps(val, ensure_ascii=False)}
         blocks.append(sec)
+    for seg in draft_segs:                            # lỗi soạn thảo / khác biệt VN–EN (không nút, số tiếp)
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": seg[:2900]}})
     if result.strategy:
         blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": result.strategy[:2900]}})
     if (pl := _policy_lines(result)):
@@ -904,9 +918,6 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
     if result.needs_human_review:
         blocks.append({"type": "section", "text": {"type": "mrkdwn",
             "text": "Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng."}})
-    if result.drafting_notes:
-        txt = f"*{_DRAFTING_HEAD}*\n" + "\n".join(f"- {n}" for n in result.drafting_notes)
-        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": txt[:2900]}})
     blocks.append({"type": "context",
                    "elements": [{"type": "mrkdwn", "text": _AI_DISCLOSURE_LEGAL.strip()}]})
     return _slackify_blocks(blocks)          # **đậm**→*đậm* (strategy/segment LLM có thể dùng markdown chuẩn)

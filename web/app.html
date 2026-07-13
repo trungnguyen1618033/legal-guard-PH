@@ -358,9 +358,9 @@ function render(d) {
 
   // Mục cuối: lỗi soạn thảo / chính tả trong HĐ cần sửa (yêu cầu #8).
   const dn = d.drafting_notes || [];
-  $('drafting').innerHTML = dn.length
-    ? `<div style="margin-top:14px"><b>Lỗi soạn thảo, chính tả cần sửa:</b><ul>`
-      + dn.map(n => `<li>${esc(n)}</li>`).join('') + `</ul></div>`
+  $('drafting').innerHTML = dn.length     // \n (đề xuất song ngữ VN/EN) → <br> để hiện đúng dòng
+    ? `<div style="margin-top:14px"><b>Lỗi soạn thảo / khác biệt VN–EN cần sửa:</b><ul>`
+      + dn.map(n => `<li style="margin-bottom:6px">${esc(n).replace(/\n/g,'<br>')}</li>`).join('') + `</ul></div>`
     : '';
 
   $('memo').innerHTML = ''; $('memo-docx').style.display = 'none';

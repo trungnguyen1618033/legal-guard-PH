@@ -86,32 +86,33 @@ def test_format_chat_reply():
                          needs_human_review=True, review_reasons=[], summary="", trace=[],
                          strategy="Giữ điều khoản trọng tài")
     out = format_chat_reply(res)
-    # Văn phong pháp lý: đánh số (1), KHÔNG icon màu, KHÔNG nhãn ưu tiên.
-    assert "(1) Trọng tài: Bất lợi" in out and "Giữ điều khoản trọng tài" in out
+    # Văn xuôi pháp lý: đánh số (1), 'Tại điều khoản …', KHÔNG icon màu, KHÔNG nhãn ưu tiên.
+    assert "(1) Tại điều khoản “Trọng tài”: Bất lợi" in out and "Giữ điều khoản trọng tài" in out
     assert "🔴" not in out and "🟠" not in out and "📋" not in out and "must_fix" not in out
 
 
 def test_format_chat_reply_appends_drafting_notes():
-    # Req #8: mục cuối "Lỗi soạn thảo, chính tả cần sửa" khi có drafting_notes.
+    # Lỗi soạn thảo → ĐÁNH SỐ TIẾP TỤC sau rủi ro (không còn tiêu đề 'Lỗi soạn thảo' riêng).
     res = AnalysisResult(tenant="VN", risks=[{"clause": "Đ1", "risk": "x", "severity": "low"}],
                          fallbacks=[], needs_human_review=False, review_reasons=[], summary="",
-                         trace=[], strategy="", drafting_notes=["“PHÁT TRIỂỂN” → sửa: PHÁT TRIỂN"])
+                         trace=[], strategy="",
+                         drafting_notes=["Tại Điều 3, gõ nhầm; đề xuất sửa thành: PHÁT TRIỂN"])
     out = format_chat_reply(res)
-    assert "Lỗi soạn thảo, chính tả cần sửa" in out and "PHÁT TRIỂỂN" in out
-    # không có drafting_notes → không hiện mục này
+    assert "(1) Tại điều khoản “Đ1”" in out and "(2) Tại Điều 3" in out and "PHÁT TRIỂN" in out
+    # không có drafting_notes → không có mục (2)
     res2 = AnalysisResult(tenant="VN", risks=[{"clause": "Đ1", "risk": "x", "severity": "low"}],
                           fallbacks=[], needs_human_review=False, review_reasons=[], summary="",
                           trace=[], strategy="")
-    assert "Lỗi soạn thảo" not in format_chat_reply(res2)
+    assert "(2)" not in format_chat_reply(res2)
 
 
 def test_analysis_blocks_include_drafting_section():
     from legalguard.adapters.inbound.channels import _analysis_blocks
     res = AnalysisResult(tenant="VN", risks=[{"clause": "Đ1", "risk": "x"}], fallbacks=[],
                          needs_human_review=False, review_reasons=[], summary="", trace=[],
-                         drafting_notes=["“abcd” → sửa: abc"])
+                         drafting_notes=["Tại Điều 7, sai chính tả; đề xuất sửa thành: abc"])
     dump = json.dumps(_analysis_blocks(res, "c1"), ensure_ascii=False)
-    assert "Lỗi soạn thảo, chính tả cần sửa" in dump and "abcd" in dump
+    assert "(2) Tại Điều 7" in dump and "abc" in dump      # số tiếp sau rủi ro (1)
 
 
 def test_format_chat_reply_marks_illegal():
@@ -153,8 +154,8 @@ def test_format_chat_reply_first_line_client_and_contract_type():
                          needs_human_review=False, review_reasons=[], summary="", trace=[],
                          contract_type="hợp đồng hợp tác đầu tư", protected_party="Công ty CP Du lịch Phú Quốc")
     out = format_chat_reply(res)
-    assert out.startswith("Đây là hợp đồng hợp tác đầu tư.")
-    assert "có lợi cho khách hàng là Công ty CP Du lịch Phú Quốc" in out
+    assert out.startswith("Sau khi rà soát hợp đồng hợp tác đầu tư")
+    assert "Công ty CP Du lịch Phú Quốc" in out and "đề xuất điều chỉnh một số nội dung sau:" in out
 
 
 def test_handler_empty_prompts_for_input():
@@ -812,7 +813,7 @@ def test_analysis_blocks_agree_button_per_risk():
     assert json.loads(buttons[0]["value"]) == {"c": "case1", "i": 0}
     assert json.loads(buttons[1]["value"]) == {"c": "case1", "i": 1}   # rủi ro không có đề xuất VẪN có nút
     dump = json.dumps(blocks, ensure_ascii=False)
-    assert "(1) Phạt 15%" in dump and "(2) Tòa SG" in dump
+    assert "(1) Tại điều khoản" in dump and "(2) Tại điều khoản" in dump
     assert "🔴" not in dump and "⚖️" not in dump and "📋" not in dump   # văn phong pháp lý, không icon
 
 
@@ -839,19 +840,19 @@ def _counter_result():
 def test_risk_segments_four_part_block_with_inline_counter():
     from legalguard.adapters.inbound.channels import _risk_segments
     _num, _idx, _clause, seg, show_button = _risk_segments(_counter_result())[0]
-    assert "(1) Phạt 15%" in seg and "trái quy định tại Điều 301" in seg
-    assert "*Điều khoản cũ (trích hợp đồng):* Bên B chịu phạt 15%" in seg   # nhãn in đậm (Slack *…*)
-    assert "*Đề xuất điều khoản mới:* Mức phạt tối đa 8%" in seg and "(EN: Cap 8%.)" in seg
-    assert "*Lý do:* Điều 301 LTM 2005 giới hạn 8%." in seg
-    assert "\n\n" in seg                                    # giãn dòng giữa các phần
+    assert "(1) Tại điều khoản “Phạt 15%”: vượt trần" in seg and "trái quy định tại Điều 301" in seg
+    assert "Nội dung hiện tại: “Bên B chịu phạt 15% giá trị hợp đồng.”" in seg
+    assert "Đề xuất sửa như sau:" in seg
+    assert "Tiếng Việt: Mức phạt tối đa 8% phần vi phạm." in seg and "Tiếng Anh: Cap 8%." in seg
+    assert "Căn cứ: Điều 301 LTM 2005 giới hạn 8%." in seg
     assert show_button is False                             # đã có điều khoản mới inline → KHÔNG nút
 
 
 def test_risk_segments_button_and_suggestion_when_no_counter():
     from legalguard.adapters.inbound.channels import _risk_segments
     _num, _idx, _clause, seg, show_button = _risk_segments(_counter_result())[1]
-    assert "(2) Thanh toán 90 ngày" in seg and "*Đề xuất sửa đổi:* rút về 30-45 ngày." in seg
-    assert "Đề xuất điều khoản mới" not in seg
+    assert "(2) Tại điều khoản “Thanh toán 90 ngày”" in seg and "Đề xuất sửa: rút về 30-45 ngày." in seg
+    assert "Đề xuất sửa như sau:" not in seg                # không song ngữ → không có khối này
     assert show_button is True                              # chưa có counter → cần nút
 
 
@@ -865,7 +866,7 @@ def test_analysis_blocks_always_button_confirm_or_draft():
     assert all(b["text"]["text"] == "Đồng ý sửa" for b in btns)   # nhãn NHẤT QUÁN
     assert json.loads(btns[0]["value"]) == {"c": "case1", "i": 0, "confirm": 1}   # rủi ro 1 (inline) → ghi nhận
     assert json.loads(btns[1]["value"]) == {"c": "case1", "i": 1}                 # rủi ro 2 (chưa có) → soạn
-    assert "*Đề xuất điều khoản mới:* Mức phạt tối đa 8%" in json.dumps(blocks, ensure_ascii=False)
+    assert "Tiếng Việt: Mức phạt tối đa 8%" in json.dumps(blocks, ensure_ascii=False)
 
 
 def test_confirm_amend_records_event_without_llm():

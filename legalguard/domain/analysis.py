@@ -101,6 +101,38 @@ def _extract_json_obj(raw: str) -> dict:
         return {}
 
 
+def _norm_ws(s: object) -> str:
+    """Gộp MỌI khoảng trắng (kể cả xuống dòng) → 1 dấu cách + strip. Chống quote nhiều dòng làm vỡ format."""
+    return " ".join(str(s or "").split())
+
+
+def _format_drafting_issue(it: object) -> str:
+    """1 lỗi soạn thảo / khác biệt VN–EN → CÂU văn xuôi kiểu 'thư gửi khách':
+      'Tại <vị trí>, <vấn đề>; đề xuất sửa thành: <fix>'  hoặc song ngữ (Tiếng Việt:/Tiếng Anh:).
+    Bỏ mục no-op (đề xuất y hệt nội dung sai). Chấp nhận cả schema cũ {quote,fix}. THUẦN — test offline."""
+    if isinstance(it, str):
+        return _norm_ws(it)
+    if not isinstance(it, dict):
+        return ""
+    loc = _norm_ws(it.get("location"))
+    issue = _norm_ws(it.get("issue") or it.get("quote"))       # 'quote' = schema cũ (tương thích ngược)
+    fix = _norm_ws(it.get("fix"))
+    fix_vi, fix_en = _norm_ws(it.get("fix_vi")), _norm_ws(it.get("fix_en"))
+    head = (f"Tại {loc}, {issue}" if loc and issue else (issue or loc)).rstrip(" .;")
+    if fix_vi or fix_en:                                       # sửa SONG NGỮ → tách dòng (kiểu demo)
+        parts = [(head + "; đề xuất sửa như sau:") if head else "Đề xuất sửa như sau:"]
+        if fix_vi:
+            parts.append(f"Tiếng Việt: {fix_vi}")
+        if fix_en:
+            parts.append(f"Tiếng Anh: {fix_en}")
+        return "\n".join(parts)
+    if fix:
+        if issue and issue.lower() == fix.lower():             # đề xuất y hệt nội dung sai → no-op, bỏ
+            return ""
+        return f"{head}; đề xuất sửa thành: {fix}" if head else f"Đề xuất sửa thành: {fix}"
+    return head
+
+
 _HYDE_PROMPT = (
     "Cho câu hỏi pháp lý sau, liệt kê 5-8 THUẬT NGỮ / cụm từ PHÁP LÝ có KHẢ NĂNG XUẤT HIỆN trong điều luật "
     "trả lời câu hỏi (danh từ pháp lý, tên thủ tục, chế định). CHỈ liệt kê cách nhau bởi dấu phẩy, KHÔNG "
@@ -557,15 +589,19 @@ class AnalysisService:
             "Đọc hợp đồng dưới đây. Trả về DUY NHẤT một JSON (không giải thích thêm) gồm 3 khóa:\n"
             '{"contract_type": "<loại hợp đồng ngắn gọn, vd: hợp đồng mua bán hàng hóa>", '
             '"protected_party": "<TÊN PHÁP LÝ ĐẦY ĐỦ của bên được bảo vệ, lấy đúng trong phần các bên>", '
-            '"drafting_issues": [{"quote":"<đoạn có lỗi>","fix":"<sửa lại>"}]}\n'
+            '"drafting_issues": [{"location":"<vị trí trong HĐ, vd: Điều 1.2 bản tiếng Anh / Mục (A) Xét rằng>",'
+            '"issue":"<mô tả lỗi, nêu rõ đoạn/từ đang SAI>","fix":"<đề xuất sửa 1 ngôn ngữ>",'
+            '"fix_vi":"<đề xuất bản tiếng Việt, nếu song ngữ>","fix_en":"<đề xuất bản tiếng Anh, nếu song ngữ>"}]}\n'
             f"{hint_line}"
             "- contract_type/protected_party: nếu có gợi ý → chọn bên KHỚP gợi ý, điền TÊN ĐẦY ĐỦ "
             "(vd 'Công ty Cổ phần …'); không có gợi ý → chọn doanh nghiệp Việt Nam / bên yếu thế hơn; "
             "không xác định được → chuỗi rỗng, KHÔNG bịa.\n"
-            "- drafting_issues: CHỈ LỖI SOẠN THẢO rõ ràng (chính tả, gõ sai/thừa ký tự, sai/thiếu đánh số "
-            "điều khoản, tham chiếu điều khoản để trống, format lộn xộn) — KHÔNG liệt kê rủi ro pháp lý ở "
-            "đây. Mỗi lỗi: quote đoạn sai + cách sửa. `fix` PHẢI KHÁC `quote` (có sửa thật); KHÔNG chép lại "
-            "tên riêng/địa chỉ/đoạn không có lỗi. Không có lỗi → [].\n\n"
+            "- drafting_issues: LỖI SOẠN THẢO rõ ràng (chính tả, gõ sai/thừa ký tự, sai/thiếu đánh số điều "
+            "khoản, tham chiếu để trống, format lộn xộn) VÀ — nếu HĐ có CẢ bản tiếng Việt lẫn tiếng Anh — "
+            "điểm KHÔNG THỐNG NHẤT giữa 2 bản (tên bên, tên người, địa chỉ, số liệu, ngày tháng lệch nhau). "
+            "KHÔNG liệt kê rủi ro pháp lý ở đây. Mỗi mục nêu `location` (vị trí), `issue` (đoạn sai) + đề xuất "
+            "sửa: dùng `fix` cho 1 ngôn ngữ, hoặc `fix_vi`+`fix_en` khi cần sửa cả 2 bản. Đề xuất PHẢI KHÁC "
+            "nội dung hiện tại; KHÔNG chép lại đoạn không có lỗi. Không có lỗi → [].\n\n"
             f"<<<HỢP ĐỒNG>>>\n{contract_text[:6000]}\n<<<HẾT>>>"
         )
         parsed: dict = {}
@@ -579,18 +615,9 @@ class AnalysisService:
         party = str(parsed.get("protected_party") or "").strip() or hint
         notes: list[str] = []
         for it in (parsed.get("drafting_issues") or [])[:10]:     # trần 10 lỗi tránh reply phình
-            if isinstance(it, dict):
-                # Gộp khoảng trắng (kể cả xuống dòng) → 1 dòng: chống quote nhiều dòng làm vỡ "→ sửa:".
-                q = " ".join(str(it.get("quote") or "").split())
-                fix = " ".join(str(it.get("fix") or "").split())
-                if q and fix:
-                    if q == fix:      # "sửa" y hệt bản gốc → KHÔNG phải lỗi thật → bỏ (nhiễu, vd tên các bên)
-                        continue
-                    notes.append(f"“{q}” → sửa: {fix}")
-                elif q or fix:
-                    notes.append(q or fix)
-            elif isinstance(it, str) and it.strip():
-                notes.append(" ".join(it.split()))
+            note = _format_drafting_issue(it)
+            if note:
+                notes.append(note)
         return ctype, party, notes
 
     def _summarize(self, risks: list, lang: str) -> tuple[str, str | None]:

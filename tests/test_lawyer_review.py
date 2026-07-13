@@ -224,27 +224,42 @@ def test_classify_contract_empty_party_falls_back_to_hint():
 
 
 def test_classify_contract_returns_drafting_issues():
-    # Req #8: rà lỗi soạn thảo/chính tả trong HĐ → chuỗi "«lỗi» → sửa: «đúng»".
+    # Req #8: rà lỗi soạn thảo → câu văn xuôi 'Tại <vị trí>, <lỗi>; đề xuất sửa thành: <đúng>'.
     svc = build_service()
     svc.judge = _JsonJudge('{"contract_type":"hợp đồng mua bán","protected_party":"Cty Phú Quốc",'
-                           '"drafting_issues":[{"quote":"PHÁT TRIỂỂN","fix":"PHÁT TRIỂN"},'
-                           '{"quote":"Điều __ chế tài","fix":"điền số điều"}]}')
+                           '"drafting_issues":['
+                           '{"location":"Điều 3","issue":"gõ nhầm PHÁT TRIỂỂN","fix":"PHÁT TRIỂN"},'
+                           '{"location":"Điều 7","issue":"số điều để trống","fix":"điền số điều"}]}')
     _, _, notes = svc._classify_contract("hđ", hint="", lang="vi")
     assert len(notes) == 2
-    assert "PHÁT TRIỂỂN" in notes[0] and "sửa:" in notes[0] and "PHÁT TRIỂN" in notes[0]
+    assert "Tại Điều 3" in notes[0] and "PHÁT TRIỂỂN" in notes[0]
+    assert "đề xuất sửa thành: PHÁT TRIỂN" in notes[0]
+
+
+def test_classify_contract_bilingual_and_vn_en_discrepancy():
+    # Đối chiếu VN–EN (như demo): đề xuất song ngữ tách dòng 'Tiếng Việt:'/'Tiếng Anh:'.
+    svc = build_service()
+    svc.judge = _JsonJudge(
+        '{"contract_type":"hđ","protected_party":"LIN HSUAN","drafting_issues":['
+        '{"location":"phần địa chỉ ông LIN HSUAN","issue":"thiếu quốc gia",'
+        '"fix_vi":"..., Đài Loan","fix_en":"..., Taiwan"}]}')
+    _, _, notes = svc._classify_contract("hđ", hint="", lang="vi")
+    assert len(notes) == 1
+    assert "Tại phần địa chỉ ông LIN HSUAN, thiếu quốc gia; đề xuất sửa như sau:" in notes[0]
+    assert "Tiếng Việt: ..., Đài Loan" in notes[0] and "Tiếng Anh: ..., Taiwan" in notes[0]
 
 
 def test_classify_contract_drops_noop_and_collapses_multiline_drafting():
-    # Lỗi thực tế: LLM chép quote == fix (tên các bên) → nhiễu; quote nhiều dòng làm vỡ "→ sửa:".
+    # LLM chép issue == fix (tên các bên) → nhiễu, bỏ; issue nhiều dòng → gộp 1 dòng.
     svc = build_service()
     svc.judge = _JsonJudge(
         '{"contract_type":"hđ","protected_party":"X","drafting_issues":['
-        '{"quote":"PARTY A\\n\\nNGUYỄN TƯƠNG MINH","fix":"PARTY A\\n\\nNGUYỄN TƯƠNG MINH"},'  # y hệt → bỏ
-        '{"quote":"Contact address :\\nNo. 275","fix":"Contact address: No. 275"}]}')          # có sửa thật → giữ, 1 dòng
+        '{"issue":"PARTY A\\n\\nNGUYỄN TƯƠNG MINH","fix":"PARTY A NGUYỄN TƯƠNG MINH"},'  # y hệt → bỏ
+        '{"location":"phần địa chỉ","issue":"Contact address :\\nNo. 275","fix":"Contact address: No. 275"}]}')
     _, _, notes = svc._classify_contract("hđ", hint="", lang="vi")
     assert len(notes) == 1                                   # bỏ mục no-op (tên các bên)
-    assert "\n" not in notes[0]                              # gộp về 1 dòng (không vỡ "→ sửa:")
-    assert "Contact address :" in notes[0] and "sửa: Contact address: No. 275" in notes[0]
+    assert "\n" not in notes[0]                              # gộp về 1 dòng
+    assert "đề xuất sửa thành: Contact address: No. 275" in notes[0]
 
 
 def test_analyze_populates_contract_type_party_and_drafting():
