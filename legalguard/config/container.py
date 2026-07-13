@@ -96,7 +96,8 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                            illegal_detection=cfg.illegal_detection,
                            coverage_gated_abstain=cfg.coverage_gated_abstain,
                            hyde_query_expansion=cfg.hyde_query_expansion,
-                           auto_counter_on_analyze=cfg.auto_counter_on_analyze)
+                           auto_counter_on_analyze=cfg.auto_counter_on_analyze,
+                           auto_counter_max=cfg.auto_counter_max)
 
 
 def build_evidence(cfg: Settings = settings) -> EvidenceService:

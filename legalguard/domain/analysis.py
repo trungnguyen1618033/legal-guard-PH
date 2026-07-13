@@ -234,17 +234,25 @@ def _detect_illegal(risks: list, judge: LLMPort | None) -> int:
     return upgraded
 
 
-def _attach_counter_clauses(risks: list, fallbacks: list, reasoner: LLMPort | None) -> int:
+def _attach_counter_clauses(risks: list, fallbacks: list, reasoner: LLMPort | None,
+                            max_n: int = 6) -> int:
     """Sinh điều khoản mới dán-được-ngay (song ngữ) INLINE cho rủi ro TRÁI LUẬT / must_fix — hậu-agent,
     SONG SONG, bounded (chỉ rủi ro quan trọng → tiết kiệm quota; rủi ro nhẹ giữ nút 'Đồng ý sửa').
     CHẠY SAU _detect_illegal (cần nhãn illegal chốt) + _attach_legal_basis (cần legal_basis cho căn cứ).
     Dùng NGUYÊN VĂN evidence (trích HĐ) làm điều khoản gốc → LLM viết lại chính đoạn đó. Gắn r.counter_clause.
-    Lỗi 1 rủi ro → bỏ qua rủi ro đó (không làm hỏng cả reply)."""
+    Lỗi 1 rủi ro → bỏ qua rủi ro đó (không làm hỏng cả reply).
+    TRẦN `max_n` (mặc định 6, 0 = không trần): HĐ dài nhiều điều khoản → chỉ auto TOP `max_n`, ƯU TIÊN illegal
+    (điều khoản có thể VÔ HIỆU — giá trị nhất) trước must_fix; phần dôi rơi về nút 'Đồng ý sửa' (không mất
+    chức năng) → chặn spike quota flagship lúc đông user."""
     if reasoner is None or not getattr(reasoner, "available", False):
         return 0
     cands = [r for r in risks if r.legal_status == "illegal" or r.priority == "must_fix"]
     if not cands:
         return 0
+    # Ưu tiên illegal trước must_fix (sort ỔN ĐỊNH giữ thứ tự gốc trong mỗi nhóm), rồi cắt theo trần.
+    cands.sort(key=lambda r: 0 if r.legal_status == "illegal" else 1)
+    if max_n and max_n > 0:
+        cands = cands[:max_n]
     from legalguard.domain.counter_clause import draft_counter_clause as _draft
     fb_by_clause = {f.clause: f for f in fallbacks}
 
@@ -288,7 +296,8 @@ class AnalysisService:
                  illegal_detection: bool = True,
                  coverage_gated_abstain: bool = True,
                  hyde_query_expansion: bool = False,
-                 auto_counter_on_analyze: bool = True) -> None:
+                 auto_counter_on_analyze: bool = True,
+                 auto_counter_max: int = 6) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp) + tóm tắt SME (_summarize). Mặc định = reasoner (giữ tương thích/stub),
         # prod truyền qwen-flash → cắt mạnh latency khâu hậu-agent mà KHÔNG giảm bước kiểm nào.
@@ -304,6 +313,7 @@ class AnalysisService:
         self.illegal_detection = illegal_detection
         # Sinh INLINE điều khoản mới (song ngữ) cho rủi ro illegal/must_fix ngay khi rà (bounded, song song).
         self.auto_counter_on_analyze = auto_counter_on_analyze
+        self.auto_counter_max = auto_counter_max      # trần số điều khoản auto/lần (chặn spike quota HĐ dài)
         # Coverage-Gated Abstention: cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain.
         self.coverage_gated_abstain = coverage_gated_abstain
         # HyDE-lite: LLM sinh thuật ngữ luật cầu nối cách-hỏi vs cách-luật-viết → cụm evidence chặt hơn
@@ -649,7 +659,8 @@ class AnalysisService:
 
         # Sinh INLINE điều khoản mới cho rủi ro illegal/must_fix (SAU illegal-detection: nhãn đã chốt +
         # SAU legal_basis: có căn cứ). Song song, bounded, dùng reasoner (flagship). Rủi ro nhẹ → nút.
-        if self.auto_counter_on_analyze and (nc := _attach_counter_clauses(ctx.risks, ctx.fallbacks, self.reasoner)):
+        if self.auto_counter_on_analyze and (nc := _attach_counter_clauses(
+                ctx.risks, ctx.fallbacks, self.reasoner, self.auto_counter_max)):
             notes.append(f"📝 Đã soạn sẵn điều khoản sửa cho {nc} điều khoản quan trọng (trái luật / bắt buộc sửa).")
 
         if any(not r.verified for r in ctx.risks):

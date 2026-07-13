@@ -106,7 +106,9 @@ HĐ)** = `evidence` nguyên văn · **Đề xuất điều khoản mới** · **
 counter (`AUTO_COUNTER_ON_ANALYZE` default ON, `_attach_counter_clauses`)**: rủi ro `illegal`/`must_fix` → tự
 sinh điều khoản mới dán-được-ngay INLINE (`draft_counter_clause` SONG SONG hậu-agent, SAU `_detect_illegal`+
 `legal_basis`, bounded chỉ rủi ro quan trọng → tiết kiệm quota; gắn `Risk.counter_clause={vi,en,rationale,
-grounded}`, lỗi 1 rủi ro không làm hỏng reply; KHÔNG đụng vòng agent nên accuracy KHÔNG đổi). Rủi ro nhẹ giữ
+grounded}`, lỗi 1 rủi ro không làm hỏng reply; KHÔNG đụng vòng agent nên accuracy KHÔNG đổi). **TRẦN
+`AUTO_COUNTER_MAX` (default 6, 0=không trần)**: HĐ dài nhiều điều khoản → chỉ auto TOP N, ưu tiên illegal
+(có thể vô hiệu) trước must_fix; phần dôi rơi về nút "Đồng ý sửa" → chặn spike quota flagship lúc đông user. Rủi ro nhẹ giữ
 nút **"Đồng ý sửa"** (Slack accessory, CHỈ khi CHƯA có counter inline — tránh trùng) → `amend_ok` nền
 `_run_amend` nạp case (cô lập org) → `draft_counter_clause` → gửi điều khoản sửa song ngữ VN/EN vào thread.
 `_analysis_blocks`/`format_chat_reply` + web/app.html + Next.js `RiskItem` dùng chung khối 4 phần.

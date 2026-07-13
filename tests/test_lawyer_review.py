@@ -98,6 +98,21 @@ def test_attach_counter_clauses_noop_when_reasoner_offline():
     assert _attach_counter_clauses([r], [], _Off()) == 0 and r.counter_clause == {}
 
 
+def test_attach_counter_clauses_caps_and_prioritizes_illegal():
+    # HĐ dài nhiều điều khoản: trần max_n=2 → chỉ 2 điều khoản auto, ƯU TIÊN illegal trước must_fix.
+    from legalguard.domain.analysis import _attach_counter_clauses
+    risks = [
+        Risk(clause="MF1", risk="x", severity="high", priority="must_fix"),          # must_fix
+        Risk(clause="ILL1", risk="x", severity="high", legal_status="illegal"),       # illegal
+        Risk(clause="MF2", risk="x", severity="high", priority="must_fix"),          # must_fix
+        Risk(clause="ILL2", risk="x", severity="high", legal_status="illegal"),       # illegal
+    ]
+    n = _attach_counter_clauses(risks, [], _CounterLLM(), max_n=2)
+    assert n == 2                                              # đúng trần
+    got = {r.clause for r in risks if r.counter_clause.get("vi")}
+    assert got == {"ILL1", "ILL2"}                            # illegal ưu tiên, must_fix rơi về nút
+
+
 def test_analyze_classifies_illegal_vs_unfavorable():
     res = build_service().analyze(SAMPLE, ORG, lang="vi")
     statuses = {r["legal_status"] for r in res.risks}
