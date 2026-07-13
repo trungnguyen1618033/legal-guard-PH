@@ -32,7 +32,9 @@ from legalguard.domain.models import (
     SourceMeta,
 )
 from legalguard.domain.negotiation import NegotiationState, state_from_json, state_to_json
-from legalguard.domain.presentation import md_to_slack as _md_to_slack  # tầng trình bày dùng chung
+from legalguard.domain.presentation import Block  # tầng trình bày dùng chung
+from legalguard.domain.presentation import md_to_slack as _md_to_slack
+from legalguard.domain.presentation import to_text
 from legalguard.domain.ports import (
     ChatSenderPort,
     ConversationStorePort,
@@ -404,26 +406,39 @@ def _policy_lines(result: AnalysisResult) -> list[str]:
     return out
 
 
-def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
-    """Trả lời rà soát HĐ — VĂN XUÔI PHÁP LÝ ĐÁNH SỐ liên tục (kiểu thư gửi khách): câu mở đầu + (1)(2)(3)…
-    gộp CẢ rủi ro pháp lý lẫn lỗi soạn thảo/khác biệt VN–EN, rồi chiến lược. Dễ đọc, không nhãn/icon."""
+_HUMAN_NOTE = "Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng."
+
+
+def _review_doc(result: AnalysisResult, prefix: str = "", case_id: str = "") -> list[Block]:
+    """NGUỒN CHUNG cho reply rà soát → serialize theo kênh (text/Slack). Mỗi Block = 1 khối: câu mở đầu ·
+    mỗi rủi ro (kèm nút 'Đồng ý sửa' qua `action` — Slack dùng, text bỏ qua) · lỗi soạn thảo · chiến lược ·
+    vi phạm playbook · ghi chú human-review. KHÔNG gồm công bố AI (caller tự gắn 1 lần). Nội dung rủi ro/
+    drafting lấy từ `_risk_segments`/`_drafting_segments` → GIỮ NGUYÊN văn phong, chỉ đổi cách lắp ráp."""
     risk_segs = _risk_segments(result)
     draft_segs = _drafting_segments(result, len(risk_segs) + 1)     # đánh số TIẾP sau rủi ro
-    segs = [seg for (_n, _i, _c, seg, _b) in risk_segs] + draft_segs
-    if not segs:
-        return _with_ai_disclosure(_review_head(result, has_findings=False))
-    lines = [_review_head(result), ""]
-    for i, seg in enumerate(segs):
-        if i:                                        # DÒNG TRỐNG ngăn cách mỗi mục (giãn dòng, dễ đọc)
-            lines.append("")
-        lines.append(seg)
+    has = bool(risk_segs or draft_segs)
+    doc = [Block(prefix + _review_head(result, has_findings=has))]
+    for num, idx, _clause, seg, needs_draft in risk_segs:
+        # Nút 'Đồng ý sửa' NHẤT QUÁN: chưa có điều khoản inline → SOẠN (draft); đã có → GHI NHẬN (confirm:1).
+        action = None
+        if case_id:
+            val = {"c": case_id[:120], "i": idx} if needs_draft else {"c": case_id[:120], "i": idx, "confirm": 1}
+            action = {"label": "Đồng ý sửa", "action_id": "amend_ok", "value": val}
+        doc.append(Block(seg, key=f"lg_amend_{num}", action=action))
+    for seg in draft_segs:                            # lỗi soạn thảo / khác biệt VN–EN (không nút)
+        doc.append(Block(seg))
     if result.strategy:
-        lines += ["", result.strategy]
+        doc.append(Block(result.strategy))
     if (pl := _policy_lines(result)):
-        lines += [""] + pl
+        doc.append(Block("\n".join(pl)))
     if result.needs_human_review:
-        lines += ["", "Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng."]
-    out = _with_ai_disclosure("\n".join(lines))
+        doc.append(Block(_HUMAN_NOTE))
+    return doc
+
+
+def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
+    """Trả lời rà soát HĐ (text/Zalo) — serialize `_review_doc` → văn xuôi pháp lý đánh số + công bố AI 1 lần."""
+    out = _with_ai_disclosure(to_text(_review_doc(result)))
     return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
 
@@ -886,37 +901,23 @@ def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, re
 # Nút "Đồng ý sửa" per-risk (Slack) — accessory trên section rủi ro. Bấm → soạn điều khoản sửa (cũ→mới).
 # value mang {c: case_id, i: index0}; handler nạp lại case (đã BỀN) → draft_counter_clause. KHÔNG cần
 # store in-process: case đã persist với risks+fallbacks (sống sót restart, không TTL — bền hơn _RetryStore).
+def _block_to_slack_section(b: Block) -> dict:
+    """1 Block → 1 Slack section; `key`→block_id; `action`→nút accessory (Đồng ý sửa)."""
+    sec: dict = {"type": "section", "text": {"type": "mrkdwn", "text": b.clean()[:2900]}}
+    if b.key:
+        sec["block_id"] = b.key
+    if b.action:
+        sec["accessory"] = {
+            "type": "button", "text": {"type": "plain_text", "text": b.action["label"], "emoji": False},
+            "action_id": b.action["action_id"],
+            "value": json.dumps(b.action["value"], ensure_ascii=False)}
+    return sec
+
+
 def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> list[dict]:
-    """Slack blocks reply rà soát HĐ: MỖI rủi ro = 1 section + nút 'Đồng ý sửa' → soạn điều khoản cũ→mới.
-    Nút hiện cho MỌI rủi ro (draft_counter soạn từ clause+risk, KHÔNG cần fallback — agent thỉnh thoảng
-    bỏ propose_fallback nhưng người dùng vẫn cần nút, yêu cầu #2). Nhất quán text reply qua `_risk_segments`."""
-    risk_segs = _risk_segments(result)
-    draft_segs = _drafting_segments(result, len(risk_segs) + 1)     # đánh số TIẾP sau rủi ro
-    head = prefix + _review_head(result, has_findings=bool(risk_segs or draft_segs))
-    blocks: list[dict] = [{"type": "section", "text": {"type": "mrkdwn", "text": head[:2900]}}]
-    for num, idx, _clause, seg, needs_draft in risk_segs:
-        sec: dict = {"type": "section", "block_id": f"lg_amend_{num}",
-                     "text": {"type": "mrkdwn", "text": seg[:2900]}}
-        # Nút 'Đồng ý sửa' cho MỌI rủi ro (nhãn NHẤT QUÁN theo yêu cầu). Hành vi theo trạng thái: rủi ro
-        # CHƯA có điều khoản mới inline → bấm = SOẠN cũ→mới (gọi LLM); ĐÃ có inline → bấm = GHI NHẬN đồng ý
-        # (confirm:1, KHÔNG soạn lại vì điều khoản mới đã hiển thị sẵn → không tốn LLM).
-        if case_id:
-            val = {"c": case_id[:120], "i": idx} if needs_draft \
-                else {"c": case_id[:120], "i": idx, "confirm": 1}
-            sec["accessory"] = {
-                "type": "button", "text": {"type": "plain_text", "text": "Đồng ý sửa", "emoji": False},
-                "action_id": "amend_ok",
-                "value": json.dumps(val, ensure_ascii=False)}
-        blocks.append(sec)
-    for seg in draft_segs:                            # lỗi soạn thảo / khác biệt VN–EN (không nút, số tiếp)
-        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": seg[:2900]}})
-    if result.strategy:
-        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": result.strategy[:2900]}})
-    if (pl := _policy_lines(result)):
-        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(pl)[:2900]}})
-    if result.needs_human_review:
-        blocks.append({"type": "section", "text": {"type": "mrkdwn",
-            "text": "Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng."}})
+    """Slack blocks reply rà soát HĐ — serialize `_review_doc` (nguồn chung với text): mỗi Block → 1 section,
+    rủi ro kèm nút 'Đồng ý sửa' (soạn/ghi-nhận theo trạng thái), + công bố AI (context) + cap 50-block Slack."""
+    blocks = [_block_to_slack_section(b) for b in _review_doc(result, prefix, case_id)]
     blocks.append({"type": "context",
                    "elements": [{"type": "mrkdwn", "text": _AI_DISCLOSURE_LEGAL.strip()}]})
     # Slack chặn 50 block/tin → HĐ nhiều rủi ro có thể vượt → chat.postMessage LỖI (im lặng, mất reply).
