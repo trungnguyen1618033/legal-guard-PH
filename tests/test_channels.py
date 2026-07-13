@@ -714,15 +714,15 @@ def test_risk_segments_button_and_suggestion_when_no_counter():
 
 
 def test_analysis_blocks_always_button_confirm_or_draft():
-    # MỌI rủi ro có nút (nhất quán): có inline → 'Xác nhận áp dụng' (confirm); chưa có → 'Đồng ý sửa' (soạn).
+    # MỌI rủi ro có nút NHÃN NHẤT QUÁN 'Đồng ý sửa'; hành vi khác nhau qua value: có inline → confirm=1
+    # (ghi nhận); chưa có → soạn.
     from legalguard.adapters.inbound.channels import _analysis_blocks
     blocks = _analysis_blocks(_counter_result(), "case1")
     btns = [b["accessory"] for b in blocks if b.get("accessory")]
     assert len(btns) == 2                                   # cả 2 rủi ro đều có nút
-    assert btns[0]["text"]["text"] == "Xác nhận áp dụng"    # rủi ro 1 đã có điều khoản mới inline
-    assert json.loads(btns[0]["value"]) == {"c": "case1", "i": 0, "confirm": 1}
-    assert btns[1]["text"]["text"] == "Đồng ý sửa"          # rủi ro 2 chưa có → soạn
-    assert json.loads(btns[1]["value"]) == {"c": "case1", "i": 1}
+    assert all(b["text"]["text"] == "Đồng ý sửa" for b in btns)   # nhãn NHẤT QUÁN
+    assert json.loads(btns[0]["value"]) == {"c": "case1", "i": 0, "confirm": 1}   # rủi ro 1 (inline) → ghi nhận
+    assert json.loads(btns[1]["value"]) == {"c": "case1", "i": 1}                 # rủi ro 2 (chưa có) → soạn
     assert "Đề xuất điều khoản mới: Mức phạt tối đa 8%" in json.dumps(blocks, ensure_ascii=False)
 
 
@@ -745,7 +745,7 @@ def test_confirm_amend_records_event_without_llm():
     assert svc.drafted is False                             # KHÔNG gọi LLM
     assert len(svc.outcomes) == 1 and svc.outcomes[0].result == "agreed_fix"
     assert svc.outcomes[0].clause == "Phạt 15%"
-    assert "đồng ý áp dụng" in sender.sent[-1][1] and sender.threads[-1] == "th1"
+    assert "đồng ý sửa" in sender.sent[-1][1].lower() and sender.threads[-1] == "th1"
 
 
 def test_format_amend_bilingual_and_framework_flag():

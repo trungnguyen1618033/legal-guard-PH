@@ -108,11 +108,11 @@ sinh điều khoản mới dán-được-ngay INLINE (`draft_counter_clause` SON
 `legal_basis`, bounded chỉ rủi ro quan trọng → tiết kiệm quota; gắn `Risk.counter_clause={vi,en,rationale,
 grounded}`, lỗi 1 rủi ro không làm hỏng reply; KHÔNG đụng vòng agent nên accuracy KHÔNG đổi). **TRẦN
 `AUTO_COUNTER_MAX` (default 6, 0=không trần)**: HĐ dài nhiều điều khoản → chỉ auto TOP N, ưu tiên illegal
-(có thể vô hiệu) trước must_fix; phần dôi rơi về nút "Đồng ý sửa" → chặn spike quota flagship lúc đông user. **MỌI rủi ro có nút (Slack, nhất quán)**: rủi ro CHƯA
-có counter inline → **"Đồng ý sửa"** (`amend_ok` → `_run_amend` nạp case cô lập org → `draft_counter_clause`
-→ gửi điều khoản sửa song ngữ VN/EN vào thread); rủi ro ĐÃ có counter inline → **"Xác nhận áp dụng"**
-(`amend_ok` value `confirm:1` → `_confirm_amend` CHỈ ghi event `agreed_fix`, KHÔNG gọi LLM soạn lại). Ghi
-event dùng chung `_record_agreed_fix`.
+(có thể vô hiệu) trước must_fix; phần dôi rơi về nút "Đồng ý sửa" → chặn spike quota flagship lúc đông user. **MỌI rủi ro có nút "Đồng ý sửa" (Slack, nhãn NHẤT QUÁN)**;
+hành vi theo trạng thái qua value: rủi ro CHƯA có counter inline → bấm = `_run_amend` nạp case (cô lập org)
+→ `draft_counter_clause` → gửi điều khoản sửa song ngữ VN/EN vào thread; rủi ro ĐÃ có counter inline →
+value `confirm:1` → `_confirm_amend` CHỈ ghi event `agreed_fix` (KHÔNG gọi LLM soạn lại — điều khoản mới đã
+hiển thị sẵn). Ghi event dùng chung `_record_agreed_fix`.
 `_analysis_blocks`/`format_chat_reply` + web/app.html + Next.js `RiskItem` dùng chung khối 4 phần.
 Công bố AI dạng pháp lý `_AI_DISCLOSURE_LEGAL` (giữ mốc "AI" cho Luật AI 134/2025).
 **Phase B — phát hiện TRÁI LUẬT có grounding (`_detect_illegal` trong `domain/analysis.py`, `ILLEGAL_DETECTION`)**:

@@ -786,15 +786,14 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
     for num, idx, _clause, seg, needs_draft in _risk_segments(result):
         sec: dict = {"type": "section", "block_id": f"lg_amend_{num}",
                      "text": {"type": "mrkdwn", "text": seg[:2900]}}
-        # Nút cho MỌI rủi ro (nhất quán): CHƯA có điều khoản mới inline → 'Đồng ý sửa' (soạn cũ→mới, gọi LLM);
-        # ĐÃ có inline → 'Xác nhận áp dụng' (chỉ ghi event agreed_fix, KHÔNG soạn lại → không tốn LLM).
+        # Nút 'Đồng ý sửa' cho MỌI rủi ro (nhãn NHẤT QUÁN theo yêu cầu). Hành vi theo trạng thái: rủi ro
+        # CHƯA có điều khoản mới inline → bấm = SOẠN cũ→mới (gọi LLM); ĐÃ có inline → bấm = GHI NHẬN đồng ý
+        # (confirm:1, KHÔNG soạn lại vì điều khoản mới đã hiển thị sẵn → không tốn LLM).
         if case_id:
-            if needs_draft:
-                label, val = "Đồng ý sửa", {"c": case_id[:120], "i": idx}
-            else:
-                label, val = "Xác nhận áp dụng", {"c": case_id[:120], "i": idx, "confirm": 1}
+            val = {"c": case_id[:120], "i": idx} if needs_draft \
+                else {"c": case_id[:120], "i": idx, "confirm": 1}
             sec["accessory"] = {
-                "type": "button", "text": {"type": "plain_text", "text": label, "emoji": False},
+                "type": "button", "text": {"type": "plain_text", "text": "Đồng ý sửa", "emoji": False},
                 "action_id": "amend_ok",
                 "value": json.dumps(val, ensure_ascii=False)}
         blocks.append(sec)
@@ -855,7 +854,8 @@ def _confirm_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str
             return
         clause = risks[idx].get("clause", "")
         _record_agreed_fix(service, org_id, case_id, clause)
-        _safe_send(sender, send_to, f"Đã ghi nhận đồng ý áp dụng điều khoản sửa cho: {clause}.", thread_ts)
+        _safe_send(sender, send_to, f"Đã ghi nhận đồng ý sửa điều khoản: {clause} "
+                   "(điều khoản đề xuất đã nêu trong phần rà soát ở trên).", thread_ts)
     except Exception:  # noqa: BLE001 — task nền: lỗi không được làm sập
         _log.exception("Lỗi xác nhận áp dụng (%s)", case_id)
         _safe_send(sender, send_to, "Xin lỗi, chưa ghi nhận được. Vui lòng thử lại.", thread_ts)
