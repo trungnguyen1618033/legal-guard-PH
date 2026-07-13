@@ -909,10 +909,10 @@ class AnalysisService:
             return f"Chưa trả lời được: {exc}", snippets
         # ĐỘ TIN CẬY (từ tín hiệu ĐÃ TÍNH — NLI + độ tập trung evidence; KHÔNG thêm LLM call). Gộp cảnh báo
         # NLI-phủ-định cũ vào nhãn 'Thấp'. User biết khi nào tin, khi nào cần luật sư đối chiếu.
-        from legalguard.domain.confidence import answer_confidence, confidence_line
+        from legalguard.domain.confidence import answer_confidence, append_confidence
         nli_ok = nli_supports(answer, sources, self.judge) if self.nli_verification else None
         n_kept = elbow_cutoff([s.score for s in snippets], min_keep=3) if snippets else 0
-        answer += "\n\n" + confidence_line(answer_confidence(nli_ok, n_kept), lang)
+        answer = append_confidence(answer, answer_confidence(nli_ok, n_kept), lang)   # idempotent (chống lặp)
         if self.observer is not None:
             self.observer.event("lookup", {"tenant": get_tenant(org.country).id,
                                            "lang": lang, "hits": len(snippets)})

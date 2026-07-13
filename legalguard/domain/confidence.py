@@ -36,3 +36,14 @@ _LINE = {
 def confidence_line(level: str, lang: str = "vi") -> str:
     """Dòng độ tin cậy KÊNH-AGNOSTIC (text) — Slack/web/`/ask` dùng chung."""
     return _LINE.get(lang if lang in _LINE else "vi", _LINE["vi"]).get(level, _LINE["vi"]["medium"])
+
+
+# Tiền tố ổn định của MỌI dòng độ-tin-cậy (mọi mức, cả 2 ngôn ngữ) → dùng để nhận diện & bỏ khi nối lại.
+_CONF_PREFIXES = ("Độ tin cậy:", "Confidence:")
+
+
+def append_confidence(text: str, level: str, lang: str = "vi") -> str:
+    """Nối dòng độ tin cậy đúng MỘT lần (idempotent): bỏ MỌI dòng độ-tin-cậy đã có sẵn trong `text`
+    (mọi mức/ngôn ngữ — vd LLM lỡ sinh, hoặc câu trả lời dẫn lại) rồi mới nối → chống lặp dòng 2 lần."""
+    kept = [ln for ln in (text or "").splitlines() if not ln.strip().startswith(_CONF_PREFIXES)]
+    return "\n".join(kept).rstrip() + "\n\n" + confidence_line(level, lang)
