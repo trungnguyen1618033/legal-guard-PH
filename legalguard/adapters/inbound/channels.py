@@ -319,14 +319,17 @@ def _build_thread_context(msgs: list[dict], bot_uid: str, known: set[str] | None
     return out
 
 
-def _review_head(result: AnalysisResult) -> str:
-    """Câu MỞ ĐẦU reply rà soát (văn phong pháp lý như thư gửi khách): 'Sau khi rà soát <loại HĐ> <cho
-    khách>, chúng tôi đề xuất điều chỉnh một số nội dung sau:'."""
+def _review_head(result: AnalysisResult, has_findings: bool = True) -> str:
+    """Câu MỞ ĐẦU reply rà soát (văn phong pháp lý như thư gửi khách). `has_findings=False` → câu kết luận
+    KHÔNG có vấn đề (tránh mâu thuẫn 'đề xuất điều chỉnh' rồi 'không phát hiện gì')."""
     ctype = (result.contract_type or "").strip()
     client = (result.protected_party or "").strip()
     what = ctype or "hợp đồng"
     tail = f" nhằm bảo vệ quyền lợi của {client}" if client else ""
-    return f"Sau khi rà soát {what}{tail}, chúng tôi đề xuất điều chỉnh một số nội dung sau:"
+    if has_findings:
+        return f"Sau khi rà soát {what}{tail}, chúng tôi đề xuất điều chỉnh một số nội dung sau:"
+    return (f"Sau khi rà soát {what}{tail}, chúng tôi không phát hiện điều khoản rủi ro hay "
+            "lỗi soạn thảo rõ ràng trong nội dung được cung cấp.")
 
 
 def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, bool]]:
@@ -377,10 +380,10 @@ def _drafting_segments(result: AnalysisResult, start_num: int) -> list[str]:
     """Lỗi soạn thảo / khác biệt VN–EN → văn xuôi ĐÁNH SỐ TIẾP TỤC sau rủi ro (kiểu demo). Mỗi note đã được
     `_classify_contract` soạn sẵn dạng câu 'Tại <vị trí>, <vấn đề>; đề xuất sửa…' → chỉ gắn số '(M)'."""
     out: list[str] = []
-    for i, note in enumerate(result.drafting_notes or []):
+    for note in result.drafting_notes or []:
         n = (note or "").strip()
         if n:
-            out.append(f"({start_num + i}) {n}")
+            out.append(f"({start_num + len(out)}) {n}")   # số theo VỊ TRÍ HIỂN THỊ (bỏ note rỗng không tạo gap)
     return out
 
 
@@ -403,14 +406,12 @@ def _policy_lines(result: AnalysisResult) -> list[str]:
 def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
     """Trả lời rà soát HĐ — VĂN XUÔI PHÁP LÝ ĐÁNH SỐ liên tục (kiểu thư gửi khách): câu mở đầu + (1)(2)(3)…
     gộp CẢ rủi ro pháp lý lẫn lỗi soạn thảo/khác biệt VN–EN, rồi chiến lược. Dễ đọc, không nhãn/icon."""
-    head = _review_head(result)
     risk_segs = _risk_segments(result)
     draft_segs = _drafting_segments(result, len(risk_segs) + 1)     # đánh số TIẾP sau rủi ro
     segs = [seg for (_n, _i, _c, seg, _b) in risk_segs] + draft_segs
     if not segs:
-        return _with_ai_disclosure(
-            head + "\n\nKhông phát hiện điều khoản rủi ro hay lỗi soạn thảo rõ ràng trong nội dung được cung cấp.")
-    lines = [head, ""]
+        return _with_ai_disclosure(_review_head(result, has_findings=False))
+    lines = [_review_head(result), ""]
     for i, seg in enumerate(segs):
         if i:                                        # DÒNG TRỐNG ngăn cách mỗi mục (giãn dòng, dễ đọc)
             lines.append("")
@@ -888,13 +889,10 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
     """Slack blocks reply rà soát HĐ: MỖI rủi ro = 1 section + nút 'Đồng ý sửa' → soạn điều khoản cũ→mới.
     Nút hiện cho MỌI rủi ro (draft_counter soạn từ clause+risk, KHÔNG cần fallback — agent thỉnh thoảng
     bỏ propose_fallback nhưng người dùng vẫn cần nút, yêu cầu #2). Nhất quán text reply qua `_risk_segments`."""
-    head = prefix + _review_head(result)
-    blocks: list[dict] = [{"type": "section", "text": {"type": "mrkdwn", "text": head[:2900]}}]
     risk_segs = _risk_segments(result)
     draft_segs = _drafting_segments(result, len(risk_segs) + 1)     # đánh số TIẾP sau rủi ro
-    if not risk_segs and not draft_segs:
-        blocks.append({"type": "section", "text": {"type": "mrkdwn",
-            "text": "Không phát hiện điều khoản rủi ro hay lỗi soạn thảo rõ ràng trong nội dung được cung cấp."}})
+    head = prefix + _review_head(result, has_findings=bool(risk_segs or draft_segs))
+    blocks: list[dict] = [{"type": "section", "text": {"type": "mrkdwn", "text": head[:2900]}}]
     for num, idx, _clause, seg, needs_draft in risk_segs:
         sec: dict = {"type": "section", "block_id": f"lg_amend_{num}",
                      "text": {"type": "mrkdwn", "text": seg[:2900]}}

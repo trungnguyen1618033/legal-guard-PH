@@ -115,6 +115,27 @@ def test_analysis_blocks_include_drafting_section():
     assert "(2) Tại Điều 7" in dump and "abc" in dump      # số tiếp sau rủi ro (1)
 
 
+def test_review_head_empty_findings_no_contradiction():
+    # Không có rủi ro/lỗi → KHÔNG nói 'đề xuất điều chỉnh' rồi 'không phát hiện' (mâu thuẫn).
+    from legalguard.adapters.inbound.channels import _analysis_blocks
+    res = AnalysisResult(tenant="VN", risks=[], fallbacks=[], needs_human_review=False,
+                         review_reasons=[], summary="", trace=[], contract_type="HĐ vay")
+    out = format_chat_reply(res)
+    assert "không phát hiện" in out and "đề xuất điều chỉnh một số nội dung" not in out
+    dump = json.dumps(_analysis_blocks(res, "c1"), ensure_ascii=False)
+    assert "không phát hiện" in dump and "đề xuất điều chỉnh một số nội dung" not in dump
+
+
+def test_drafting_segments_continuous_numbering_skips_empty():
+    # Note rỗng KHÔNG tạo lỗ hổng số thứ tự (đánh số theo vị trí hiển thị).
+    from legalguard.adapters.inbound.channels import _drafting_segments
+    res = AnalysisResult(tenant="VN", risks=[{"clause": "A", "risk": "b"}], fallbacks=[],
+                         needs_human_review=False, review_reasons=[], summary="", trace=[],
+                         drafting_notes=["", "Tại Điều 2, lỗi; đề xuất sửa thành: X", "  "])
+    segs = _drafting_segments(res, start_num=2)             # 1 rủi ro → drafting bắt đầu (2)
+    assert segs == ["(2) Tại Điều 2, lỗi; đề xuất sửa thành: X"]
+
+
 def test_format_chat_reply_marks_illegal():
     # Điều khoản trái luật → diễn đạt PHÁP LÝ (không icon ⚖️): "dấu hiệu trái quy định tại <điều>… vô hiệu".
     res = AnalysisResult(tenant="VN", risks=[{"clause": "Phạt 15%", "risk": "vượt trần",

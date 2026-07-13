@@ -602,7 +602,9 @@ class AnalysisService:
             "KHÔNG liệt kê rủi ro pháp lý ở đây. Mỗi mục nêu `location` (vị trí), `issue` (đoạn sai) + đề xuất "
             "sửa: dùng `fix` cho 1 ngôn ngữ, hoặc `fix_vi`+`fix_en` khi cần sửa cả 2 bản. Đề xuất PHẢI KHÁC "
             "nội dung hiện tại; KHÔNG chép lại đoạn không có lỗi. Không có lỗi → [].\n\n"
-            f"<<<HỢP ĐỒNG>>>\n{contract_text[:6000]}\n<<<HẾT>>>"
+            # 12000 (≈ obligations): HĐ SONG NGỮ cần thấy CẢ bản VN lẫn EN để đối chiếu (6000 hay cắt mất
+            # nửa EN). Call này chạy riêng qwen-flash, isolated post-agent → không ảnh hưởng accuracy vòng agent.
+            f"<<<HỢP ĐỒNG>>>\n{contract_text[:12000]}\n<<<HẾT>>>"
         )
         parsed: dict = {}
         for _ in range(2):        # 1 retry: endpoint dashscope thỉnh thoảng rớt kết nối → thử lại (call rẻ)
