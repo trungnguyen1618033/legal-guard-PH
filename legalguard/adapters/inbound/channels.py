@@ -119,6 +119,17 @@ def _is_help_query(text: str) -> bool:
     return True
 
 
+# Yêu cầu RÀ SOÁT CẢ hợp đồng (động từ rà soát + danh từ CẢ-văn-bản gần nhau). Phân biệt với followup về
+# 1 điều khoản ("phân tích điều khoản thanh toán" — 'điều khoản' KHÔNG nằm nhóm danh từ cả-văn-bản).
+_REVIEW_REQ_RE = re.compile(
+    r"(review|analyze|analyse|rà soát|ra soat|phân tích|phan tich|kiểm tra|xem giúp|check)"
+    r"[^.]{0,30}?(contract|hợp đồng|hop dong|hđ|file|tài liệu|document|văn bản)", re.IGNORECASE)
+
+
+def _wants_whole_contract_review(text: str) -> bool:
+    return bool(text and _REVIEW_REQ_RE.search(text))
+
+
 def _mentions(text: str, uid: str) -> bool:
     """text có mention user `uid` không — chịu cả 2 dạng Slack: `<@Uxxx>` và `<@Uxxx|tên hiển thị>`.
     Dùng cho MENTION GATE (dạng có `|tên` mà chỉ so substring `<@Uxxx>` sẽ TRƯỢT → bot im lặng oan)."""
@@ -515,6 +526,15 @@ class ChatHandler:
         if attachment is None and _is_trust_query(text or ""):     # meta-câu-hỏi về độ tin cậy → công bố
             from legalguard.domain.trust import format_trust_text
             return ChatReply(format_trust_text())
+        # Yêu cầu rà soát CẢ hợp đồng nhưng KHÔNG kèm file / KHÔNG dán nội dung (chỉ chỉ dẫn "review this
+        # contract") → hướng dẫn ĐÍNH KÈM. HĐ không lưu đầy đủ (chỉ excerpt) nên không tự rà lại được; nếu
+        # bỏ qua sẽ rơi vào followup mơ hồ (không có nút). HĐ dán trực tiếp dài > ngưỡng → xuống nhánh analyze.
+        if attachment is None and len((text or "").strip()) < 200 \
+                and _wants_whole_contract_review(text or ""):
+            return ChatReply(
+                "Bạn muốn rà soát hợp đồng — vui lòng ĐÍNH KÈM lại file hợp đồng (.pdf/.docx/.txt/ảnh) "
+                "hoặc DÁN nội dung hợp đồng vào tin nhắn để tôi rà soát và đề xuất sửa. (Nếu đã có kết quả "
+                "rà soát trong thread, các nút 'Đồng ý sửa' ở tin đó vẫn dùng lại được.)")
         contract, source = None, None
         if attachment is not None:
             source = SourceMeta.of(attachment, filename or "file")   # audit: hash file gốc

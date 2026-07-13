@@ -215,6 +215,23 @@ def test_help_query_still_shown_when_fresh():
     assert "HƯỚNG DẪN" in _handler().reply("cHelpFresh", text="help")
 
 
+def test_review_request_without_file_prompts_to_attach():
+    # BUG user báo: gõ 'review this contract' KHÔNG kèm file → bot followup mơ hồ (không nút). Nay hướng
+    # dẫn ĐÍNH KÈM lại file (HĐ không lưu đầy đủ nên không tự rà lại được).
+    h = _handler()
+    r = h.reply_ex("cRev", text="help me to review this contract for Phu Quoc side")
+    assert "đính kèm" in r.text.lower() and "hợp đồng" in r.text.lower()
+    assert r.kind == ""
+
+
+def test_wants_whole_contract_review_detector():
+    from legalguard.adapters.inbound.channels import _wants_whole_contract_review
+    assert _wants_whole_contract_review("help me to review this contract for Phu Quoc side")
+    assert _wants_whole_contract_review("rà soát hợp đồng này giúp tôi")
+    assert not _wants_whole_contract_review("phân tích điều khoản thanh toán này")  # 1 điều khoản → followup
+    assert not _wants_whole_contract_review("Mức phạt tối đa bao nhiêu %?")          # câu hỏi luật
+
+
 def test_trust_query_returns_accuracy_publication():
     # Hỏi về độ tin cậy (meta) → trả công bố độ chính xác, KHÔNG đi lookup/analyze.
     out = _handler().reply("cT", text="Độ chính xác của hệ thống thế nào, có đáng tin không?")
