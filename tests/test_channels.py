@@ -688,13 +688,39 @@ def test_risk_segments_button_and_suggestion_when_no_counter():
     assert show_button is True                              # chưa có counter → cần nút
 
 
-def test_analysis_blocks_button_only_when_no_inline_counter():
+def test_analysis_blocks_always_button_confirm_or_draft():
+    # MỌI rủi ro có nút (nhất quán): có inline → 'Xác nhận áp dụng' (confirm); chưa có → 'Đồng ý sửa' (soạn).
     from legalguard.adapters.inbound.channels import _analysis_blocks
     blocks = _analysis_blocks(_counter_result(), "case1")
-    with_btn = [b for b in blocks if b.get("accessory")]
-    assert len(with_btn) == 1                               # chỉ rủi ro 2 (không counter) có nút
-    assert json.loads(with_btn[0]["accessory"]["value"]) == {"c": "case1", "i": 1}
+    btns = [b["accessory"] for b in blocks if b.get("accessory")]
+    assert len(btns) == 2                                   # cả 2 rủi ro đều có nút
+    assert btns[0]["text"]["text"] == "Xác nhận áp dụng"    # rủi ro 1 đã có điều khoản mới inline
+    assert json.loads(btns[0]["value"]) == {"c": "case1", "i": 0, "confirm": 1}
+    assert btns[1]["text"]["text"] == "Đồng ý sửa"          # rủi ro 2 chưa có → soạn
+    assert json.loads(btns[1]["value"]) == {"c": "case1", "i": 1}
     assert "Đề xuất điều khoản mới: Mức phạt tối đa 8%" in json.dumps(blocks, ensure_ascii=False)
+
+
+def test_confirm_amend_records_event_without_llm():
+    # Nút 'Xác nhận áp dụng' → CHỈ ghi event agreed_fix + báo nhận, KHÔNG gọi draft_counter_clause (LLM).
+    from legalguard.adapters.inbound.channels import _confirm_amend
+    from legalguard.domain.models import AnalysisCase
+    case = AnalysisCase(id="c1", org_id="default", tenant="VN", created_at="t", lang="vi",
+                        contract_excerpt="", summary="", needs_human_review=False,
+                        risks=[{"clause": "Phạt 15%", "risk": "vượt trần"}], fallbacks=[], trace=[])
+
+    class _Svc:
+        def __init__(self): self.outcomes = []; self.drafted = False
+        def get_case(self, cid): return case if cid == "c1" else None
+        def record_outcome(self, o): self.outcomes.append(o)
+        def draft_counter_clause(self, **kw): self.drafted = True; return {}
+
+    svc, sender = _Svc(), _FakeSender()
+    _confirm_amend(svc, sender, "default", "c1", 0, "C1", "th1")
+    assert svc.drafted is False                             # KHÔNG gọi LLM
+    assert len(svc.outcomes) == 1 and svc.outcomes[0].result == "agreed_fix"
+    assert svc.outcomes[0].clause == "Phạt 15%"
+    assert "đồng ý áp dụng" in sender.sent[-1][1] and sender.threads[-1] == "th1"
 
 
 def test_format_amend_bilingual_and_framework_flag():

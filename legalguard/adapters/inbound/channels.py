@@ -766,15 +766,20 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
     if not result.risks:
         blocks.append({"type": "section", "text": {"type": "mrkdwn",
             "text": "Không phát hiện điều khoản rủi ro rõ ràng trong nội dung được cung cấp."}})
-    for num, idx, _clause, seg, show_button in _risk_segments(result):
+    for num, idx, _clause, seg, needs_draft in _risk_segments(result):
         sec: dict = {"type": "section", "block_id": f"lg_amend_{num}",
                      "text": {"type": "mrkdwn", "text": seg[:2900]}}
-        # Nút CHỈ khi CHƯA có điều khoản mới inline (rủi ro illegal/must_fix đã auto → không cần nút, tránh trùng).
-        if case_id and show_button:
+        # Nút cho MỌI rủi ro (nhất quán): CHƯA có điều khoản mới inline → 'Đồng ý sửa' (soạn cũ→mới, gọi LLM);
+        # ĐÃ có inline → 'Xác nhận áp dụng' (chỉ ghi event agreed_fix, KHÔNG soạn lại → không tốn LLM).
+        if case_id:
+            if needs_draft:
+                label, val = "Đồng ý sửa", {"c": case_id[:120], "i": idx}
+            else:
+                label, val = "Xác nhận áp dụng", {"c": case_id[:120], "i": idx, "confirm": 1}
             sec["accessory"] = {
-                "type": "button", "text": {"type": "plain_text", "text": "Đồng ý sửa", "emoji": False},
+                "type": "button", "text": {"type": "plain_text", "text": label, "emoji": False},
                 "action_id": "amend_ok",
-                "value": json.dumps({"c": case_id[:120], "i": idx}, ensure_ascii=False)}
+                "value": json.dumps(val, ensure_ascii=False)}
         blocks.append(sec)
     if result.strategy:
         blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": result.strategy[:2900]}})
@@ -806,6 +811,39 @@ def _format_amend(clause: str, original: str, cc: dict) -> str:
     return "\n".join(parts)
 
 
+def _record_agreed_fix(service: AnalysisService, org_id: str, case_id: str, clause: str) -> None:
+    """Ghi EVENT 'đã đồng ý sửa' (audit + tín hiệu risk-hợp-lệ). result='agreed_fix' — KHÔNG lọt win-rate
+    (win_rates chỉ tính accepted/partial/rejected) nên không pha loãng flywheel. Lỗi ghi → bỏ qua (phụ)."""
+    try:
+        service.record_outcome(Outcome(
+            id=uuid.uuid4().hex, org_id=org_id, case_id=case_id, clause=clause,
+            tactic="agreed_amendment", result="agreed_fix",
+            created_at=datetime.now(timezone.utc).isoformat()))
+    except Exception:  # noqa: BLE001 — ghi event là phụ, không chặn luồng chính
+        _log.exception("Không ghi được event 'đồng ý sửa' (%s)", case_id)
+
+
+def _confirm_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, case_id: str,
+                   idx: int, send_to: str, thread_ts: str | None) -> None:
+    """Nút 'Xác nhận áp dụng' — cho rủi ro ĐÃ có điều khoản mới INLINE trong reply. Chỉ GHI event
+    agreed_fix (audit/flywheel) + báo nhận; KHÔNG gọi LLM soạn lại (điều khoản mới đã hiển thị sẵn)."""
+    try:
+        case = service.get_case(case_id)
+        if case is None or getattr(case, "org_id", None) != org_id or idx is None or idx < 0:
+            _safe_send(sender, send_to, "Không tìm thấy hồ sơ rà soát (có thể đã hết hạn).", thread_ts)
+            return
+        risks = case.risks or []
+        if idx >= len(risks):
+            _safe_send(sender, send_to, "Không xác định được điều khoản.", thread_ts)
+            return
+        clause = risks[idx].get("clause", "")
+        _record_agreed_fix(service, org_id, case_id, clause)
+        _safe_send(sender, send_to, f"Đã ghi nhận đồng ý áp dụng điều khoản sửa cho: {clause}.", thread_ts)
+    except Exception:  # noqa: BLE001 — task nền: lỗi không được làm sập
+        _log.exception("Lỗi xác nhận áp dụng (%s)", case_id)
+        _safe_send(sender, send_to, "Xin lỗi, chưa ghi nhận được. Vui lòng thử lại.", thread_ts)
+
+
 def _run_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, case_id: str,
                idx: int, send_to: str, thread_ts: str | None) -> None:
     """Chạy nền: nạp case (cô lập org) → soạn điều khoản sửa cho rủi ro thứ `idx` → gửi vào thread.
@@ -825,15 +863,7 @@ def _run_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, ca
         r = risks[idx]
         clause = r.get("clause", "")
         original = (r.get("evidence") or "").strip() or clause      # nguyên văn từ HĐ; thiếu → nhãn
-        # Ghi EVENT "đã đồng ý sửa" (audit + tín hiệu risk-hợp-lệ). result="agreed_fix" — KHÔNG lọt win-rate
-        # (win_rates chỉ tính accepted/partial/rejected) nên không pha loãng flywheel. Lỗi ghi → bỏ qua (phụ).
-        try:
-            service.record_outcome(Outcome(
-                id=uuid.uuid4().hex, org_id=org_id, case_id=case_id, clause=clause,
-                tactic="agreed_amendment", result="agreed_fix",
-                created_at=datetime.now(timezone.utc).isoformat()))
-        except Exception:  # noqa: BLE001 — ghi event là phụ, không chặn việc soạn điều khoản
-            _log.exception("Không ghi được event 'đồng ý sửa' (%s)", case_id)
+        _record_agreed_fix(service, org_id, case_id, clause)         # audit + tín hiệu risk-hợp-lệ
         fb = next((f for f in (case.fallbacks or []) if f.get("clause") == clause), {})
         cc = service.draft_counter_clause(
             clause=original, risk=r.get("risk", ""), suggestion=fb.get("suggestion", ""),
@@ -1153,15 +1183,16 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                     r_text, r_url, r_fn, r_thread, max_upload_bytes, True)
                 return {"replace_original": True, "text": "Đang thử lại — kết quả sẽ được gửi vào thread…"}
 
-            if aid == "amend_ok":                  # nút 'Đồng ý sửa' per-risk → soạn điều khoản sửa (cũ→mới)
+            if aid == "amend_ok":                  # nút per-risk: soạn điều khoản sửa HOẶC xác nhận áp dụng
                 if not (slack_sender and slack_sender.available):
                     return {"ok": True}
                 container = payload.get("container") or {}
                 msg = payload.get("message") or {}
                 send_to = (payload.get("channel") or {}).get("id", "")
                 thread_ts = container.get("thread_ts") or msg.get("thread_ts") or msg.get("ts")
-                # Soạn = gọi LLM (chậm) → nền, gửi vào thread; ack rỗng ngay (giữ nút cho các rủi ro khác).
-                background.add_task(_run_amend, handler.service, slack_sender, org.id,
+                # confirm=1: rủi ro ĐÃ có điều khoản mới inline → chỉ ghi event (nhanh); else → soạn (gọi LLM).
+                task = _confirm_amend if ctx.get("confirm") else _run_amend
+                background.add_task(task, handler.service, slack_sender, org.id,
                                     ctx.get("c", ""), ctx.get("i", -1), send_to, thread_ts)
                 return {"ok": True}
 
