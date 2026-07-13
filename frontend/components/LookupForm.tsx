@@ -100,7 +100,7 @@ export default function LookupForm({ labels }: { labels: Labels }) {
               <ul className="space-y-1.5">
                 {result.sources.map((s, i) => (
                   <li key={`${s}-${i}`}>
-                    <Card className="px-3 py-2 text-sm text-muted">📎 {s}</Card>
+                    <Card className="px-3 py-2 text-sm text-muted">{s}</Card>
                   </li>
                 ))}
               </ul>

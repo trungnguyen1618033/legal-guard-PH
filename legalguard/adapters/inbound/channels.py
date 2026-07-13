@@ -302,22 +302,43 @@ def _review_head(result: AnalysisResult) -> str:
 
 
 def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, bool]]:
-    """(số hiển thị, index0, clause, đoạn văn pháp lý, có-đề-xuất-sửa) cho MỖI rủi ro — dùng CHUNG cho
-    text reply (Zalo/web) và Slack blocks (nút 'Đồng ý sửa' per-risk). Văn phong luật sư, không icon."""
+    """(số hiển thị, index0, clause, KHỐI 4 phần, cần-nút-'Đồng ý sửa') cho MỖI rủi ro — dùng CHUNG cho
+    text reply (Zalo/web) và Slack blocks. Văn phong luật sư, không icon. Khối trình bày như văn bản luật sư:
+      (N) <core cần sửa> [+ nhãn trái luật]
+      Điều khoản cũ (trích hợp đồng): <evidence nguyên văn>
+      Đề xuất điều khoản mới: <bản dán-được-ngay VN/EN>   (inline khi có counter_clause; else 'Đề xuất sửa đổi: <suggestion>')
+      Lý do: <bối cảnh + căn cứ pháp lý>
+    Nút 'Đồng ý sửa' CHỈ hiện khi CHƯA có điều khoản mới inline (tránh trùng — rủi ro illegal/must_fix đã auto)."""
     sugg = {f.get("clause", ""): (f.get("suggestion") or "").strip() for f in result.fallbacks}
     out: list[tuple[int, int, str, str, bool]] = []
     for idx, r in enumerate(result.risks):
         num = idx + 1
-        seg = f"({num}) {r['clause']}: {r['risk']}".rstrip(".") + "."
+        core = f"({num}) {r['clause']}: {r['risk']}".rstrip(".") + "."
         if r.get("legal_status") == "illegal":       # nêu trái luật bằng văn phong pháp lý (không icon)
             vl = (r.get("violated_law") or "").strip()
-            seg += f" Điều khoản này có dấu hiệu trái quy định{(' tại ' + vl) if vl else ' của pháp luật'}" \
-                   "; phần vi phạm có thể bị tuyên vô hiệu."
-        s = sugg.get(r["clause"], "")
-        if s:
-            s = re.sub(r"^\s*đề xuất\s*:?\s*", "", s, flags=re.IGNORECASE)   # tránh 'Đề xuất sửa đổi: Đề xuất:'
-            seg += f" Đề xuất sửa đổi: {s.rstrip('.')}."
-        out.append((num, idx, r["clause"], seg, bool(s)))
+            core += f" Điều khoản này có dấu hiệu trái quy định{(' tại ' + vl) if vl else ' của pháp luật'}" \
+                    "; phần vi phạm có thể bị tuyên vô hiệu."
+        lines = [core]
+        ev = (r.get("evidence") or "").strip()
+        if ev:
+            lines += ["Điều khoản cũ (trích hợp đồng): " + ev[:600]]
+        cc = r.get("counter_clause") or {}
+        vi = (cc.get("vi") or "").strip()
+        en = (cc.get("en") or "").strip()
+        has_inline = bool(vi)
+        if has_inline:                               # rủi ro quan trọng: điều khoản mới dán-được-ngay
+            lines.append("Đề xuất điều khoản mới: " + vi)
+            if en:
+                lines.append("(EN: " + en + ")")
+        else:                                        # rủi ro nhẹ: gợi ý sửa (bản dán-được qua nút 'Đồng ý sửa')
+            s = sugg.get(r["clause"], "")
+            if s:
+                s = re.sub(r"^\s*đề xuất\s*:?\s*", "", s, flags=re.IGNORECASE)
+                lines.append("Đề xuất sửa đổi: " + s.rstrip(".") + ".")
+        reason = (cc.get("rationale") or "").strip() or (r.get("legal_basis") or "").strip()
+        if reason:
+            lines.append("Lý do: " + reason)
+        out.append((num, idx, r["clause"], "\n".join(lines), not has_inline))
     return out
 
 
@@ -329,7 +350,10 @@ def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
         return head + "\n\nKhông phát hiện điều khoản rủi ro rõ ràng trong nội dung được cung cấp." \
             + _AI_DISCLOSURE_LEGAL
     lines = [head, ""]
-    lines += [seg for _num, _idx, _clause, seg, _has in _risk_segments(result)]
+    for i, (_num, _idx, _clause, seg, _btn) in enumerate(_risk_segments(result)):
+        if i:                                        # dòng trống ngăn cách các KHỐI rủi ro (khối nhiều dòng)
+            lines.append("")
+        lines.append(seg)
     if result.strategy:
         lines += ["", result.strategy]
     if result.needs_human_review:
@@ -742,10 +766,11 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
     if not result.risks:
         blocks.append({"type": "section", "text": {"type": "mrkdwn",
             "text": "Không phát hiện điều khoản rủi ro rõ ràng trong nội dung được cung cấp."}})
-    for num, idx, _clause, seg, _has_sugg in _risk_segments(result):
+    for num, idx, _clause, seg, show_button in _risk_segments(result):
         sec: dict = {"type": "section", "block_id": f"lg_amend_{num}",
                      "text": {"type": "mrkdwn", "text": seg[:2900]}}
-        if case_id:                                  # case đã lưu → nút soạn điều khoản sửa cho MỖI rủi ro
+        # Nút CHỈ khi CHƯA có điều khoản mới inline (rủi ro illegal/must_fix đã auto → không cần nút, tránh trùng).
+        if case_id and show_button:
             sec["accessory"] = {
                 "type": "button", "text": {"type": "plain_text", "text": "Đồng ý sửa", "emoji": False},
                 "action_id": "amend_ok",

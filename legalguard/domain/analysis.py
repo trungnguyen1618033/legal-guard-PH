@@ -234,6 +234,45 @@ def _detect_illegal(risks: list, judge: LLMPort | None) -> int:
     return upgraded
 
 
+def _attach_counter_clauses(risks: list, fallbacks: list, reasoner: LLMPort | None) -> int:
+    """Sinh điều khoản mới dán-được-ngay (song ngữ) INLINE cho rủi ro TRÁI LUẬT / must_fix — hậu-agent,
+    SONG SONG, bounded (chỉ rủi ro quan trọng → tiết kiệm quota; rủi ro nhẹ giữ nút 'Đồng ý sửa').
+    CHẠY SAU _detect_illegal (cần nhãn illegal chốt) + _attach_legal_basis (cần legal_basis cho căn cứ).
+    Dùng NGUYÊN VĂN evidence (trích HĐ) làm điều khoản gốc → LLM viết lại chính đoạn đó. Gắn r.counter_clause.
+    Lỗi 1 rủi ro → bỏ qua rủi ro đó (không làm hỏng cả reply)."""
+    if reasoner is None or not getattr(reasoner, "available", False):
+        return 0
+    cands = [r for r in risks if r.legal_status == "illegal" or r.priority == "must_fix"]
+    if not cands:
+        return 0
+    from legalguard.domain.counter_clause import draft_counter_clause as _draft
+    fb_by_clause = {f.clause: f for f in fallbacks}
+
+    def _gen(r) -> dict:
+        try:
+            original = (r.evidence or "").strip() or r.clause
+            fb = fb_by_clause.get(r.clause)
+            cc = _draft(reasoner, clause=original, risk=r.risk,
+                        suggestion=(fb.suggestion if fb else ""),
+                        legal_basis=(r.legal_basis or (fb.legal_basis if fb else "")))
+            return asdict(cc)
+        except Exception:  # noqa: BLE001 — 1 rủi ro lỗi soạn không được làm hỏng cả reply
+            _log.exception("Không sinh được counter_clause cho '%s'", getattr(r, "clause", "?"))
+            return {}
+
+    if len(cands) > 1:
+        with ThreadPoolExecutor(max_workers=min(4, len(cands))) as pool:
+            results = list(pool.map(_gen, cands))
+    else:
+        results = [_gen(cands[0])]
+    attached = 0
+    for r, cc in zip(cands, results):
+        if cc:
+            r.counter_clause = cc
+            attached += 1
+    return attached
+
+
 class AnalysisService:
     def __init__(self, reasoner: LLMPort, kb: KnowledgeBaseProvider,
                  cases: CaseRepositoryPort | None = None,
@@ -248,7 +287,8 @@ class AnalysisService:
                  lookup_pit_llm: LLMPort | None = None,
                  illegal_detection: bool = True,
                  coverage_gated_abstain: bool = True,
-                 hyde_query_expansion: bool = False) -> None:
+                 hyde_query_expansion: bool = False,
+                 auto_counter_on_analyze: bool = True) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp) + tóm tắt SME (_summarize). Mặc định = reasoner (giữ tương thích/stub),
         # prod truyền qwen-flash → cắt mạnh latency khâu hậu-agent mà KHÔNG giảm bước kiểm nào.
@@ -262,6 +302,8 @@ class AnalysisService:
         self.nli_verification = nli_verification  # kiểm entailment (nguồn có hậu thuẫn claim) — chống hallucinate
         # Phase B: lớp NLI-mâu-thuẫn nâng unfavorable→illegal khi điều khoản TRÁI điều luật đã grounding.
         self.illegal_detection = illegal_detection
+        # Sinh INLINE điều khoản mới (song ngữ) cho rủi ro illegal/must_fix ngay khi rà (bounded, song song).
+        self.auto_counter_on_analyze = auto_counter_on_analyze
         # Coverage-Gated Abstention: cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain.
         self.coverage_gated_abstain = coverage_gated_abstain
         # HyDE-lite: LLM sinh thuật ngữ luật cầu nối cách-hỏi vs cách-luật-viết → cụm evidence chặt hơn
@@ -604,6 +646,11 @@ class AnalysisService:
                          "— cần luật sư đối chiếu bản gốc.")
             ctx.needs_human_review = True       # illegal là khẳng định mạnh → luôn cần người duyệt
             ctx.review_reasons.append(f"{upg} điều khoản có dấu hiệu trái luật — luật sư đối chiếu bản gốc.")
+
+        # Sinh INLINE điều khoản mới cho rủi ro illegal/must_fix (SAU illegal-detection: nhãn đã chốt +
+        # SAU legal_basis: có căn cứ). Song song, bounded, dùng reasoner (flagship). Rủi ro nhẹ → nút.
+        if self.auto_counter_on_analyze and (nc := _attach_counter_clauses(ctx.risks, ctx.fallbacks, self.reasoner)):
+            notes.append(f"📝 Đã soạn sẵn điều khoản sửa cho {nc} điều khoản quan trọng (trái luật / bắt buộc sửa).")
 
         if any(not r.verified for r in ctx.risks):
             ctx.needs_human_review = True

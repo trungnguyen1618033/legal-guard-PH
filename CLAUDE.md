@@ -100,10 +100,17 @@ hàng bảo vệ** (`AnalysisResult.contract_type`/`protected_party` do `analysi
 judge NHANH SONG SONG hậu-agent, ISOLATED khỏi vòng agent nên accuracy lookup KHÔNG đổi; tinh từ gợi ý chat
 `_extract_protected_hint` "for X side"/"bảo vệ X" + phần các bên trong HĐ). TRÁI LUẬT diễn đạt pháp lý
 ("có dấu hiệu trái quy định tại <điều>; phần vi phạm có thể bị tuyên vô hiệu"). Prompt agent CẤM cụm bịa
-ngoài luật VN ("chế tài chồng lấn"/"hợp đồng bất đối xứng"). Mỗi rủi ro có nút **"Đồng ý sửa"** (Slack
-accessory, chỉ khi có đề xuất) → `amend_ok` nền `_run_amend` nạp case (cô lập org) → `draft_counter_clause`
-→ gửi điều khoản sửa song ngữ VN/EN vào thread. `_analysis_blocks`/`format_chat_reply` dùng chung
-`_risk_segments`. Công bố AI dạng pháp lý `_AI_DISCLOSURE_LEGAL` (giữ mốc "AI" cho Luật AI 134/2025).
+ngoài luật VN ("chế tài chồng lấn"/"hợp đồng bất đối xứng"). **KHỐI 4 PHẦN mỗi rủi ro (`_risk_segments`,
+`docs/internal/reply-4part-format-plan.md`)**: (N) core cần sửa [+ nhãn trái luật] · **Điều khoản cũ (trích
+HĐ)** = `evidence` nguyên văn · **Đề xuất điều khoản mới** · **Lý do** (rationale/legal_basis). **HYBRID auto-
+counter (`AUTO_COUNTER_ON_ANALYZE` default ON, `_attach_counter_clauses`)**: rủi ro `illegal`/`must_fix` → tự
+sinh điều khoản mới dán-được-ngay INLINE (`draft_counter_clause` SONG SONG hậu-agent, SAU `_detect_illegal`+
+`legal_basis`, bounded chỉ rủi ro quan trọng → tiết kiệm quota; gắn `Risk.counter_clause={vi,en,rationale,
+grounded}`, lỗi 1 rủi ro không làm hỏng reply; KHÔNG đụng vòng agent nên accuracy KHÔNG đổi). Rủi ro nhẹ giữ
+nút **"Đồng ý sửa"** (Slack accessory, CHỈ khi CHƯA có counter inline — tránh trùng) → `amend_ok` nền
+`_run_amend` nạp case (cô lập org) → `draft_counter_clause` → gửi điều khoản sửa song ngữ VN/EN vào thread.
+`_analysis_blocks`/`format_chat_reply` + web/app.html + Next.js `RiskItem` dùng chung khối 4 phần.
+Công bố AI dạng pháp lý `_AI_DISCLOSURE_LEGAL` (giữ mốc "AI" cho Luật AI 134/2025).
 **Phase B — phát hiện TRÁI LUẬT có grounding (`_detect_illegal` trong `domain/analysis.py`, `ILLEGAL_DETECTION`)**:
 hậu-agent (sau legal_basis), với mỗi risk `unfavorable` đã có `legal_basis` (điều luật THẬT đã retrieve) →
 `nli_contradicts` hỏi judge "điều khoản CÓ trái điều luật này không"; YES rõ → nâng `unfavorable`→`illegal` +
@@ -182,8 +189,10 @@ số đo eval, nguồn chung `domain/trust.py trust_report`/`format_trust_text` 
 **Frontend Next.js** (`frontend/`, xem `frontend/README.md` — TÁCH KHỎI `web/*.html`, CHƯA deploy; ECS
 vẫn chạy `web/*.html`): Next 14 App Router + TS + Tailwind + `next-intl` (SSG song ngữ `/vi` `/en`). Mọi
 call API qua **BFF** (`app/api/*` route handler giữ `LG_API_KEY` server-side — KHÔNG lộ browser; helper
-`lib/bff.ts`). Trang: `/`·`/app` (analyze async+poll, human-checkpoint, counter, outcome, đàm phán đa phiên,
-memo+docx, feedback)·`/lookup` (ask + feedback + Autopilot monitor + impact + lược đồ/lịch sử VB + redline)·
+`lib/bff.ts`). Trang: `/`·`/app` (analyze async+poll, **format luật sư: dòng đầu loại HĐ+khách hàng bảo vệ,
+risk đánh số văn phong pháp lý, nút "Đồng ý sửa"→điều khoản cũ→mới, mục lỗi soạn thảo**, human-checkpoint,
+outcome, đàm phán đa phiên, memo+docx, feedback)·`/lookup` (ask + feedback + Autopilot monitor + impact +
+**kiểm tra hiệu lực VB** `/in-force` + redline)·
 `/dashboard` (client fetch, authed)·`/trust` (SSG/ISR). Component dùng chung ở `components/ui/`
 (Card·Section·Badge·Note·PageShell·Button). Quy tắc: không lộ key (BFF), tái dùng ui/, i18n vi/en đối xứng,
 authed→`no-store`, `strict:true` không `any`. Ngang tính năng với vanilla; contract verify LIVE.

@@ -73,6 +73,8 @@ class Risk:
     legal_basis: str = ""      # căn cứ pháp lý gắn tất định từ KB: 'file#Điều N: <nguyên văn>'
     legal_status: str = "unfavorable"  # illegal (trái luật, có thể vô hiệu) | unfavorable (bất lợi nhưng hợp pháp)
     violated_law: str = ""     # điều luật bị vi phạm (khi legal_status=illegal), vd 'Điều 301 LTM 2005'
+    counter_clause: dict = field(default_factory=dict)  # điều khoản mới dán-được-ngay {vi,en,rationale,grounded}
+    # — auto sinh INLINE cho rủi ro illegal/must_fix (AUTO_COUNTER_ON_ANALYZE); rủi ro nhẹ → soạn qua nút "Đồng ý sửa"
 
 
 @dataclass

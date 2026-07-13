@@ -656,6 +656,47 @@ def test_analysis_blocks_no_button_without_case_id():
     assert not any(b.get("accessory") for b in blocks)
 
 
+# ---- Khối 4 phần (cũ → mới → lý do): counter_clause inline cho illegal/must_fix, nút cho rủi ro nhẹ ----
+def _counter_result():
+    return AnalysisResult(tenant="VN",
+        risks=[
+            {"clause": "Phạt 15%", "risk": "vượt trần", "legal_status": "illegal",
+             "violated_law": "Điều 301", "evidence": "Bên B chịu phạt 15% giá trị hợp đồng.",
+             "counter_clause": {"vi": "Mức phạt tối đa 8% phần vi phạm.", "en": "Cap 8%.",
+                                "rationale": "Điều 301 LTM 2005 giới hạn 8%.", "grounded": True}},
+            {"clause": "Thanh toán 90 ngày", "risk": "bất lợi dòng tiền"},
+        ],
+        fallbacks=[{"clause": "Thanh toán 90 ngày", "suggestion": "rút về 30-45 ngày"}],
+        needs_human_review=True, review_reasons=[], summary="", trace=[], strategy="")
+
+
+def test_risk_segments_four_part_block_with_inline_counter():
+    from legalguard.adapters.inbound.channels import _risk_segments
+    _num, _idx, _clause, seg, show_button = _risk_segments(_counter_result())[0]
+    assert "(1) Phạt 15%" in seg and "trái quy định tại Điều 301" in seg
+    assert "Điều khoản cũ (trích hợp đồng): Bên B chịu phạt 15%" in seg
+    assert "Đề xuất điều khoản mới: Mức phạt tối đa 8%" in seg and "(EN: Cap 8%.)" in seg
+    assert "Lý do: Điều 301 LTM 2005 giới hạn 8%." in seg
+    assert show_button is False                             # đã có điều khoản mới inline → KHÔNG nút
+
+
+def test_risk_segments_button_and_suggestion_when_no_counter():
+    from legalguard.adapters.inbound.channels import _risk_segments
+    _num, _idx, _clause, seg, show_button = _risk_segments(_counter_result())[1]
+    assert "(2) Thanh toán 90 ngày" in seg and "Đề xuất sửa đổi: rút về 30-45 ngày." in seg
+    assert "Đề xuất điều khoản mới" not in seg
+    assert show_button is True                              # chưa có counter → cần nút
+
+
+def test_analysis_blocks_button_only_when_no_inline_counter():
+    from legalguard.adapters.inbound.channels import _analysis_blocks
+    blocks = _analysis_blocks(_counter_result(), "case1")
+    with_btn = [b for b in blocks if b.get("accessory")]
+    assert len(with_btn) == 1                               # chỉ rủi ro 2 (không counter) có nút
+    assert json.loads(with_btn[0]["accessory"]["value"]) == {"c": "case1", "i": 1}
+    assert "Đề xuất điều khoản mới: Mức phạt tối đa 8%" in json.dumps(blocks, ensure_ascii=False)
+
+
 def test_format_amend_bilingual_and_framework_flag():
     from legalguard.adapters.inbound.channels import _format_amend
     # nguyên văn điều khoản CŨ (trích HĐ) → điều khoản MỚI song ngữ

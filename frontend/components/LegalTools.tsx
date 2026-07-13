@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import type {
-  GraphDTO, LatestDTO, ChangelogDTO, ImpactDTO, MonitorDTO, ChangelogItem, GraphEdge, ImpactItem,
-} from "@/lib/api";
+import type { ImpactDTO, MonitorDTO, ImpactItem, InForceDTO } from "@/lib/api";
 import { Card, Section, Badge, Note } from "@/components/ui";
 import { Button } from "@/components/ui/Button";
 
@@ -16,9 +14,7 @@ const REL: Record<string, { vi: string; en: string }> = {
   guides: { vi: "hướng dẫn", en: "guides" },
   guided_by: { vi: "được hướng dẫn bởi", en: "guided by" },
 };
-const STATUS_VARIANT: Record<string, string> = { in_force: "ok", expired: "danger", draft: "warn" };
-
-// Công cụ pháp lý nâng cao trên /lookup: Autopilot quét luật mới · lược đồ+lịch sử văn bản · tác động · redline.
+// Công cụ pháp lý nâng cao trên /lookup: Autopilot quét luật mới · kiểm tra hiệu lực VB · tác động · redline.
 export default function LegalTools() {
   const t = useTranslations("tools");
   const locale = useLocale();
@@ -28,7 +24,7 @@ export default function LegalTools() {
     <div className="mt-12 flex flex-col gap-8 border-t border-line pt-8">
       <h2 className="text-lg font-semibold">{t("heading")}</h2>
       <Monitor t={t} />
-      <DocLens t={t} rel={rel} />
+      <InForce t={t} />
       <Impact t={t} rel={rel} />
       <Redline t={t} />
     </div>
@@ -58,7 +54,7 @@ function Monitor({ t }: { t: T }) {
   }
 
   return (
-    <Section title={`🤖 ${t("monitorTitle")}`}>
+    <Section title={t("monitorTitle")}>
       <p className="mb-3 text-sm text-muted">{t("monitorLede")}</p>
       <div className="flex flex-wrap items-end gap-2">
         <label className="text-sm">
@@ -129,14 +125,11 @@ function DismissCase({ t, docId, caseId }: { t: T; docId: string; caseId: string
   );
 }
 
-function DocLens({ t, rel }: { t: T; rel: (r: string) => string }) {
+// VB còn hiệu lực pháp luật không (thay "lược đồ" cũ — đồng bộ web/lookup.html checkInForce).
+function InForce({ t }: { t: T }) {
   const [doc, setDoc] = useState("");
-  type Lens = {
-    graph?: GraphDTO | null; latest?: LatestDTO | null;
-    articles?: Record<string, { doc_id: string; effective_date?: string }[]>;
-    changes?: ChangelogDTO | null; notFound?: boolean;
-  };
-  const [data, setData] = useState<Lens | null>(null);
+  const [data, setData] = useState<InForceDTO | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function load() {
@@ -144,77 +137,44 @@ function DocLens({ t, rel }: { t: T; rel: (r: string) => string }) {
     if (!id || busy) return;
     setBusy(true);
     setData(null);
-    const q = `?doc=${encodeURIComponent(id)}`;
-    const [g, l, a, c] = await Promise.all([
-      fetch(`/api/graph${q}`), fetch(`/api/latest${q}`), fetch(`/api/articles-changed${q}`), fetch(`/api/changes${q}`),
-    ]);
-    if (g.status === 404) {
-      setData({ notFound: true });
+    setNotFound(false);
+    try {
+      const r = await fetch(`/api/in-force?doc=${encodeURIComponent(id)}`);
+      if (r.status === 404) { setNotFound(true); return; }
+      if (r.ok) setData(await r.json());
+    } finally {
       setBusy(false);
-      return;
     }
-    setData({
-      graph: g.ok ? await g.json() : null,
-      latest: l.ok ? await l.json() : null,
-      articles: a.ok ? (await a.json()).amended_articles ?? {} : {},
-      changes: c.ok ? await c.json() : null,
-    });
-    setBusy(false);
   }
 
   return (
-    <Section title={`🗺️ ${t("lensTitle")}`}>
-      <p className="mb-3 text-sm text-muted">{t("lensLede")}</p>
+    <Section title={t("inForceTitle")}>
+      <p className="mb-3 text-sm text-muted">{t("inForceLede")}</p>
       <div className="flex flex-wrap items-end gap-2">
-        <input value={doc} onChange={(e) => setDoc(e.target.value)} placeholder="123/2020/NĐ-CP"
+        <input value={doc} onChange={(e) => setDoc(e.target.value)} placeholder="13/2023/NĐ-CP"
           className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-accent-d" />
-        <Button onClick={load} disabled={busy || !doc.trim()}>{busy ? t("loading") : t("view")}</Button>
+        <Button onClick={load} disabled={busy || !doc.trim()}>{busy ? t("loading") : t("check")}</Button>
       </div>
-      {data?.notFound && <Note className="mt-3">{t("notFound")}</Note>}
-      {data && !data.notFound && (
-        <div className="mt-3 flex flex-col gap-3">
-          {data.latest?.doc_id && (
-            <Card>
-              <span className="text-xs uppercase tracking-wide text-muted">{t("latest")}</span>
-              <p className="mt-1 text-sm"><strong>{data.latest.title || data.latest.doc_id}</strong>
-                {data.latest.effective_date && <span className="ml-2 text-xs text-muted">({t("effective")} {data.latest.effective_date})</span>}</p>
-            </Card>
+      {notFound && <Note className="mt-3">{t("notFound")}</Note>}
+      {data && (
+        <Card className="mt-3">
+          <p className="text-sm">
+            <strong>{data.title || data.doc_id}</strong>{" "}
+            <Badge variant={data.in_force ? "ok" : "danger"}>{data.in_force ? t("inForceYes") : t("inForceNo")}</Badge>
+          </p>
+          <p className="mt-2 text-sm">{data.reason}</p>
+          {data.effective_date && <p className="mt-1 text-xs text-muted">{t("effective")}: {data.effective_date}</p>}
+          {data.replaced && data.latest && (
+            <Note variant="error" className="mt-2">
+              {t("currentDoc")}: <strong>{data.latest}</strong>{data.latest_title ? ` — ${data.latest_title}` : ""}
+            </Note>
           )}
-          {data.changes && (
-            <Card>
-              <p className="text-sm"><strong>{data.changes.title || data.changes.doc_id}</strong>
-                {data.changes.status && <Badge variant={STATUS_VARIANT[data.changes.status] ?? "neutral"} className="ml-2">{data.changes.status}</Badge>}</p>
-              {(data.changes.items ?? []).length > 0 && (
-                <ul className="mt-2 space-y-1 text-sm">
-                  {data.changes.items.map((x: ChangelogItem, i: number) => (
-                    <li key={i}><strong>{rel(x.relation)}</strong>: {x.doc_id}
-                      {x.effective_date && <span className="text-xs text-muted"> ({t("effective")} {x.effective_date})</span>}</li>
-                  ))}
-                </ul>
-              )}
-            </Card>
+          {(data.amended_by ?? []).length > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              {t("amendedByLabel")}: {data.amended_by!.map((a) => a.doc_id + (a.title ? ` (${a.title})` : "")).join(", ")}
+            </p>
           )}
-          {data.graph && data.graph.edges.length > 0 && (
-            <Card>
-              <span className="text-xs uppercase tracking-wide text-muted">{t("graph", { n: data.graph.edges.length })}</span>
-              <div className="mt-2 flex flex-col gap-1 text-sm">
-                {data.graph.edges.map((e: GraphEdge, i: number) => (
-                  <div key={i}>{e.from} <strong className="text-accent-d">{rel(e.relation)}</strong> {e.to}</div>
-                ))}
-              </div>
-            </Card>
-          )}
-          {data.articles && Object.keys(data.articles).length > 0 && (
-            <Card>
-              <span className="text-xs uppercase tracking-wide text-muted">{t("amended")}</span>
-              <ul className="mt-2 space-y-1 text-sm">
-                {Object.entries(data.articles).map(([art, by], i) => (
-                  <li key={i}><strong>{art}</strong>: {(by ?? []).map((b) => b.doc_id).join(", ")}</li>
-                ))}
-              </ul>
-            </Card>
-          )}
-        </div>
+        </Card>
       )}
     </Section>
   );
@@ -239,7 +199,7 @@ function Impact({ t, rel }: { t: T; rel: (r: string) => string }) {
   }
 
   return (
-    <Section title={`🛎️ ${t("impactTitle")}`}>
+    <Section title={t("impactTitle")}>
       <p className="mb-3 text-sm text-muted">{t("impactLede")}</p>
       <div className="flex flex-wrap items-end gap-2">
         <input value={doc} onChange={(e) => setDoc(e.target.value)} placeholder="70/2025/NĐ-CP"
@@ -293,7 +253,7 @@ function Redline({ t }: { t: T }) {
   }
 
   return (
-    <Section title={`📝 ${t("redlineTitle")}`}>
+    <Section title={t("redlineTitle")}>
       <p className="mb-3 text-sm text-muted">{t("redlineLede")}</p>
       <div className="grid gap-2 sm:grid-cols-2">
         <textarea value={oldT} onChange={(e) => setOldT(e.target.value)} rows={4} placeholder={t("oldVersion")}

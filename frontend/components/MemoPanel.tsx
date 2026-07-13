@@ -7,7 +7,9 @@ import { Section, Card, Note } from "@/components/ui";
 import { Button } from "@/components/ui/Button";
 
 // Bản ghi nhớ sửa đổi: gộp risk + fallback (cùng clause) → memo markdown (+ tải Word .docx).
-export default function MemoPanel({ risks, fallbacks }: { risks: RiskDTO[]; fallbacks: FallbackDTO[] }) {
+export default function MemoPanel({ risks, fallbacks, protectedParty }: {
+  risks: RiskDTO[]; fallbacks: FallbackDTO[]; protectedParty?: string;
+}) {
   const t = useTranslations("memo");
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,7 +34,7 @@ export default function MemoPanel({ risks, fallbacks }: { risks: RiskDTO[]; fall
       const res = await fetch("/api/amendments/compile", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items: items() }),
+        body: JSON.stringify({ items: items(), protected_party: protectedParty ?? "" }),
       });
       if (res.ok) setMarkdown((await res.json()).markdown ?? "");
     } finally {
@@ -45,7 +47,7 @@ export default function MemoPanel({ risks, fallbacks }: { risks: RiskDTO[]; fall
     const res = await fetch("/api/amendments/compile-docx", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ items: items() }),
+      body: JSON.stringify({ items: items(), protected_party: protectedParty ?? "" }),
     });
     if (!res.ok) {
       setDocxNote(t("docxUnavailable")); // 501: thiếu python-docx → dùng markdown
@@ -63,11 +65,11 @@ export default function MemoPanel({ risks, fallbacks }: { risks: RiskDTO[]; fall
   if (risks.length === 0) return null;
 
   return (
-    <Section title={`📄 ${t("title")}`}>
+    <Section title={t("title")}>
       <p className="mb-3 text-sm text-muted">{t("lede")}</p>
       <div className="flex flex-wrap gap-2">
         <Button onClick={compile} disabled={busy}>{busy ? t("busy") : t("compile")}</Button>
-        {markdown && <Button variant="ghost" onClick={downloadDocx}>⬇️ {t("docx")}</Button>}
+        {markdown && <Button variant="ghost" onClick={downloadDocx}>{t("docx")}</Button>}
       </div>
       {docxNote && <Note className="mt-3">{docxNote}</Note>}
       {markdown && (

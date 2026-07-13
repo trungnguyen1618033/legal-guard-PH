@@ -63,13 +63,13 @@ export default function NegotiationPanel({ dealContext, position }: { dealContex
             <div className="flex items-center gap-2">
               <Badge variant="neutral">{t("round")} {i + 1}</Badge>
               <Badge variant={STATUS[r.status] ?? "neutral"}>{t(`st_${r.status}`)}</Badge>
-              {!r.grounded && <span className="text-xs italic text-amber-700">⚠️ {t("draft")}</span>}
+              {!r.grounded && <span className="text-xs italic text-amber-700">{t("draft")}</span>}
             </div>
             <p className="mt-2 text-sm"><span className="text-muted">{t("partner")}:</span> {r.partner}</p>
             {r.assessment && <p className="mt-2 text-sm"><strong>{t("assessment")}:</strong> {r.assessment}</p>}
             {r.strategy && <p className="mt-1 text-sm"><strong>{t("strategy")}:</strong> {r.strategy}</p>}
-            {r.reply_vi && <div className="mt-2 rounded bg-paper p-2 text-sm">🇻🇳 {r.reply_vi}</div>}
-            {r.reply_en && <div className="mt-1 rounded bg-paper p-2 text-sm">🇬🇧 {r.reply_en}</div>}
+            {r.reply_vi && <div className="mt-2 rounded bg-paper p-2 text-sm"><span className="text-muted">VI:</span> {r.reply_vi}</div>}
+            {r.reply_en && <div className="mt-1 rounded bg-paper p-2 text-sm"><span className="text-muted">EN:</span> {r.reply_en}</div>}
           </Card>
         ))}
       </div>

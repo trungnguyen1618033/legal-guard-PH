@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { AnalysisResultDTO, RiskDTO, FallbackDTO } from "@/lib/api";
 import { Card, Section, Badge, Note } from "@/components/ui";
 import { Button } from "@/components/ui/Button";
@@ -59,6 +59,7 @@ export type AnalyzeLabels = {
 
 export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
   const locale = useLocale();
+  const t = useTranslations("app");
   const [mode, setMode] = useState<"text" | "file">("text");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -242,7 +243,7 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
           {result.summary && <Section title={L.summary}><p className="whitespace-pre-wrap leading-relaxed">{result.summary}</p></Section>}
 
           {result.execution_summary && result.execution_summary.total_tool_calls > 0 && (
-            <Section title={`🤖 ${L.agentWork}`}>
+            <Section title={L.agentWork}>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="neutral">{result.execution_summary.total_tool_calls} {L.esCalls}</Badge>
                 <Badge variant="neutral">{result.execution_summary.searches} {L.esSearches}</Badge>
@@ -261,24 +262,45 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
               : "border-amber-300 bg-amber-50"}`}>
               {review === "pending" && (
                 <>
-                  <strong>🧑‍⚖️ {L.checkpoint}</strong>
+                  <strong>{L.checkpoint}</strong>
                   <p className="mt-1 text-sm text-muted">{(result.review_reasons || []).join(" · ") || L.checkpointDesc}</p>
                   <div className="mt-3 flex gap-2">
-                    <Button variant="ok" onClick={() => setReview("approved")}>✓ {L.approve}</Button>
-                    <Button variant="danger" onClick={reject}>✗ {L.reject}</Button>
+                    <Button variant="ok" onClick={() => setReview("approved")}>{L.approve}</Button>
+                    <Button variant="danger" onClick={reject}>{L.reject}</Button>
                   </div>
                 </>
               )}
-              {review === "approved" && <strong className="text-green-800">✅ {L.approved}</strong>}
-              {review === "rejected" && <div><strong className="text-red-800">✗ {L.rejected}</strong>{rejectMsg && <p className="mt-1 text-sm text-muted">{rejectMsg}</p>}</div>}
+              {review === "approved" && <strong className="text-green-800">{L.approved}</strong>}
+              {review === "rejected" && <div><strong className="text-red-800">{L.rejected}</strong>{rejectMsg && <p className="mt-1 text-sm text-muted">{rejectMsg}</p>}</div>}
             </div>
           )}
 
           {result.strategy && <Section title={L.strategy}><p className="whitespace-pre-wrap leading-relaxed">{result.strategy}</p></Section>}
 
-          {result.risks?.length > 0 && (
-            <Section title={`${L.risks} (${result.risks.length})`}>
-              <div className="flex flex-col gap-3">{result.risks.map((r, i) => <RiskCard key={i} r={r} L={L} />)}</div>
+          {result.risks?.length > 0 && (() => {
+            // Dòng ĐẦU: loại HĐ + tên khách hàng bảo vệ (văn phong luật sư) — đồng bộ web/app.html + Slack.
+            let lead = t("leadIntro");
+            if (result.protected_party) lead += " " + t("leadFor") + " " + result.protected_party;
+            lead = (result.contract_type ? t("leadType") + " " + result.contract_type + ". " : "") + lead + ":";
+            const fbByClause: Record<string, FallbackDTO> = {};
+            (result.fallbacks || []).forEach((f) => { if (f.clause) fbByClause[f.clause] = f; });
+            return (
+              <Section title={`${L.risks} (${result.risks.length})`}>
+                <p className="mb-4 leading-relaxed"><strong>{lead}</strong></p>
+                <div className="flex flex-col gap-4">
+                  {result.risks.map((r, i) => (
+                    <RiskItem key={i} n={i + 1} r={r} f={fbByClause[r.clause]} t={t} leverage={pos.leverage} />
+                  ))}
+                </div>
+              </Section>
+            );
+          })()}
+
+          {result.drafting_notes && result.drafting_notes.length > 0 && (
+            <Section title={t("draftingTitle")}>
+              <ul className="list-disc space-y-1 pl-5 text-sm">
+                {result.drafting_notes.map((n, i) => <li key={i}>{n}</li>)}
+              </ul>
             </Section>
           )}
 
@@ -286,9 +308,7 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
             <Section title={L.fallbacks}>
               <div className="flex flex-col gap-3">
                 {result.fallbacks.map((f, i) => (
-                  <FallbackCard key={i} f={f} L={L} locked={!!locked}
-                    risk={result.risks?.find((r) => r.clause === f.clause)}
-                    caseId={result.case_id ?? ""} leverage={pos.leverage} />
+                  <FallbackCard key={i} f={f} L={L} locked={!!locked} caseId={result.case_id ?? ""} />
                 ))}
               </div>
             </Section>
@@ -300,7 +320,7 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
             </Section>
           )}
 
-          {result.risks?.length > 0 && <MemoPanel risks={result.risks} fallbacks={result.fallbacks ?? []} />}
+          {result.risks?.length > 0 && <MemoPanel risks={result.risks} fallbacks={result.fallbacks ?? []} protectedParty={result.protected_party} />}
 
           {(result.strategy || result.risks?.length > 0) && (
             <NegotiationPanel position={pos} dealContext={dealContext(result)} />
@@ -340,25 +360,91 @@ function Select({ label, value, onChange, opts }: {
   );
 }
 
-function RiskCard({ r, L }: { r: RiskDTO; L: AnalyzeLabels }) {
-  const illegal = r.legal_status === "illegal";
+type Tr = ReturnType<typeof useTranslations>;
+type Counter = { vi: string; en: string; rationale: string; grounded: boolean };
+
+// Rủi ro: đánh số (1)(2)(3), văn phong pháp lý — KHÔNG icon/nhãn ưu tiên; gộp đề xuất sửa; TRÁI LUẬT
+// diễn đạt pháp lý; nút "Đồng ý sửa" (đồng bộ web/app.html amendRisk + reply luật sư Slack).
+// Khối 4 phần: (N) core / Điều khoản cũ / Đề xuất điều khoản mới (inline khi có counter_clause, else
+// gợi ý + nút "Đồng ý sửa") / Lý do. Đồng bộ _risk_segments (Slack) + web/app.html.
+function RiskItem({ n, r, f, t, leverage }: {
+  n: number; r: RiskDTO; f?: FallbackDTO; t: Tr; leverage: string;
+}) {
+  const sugg = (f?.suggestion || "").replace(/^\s*(đề xuất|proposed)\s*:?\s*/i, "").trim();
+  const illegalText = r.legal_status === "illegal"
+    ? ` ${t("illegalPre")}${r.violated_law ? ` ${t("illegalAt")} ${r.violated_law}` : ` ${t("illegalGeneric")}`}${t("illegalPost")}`
+    : "";
+  const cc = r.counter_clause;
+  const hasInline = !!(cc && cc.vi && cc.vi.trim());
+  const reason = (cc?.rationale || "").trim() || (r.legal_basis || r.source || "");
   return (
-    <Card>
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={r.severity}>{r.severity}</Badge>
-        {illegal ? (
-          <Badge variant="danger">⚖️ {L.illegal}{r.violated_law ? ` · ${r.violated_law}` : ""}</Badge>
-        ) : (
-          <Badge variant="neutral">{L.unfavorable}</Badge>
-        )}
-        {r.priority && <Badge variant="neutral">{r.priority}</Badge>}
-        {r.verified === false && <Badge variant="warn">⚠ {L.unverified}</Badge>}
-        <strong className="text-ink">{r.clause}</strong>
-      </div>
-      <p className="mt-2 text-sm leading-relaxed">{r.risk}</p>
-      {r.evidence && <p className="mt-2 border-l-2 border-line pl-3 text-sm italic text-muted">“{r.evidence}”</p>}
-      {r.legal_basis && <p className="mt-2 text-xs text-muted">📎 {L.legalBasis}: {r.legal_basis}</p>}
-    </Card>
+    <div>
+      <p className="text-sm leading-relaxed">
+        ({n}) <strong className="text-ink">{r.clause}</strong>: {r.risk}.{illegalText}
+        {r.verified === false && <span className="text-muted"> {t("notAutoVerified")}</span>}
+      </p>
+      {r.evidence && <p className="mt-1 text-xs text-muted"><strong>{t("oldClause")}:</strong> {r.evidence.slice(0, 400)}</p>}
+      {hasInline ? (
+        <p className="mt-1 text-sm">
+          <strong>{t("proposeNewClause")}:</strong> {cc!.vi}
+          {cc!.en && <span className="mt-0.5 block text-xs text-muted">(EN: {cc!.en})</span>}
+        </p>
+      ) : (
+        <>
+          {sugg && <p className="mt-1 text-sm"><strong>{t("proposeAmend")}:</strong> {sugg}.</p>}
+          <AmendRisk r={r} f={f} t={t} leverage={leverage} />
+        </>
+      )}
+      {reason && <p className="mt-1 text-xs text-muted"><strong>{t("amendRationale")}:</strong> {reason.slice(0, 300)}</p>}
+    </div>
+  );
+}
+
+// Nút "Đồng ý sửa" → /counter dùng NGUYÊN VĂN evidence (trích HĐ) làm điều khoản cũ → LLM viết lại cả đoạn.
+function AmendRisk({ r, f, t, leverage }: { r: RiskDTO; f?: FallbackDTO; t: Tr; leverage: string }) {
+  const [box, setBox] = useState<Counter | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const original = (r.evidence || "").trim() || r.clause;
+
+  async function run() {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/counter", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          clause: original, risk: r.risk || "", suggestion: f?.suggestion || "",
+          legal_basis: f?.legal_basis || r.legal_basis || "", leverage,
+        }),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      setBox(await res.json());
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-2">
+      <Button variant="ghost" onClick={run} disabled={busy} className="px-3 py-1 text-xs">
+        {busy ? t("amendBusy") : t("amendBtn")}
+      </Button>
+      {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+      {box && (
+        <Card className="mt-2 bg-paper text-sm">
+          {!box.grounded && <p className="mb-1 text-xs italic text-amber-700">{t("amendDraft")}</p>}
+          <p><strong>{t("amendProposedFor")}:</strong> {r.clause}</p>
+          {original !== r.clause && <p className="mt-1"><strong>{t("amendCurrent")}:</strong> {original}</p>}
+          <p className="mt-1"><strong>{t("amendVi")}:</strong> {box.vi}</p>
+          {box.en && <p className="mt-1"><strong>{t("amendEn")}:</strong> {box.en}</p>}
+          {box.rationale && <p className="mt-1 text-xs text-muted">{t("amendRationale")}: {box.rationale}</p>}
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -370,8 +456,8 @@ function dealContext(r: AnalysisResultDTO): string {
   return `CHIẾN LƯỢC:\n${r.strategy ?? ""}\n\nRỦI RO:\n${risks}`;
 }
 
-function FallbackCard({ f, L, locked, risk, caseId, leverage }: {
-  f: FallbackDTO; L: AnalyzeLabels; locked: boolean; risk?: RiskDTO; caseId: string; leverage: string;
+function FallbackCard({ f, L, locked, caseId }: {
+  f: FallbackDTO; L: AnalyzeLabels; locked: boolean; caseId: string;
 }) {
   return (
     <Card>
@@ -384,13 +470,13 @@ function FallbackCard({ f, L, locked, risk, caseId, leverage }: {
         <div className="mt-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted">{L.reply}</span>
           <div className={`mt-1 rounded bg-paper p-3 text-sm ${locked ? "select-none blur-sm" : ""}`}>
-            ✉️ {f.english_reply}
+            {f.english_reply}
           </div>
-          {locked && <p className="mt-1 text-xs italic text-muted">🔒 {L.replyLocked}</p>}
+          {locked && <p className="mt-1 text-xs italic text-muted">{L.replyLocked}</p>}
         </div>
       )}
-      {f.legal_basis && <p className="mt-2 text-xs text-muted">📎 {L.legalBasis}: {f.legal_basis}</p>}
-      {!locked && <FallbackActions f={f} risk={risk} caseId={caseId} leverage={leverage} />}
+      {f.legal_basis && <p className="mt-2 text-xs text-muted">{L.legalBasis}: {f.legal_basis}</p>}
+      {!locked && <FallbackActions f={f} caseId={caseId} />}
     </Card>
   );
 }

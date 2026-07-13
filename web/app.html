@@ -304,17 +304,27 @@ function render(d) {
 
   // Rủi ro: đánh số (1)(2)(3), văn phong pháp lý — KHÔNG icon màu/nhãn ưu tiên; gộp đề xuất sửa +
   // nút "Đồng ý sửa" (chỉ khi có đề xuất) → soạn điều khoản cũ→mới. TRÁI LUẬT diễn đạt pháp lý.
+  // KHỐI 4 phần (core / điều khoản cũ / điều khoản mới / lý do). Rủi ro illegal/must_fix có counter_clause
+  // inline (auto); rủi ro nhẹ → nút "Đồng ý sửa". Đồng bộ _risk_segments (Slack/Zalo).
   $('risks').innerHTML = (d.risks||[]).map((r,i) => {
     const f = _fbByClause[r.clause] || {};
     const sugg = (f.suggestion||'').replace(/^\s*đề xuất\s*:?\s*/i,'').trim();
     const illegal = r.legal_status==='illegal'
       ? ` Điều khoản này có dấu hiệu trái quy định${r.violated_law?(' tại '+esc(r.violated_law)):' của pháp luật'}; phần vi phạm có thể bị tuyên vô hiệu.` : '';
+    const cc = r.counter_clause || {};
+    const hasInline = !!(cc.vi && cc.vi.trim());
+    const reason = ((cc.rationale||'').trim() || (r.legal_basis||r.source||'')).slice(0,300);
+    const newClause = hasInline
+      ? `<div style="margin-top:4px"><b>Đề xuất điều khoản mới:</b> ${esc(cc.vi)}`
+          + (cc.en?`<div class="muted" style="margin-top:2px">(EN: ${esc(cc.en)})</div>`:'') + `</div>`
+      : (sugg?`<div style="margin-top:4px"><b>Đề xuất sửa đổi:</b> ${esc(sugg)}.</div>`:'')
+          + `<button class="ghost" style="margin-top:6px" onclick="amendRisk(${i})">Đồng ý sửa → soạn điều khoản mới</button>`
+          + `<div id="am-${i}" class="rl" style="margin-top:6px"></div>`;
     return `<div class="risk-item" style="margin-bottom:16px">
-      <div>(${i+1}) <strong>${esc(r.clause)}</strong>: ${esc(r.risk)}.${illegal}${sugg?` <em>Đề xuất sửa đổi:</em> ${esc(sugg)}.`:''}${r.verified===false?' <span class="muted">(chưa đối chiếu tự động — luật sư kiểm)</span>':''}</div>
-      ${r.evidence?`<div class="muted" style="margin-top:2px">Trích hợp đồng: ${esc(r.evidence.slice(0,180))}</div>`:''}
-      ${(r.legal_basis||r.source)?`<div class="muted">${esc((r.legal_basis||r.source).slice(0,160))}</div>`:''}
-      <button class="ghost" style="margin-top:6px" onclick="amendRisk(${i})">Đồng ý sửa → soạn điều khoản mới</button>
-      <div id="am-${i}" class="rl" style="margin-top:6px"></div>
+      <div>(${i+1}) <strong>${esc(r.clause)}</strong>: ${esc(r.risk)}.${illegal}${r.verified===false?' <span class="muted">(chưa đối chiếu tự động — luật sư kiểm)</span>':''}</div>
+      ${r.evidence?`<div class="muted" style="margin-top:2px"><b>Điều khoản cũ (trích HĐ):</b> ${esc(r.evidence.slice(0,400))}</div>`:''}
+      ${newClause}
+      ${reason?`<div class="muted" style="margin-top:2px"><b>Lý do:</b> ${esc(reason)}</div>`:''}
     </div>`;
   }).join('') || '<p class="muted">Không phát hiện điều khoản rủi ro rõ ràng </p>';
 

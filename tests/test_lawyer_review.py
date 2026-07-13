@@ -63,6 +63,41 @@ def test_detect_illegal_does_not_touch_agent_illegal():
     assert r.legal_status == "illegal" and r.violated_law == "Điều 301 LTM"
 
 
+# ---- Sinh INLINE điều khoản mới cho rủi ro illegal/must_fix ----
+class _CounterLLM:
+    """Reasoner giả: trả JSON counter-clause hợp lệ."""
+    name = "qwen"
+    available = True
+
+    def complete(self, prompt, *, system=None):
+        return '{"vi":"Mức phạt tối đa 8%.","en":"Cap 8%.","rationale":"Điều 301 LTM giới hạn 8%."}'
+
+
+def test_attach_counter_clauses_only_illegal_or_must_fix():
+    from legalguard.domain.analysis import _attach_counter_clauses
+    risks = [
+        Risk(clause="Phạt 15%", risk="vượt trần", severity="high",
+             legal_status="illegal", violated_law="Điều 301", evidence="Bên B chịu phạt 15%."),
+        Risk(clause="Thanh toán 90 ngày", risk="bất lợi", severity="medium",
+             priority="negotiate", legal_status="unfavorable"),
+        Risk(clause="Bảo hành", risk="quá ngắn", severity="medium", priority="must_fix"),
+    ]
+    n = _attach_counter_clauses(risks, [], _CounterLLM())
+    assert n == 2                                             # illegal + must_fix (KHÔNG unfavorable/negotiate)
+    assert risks[0].counter_clause.get("vi") == "Mức phạt tối đa 8%."
+    assert risks[1].counter_clause == {}                     # rủi ro nhẹ → giữ cho nút "Đồng ý sửa"
+    assert risks[2].counter_clause.get("vi") == "Mức phạt tối đa 8%."
+
+
+def test_attach_counter_clauses_noop_when_reasoner_offline():
+    from legalguard.domain.analysis import _attach_counter_clauses
+
+    class _Off:
+        available = False
+    r = Risk(clause="Phạt 15%", risk="vượt trần", severity="high", legal_status="illegal")
+    assert _attach_counter_clauses([r], [], _Off()) == 0 and r.counter_clause == {}
+
+
 def test_analyze_classifies_illegal_vs_unfavorable():
     res = build_service().analyze(SAMPLE, ORG, lang="vi")
     statuses = {r["legal_status"] for r in res.risks}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
-// Nút phản hồi 👍/⚠️/➖ → /api/feedback (nuôi flywheel + golden set). Dùng ở /app và /lookup.
+// Nút phản hồi (đúng / chưa đúng / còn thiếu) → /api/feedback (nuôi flywheel + golden set). Dùng ở /app và /lookup.
 export default function FeedbackButtons({ kind, refValue }: { kind: "analysis" | "lookup"; refValue: string }) {
   const t = useTranslations("fb");
   const [sent, setSent] = useState(false);
@@ -27,10 +27,10 @@ export default function FeedbackButtons({ kind, refValue }: { kind: "analysis" |
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
       <span>{t("prompt")}</span>
-      {([["helpful", "👍"], ["wrong", "⚠️"], ["incomplete", "➖"]] as const).map(([r, icon]) => (
+      {(["helpful", "wrong", "incomplete"] as const).map((r) => (
         <button key={r} onClick={() => send(r)}
           className="rounded-full border border-line px-2.5 py-1 hover:border-accent-d hover:text-ink">
-          {icon} {t(r)}
+          {t(r)}
         </button>
       ))}
     </div>
