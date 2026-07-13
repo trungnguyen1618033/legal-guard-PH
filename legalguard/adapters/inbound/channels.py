@@ -32,6 +32,7 @@ from legalguard.domain.models import (
     SourceMeta,
 )
 from legalguard.domain.negotiation import NegotiationState, state_from_json, state_to_json
+from legalguard.domain.presentation import md_to_slack as _md_to_slack  # tầng trình bày dùng chung
 from legalguard.domain.ports import (
     ChatSenderPort,
     ConversationStorePort,
@@ -1006,21 +1007,6 @@ def _run_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, ca
     except Exception:  # noqa: BLE001 — task nền: lỗi soạn không được làm sập, báo khách nhẹ nhàng
         _log.exception("Không soạn được điều khoản sửa (%s)", case_id)
         _safe_send(sender, send_to, "Xin lỗi, chưa soạn được điều khoản sửa. Vui lòng thử lại.", thread_ts)
-
-
-_MD_BOLD_RE = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)          # **đậm** (markdown chuẩn)
-_MD_HEADER_RE = re.compile(r"^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*$", re.MULTILINE)   # # Tiêu đề
-
-
-def _md_to_slack(text: str) -> str:
-    """Markdown chuẩn (GitHub) → Slack mrkdwn. Slack dùng MỘT dấu `*` cho ĐẬM: `**x**` KHÔNG render (hiện
-    thô '**'), `# Tiêu đề` cũng không. Chuyển `**x**`→`*x*` và tiêu đề `#…`→`*…*` để reply Slack in đậm
-    đúng. CHỈ áp tầng gửi Slack — web/Zalo giữ markdown gốc (web render markdown thật)."""
-    if not text:
-        return text
-    t = _MD_BOLD_RE.sub(r"*\1*", text)          # làm TRƯỚC để không tạo *** khi header chứa đậm
-    t = _MD_HEADER_RE.sub(r"*\1*", t)
-    return t
 
 
 def _slackify_blocks(blocks: list[dict]) -> list[dict]:
