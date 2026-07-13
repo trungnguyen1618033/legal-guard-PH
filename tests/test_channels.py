@@ -245,6 +245,24 @@ def test_latest_contract_file_picks_most_recent():
     assert _latest_contract_file([{"files": [{"url": "u", "name": "pic.gif"}]}]) == (None, None)
 
 
+def test_latest_contract_file_skips_bot_and_prefers_doc():
+    from legalguard.adapters.inbound.channels import _latest_contract_file
+    msgs = [
+        {"ts": "1", "files": [{"url": "u_doc", "name": "hopdong.pdf"}]},            # tài liệu (user)
+        {"ts": "2", "bot_id": "B1", "files": [{"url": "u_bot", "name": "memo.docx"}]},  # BOT → bỏ
+        {"ts": "3", "files": [{"url": "u_img", "name": "screenshot.png"}]},         # ảnh mới hơn
+    ]
+    assert _latest_contract_file(msgs) == ("u_doc", "hopdong.pdf")          # ưu tiên tài liệu user, bỏ file bot
+
+
+def test_review_request_mid_deal_not_prompt_to_attach():
+    # Fix bug: 'review ... contract' NGẮN giữa deal → KHÔNG chặn thành prompt-đính-kèm (để followup trả lời).
+    h = _handler()
+    h.reply("cRevDeal", text=MSG)                        # analyze → conv.context set
+    r = h.reply_ex("cRevDeal", text="re-review the payment clause of the contract")
+    assert "đính kèm" not in r.text.lower()              # KHÔNG phải prompt-đính-kèm (đang trong deal)
+
+
 def test_process_reuses_contract_file_from_thread():
     # User yêu cầu rà soát KHÔNG kèm file; thread có file HĐ ở tin trước → _process dùng file đó → rà soát
     # (KHÔNG hỏi đính kèm lại). Fix cho phản ánh: 'không biết trong thread có file nào không'.

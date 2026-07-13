@@ -526,11 +526,12 @@ class ChatHandler:
         if attachment is None and _is_trust_query(text or ""):     # meta-câu-hỏi về độ tin cậy → công bố
             from legalguard.domain.trust import format_trust_text
             return ChatReply(format_trust_text())
-        # Yêu cầu rà soát CẢ hợp đồng nhưng KHÔNG kèm file / KHÔNG dán nội dung (chỉ chỉ dẫn "review this
-        # contract") → hướng dẫn ĐÍNH KÈM. HĐ không lưu đầy đủ (chỉ excerpt) nên không tự rà lại được; nếu
-        # bỏ qua sẽ rơi vào followup mơ hồ (không có nút). HĐ dán trực tiếp dài > ngưỡng → xuống nhánh analyze.
-        if attachment is None and len((text or "").strip()) < 200 \
-                and _wants_whole_contract_review(text or ""):
+        # Yêu cầu rà soát CẢ hợp đồng nhưng KHÔNG kèm file / KHÔNG dán nội dung → hướng dẫn ĐÍNH KÈM. CHỈ khi
+        # CHƯA vào deal/thread (fresh): đang trong deal/thread → là follow-up ("re-review điều khoản X") →
+        # để nhánh followup trả lời theo ngữ cảnh, KHÔNG chặn thành prompt. (File trong thread đã được
+        # _process xử lý trước đó; tới đây nghĩa là không có file → fresh review-request mới hướng dẫn đính kèm.)
+        if attachment is None and not conv.context and not thread_context \
+                and len((text or "").strip()) < 200 and _wants_whole_contract_review(text or ""):
             return ChatReply(
                 "Bạn muốn rà soát hợp đồng — vui lòng ĐÍNH KÈM lại file hợp đồng (.pdf/.docx/.txt/ảnh) "
                 "hoặc DÁN nội dung hợp đồng vào tin nhắn để tôi rà soát và đề xuất sửa. (Nếu đã có kết quả "
@@ -662,19 +663,27 @@ def _slack_file(event: dict) -> tuple[str | None, str | None]:
     return None, None
 
 
-_CONTRACT_EXT = (".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg")
+_DOC_EXT = (".pdf", ".docx", ".doc", ".txt")     # tài liệu HĐ — ưu tiên
+_IMG_EXT = (".png", ".jpg", ".jpeg")             # ảnh scan — chỉ dùng khi không có tài liệu
 
 
 def _latest_contract_file(msgs: list[dict]) -> tuple[str | None, str | None]:
     """Tìm FILE hợp đồng GẦN NHẤT trong các tin thread (dùng khi user yêu cầu rà soát mà không đính kèm
-    lại — file đã có sẵn trong thread). Trả (url, tên) hoặc (None, None). `msgs` cần có key `files`
-    ([{url, name}]) do sender.fetch_thread cung cấp."""
-    for m in reversed(msgs):
-        for f in (m.get("files") or []):
-            name = (f.get("name") or "").lower()
-            if f.get("url") and name.endswith(_CONTRACT_EXT):
-                return f["url"], f.get("name", "file")
-    return None, None
+    lại — file đã có sẵn trong thread). BỎ file do BOT đăng; ưu tiên TÀI LIỆU (.pdf/.docx/…) mới nhất,
+    chỉ khi không có mới tới ẢNH scan (tránh vớ nhầm screenshot). Trả (url, tên) hoặc (None, None).
+    `msgs` cần key `files` ([{url, name}]) do sender.fetch_thread cung cấp."""
+    def _find(exts: tuple[str, ...]) -> tuple[str | None, str | None]:
+        for m in reversed(msgs):
+            if m.get("bot_id"):                  # bỏ file do bot đăng (điều khoản sửa, memo…)
+                continue
+            for f in (m.get("files") or []):
+                name = (f.get("name") or "").lower()
+                if f.get("url") and name.endswith(exts):
+                    return f["url"], f.get("name", "file")
+        return None, None
+
+    url, name = _find(_DOC_EXT)
+    return (url, name) if url else _find(_IMG_EXT)
 
 
 def _zalo_file(message: dict) -> tuple[str | None, str | None]:
@@ -1006,9 +1015,11 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
             names = sender.resolve_names(sorted(ids))
         except Exception:  # noqa: BLE001 — tên là phụ: lỗi → builder dùng nhãn ẩn danh Người A/B/C
             _log.warning("resolve_names lỗi — dùng nhãn ẩn danh", exc_info=True)
-    # Yêu cầu rà soát CẢ hợp đồng nhưng KHÔNG kèm file trực tiếp → dùng FILE HĐ GẦN NHẤT trong thread
-    # (user đã đính kèm ở tin trước, không cần gửi lại). Không thấy file nào → _handle sẽ hướng dẫn đính kèm.
-    if not file_url and thread_msgs and _wants_whole_contract_review(text or ""):
+    # Yêu cầu rà soát CẢ hợp đồng nhưng KHÔNG kèm file trực tiếp + KHÔNG dán nội dung (tin ngắn) → dùng
+    # FILE HĐ GẦN NHẤT trong thread (user đã đính kèm ở tin trước). Tin DÀI = đã dán HĐ → analyze bản dán,
+    # KHÔNG lấy file cũ trong thread. Không thấy file nào → _handle hướng dẫn đính kèm.
+    if not file_url and thread_msgs and len((text or "").strip()) < 200 \
+            and _wants_whole_contract_review(text or ""):
         turl, tfn = _latest_contract_file(thread_msgs)
         if turl:
             file_url, filename = turl, tfn
@@ -1016,7 +1027,8 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
     # rà soát mà KHÔNG có file (trực tiếp/thread) → sẽ hướng dẫn đính kèm → KHÔNG ack (tránh 'Đã nhận HĐ' sai).
     will_analyze = bool(file_url) or (
         bool(text) and not _is_question(text) and any(s in text.lower() for s in _SIGNALS)
-        and not _wants_whole_contract_review(text or ""))
+        # chỉ BỎ ack cho yêu cầu rà soát NGẮN không file (→ hướng dẫn đính kèm); HĐ DÁN dài vẫn ack + analyze.
+        and not (len((text or "").strip()) < 200 and _wants_whole_contract_review(text or "")))
     if will_analyze:
         _safe_send(sender, send_to, _ACK, thread_ts)
     elif text and _looks_like_question(text):       # lookup/follow-up cũng chậm (~30s) → ack để không "chờ im"
