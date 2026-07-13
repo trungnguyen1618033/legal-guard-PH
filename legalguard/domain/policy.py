@@ -9,11 +9,29 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 from legalguard.domain.ports import LLMPort
 
 _log = logging.getLogger(__name__)
+
+
+def suggest_policies(cases: list, min_count: int = 2) -> list[dict]:
+    """Gợi ý chính sách playbook từ LỊCH SỬ: điều khoản LẶP LẠI là must_fix/illegal qua nhiều HĐ → có lẽ
+    org nên có chính sách. THUẦN (không LLM, tất định). Trả [{clause, count, rule_text (bản nháp để sửa)}]
+    sắp theo count giảm. Người duyệt sửa rule_text trước khi lưu. Nối vòng usage→policy (living flywheel)."""
+    c: Counter = Counter()
+    for case in cases:
+        seen = set()
+        for r in (getattr(case, "risks", None) or []):
+            if r.get("priority") == "must_fix" or r.get("legal_status") == "illegal":
+                cl = (r.get("clause") or "").strip()
+                if cl and cl not in seen:         # đếm 1 lần / hợp đồng
+                    seen.add(cl)
+                    c[cl] += 1
+    return [{"clause": cl, "count": n, "rule_text": f"Rà soát chặt điều khoản: {cl}"}
+            for cl, n in c.most_common() if n >= min_count]
 
 _SYS = "Bạn là trợ lý pháp lý. Kiểm hợp đồng có VI PHẠM chính sách công ty không. Chỉ trả JSON."
 _PROMPT = """Chính sách công ty: "{rule}"

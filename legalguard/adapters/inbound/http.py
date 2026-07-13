@@ -660,6 +660,11 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
     def delete_policy(policy_id: str, org: Organization = Depends(require_auth)) -> dict:
         return {"ok": service.delete_policy(policy_id, org.id)}
 
+    @app.get("/org/policy/suggest")
+    def suggest_policy(org: Organization = Depends(require_auth)) -> dict:
+        # Gợi ý chính sách từ lịch sử (điều khoản hay must_fix/illegal) — người duyệt sửa rồi POST.
+        return {"suggestions": service.suggest_policies(org.id)}
+
     @app.post("/obligations/run")
     def obligations_run(body: ObligationRunIn, org: Organization = Depends(require_auth)) -> dict:
         # AUTOPILOT SAU-KÝ: quét nghĩa vụ đến hạn trong N ngày → gửi digest nhắc (cron ECS hằng ngày).

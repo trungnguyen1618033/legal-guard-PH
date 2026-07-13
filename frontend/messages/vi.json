@@ -42,7 +42,9 @@
     "playbookEmpty": "Chưa có chính sách nào.",
     "policyPlaceholder": "Nội dung chính sách…",
     "add": "Thêm",
-    "delete": "Xóa"
+    "delete": "Xóa",
+    "oblDone": "Đã xong",
+    "oblDismiss": "Bỏ qua"
   },
   "app": {
     "back": "← Trang chủ",

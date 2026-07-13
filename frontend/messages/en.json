@@ -42,7 +42,9 @@
     "playbookEmpty": "No policies yet.",
     "policyPlaceholder": "Policy rule…",
     "add": "Add",
-    "delete": "Delete"
+    "delete": "Delete",
+    "oblDone": "Done",
+    "oblDismiss": "Dismiss"
   },
   "app": {
     "back": "← Home",

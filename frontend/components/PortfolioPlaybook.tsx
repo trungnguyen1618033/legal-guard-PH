@@ -53,6 +53,14 @@ export default function PortfolioPlaybook() {
     if (r.ok) loadPolicies();
   }
 
+  async function setObligationStatus(id: string, status: string) {
+    const r = await fetch(`/api/obligations/${encodeURIComponent(id)}/status`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (r.ok) setObligations((prev) => prev.filter((o) => o.id !== id));   // ẩn khỏi list sắp-đến-hạn
+  }
+
   return (
     <div className="flex flex-col gap-8">
       {err && <Note variant="error">{t("error")}</Note>}
@@ -88,6 +96,10 @@ export default function PortfolioPlaybook() {
                   <Badge variant="warn">{o.due_date || "?"}</Badge>
                   <span className="flex-1">{o.description}</span>
                   {o.consequence && <span className="text-xs text-muted">— {o.consequence}</span>}
+                  <button onClick={() => setObligationStatus(o.id, "done")}
+                    className="text-xs text-accent-d hover:underline">{t("oblDone")}</button>
+                  <button onClick={() => setObligationStatus(o.id, "dismissed")}
+                    className="text-xs text-muted hover:underline">{t("oblDismiss")}</button>
                 </Card>
               </li>
             ))}

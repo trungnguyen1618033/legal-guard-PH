@@ -1,8 +1,8 @@
 """Playbook công ty (OrgPolicy) — domain thuần + repo + service + rendering (offline)."""
 from legalguard.adapters.outbound.sql_org_policy_repository import InMemoryOrgPolicyRepository
 from legalguard.domain.analysis import AnalysisService
-from legalguard.domain.models import AnalysisResult, OrgPolicy
-from legalguard.domain.policy import _parse, check_policy
+from legalguard.domain.models import AnalysisCase, AnalysisResult, OrgPolicy
+from legalguard.domain.policy import _parse, check_policy, suggest_policies
 
 
 class _Judge:
@@ -73,6 +73,24 @@ def test_repo_org_scope():
 # ---- service CRUD ----
 def _svc(repo):
     return AnalysisService(reasoner=object(), kb=object(), org_policies=repo, org_playbook=True)
+
+
+def test_suggest_policies_from_history():
+    def case(cid, clauses):
+        risks = [{"clause": c, "priority": "must_fix"} for c in clauses]
+        return AnalysisCase(id=cid, org_id="A", tenant="VN", created_at="t", lang="vi",
+                            contract_excerpt="", summary="", needs_human_review=False,
+                            risks=risks, fallbacks=[], trace=[])
+    cases = [case("1", ["Phạt vi phạm", "Thanh toán"]), case("2", ["Phạt vi phạm"]), case("3", ["Bảo hành"])]
+    s = suggest_policies(cases, min_count=2)
+    assert len(s) == 1 and s[0]["clause"] == "Phạt vi phạm" and s[0]["count"] == 2
+    assert "Rà soát" in s[0]["rule_text"]
+    # cùng clause trong 1 case đếm 1 lần (không thổi count)
+    dup = [AnalysisCase(id="x", org_id="A", tenant="VN", created_at="t", lang="vi", contract_excerpt="",
+                        summary="", needs_human_review=False,
+                        risks=[{"clause": "A", "priority": "must_fix"}, {"clause": "A", "legal_status": "illegal"}],
+                        fallbacks=[], trace=[])]
+    assert suggest_policies(dup, min_count=2) == []          # 1 case → count=1 < 2
 
 
 def test_service_policy_crud():

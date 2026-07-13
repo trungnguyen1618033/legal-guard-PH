@@ -58,6 +58,12 @@ _SIMPLE_MAX = 1500   # ngưỡng "đơn giản" cho adaptive routing
 # Câu hỏi point-in-time (có năm 19xx/20xx hoặc ngày d/m/y) cần suy luận thời điểm → dùng flagship,
 # không dùng model nhanh (qwen-plus yếu hơn ở reasoning thời điểm — đã đo). Hybrid lookup.
 _PIT_RE = re.compile(r"\b(?:19|20)\d{2}\b|\b\d{1,2}/\d{1,2}/\d{2,4}\b")
+# Câu hỏi LIỆT KÊ (nhiều mục/hình thức/trường hợp) → answer phải kể ĐỦ, không nén "1-3 câu" gây sót
+# (ca FDI 'những ưu đãi đầu tư nào' flaky vì LLM nén, bỏ hình thức miễn/giảm thuế). Bắt "những/các …nào",
+# "hình thức", "trường hợp", "liệt kê", "gồm/bao gồm".
+_ENUM_RE = re.compile(
+    r"(?:những|các).{0,40}\bnào\b|hình thức|trường hợp|liệt kê|gồm những|bao gồm|"
+    r"list of|types of|forms of|which .{0,30}(?:apply|available)", re.IGNORECASE)
 
 # Viết tắt pháp lý phổ biến (người dùng gõ) → cụm đầy đủ (văn bản luật viết). Chỉ các viết tắt KHÔNG
 # nhập nhằng. Mở rộng CỘNG THÊM vào query retrieval (không thay) → tăng recall (vd "TNHH" khớp Điều
@@ -513,6 +519,12 @@ class AnalysisService:
     def delete_policy(self, policy_id: str, org_id: str) -> bool:
         return self.org_policies.delete(policy_id, org_id) if self.org_policies else False
 
+    def suggest_policies(self, org_id: str, limit: int = 200) -> list[dict]:
+        """Gợi ý chính sách từ lịch sử must_fix/illegal của org (người duyệt sửa trước khi lưu)."""
+        from legalguard.domain.policy import suggest_policies
+        cases = self.cases.list_by_org(org_id, limit) if self.cases else []
+        return suggest_policies(cases)
+
     def health(self) -> dict:
         return {
             "status": "ok",
@@ -847,19 +859,24 @@ class AnalysisService:
                 return (("Chưa đủ căn cứ trong cơ sở tri thức để trả lời câu hỏi này."
                          if lang == "vi" else
                          "Not enough grounding in the knowledge base to answer this."), [])
+        is_enum = bool(_ENUM_RE.search(q))       # câu liệt kê → kể ĐỦ mục (chống sót), không nén 1-3 câu
         if lang == "vi":
+            ans_line = ("**Trả lời:** LIỆT KÊ ĐẦY ĐỦ mọi mục/hình thức/trường hợp CÓ trong căn cứ, mỗi mục "
+                        "một gạch đầu dòng — KHÔNG bỏ sót mục nào.\n" if is_enum else
+                        "**Trả lời:** <1–3 câu trực tiếp; nêu rõ số liệu/mức trần nếu có>\n")
             prompt = (
                 "Bạn là LUẬT SƯ tư vấn. CHỈ dùng các đoạn căn cứ dưới đây, KHÔNG bịa. Giọng CHUYÊN NGHIỆP, "
-                "súc tích, KHÔNG mở bài rườm rà. Trả lời theo ĐÚNG định dạng sau:\n"
-                "**Trả lời:** <1–3 câu trực tiếp; nêu rõ số liệu/mức trần nếu có>\n"
+                "súc tích, KHÔNG mở bài rườm rà. Trả lời theo ĐÚNG định dạng sau:\n" + ans_line +
                 "**Căn cứ:** mỗi dòng một căn cứ — Điều/Khoản + tên văn bản + ý chính ngắn "
                 "(chỉ dùng căn cứ có bên dưới; nếu không đủ ghi 'Chưa đủ căn cứ trong cơ sở tri thức').\n\n"
                 f"Căn cứ:\n{sources}\n\nCâu hỏi: {q}\nTrả lời tiếng Việt.")     # q = đã redact (PII)
         else:
+            ans_line = ("**Answer:** LIST ALL items/forms/cases present in the sources, one bullet each — "
+                        "do NOT omit any.\n" if is_enum else
+                        "**Answer:** <1-3 direct sentences; state figures/caps if any>\n")
             prompt = (
                 "You are a legal advisor. Use ONLY the sources below, do NOT fabricate. PROFESSIONAL, "
-                "concise tone, no preamble. Reply in EXACTLY this format (in English):\n"
-                "**Answer:** <1-3 direct sentences; state figures/caps if any>\n"
+                "concise tone, no preamble. Reply in EXACTLY this format (in English):\n" + ans_line +
                 "**Basis:** one citation per line — Article/Clause + document name + short point "
                 "(use only the sources below; if insufficient write 'Not enough grounding in the knowledge base').\n\n"
                 f"Sources:\n{sources}\n\nQuestion: {q}\nAnswer in English.")     # q = redacted (PII)

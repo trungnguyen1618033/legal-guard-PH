@@ -65,7 +65,9 @@
 
     <div class="card"><h2>Chính sách công ty (playbook)</h2>
       <p class="muted" style="margin-top:0">Khai "luật chơi" của công ty một lần → mọi HĐ tự đối chiếu (vd "Phạt vi phạm không quá 8%", "Trọng tài phải VIAC").</p>
-      <div class="row"><input id="pol-text" placeholder="Nội dung chính sách…" style="flex:1"><button id="pol-add">Thêm</button></div>
+      <div class="row"><input id="pol-text" placeholder="Nội dung chính sách…" style="flex:1"><button id="pol-add">Thêm</button>
+        <button id="pol-suggest" style="background:#5a6577">Gợi ý từ lịch sử</button></div>
+      <div id="pol-suggestions" style="margin-top:8px"></div>
       <div id="policies" style="margin-top:10px"></div></div>
   </div>
 
@@ -107,8 +109,17 @@ async function loadObligations() {
   const items = (await r.json()).obligations || [];
   $('obligations').innerHTML = items.map(o =>
     `<div class="bar"><span class="pill ${o.days_to_due!=null&&o.days_to_due<=7?'high':'medium'}">${esc(o.due_date||'?')}</span>`
-    + ` ${esc(o.description)}${o.consequence?` <span class="muted">— nếu lỡ: ${esc(o.consequence)}</span>`:''}</div>`).join('')
+    + ` <span style="flex:1">${esc(o.description)}${o.consequence?` <span class="muted">— nếu lỡ: ${esc(o.consequence)}</span>`:''}</span>`
+    + ` <button class="obl-st" data-id="${esc(o.id)}" data-s="done" style="padding:3px 9px;font-size:13px">Đã xong</button>`
+    + ` <button class="obl-st" data-id="${esc(o.id)}" data-s="dismissed" style="padding:3px 9px;font-size:13px;background:#8a94a6">Bỏ qua</button></div>`).join('')
     || '<p class="muted">Không có nghĩa vụ nào đến hạn trong 30 ngày.</p>';
+  document.querySelectorAll('.obl-st').forEach(b => b.onclick = () => setObligationStatus(b.dataset.id, b.dataset.s));
+}
+
+async function setObligationStatus(id, status) {
+  const r = await fetch('/obligations/' + encodeURIComponent(id) + '/status', { method:'POST',
+    headers: { 'Content-Type':'application/json', ...authHeaders() }, body: JSON.stringify({ status }) });
+  if (r.ok) { loadObligations(); loadPortfolio(); }   // cập nhật cả portfolio (hạn gần nhất đổi)
 }
 
 async function loadPolicies() {
@@ -136,6 +147,16 @@ async function deletePolicy(id) {
   const r = await fetch('/org/policy/' + encodeURIComponent(id), { method:'DELETE', headers: authHeaders() });
   if (r.ok) loadPolicies();
 }
+
+$('pol-suggest').onclick = async () => {
+  const r = await fetch('/org/policy/suggest', { headers: authHeaders() });
+  if (!r.ok) return;
+  const s = (await r.json()).suggestions || [];
+  $('pol-suggestions').innerHTML = s.length ? '<p class="muted" style="margin:4px 0">Gợi ý (bấm để điền, sửa rồi Thêm):</p>'
+    + s.map(x => `<button class="pol-sug" data-t="${esc(x.rule_text)}" style="background:#eef;color:#334;margin:2px;padding:4px 10px;font-size:13px">${esc(x.clause)} (${x.count} HĐ)</button>`).join('')
+    : '<p class="muted" style="margin:4px 0">Chưa đủ lịch sử để gợi ý (cần điều khoản lặp lại ≥2 HĐ).</p>';
+  document.querySelectorAll('.pol-sug').forEach(b => b.onclick = () => { $('pol-text').value = b.dataset.t; $('pol-text').focus(); });
+};
 
 function render(d) {
   $('s-cases').textContent = d.cases.total;

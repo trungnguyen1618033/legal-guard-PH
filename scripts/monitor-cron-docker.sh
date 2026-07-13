@@ -38,6 +38,21 @@ while [ $ATTEMPT -le 3 ]; do
   if [ "$CODE" = "200" ]; then
     cat /tmp/monitor-resp.json; echo
     mkdir -p /state && echo "$YESTERDAY" > "$STATE"   # lần sau quét từ hôm-qua-của-lần-thành-công
+    # NHẮC HẠN sau-ký (autopilot A): nghĩa vụ đến hạn trong 14 ngày. Best-effort — KHÔNG ảnh hưởng
+    # monitor state/exit (chỉ chạy khi OBLIGATION_TRACKING bật; flag OFF → list rỗng → không gửi).
+    if [ -n "$CHANNEL" ]; then
+      OBODY="{\"within_days\":14,\"via\":\"slack\",\"channel\":\"$CHANNEL\"}"
+    else
+      OBODY="{\"within_days\":14}"
+    fi
+    if [ -n "$KEY" ]; then
+      OCODE=$(curl -s -m 120 -o /tmp/obl-resp.json -w "%{http_code}" -XPOST http://app:8000/obligations/run \
+        -H "Content-Type: application/json" -H "X-API-Key: $KEY" -d "$OBODY")
+    else
+      OCODE=$(curl -s -m 120 -o /tmp/obl-resp.json -w "%{http_code}" -XPOST http://app:8000/obligations/run \
+        -H "Content-Type: application/json" -d "$OBODY")
+    fi
+    echo "[$(date -Iseconds)] obligations/run HTTP ${OCODE:-timeout}: $(cat /tmp/obl-resp.json 2>/dev/null)"
     exit 0
   fi
   echo "[$(date -Iseconds)] attempt $ATTEMPT/3 failed (HTTP ${CODE:-timeout}) — retry in 120s"
