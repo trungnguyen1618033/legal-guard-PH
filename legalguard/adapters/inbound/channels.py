@@ -352,25 +352,26 @@ def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, boo
         lines = [core]
         ev = (r.get("evidence") or "").strip()
         if ev:
-            lines += ["Điều khoản cũ (trích hợp đồng): " + ev[:600]]
+            lines += ["*Điều khoản cũ (trích hợp đồng):* " + ev[:600]]
         cc = r.get("counter_clause") or {}
         _disc = _AI_DISCLOSURE_LEGAL.strip()          # bỏ công bố AI nếu lọt vào nội dung (chống lặp 2 lần)
         vi = (cc.get("vi") or "").replace(_disc, "").strip()
         en = (cc.get("en") or "").replace(_disc, "").strip()
         has_inline = bool(vi)
         if has_inline:                               # rủi ro quan trọng: điều khoản mới dán-được-ngay
-            lines.append("Đề xuất điều khoản mới: " + vi)
+            lines.append("*Đề xuất điều khoản mới:* " + vi)
             if en:
                 lines.append("(EN: " + en + ")")
         else:                                        # rủi ro nhẹ: gợi ý sửa (bản dán-được qua nút 'Đồng ý sửa')
             s = sugg.get(r["clause"], "")
             if s:
                 s = re.sub(r"^\s*đề xuất\s*:?\s*", "", s, flags=re.IGNORECASE)
-                lines.append("Đề xuất sửa đổi: " + s.rstrip(".") + ".")
+                lines.append("*Đề xuất sửa đổi:* " + s.rstrip(".") + ".")
         reason = (cc.get("rationale") or "").strip() or (r.get("legal_basis") or "").strip()
         if reason:
-            lines.append("Lý do: " + reason)
-        out.append((num, idx, r["clause"], "\n".join(lines), not has_inline))
+            lines.append("*Lý do:* " + reason)
+        # Ngăn cách CÁC PHẦN bằng dòng trống (giãn dòng, dễ đọc) + nhãn IN ĐẬM (đồng bộ web).
+        out.append((num, idx, r["clause"], "\n\n".join(lines), not has_inline))
     return out
 
 
@@ -908,7 +909,7 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
         blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": txt[:2900]}})
     blocks.append({"type": "context",
                    "elements": [{"type": "mrkdwn", "text": _AI_DISCLOSURE_LEGAL.strip()}]})
-    return blocks
+    return _slackify_blocks(blocks)          # **đậm**→*đậm* (strategy/segment LLM có thể dùng markdown chuẩn)
 
 
 def _format_amend(clause: str, original: str, cc: dict) -> str:
@@ -916,12 +917,12 @@ def _format_amend(clause: str, original: str, cc: dict) -> str:
     MỚI, để luật sư biết chính xác thay đoạn nào. Văn phong pháp lý, không icon."""
     vi = (cc.get("vi") or "").strip()
     en = (cc.get("en") or "").strip()
-    parts = [f"Đề xuất sửa đổi: {clause}"]
+    parts = [f"*Đề xuất sửa đổi:* {clause}"]
     if original and original.strip() and original.strip() != clause.strip():
-        parts += ["", "Điều khoản hiện tại (trích hợp đồng):", original.strip()]
-    parts += ["", "Điều khoản đề xuất (Tiếng Việt):", vi or "(chưa soạn được)"]
+        parts += ["", "*Điều khoản hiện tại (trích hợp đồng):*", original.strip()]
+    parts += ["", "*Điều khoản đề xuất (Tiếng Việt):*", vi or "(chưa soạn được)"]
     if en:
-        parts += ["", "Suggested clause (English):", en]
+        parts += ["", "*Suggested clause (English):*", en]
     if not cc.get("grounded", True):
         parts.append("\n(Bản khung sơ bộ — cần luật sư hoàn thiện trước khi áp dụng.)")
     return _with_ai_disclosure("\n".join(parts))
@@ -985,16 +986,44 @@ def _run_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, ca
         cc = service.draft_counter_clause(
             clause=original, risk=r.get("risk", ""), suggestion=fb.get("suggestion", ""),
             legal_basis=fb.get("legal_basis") or r.get("legal_basis", ""))
-        _safe_send(sender, send_to, _format_amend(clause, original, cc), thread_ts)
+        _safe_send(sender, send_to, _md_to_slack(_format_amend(clause, original, cc)), thread_ts)
     except Exception:  # noqa: BLE001 — task nền: lỗi soạn không được làm sập, báo khách nhẹ nhàng
         _log.exception("Không soạn được điều khoản sửa (%s)", case_id)
         _safe_send(sender, send_to, "Xin lỗi, chưa soạn được điều khoản sửa. Vui lòng thử lại.", thread_ts)
+
+
+_MD_BOLD_RE = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)          # **đậm** (markdown chuẩn)
+_MD_HEADER_RE = re.compile(r"^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*$", re.MULTILINE)   # # Tiêu đề
+
+
+def _md_to_slack(text: str) -> str:
+    """Markdown chuẩn (GitHub) → Slack mrkdwn. Slack dùng MỘT dấu `*` cho ĐẬM: `**x**` KHÔNG render (hiện
+    thô '**'), `# Tiêu đề` cũng không. Chuyển `**x**`→`*x*` và tiêu đề `#…`→`*…*` để reply Slack in đậm
+    đúng. CHỈ áp tầng gửi Slack — web/Zalo giữ markdown gốc (web render markdown thật)."""
+    if not text:
+        return text
+    t = _MD_BOLD_RE.sub(r"*\1*", text)          # làm TRƯỚC để không tạo *** khi header chứa đậm
+    t = _MD_HEADER_RE.sub(r"*\1*", t)
+    return t
+
+
+def _slackify_blocks(blocks: list[dict]) -> list[dict]:
+    """Chuyển markdown→Slack cho MỌI text mrkdwn trong block (section.text + context.elements)."""
+    for b in blocks:
+        t = b.get("text")
+        if isinstance(t, dict) and t.get("type") == "mrkdwn":
+            t["text"] = _md_to_slack(t["text"])
+        for el in b.get("elements", []) if isinstance(b.get("elements"), list) else []:
+            if isinstance(el, dict) and el.get("type") == "mrkdwn":
+                el["text"] = _md_to_slack(el["text"])
+    return blocks
 
 
 def _mrkdwn_blocks(text: str, limit: int = 2900, max_blocks: int = 12) -> list[dict]:
     """Chia reply thành NHIỀU section block Slack (mỗi block ≤ limit; Slack chặn 3000 ký tự/section).
     Cắt ở ranh giới DÒNG để không vỡ chữ/cụt câu (reply HĐ nhiều rủi ro thường > 2900). Quá dài →
     giữ `max_blocks` block + ghi chú xem bản đầy đủ trên web."""
+    text = _md_to_slack(text)                 # **đậm**→*đậm* + tiêu đề (Slack không render markdown chuẩn)
     chunks: list[str] = []
     cur = ""
     for line in text.split("\n"):

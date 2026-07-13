@@ -283,6 +283,30 @@ def test_process_reuses_contract_file_from_thread():
     assert "ĐÍNH KÈM" not in joined                         # KHÔNG hỏi đính kèm nữa (đã dùng file thread)
 
 
+def test_md_to_slack_converts_bold_and_headers():
+    # Slack dùng 1 dấu * cho đậm; **x** không render. Chuyển **x**→*x*, tiêu đề #→*…*.
+    from legalguard.adapters.inbound.channels import _md_to_slack
+    assert _md_to_slack("**Trả lời:** nội dung") == "*Trả lời:* nội dung"
+    assert _md_to_slack("## Căn cứ\nĐiều 5") == "*Căn cứ*\nĐiều 5"
+    assert "**" not in _md_to_slack("**A** và **B**")     # không còn dấu ** thô
+    assert _md_to_slack("*đậm sẵn*") == "*đậm sẵn*"        # đã đúng Slack → giữ nguyên
+    assert _md_to_slack("") == "" and _md_to_slack("thường") == "thường"
+
+
+def test_mrkdwn_blocks_slackifies_bold():
+    from legalguard.adapters.inbound.channels import _mrkdwn_blocks
+    dump = json.dumps(_mrkdwn_blocks("**Trả lời:** A\n**Căn cứ:** Điều 5"), ensure_ascii=False)
+    assert "**" not in dump and "*Trả lời:*" in dump
+
+
+def test_analysis_blocks_slackifies_bold_in_strategy():
+    from legalguard.adapters.inbound.channels import _analysis_blocks
+    res = AnalysisResult(tenant="VN", risks=[], fallbacks=[], needs_human_review=False,
+                         review_reasons=[], summary="", trace=[], strategy="**Giữ:** điều 5")
+    dump = json.dumps(_analysis_blocks(res, "c1"), ensure_ascii=False)
+    assert "**" not in dump and "*Giữ:*" in dump
+
+
 def test_make_progress_cb_throttles_and_only_on_increase():
     # Heartbeat A1: callback update ack CHỈ khi #rủi ro TĂNG và cách ≥8s (chống spam chat.update).
     from legalguard.adapters.inbound.channels import _make_progress_cb
@@ -816,16 +840,17 @@ def test_risk_segments_four_part_block_with_inline_counter():
     from legalguard.adapters.inbound.channels import _risk_segments
     _num, _idx, _clause, seg, show_button = _risk_segments(_counter_result())[0]
     assert "(1) Phạt 15%" in seg and "trái quy định tại Điều 301" in seg
-    assert "Điều khoản cũ (trích hợp đồng): Bên B chịu phạt 15%" in seg
-    assert "Đề xuất điều khoản mới: Mức phạt tối đa 8%" in seg and "(EN: Cap 8%.)" in seg
-    assert "Lý do: Điều 301 LTM 2005 giới hạn 8%." in seg
+    assert "*Điều khoản cũ (trích hợp đồng):* Bên B chịu phạt 15%" in seg   # nhãn in đậm (Slack *…*)
+    assert "*Đề xuất điều khoản mới:* Mức phạt tối đa 8%" in seg and "(EN: Cap 8%.)" in seg
+    assert "*Lý do:* Điều 301 LTM 2005 giới hạn 8%." in seg
+    assert "\n\n" in seg                                    # giãn dòng giữa các phần
     assert show_button is False                             # đã có điều khoản mới inline → KHÔNG nút
 
 
 def test_risk_segments_button_and_suggestion_when_no_counter():
     from legalguard.adapters.inbound.channels import _risk_segments
     _num, _idx, _clause, seg, show_button = _risk_segments(_counter_result())[1]
-    assert "(2) Thanh toán 90 ngày" in seg and "Đề xuất sửa đổi: rút về 30-45 ngày." in seg
+    assert "(2) Thanh toán 90 ngày" in seg and "*Đề xuất sửa đổi:* rút về 30-45 ngày." in seg
     assert "Đề xuất điều khoản mới" not in seg
     assert show_button is True                              # chưa có counter → cần nút
 
@@ -840,7 +865,7 @@ def test_analysis_blocks_always_button_confirm_or_draft():
     assert all(b["text"]["text"] == "Đồng ý sửa" for b in btns)   # nhãn NHẤT QUÁN
     assert json.loads(btns[0]["value"]) == {"c": "case1", "i": 0, "confirm": 1}   # rủi ro 1 (inline) → ghi nhận
     assert json.loads(btns[1]["value"]) == {"c": "case1", "i": 1}                 # rủi ro 2 (chưa có) → soạn
-    assert "Đề xuất điều khoản mới: Mức phạt tối đa 8%" in json.dumps(blocks, ensure_ascii=False)
+    assert "*Đề xuất điều khoản mới:* Mức phạt tối đa 8%" in json.dumps(blocks, ensure_ascii=False)
 
 
 def test_confirm_amend_records_event_without_llm():
