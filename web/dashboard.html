@@ -54,6 +54,19 @@
     <div class="card"><h2>Điều khoản rủi ro hay gặp nhất</h2><table id="clauses"><tbody></tbody></table></div>
     <div class="card"><h2>Tín hiệu phản hồi</h2><div id="fb"></div></div>
     <div class="card"><h2>Chiến thuật thắng nhiều nhất (win-rate)</h2><table id="tactics"><tbody></tbody></table></div>
+
+    <div class="card"><h2>Danh mục hợp đồng — ưu tiên xử lý</h2>
+      <p class="muted" style="margin-top:0">Mỗi HĐ: rủi ro bắt-buộc-sửa · điều khoản trái luật · cần duyệt · hạn gần nhất → xếp theo mức khẩn.</p>
+      <table id="portfolio"><thead><tr><th>Hợp đồng</th><th>Bắt buộc sửa</th><th>Trái luật</th><th>Hạn gần nhất</th></tr></thead><tbody></tbody></table></div>
+
+    <div class="card"><h2>Nghĩa vụ &amp; hạn chót sắp tới (30 ngày)</h2>
+      <p class="muted" style="margin-top:0">Autopilot sau-ký: nhắc thanh toán / gia hạn / báo chấm dứt trước khi lỡ. (Cần bật trích nghĩa vụ khi rà soát.)</p>
+      <div id="obligations"></div></div>
+
+    <div class="card"><h2>Chính sách công ty (playbook)</h2>
+      <p class="muted" style="margin-top:0">Khai "luật chơi" của công ty một lần → mọi HĐ tự đối chiếu (vd "Phạt vi phạm không quá 8%", "Trọng tài phải VIAC").</p>
+      <div class="row"><input id="pol-text" placeholder="Nội dung chính sách…" style="flex:1"><button id="pol-add">Thêm</button></div>
+      <div id="policies" style="margin-top:10px"></div></div>
   </div>
 
 <script>
@@ -71,10 +84,58 @@ $('go').onclick = async () => {
     const r = await fetch('/insights/dashboard', { headers: authHeaders() });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     render(await r.json());
+    await Promise.all([loadPortfolio(), loadObligations(), loadPolicies()]);
     $('dash').style.display = 'block';
   } catch (e) { $('err').textContent = 'Lỗi: ' + e.message; }
   finally { $('go').disabled = false; $('spin').style.display = 'none'; }
 };
+
+async function loadPortfolio() {
+  const r = await fetch('/portfolio', { headers: authHeaders() });
+  if (!r.ok) return;
+  const rows = (await r.json()).portfolio || [];
+  $('portfolio').querySelector('tbody').innerHTML = rows.map(p => {
+    const due = p.next_due ? `${esc(p.next_due)}${p.days_to_due!=null?` (còn ${p.days_to_due} ngày)`:''}` : '—';
+    return `<tr><td>${esc(p.title)}${p.needs_review?' <span class="pill medium">cần duyệt</span>':''}</td>`
+      + `<td style="text-align:center">${p.must_fix}</td><td style="text-align:center">${p.illegal}</td><td>${due}</td></tr>`;
+  }).join('') || '<tr><td class="muted" colspan="4">Chưa có hợp đồng nào.</td></tr>';
+}
+
+async function loadObligations() {
+  const r = await fetch('/obligations?within=30', { headers: authHeaders() });
+  if (!r.ok) return;
+  const items = (await r.json()).obligations || [];
+  $('obligations').innerHTML = items.map(o =>
+    `<div class="bar"><span class="pill ${o.days_to_due!=null&&o.days_to_due<=7?'high':'medium'}">${esc(o.due_date||'?')}</span>`
+    + ` ${esc(o.description)}${o.consequence?` <span class="muted">— nếu lỡ: ${esc(o.consequence)}</span>`:''}</div>`).join('')
+    || '<p class="muted">Không có nghĩa vụ nào đến hạn trong 30 ngày.</p>';
+}
+
+async function loadPolicies() {
+  const r = await fetch('/org/policy', { headers: authHeaders() });
+  if (!r.ok) return;
+  const pols = (await r.json()).policies || [];
+  $('policies').innerHTML = pols.map(p =>
+    `<div class="bar"><span style="flex:1">${esc(p.rule_text)}</span>`
+    + `<button data-id="${esc(p.id)}" class="pol-del" style="background:#c0392b;padding:4px 10px;font-size:13px">Xóa</button></div>`).join('')
+    || '<p class="muted">Chưa có chính sách nào.</p>';
+  document.querySelectorAll('.pol-del').forEach(b => b.onclick = () => deletePolicy(b.dataset.id));
+}
+
+$('pol-add').onclick = async () => {
+  const text = $('pol-text').value.trim();
+  if (!text) return;
+  const r = await fetch('/org/policy', { method:'POST',
+    headers: { 'Content-Type':'application/json', ...authHeaders() },
+    body: JSON.stringify({ rule_text: text }) });
+  if (r.ok) { $('pol-text').value = ''; loadPolicies(); }
+  else $('err').textContent = 'Lỗi thêm chính sách: HTTP ' + r.status;
+};
+
+async function deletePolicy(id) {
+  const r = await fetch('/org/policy/' + encodeURIComponent(id), { method:'DELETE', headers: authHeaders() });
+  if (r.ok) loadPolicies();
+}
 
 function render(d) {
   $('s-cases').textContent = d.cases.total;
