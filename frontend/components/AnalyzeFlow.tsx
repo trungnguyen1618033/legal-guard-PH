@@ -289,7 +289,8 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
                 <p className="mb-4 leading-relaxed"><strong>{lead}</strong></p>
                 <div className="flex flex-col gap-4">
                   {result.risks.map((r, i) => (
-                    <RiskItem key={i} n={i + 1} r={r} f={fbByClause[r.clause]} t={t} leverage={pos.leverage} />
+                    <RiskItem key={i} n={i + 1} r={r} f={fbByClause[r.clause]} t={t}
+                      leverage={pos.leverage} caseId={result.case_id ?? ""} />
                   ))}
                 </div>
               </Section>
@@ -367,8 +368,8 @@ type Counter = { vi: string; en: string; rationale: string; grounded: boolean };
 // diễn đạt pháp lý; nút "Đồng ý sửa" (đồng bộ web/app.html amendRisk + reply luật sư Slack).
 // Khối 4 phần: (N) core / Điều khoản cũ / Đề xuất điều khoản mới (inline khi có counter_clause, else
 // gợi ý + nút "Đồng ý sửa") / Lý do. Đồng bộ _risk_segments (Slack) + web/app.html.
-function RiskItem({ n, r, f, t, leverage }: {
-  n: number; r: RiskDTO; f?: FallbackDTO; t: Tr; leverage: string;
+function RiskItem({ n, r, f, t, leverage, caseId }: {
+  n: number; r: RiskDTO; f?: FallbackDTO; t: Tr; leverage: string; caseId: string;
 }) {
   const sugg = (f?.suggestion || "").replace(/^\s*(đề xuất|proposed)\s*:?\s*/i, "").trim();
   const illegalText = r.legal_status === "illegal"
@@ -385,10 +386,13 @@ function RiskItem({ n, r, f, t, leverage }: {
       </p>
       {r.evidence && <p className="mt-1 text-xs text-muted"><strong>{t("oldClause")}:</strong> {r.evidence.slice(0, 400)}</p>}
       {hasInline ? (
-        <p className="mt-1 text-sm">
-          <strong>{t("proposeNewClause")}:</strong> {cc!.vi}
-          {cc!.en && <span className="mt-0.5 block text-xs text-muted">(EN: {cc!.en})</span>}
-        </p>
+        <>
+          <p className="mt-1 text-sm">
+            <strong>{t("proposeNewClause")}:</strong> {cc!.vi}
+            {cc!.en && <span className="mt-0.5 block text-xs text-muted">(EN: {cc!.en})</span>}
+          </p>
+          <AgreeRisk r={r} t={t} caseId={caseId} />
+        </>
       ) : (
         <>
           {sugg && <p className="mt-1 text-sm"><strong>{t("proposeAmend")}:</strong> {sugg}.</p>}
@@ -397,6 +401,33 @@ function RiskItem({ n, r, f, t, leverage }: {
       )}
       {reason && <p className="mt-1 text-xs text-muted"><strong>{t("amendRationale")}:</strong> {reason.slice(0, 300)}</p>}
     </div>
+  );
+}
+
+// Rủi ro đã có điều khoản mới inline → "Đồng ý sửa" = GHI NHẬN đồng ý áp dụng (agreed_fix), không soạn lại
+// (điều khoản đã hiển thị). Đồng bộ Slack (_confirm_amend) + web/app.html (agreeRisk). Audit — không tính win-rate.
+function AgreeRisk({ r, t, caseId }: { r: RiskDTO; t: Tr; caseId: string }) {
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (!caseId) return null;
+  async function agree() {
+    if (busy || done) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/cases/${caseId}/outcome`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ clause: r.clause, tactic: "agreed_amendment", result: "agreed_fix" }),
+      });
+      if (res.ok) setDone(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (done) return <p className="mt-1 text-xs text-muted">{t("agreeDone")}</p>;
+  return (
+    <Button variant="ghost" onClick={agree} disabled={busy} className="mt-2 px-3 py-1 text-xs">
+      {t("agreeBtn")}
+    </Button>
   );
 }
 

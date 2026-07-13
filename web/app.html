@@ -314,9 +314,13 @@ function render(d) {
     const cc = r.counter_clause || {};
     const hasInline = !!(cc.vi && cc.vi.trim());
     const reason = ((cc.rationale||'').trim() || (r.legal_basis||r.source||'')).slice(0,300);
+    // Nút "Đồng ý sửa" cho MỌI rủi ro (nhất quán với Slack): đã có điều khoản inline → GHI NHẬN đồng ý
+    // (không soạn lại); chưa có → soạn điều khoản cũ→mới.
     const newClause = hasInline
       ? `<div style="margin-top:4px"><b>Đề xuất điều khoản mới:</b> ${esc(cc.vi)}`
           + (cc.en?`<div class="muted" style="margin-top:2px">(EN: ${esc(cc.en)})</div>`:'') + `</div>`
+          + `<button class="ghost" style="margin-top:6px" onclick="agreeRisk(${i},this)">Đồng ý sửa</button>`
+          + `<span id="ag-${i}" class="muted"></span>`
       : (sugg?`<div style="margin-top:4px"><b>Đề xuất sửa đổi:</b> ${esc(sugg)}.</div>`:'')
           + `<button class="ghost" style="margin-top:6px" onclick="amendRisk(${i})">Đồng ý sửa → soạn điều khoản mới</button>`
           + `<div id="am-${i}" class="rl" style="margin-top:6px"></div>`;
@@ -446,6 +450,22 @@ async function recordOutcome(i, result, btn) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     $('oc-'+i).textContent = ' đã ghi — dữ liệu này nuôi win-rate (càng dùng càng khôn).';
   } catch (e) { $('oc-'+i).textContent = ' — lỗi: ' + e.message; }
+}
+
+// Rủi ro ĐÃ có điều khoản mới inline → "Đồng ý sửa" = GHI NHẬN đồng ý áp dụng (agreed_fix), KHÔNG soạn lại
+// (điều khoản đề xuất đã hiển thị). Đồng bộ Slack (_confirm_amend). Ghi audit — không tính win-rate.
+async function agreeRisk(i, btn) {
+  const r = (window._risks || [])[i]; if (!r) return;
+  if (!_caseId) { $('ag-'+i).textContent = ' — cần lưu case trước (chạy phân tích thật).'; return; }
+  if (btn) btn.disabled = true;
+  $('ag-'+i).textContent = ' đang ghi…';
+  try {
+    const res = await fetch(`/cases/${_caseId}/outcome`, { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ clause: r.clause, tactic:'agreed_amendment', result:'agreed_fix' }) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    $('ag-'+i).textContent = ' — đã ghi nhận đồng ý áp dụng điều khoản đề xuất.';
+  } catch (e) { $('ag-'+i).textContent = ' — lỗi: ' + e.message; if (btn) btn.disabled = false; }
 }
 
 // Nút "Đồng ý sửa" per-risk → soạn điều khoản cũ→mới (đồng bộ với nút Slack). Map rủi ro→fallback theo

@@ -80,6 +80,8 @@
     "excerpt": "Contract excerpt",
     "notAutoVerified": "(not auto-verified — for lawyer review)",
     "amendBtn": "Agree to amend → draft new clause",
+    "agreeBtn": "Agree to amend",
+    "agreeDone": "Recorded — you agreed to apply the proposed clause.",
     "amendBusy": "Drafting amended clause…",
     "amendDraft": "Preliminary draft — needs lawyer finalisation.",
     "amendProposedFor": "Proposed amendment for",

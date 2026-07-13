@@ -80,6 +80,8 @@
     "excerpt": "Trích hợp đồng",
     "notAutoVerified": "(chưa đối chiếu tự động — luật sư kiểm)",
     "amendBtn": "Đồng ý sửa → soạn điều khoản mới",
+    "agreeBtn": "Đồng ý sửa",
+    "agreeDone": "Đã ghi nhận đồng ý áp dụng điều khoản đề xuất.",
     "amendBusy": "Đang soạn điều khoản sửa…",
     "amendDraft": "Bản khung sơ bộ — cần luật sư hoàn thiện.",
     "amendProposedFor": "Đề xuất sửa đổi",
