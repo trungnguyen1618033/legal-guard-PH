@@ -453,7 +453,8 @@ class ChatHandler:
     def reply_ex(self, conversation_id: str, text: str | None = None, attachment: bytes | None = None,
                  filename: str | None = None, lang: str = "vi",
                  thread_msgs: list[dict] | None = None, bot_uid: str = "",
-                 asker_id: str = "", names: dict[str, str] | None = None) -> ChatReply:
+                 asker_id: str = "", names: dict[str, str] | None = None,
+                 in_thread: bool = False) -> ChatReply:
         with self._conv_lock(conversation_id):     # tuần tự hóa theo hội thoại (chống race)
             conv = self.store.get(conversation_id) or Conversation(id=conversation_id)
             # PERSIST-FIRST: lưu tin user (đã REDACT PII) TRƯỚC khi xử lý → lỗi bất ngờ trong `_handle`
@@ -477,7 +478,7 @@ class ChatHandler:
                 conv.add("user", user_msg)
                 conv.updated_at = datetime.now(timezone.utc).isoformat()
                 self.store.save(conv)               # save #1 — tin user đã BỀN (trước điểm có thể chết)
-            res = self._handle(conv, text, attachment, filename, lang, thread_context)
+            res = self._handle(conv, text, attachment, filename, lang, thread_context, in_thread)
             conv.add("assistant", res.text)
             self._summarize(conv)
             conv.updated_at = datetime.now(timezone.utc).isoformat()   # 'last active'
@@ -503,7 +504,7 @@ class ChatHandler:
                 pass
 
     def _handle(self, conv: Conversation, text, attachment, filename, lang,
-                thread_context: str = "") -> ChatReply:
+                thread_context: str = "", in_thread: bool = False) -> ChatReply:
         org = default_org(self.default_tenant)
         if attachment is None and _is_help_query(text or ""):      # xin hướng dẫn / trợ giúp → bảng help
             from legalguard.domain.help import format_help_text
@@ -547,10 +548,11 @@ class ChatHandler:
         if conv.context and _is_counter_offer(text or ""):
             return ChatReply(self._negotiate(conv, text or "", lang, org.id, thread_context),
                              "negotiate", "")
-        # CÓ NGỮ CẢNH THREAD (mention giữa hội thoại / dán link thread) → LUÔN trả lời THEO NGỮ CẢNH đó
-        # (kể cả câu hỏi luật — vì user đã tham chiếu nội dung cụ thể, cần trả lời sát hơn là lookup KB
-        # chung; nếu rơi vào lookup sẽ VỨT thread_context → hỏng đúng ca hay gặp nhất trong thread).
-        if thread_context:
+        # MENTION TRONG THREAD → LUÔN trả lời THEO NGỮ CẢNH (kể cả câu giống tra cứu luật — user đã tham
+        # chiếu nội dung cụ thể trong thread). Kích hoạt khi: có thread_context (đọc được tin trước), HOẶC
+        # đang trong thread + có deal context (thread_context có thể bị dedup rỗng khi bot đã thấy các tin
+        # đó — nhưng conv.context vẫn giữ deal → vẫn phải trả lời sát thread, không rơi xuống lookup KB chung).
+        if thread_context or (in_thread and conv.context):
             return ChatReply(self._followup(conv, text or "", lang, thread_context))
         # Follow-up theo deal — TRỪ câu hỏi pháp lý CHUNG (→ ưu tiên lookup template+dẫn nguồn cho nhất quán).
         if conv.context and not _is_legal_lookup(text or ""):
@@ -994,7 +996,8 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
     try:
         res = handler.reply_ex(key, text=text, attachment=attachment, filename=filename,
                                thread_msgs=thread_msgs, bot_uid=bot_uid,
-                               asker_id=asker_id, names=names)
+                               asker_id=asker_id, names=names,
+                               in_thread=thread_fetch is not None)
         reply = (reply_prefix + res.text) if reply_prefix else res.text   # vd "🔄 (cập nhật…)" khi chạy lại từ tin sửa
         if supports_buttons and res.kind:          # gắn nút feedback (Slack) cho câu trả lời thật
             if res.kind == "analysis" and res.result is not None:

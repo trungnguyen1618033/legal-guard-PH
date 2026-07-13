@@ -190,6 +190,16 @@ def test_deal_specific_question_routes_followup():
     assert r.kind == ""                                  # follow-up (ChatReply không gắn kind)
 
 
+def test_legal_question_in_thread_routes_followup_not_lookup():
+    # MENTION GIỮA THREAD (in_thread=True) + có deal context → câu GIỐNG tra cứu luật vẫn trả lời THEO
+    # NGỮ CẢNH thread (followup), KHÔNG rơi xuống lookup KB chung (fix "mention trong thread → hiểu bối cảnh").
+    h = _handler()
+    h.reply("cThr", text=MSG)                            # analyze → set context
+    # Cùng câu hỏi mà ở DM (test trên) đi LOOKUP → trong thread phải đi FOLLOWUP:
+    r = h.reply_ex("cThr", text="Mức phạt vi phạm hợp đồng tối đa bao nhiêu %?", in_thread=True)
+    assert r.kind == ""                                  # followup theo ngữ cảnh, KHÔNG phải lookup
+
+
 def test_trust_query_returns_accuracy_publication():
     # Hỏi về độ tin cậy (meta) → trả công bố độ chính xác, KHÔNG đi lookup/analyze.
     out = _handler().reply("cT", text="Độ chính xác của hệ thống thế nào, có đáng tin không?")
