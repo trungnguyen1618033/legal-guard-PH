@@ -838,6 +838,18 @@ def test_analysis_blocks_agree_button_per_risk():
     assert "🔴" not in dump and "⚖️" not in dump and "📋" not in dump   # văn phong pháp lý, không icon
 
 
+def test_analysis_blocks_caps_at_slack_limit():
+    # Slack chặn 50 block/tin → HĐ rất nhiều rủi ro phải bị CẮT (≤48) + ghi chú, không vỡ chat.postMessage.
+    from legalguard.adapters.inbound.channels import _analysis_blocks
+    res = AnalysisResult(tenant="VN",
+        risks=[{"clause": f"Điều {i}", "risk": "bất lợi"} for i in range(60)],
+        fallbacks=[], needs_human_review=True, review_reasons=[], summary="", trace=[], strategy="giữ")
+    blocks = _analysis_blocks(res, "c1")
+    assert len(blocks) <= 48                                # dưới trần Slack (chừa chỗ nút Chốt/Sửa lại)
+    assert "rút gọn" in json.dumps(blocks, ensure_ascii=False)
+    assert blocks[-1]["type"] == "context"                 # dòng công bố AI vẫn ở cuối
+
+
 def test_analysis_blocks_no_button_without_case_id():
     from legalguard.adapters.inbound.channels import _analysis_blocks
     blocks = _analysis_blocks(_amend_result(), "")         # không case_id → không thể nạp lại → không nút

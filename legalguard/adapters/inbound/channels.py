@@ -918,6 +918,13 @@ def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> 
             "text": "Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng."}})
     blocks.append({"type": "context",
                    "elements": [{"type": "mrkdwn", "text": _AI_DISCLOSURE_LEGAL.strip()}]})
+    # Slack chặn 50 block/tin → HĐ nhiều rủi ro có thể vượt → chat.postMessage LỖI (im lặng, mất reply).
+    # Chừa chỗ cho nút Chốt/Sửa lại (+1 ở _process): giữ ≤48, cắt phần giữa + ghi chú, GIỮ dòng công bố cuối.
+    if len(blocks) > 48:
+        disclosure = blocks[-1]
+        blocks = blocks[:46] + [
+            {"type": "section", "text": {"type": "mrkdwn",
+             "text": "…(rút gọn — còn mục chưa hiển thị; xem đầy đủ trên web /app)"}}, disclosure]
     return _slackify_blocks(blocks)          # **đậm**→*đậm* (strategy/segment LLM có thể dùng markdown chuẩn)
 
 
@@ -1195,7 +1202,9 @@ def _make_progress_cb(sender: ChatSenderPort, send_to: str, ack_ts: str):
             return
         state["n"], state["t"] = n, now
         try:
-            sender.update(send_to, ack_ts, f"Đang rà soát hợp đồng… đã phát hiện {n} rủi ro (tiếp tục)…")
+            # KHÔNG dùng '(tiếp tục)…' — sau khi xong, reply đầy đủ gửi ở tin MỚI, ack này ở lại; câu phải
+            # đúng cả lúc đang chạy lẫn lúc đã xong (đã phát hiện N rủi ro — sự thật, không gây hiểu nhầm).
+            sender.update(send_to, ack_ts, f"Đang rà soát hợp đồng… đã phát hiện {n} rủi ro.")
         except Exception:  # noqa: BLE001 — heartbeat phụ, không làm hỏng task nền
             _log.debug("chat.update heartbeat lỗi", exc_info=True)
 
