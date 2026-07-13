@@ -45,6 +45,8 @@ uv run python -m evaluation.ragas_eval  # deep eval: RAGAS LLM-as-judge (cần Q
 uv run python -m evaluation.integration_check  # smoke LLM THẬT (như trên Slack): analyze/lookup/counter… → lưu snapshot.json+md (evaluation/snapshots/) để diff giữa các lần
 uv run python -m evaluation.integration_check --compare evaluation/snapshots/<cũ>/snapshot.json  # so nhanh với lần chạy cũ (định tuyến/#risk/độ dài reply)
 uv run python -m evaluation.lookup_format_check  # test format+cache lookup nhiều case THẬT (Trả lời/Căn cứ + đo cache)
+uv run python -m scripts.slack_smoke   # SMOKE SLACK OFFLINE (không token/mạng): A) xem trước FORMAT blocks (tô đậm) B) định tuyến (app+FakeSender, sự kiện đã ký) C) nút bấm — stub LLM, nhanh/tất định
+uv run python -m scripts.slack_live --channel C0XXXX [--thread <ts>] [--only analysis|lookup|amend|heartbeat]  # SMOKE SLACK THẬT: đăng reply mẫu (rà soát/tra cứu/điều khoản sửa/heartbeat) vào kênh để SOI rendering (in đậm/giãn dòng/nút/song ngữ). Cần SLACK_BOT_TOKEN + chat:write, mời bot vào kênh
 uv add <pkg>                       # add a dependency
 ```
 
