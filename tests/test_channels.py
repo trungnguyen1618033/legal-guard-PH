@@ -886,6 +886,36 @@ def test_format_amend_bilingual_and_framework_flag():
     assert "khung sơ bộ" in out2 and "Điều khoản hiện tại" not in out2
 
 
+def test_with_ai_disclosure_idempotent():
+    # Công bố AI chỉ xuất hiện ĐÚNG 1 lần dù text đã có sẵn (LLM tự thêm / nối trùng) — fix lặp câu 2 lần.
+    from legalguard.adapters.inbound.channels import _AI_DISCLOSURE_LEGAL, _with_ai_disclosure
+    disc = _AI_DISCLOSURE_LEGAL.strip()
+    assert _with_ai_disclosure("nội dung").count(disc) == 1          # chưa có → thêm 1
+    assert _with_ai_disclosure("nội dung" + _AI_DISCLOSURE_LEGAL).count(disc) == 1   # đã có 1 → vẫn 1
+    twice = "nội dung" + _AI_DISCLOSURE_LEGAL + _AI_DISCLOSURE_LEGAL
+    assert _with_ai_disclosure(twice).count(disc) == 1              # đã có 2 → gộp còn 1
+
+
+def test_format_amend_no_double_disclosure_when_cc_contains_it():
+    # cc.vi lỡ chứa công bố AI (LLM tự thêm) → output KHÔNG lặp công bố 2 lần.
+    from legalguard.adapters.inbound.channels import _AI_DISCLOSURE_LEGAL, _format_amend
+    disc = _AI_DISCLOSURE_LEGAL.strip()
+    out = _format_amend("Phạt 15%", "Bên A chịu phạt 15%.",
+                        {"vi": "Mức phạt tối đa 8%." + _AI_DISCLOSURE_LEGAL, "en": "Cap 8%.", "grounded": True})
+    assert out.count(disc) == 1
+
+
+def test_risk_segments_strips_disclosure_from_counter():
+    # counter_clause.vi lỡ chứa công bố AI → segment KHÔNG nhúng nó (context block riêng đã có 1 lần).
+    from legalguard.adapters.inbound.channels import _AI_DISCLOSURE_LEGAL, _risk_segments
+    res = AnalysisResult(
+        tenant="VN", risks=[{"clause": "Phạt 15%", "risk": "vượt trần", "evidence": "Bên A phạt 15%.",
+                             "counter_clause": {"vi": "Mức phạt tối đa 8%." + _AI_DISCLOSURE_LEGAL, "en": ""}}],
+        fallbacks=[], needs_human_review=False, review_reasons=[], summary="", trace=[])
+    seg = _risk_segments(res)[0][3]
+    assert _AI_DISCLOSURE_LEGAL.strip() not in seg and "Mức phạt tối đa 8%" in seg
+
+
 def test_run_amend_drafts_and_posts_into_thread():
     from legalguard.adapters.inbound.channels import _run_amend
     from legalguard.domain.models import AnalysisCase

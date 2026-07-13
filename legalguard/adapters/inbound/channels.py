@@ -171,6 +171,13 @@ _log = logging.getLogger(__name__)
 _AI_DISCLOSURE_LEGAL = ("\n\n(Nội dung trên do trí tuệ nhân tạo (AI) hỗ trợ soạn, mang tính tham khảo, "
                         "không thay thế tư vấn pháp lý chính thức của luật sư.)")
 
+
+def _with_ai_disclosure(text: str) -> str:
+    """Gắn công bố AI đúng MỘT lần ở cuối. Idempotent: bỏ MỌI lần đã có sẵn trong `text` (LLM tự thêm,
+    hoặc nội dung dẫn lại từ reply trước) rồi mới nối → chống lặp câu công bố 2 lần (lỗi đã gặp)."""
+    core = (text or "").replace(_AI_DISCLOSURE_LEGAL.strip(), "").rstrip()
+    return core + _AI_DISCLOSURE_LEGAL
+
 # Mục CUỐI phần tư vấn: lỗi soạn thảo/chính tả trong HĐ cần sửa (yêu cầu khách #8).
 _DRAFTING_HEAD = "Lỗi soạn thảo, chính tả cần sửa:"
 
@@ -347,8 +354,9 @@ def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, boo
         if ev:
             lines += ["Điều khoản cũ (trích hợp đồng): " + ev[:600]]
         cc = r.get("counter_clause") or {}
-        vi = (cc.get("vi") or "").strip()
-        en = (cc.get("en") or "").strip()
+        _disc = _AI_DISCLOSURE_LEGAL.strip()          # bỏ công bố AI nếu lọt vào nội dung (chống lặp 2 lần)
+        vi = (cc.get("vi") or "").replace(_disc, "").strip()
+        en = (cc.get("en") or "").replace(_disc, "").strip()
         has_inline = bool(vi)
         if has_inline:                               # rủi ro quan trọng: điều khoản mới dán-được-ngay
             lines.append("Đề xuất điều khoản mới: " + vi)
@@ -387,8 +395,8 @@ def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
     (1)(2)(3); dòng đầu nêu loại HĐ + khách hàng được bảo vệ (nếu LLM xác định được)."""
     head = _review_head(result)
     if not result.risks:
-        return head + "\n\nKhông phát hiện điều khoản rủi ro rõ ràng trong nội dung được cung cấp." \
-            + _AI_DISCLOSURE_LEGAL
+        return _with_ai_disclosure(
+            head + "\n\nKhông phát hiện điều khoản rủi ro rõ ràng trong nội dung được cung cấp.")
     lines = [head, ""]
     for i, (_num, _idx, _clause, seg, _btn) in enumerate(_risk_segments(result)):
         if i:                                        # dòng trống ngăn cách các KHỐI rủi ro (khối nhiều dòng)
@@ -402,7 +410,7 @@ def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
         lines.append("Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng.")
     if result.drafting_notes:
         lines += ["", _DRAFTING_HEAD] + [f"- {n}" for n in result.drafting_notes]
-    out = "\n".join(lines) + _AI_DISCLOSURE_LEGAL
+    out = _with_ai_disclosure("\n".join(lines))
     return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
 
@@ -444,7 +452,7 @@ def format_negotiation_reply(r: dict, lang: str = "vi") -> str:
         lines.append(f"*Câu trả lời đề xuất gửi đối tác:*\n{reply}")
     if not r.get("grounded"):
         lines.append("(Khung sơ bộ — chưa cấu hình AI.)")
-    out = "\n\n".join(lines) + _AI_DISCLOSURE_LEGAL
+    out = _with_ai_disclosure("\n\n".join(lines))
     return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
 
@@ -609,7 +617,7 @@ class ChatHandler:
             if snippets:                                   # hiện nguồn (dẫn điều/khoản) gọn dưới câu trả lời
                 srcs = " · ".join(s.source for s in snippets[:3])
                 answer = f"{answer}\n\nNguồn tham khảo: {srcs}"
-            return ChatReply(answer + _AI_DISCLOSURE_LEGAL, "lookup", text)   # công bố AI văn phong pháp lý (không icon)
+            return ChatReply(_with_ai_disclosure(answer), "lookup", text)   # công bố AI văn phong pháp lý (không icon)
         if conv.context:                                   # có deal, không phải câu hỏi → follow-up
             return ChatReply(self._followup(conv, text or "", lang))
         return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "
@@ -648,7 +656,7 @@ class ChatHandler:
         prompt = (f"Bối cảnh rà soát hợp đồng:\n{conv.context}\n\n{tc}Lịch sử hội thoại:\n{hist}\n\n"
                   f"Câu hỏi tiếp của khách: {question}\nTrả lời CHUYÊN NGHIỆP, súc tích, đi thẳng vấn đề" + tail)
         try:
-            return self.service.reasoner.complete(prompt) + _AI_DISCLOSURE_LEGAL   # công bố AI đồng bộ
+            return _with_ai_disclosure(self.service.reasoner.complete(prompt))   # công bố AI đồng bộ
         except LLMError as exc:
             return f"Xin lỗi, chưa trả lời được: {exc}"
 
@@ -916,8 +924,7 @@ def _format_amend(clause: str, original: str, cc: dict) -> str:
         parts += ["", "Suggested clause (English):", en]
     if not cc.get("grounded", True):
         parts.append("\n(Bản khung sơ bộ — cần luật sư hoàn thiện trước khi áp dụng.)")
-    parts.append(_AI_DISCLOSURE_LEGAL.strip())
-    return "\n".join(parts)
+    return _with_ai_disclosure("\n".join(parts))
 
 
 def _record_agreed_fix(service: AnalysisService, org_id: str, case_id: str, clause: str) -> None:
