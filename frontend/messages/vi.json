@@ -131,6 +131,11 @@
     "oc_accepted": "Chấp nhận",
     "oc_partial": "Một phần",
     "oc_rejected": "Từ chối",
+    "reviewPrompt": "Quyết định:",
+    "reviewClose": "Chốt",
+    "reviewRevise": "Sửa lại",
+    "reviewClosed": "Đã chốt, cảm ơn!",
+    "reviewRevised": "Đã ghi: cần sửa lại, cảm ơn!",
     "disclaimer": "Công cụ hỗ trợ — không thay thế tư vấn pháp lý chính thức. Hãy đối chiếu bản gốc văn bản."
   },
   "fb": {

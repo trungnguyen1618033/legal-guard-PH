@@ -5,8 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import type { AnalysisResultDTO, RiskDTO, FallbackDTO } from "@/lib/api";
 import { Card, Section, Badge, Note } from "@/components/ui";
 import { Button } from "@/components/ui/Button";
-import FeedbackButtons from "@/components/FeedbackButtons";
-import FallbackActions from "@/components/FallbackActions";
+import ReviewDecision from "@/components/ReviewDecision";
 import NegotiationPanel from "@/components/NegotiationPanel";
 import MemoPanel from "@/components/MemoPanel";
 
@@ -328,7 +327,7 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
             <Section title={L.fallbacks}>
               <div className="flex flex-col gap-3">
                 {result.fallbacks.map((f, i) => (
-                  <FallbackCard key={i} f={f} L={L} locked={!!locked} caseId={result.case_id ?? ""} />
+                  <FallbackCard key={i} f={f} L={L} locked={!!locked} />
                 ))}
               </div>
             </Section>
@@ -348,7 +347,8 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
 
           {result.case_id && (
             <div className="border-t border-line pt-4">
-              <FeedbackButtons kind="analysis" refValue={result.case_id} />
+              <ReviewDecision caseId={result.case_id} risks={result.risks ?? []}
+                fallbacks={result.fallbacks ?? []} />
             </div>
           )}
 
@@ -523,8 +523,8 @@ function dealContext(r: AnalysisResultDTO): string {
   return `CHIẾN LƯỢC:\n${r.strategy ?? ""}\n\nRỦI RO:\n${risks}`;
 }
 
-function FallbackCard({ f, L, locked, caseId }: {
-  f: FallbackDTO; L: AnalyzeLabels; locked: boolean; caseId: string;
+function FallbackCard({ f, L, locked }: {
+  f: FallbackDTO; L: AnalyzeLabels; locked: boolean;
 }) {
   return (
     <Card>
@@ -543,7 +543,6 @@ function FallbackCard({ f, L, locked, caseId }: {
         </div>
       )}
       {f.legal_basis && <p className="mt-2 text-xs text-muted">{L.legalBasis}: {f.legal_basis}</p>}
-      {!locked && <FallbackActions f={f} caseId={caseId} />}
     </Card>
   );
 }

@@ -131,6 +131,11 @@
     "oc_accepted": "Accepted",
     "oc_partial": "Partial",
     "oc_rejected": "Rejected",
+    "reviewPrompt": "Decision:",
+    "reviewClose": "Close",
+    "reviewRevise": "Revise",
+    "reviewClosed": "Closed, thanks!",
+    "reviewRevised": "Noted: needs revision, thanks!",
     "disclaimer": "A support tool — not a substitute for formal legal advice. Always check the original text."
   },
   "fb": {
