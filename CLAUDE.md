@@ -136,7 +136,15 @@ Chat/memory (`docs/conversation.md`): kênh Zalo/Slack qua `ChatHandler` statefu
 deal + tin là PHẢN HỒI/COUNTER đối tác (`_is_counter_offer`, không phải câu hỏi) → VÒNG ĐÀM PHÁN đa phiên
 `negotiate_round` ngay trong thread, nối context các vòng — `_negotiate`/`format_negotiation_reply`**; có deal
 context → follow-up qua `reasoner`; câu hỏi pháp lý đứng một mình → `AnalysisService.lookup` tra cứu KB có
-grounding, cũng expose qua `POST /ask`). Webhook: ack nhanh + BackgroundTasks; outbound `chat_senders.py`.
+grounding, cũng expose qua `POST /ask`). **Định tuyến tinh (`docs/internal/reply-4part-format-plan.md` + fix
+Slack 13/7)**: (a) `_is_help_query`/`_is_trust_query` CHỈ khi CHƯA vào deal/thread (đang rà soát/giữa thread
+→ "help me…" là HỎI TIẾP, không ra bảng hướng dẫn); `_is_help_query` loại tin có động từ rà soát/tín hiệu HĐ
+("help me review this contract" = rà soát); (b) **`in_thread`** (mention giữa thread) → LUÔN follow-up theo
+ngữ cảnh, kể cả câu giống tra cứu (không rơi lookup KB chung vứt ngữ cảnh); (c) **yêu cầu rà soát CẢ HĐ
+không kèm file** (`_wants_whole_contract_review`, tin ngắn) → dùng **FILE HĐ gần nhất trong thread**
+(`_latest_contract_file`: bỏ file bot, ưu tiên tài liệu > ảnh; `fetch_thread` trả kèm `files`) → tải + rà
+soát; không có file nào + fresh → **hướng dẫn đính kèm** (HĐ chỉ lưu excerpt, không tự rà lại được).
+Webhook: ack nhanh + BackgroundTasks; outbound `chat_senders.py`.
 Cảnh báo CHỦ ĐỘNG (autopilot monitor / escalation / impact) đẩy thẳng vào Slack qua sender.
 Concurrency/threading: hội thoại định danh theo THREAD (`slack:{channel}:{thread_ts}`) — mỗi thread = 1 deal
 riêng, reply LUÔN threaded dưới tin người hỏi (`thread_ts or ts`); **lock per-conversation** (`threading.Lock`
