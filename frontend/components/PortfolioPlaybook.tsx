@@ -14,19 +14,26 @@ export default function PortfolioPlaybook() {
   const [obligations, setObligations] = useState<ObligationDTO[]>([]);
   const [policies, setPolicies] = useState<OrgPolicyDTO[]>([]);
   const [text, setText] = useState("");
+  const [err, setErr] = useState(false);
 
   async function loadPolicies() {
     const r = await fetch("/api/org/policy");
     if (r.ok) setPolicies((await r.json()).policies ?? []);
+    else setErr(true);
   }
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [p, o] = await Promise.all([fetch("/api/portfolio"), fetch("/api/obligations?within=30")]);
-      if (alive && p.ok) setPortfolio((await p.json()).portfolio ?? []);
-      if (alive && o.ok) setObligations((await o.json()).obligations ?? []);
-      if (alive) await loadPolicies();
+      try {
+        const [p, o] = await Promise.all([fetch("/api/portfolio"), fetch("/api/obligations?within=30")]);
+        if (!alive) return;
+        if (p.ok) setPortfolio((await p.json()).portfolio ?? []); else setErr(true);
+        if (o.ok) setObligations((await o.json()).obligations ?? []); else setErr(true);
+        if (alive) await loadPolicies();
+      } catch {
+        if (alive) setErr(true);        // backend down → báo lỗi, KHÔNG hiện "chưa có dữ liệu" gây hiểu nhầm
+      }
     })();
     return () => { alive = false; };
   }, []);
@@ -48,6 +55,7 @@ export default function PortfolioPlaybook() {
 
   return (
     <div className="flex flex-col gap-8">
+      {err && <Note variant="error">{t("error")}</Note>}
       <Section title={t("portfolioTitle")}>
         {portfolio.length === 0 ? <Note>{t("portfolioEmpty")}</Note> : (
           <div className="overflow-x-auto">
