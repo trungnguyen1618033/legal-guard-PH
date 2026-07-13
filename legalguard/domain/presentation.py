@@ -49,3 +49,15 @@ def to_text(doc: Doc, *, sep: str = "\n\n") -> str:
 def to_markdown(doc: Doc, *, sep: str = "\n\n") -> str:
     """Serialize Doc → markdown chuẩn (web). Hiện giữ nguyên text (nội dung đã là markdown/plain)."""
     return sep.join(b.clean() for b in doc if b.clean())
+
+
+# ---- Biến thể GIỌNG/ĐỊNH DẠNG (D) — bọc nội dung tư vấn theo văn phong khác nhau ----
+_EMAIL_OPEN = "Kính gửi Quý Công ty,"
+_EMAIL_CLOSE = ("Kính đề nghị Quý Công ty xem xét điều chỉnh các nội dung nêu trên và phản hồi để các bên "
+                "tiếp tục hoàn thiện trước khi ký kết.\n\nTrân trọng.")
+
+
+def to_email_wrap(body: str) -> str:
+    """Bọc nội dung tư vấn ĐÃ SOẠN thành THƯ trang trọng (giữ NGUYÊN substance — deterministic, không LLM).
+    Dùng cho biến thể 'bản email'."""
+    return f"{_EMAIL_OPEN}\n\n{(body or '').strip()}\n\n{_EMAIL_CLOSE}"

@@ -34,7 +34,7 @@ from legalguard.domain.models import (
 from legalguard.domain.negotiation import NegotiationState, state_from_json, state_to_json
 from legalguard.domain.presentation import Block  # tầng trình bày dùng chung
 from legalguard.domain.presentation import md_to_slack as _md_to_slack
-from legalguard.domain.presentation import to_text
+from legalguard.domain.presentation import to_email_wrap, to_text
 from legalguard.domain.ports import (
     ChatSenderPort,
     ConversationStorePort,
@@ -97,6 +97,28 @@ _TRUST_RE = re.compile(
 
 def _is_trust_query(text: str) -> bool:
     return bool(text and _TRUST_RE.search(text))
+
+
+# TRÌNH BÀY LẠI (biến thể giọng/định dạng) — yêu cầu đổi CÁCH TRÌNH BÀY nội dung tư vấn ĐÃ có (không phải
+# câu hỏi mới). Vd demo: "format lại giúp tôi". Cần intent RÕ để không nhầm câu hỏi/counter-offer.
+_REFORMAT_RE = re.compile(
+    r"(bản|dạng|gửi|viết thành|soạn( thành)?)\s+(email|thư|memo|ghi nhớ)|"
+    r"format lại|trình bày lại|viết lại|soạn lại|rút gọn|gọn hơn|ngắn gọn hơn|súc tích hơn|"
+    r"trang trọng hơn|mềm( mại)? hơn|nhẹ( nhàng)? hơn|lịch sự hơn|"
+    r"\brewrite\b|\breformat\b|as an email|more formal|shorter|more concise", re.IGNORECASE)
+_EMAIL_VARIANT_RE = re.compile(r"email|thư|thư điện tử", re.IGNORECASE)
+
+
+def _is_reformat_request(text: str) -> bool:
+    return bool(text and _REFORMAT_RE.search(text))
+
+
+def _previous_review(conv) -> str:
+    """Nội dung tư vấn GẦN NHẤT (tin assistant cuối) trong hội thoại — để trình bày lại. Rỗng nếu chưa có."""
+    for m in reversed(conv.history or []):
+        if m.get("role") == "assistant" and (m.get("content") or "").strip():
+            return m["content"].strip()
+    return ""
 
 
 # Meta: người dùng xin HƯỚNG DẪN dùng / trợ giúp → trả bảng hướng dẫn + gỡ sự cố.
@@ -627,6 +649,10 @@ class ChatHandler:
             red = [r["clause"] for r in result.risks if r.get("priority") == "must_fix" and r.get("clause")]
             conv.nego_state = state_to_json(NegotiationState(red_lines=red))
             return ChatReply(format_chat_reply(result, lang), "analysis", result.case_id or "", result)
+        # TRÌNH BÀY LẠI (biến thể giọng): trong deal + yêu cầu đổi định dạng/giọng ("bản email", "rút gọn",
+        # "trang trọng hơn"…) → viết lại nội dung tư vấn GẦN NHẤT, GIỮ NGUYÊN substance. (Demo: "format lại")
+        if conv.context and _is_reformat_request(text or "") and _previous_review(conv):
+            return ChatReply(self._reformat(conv, text or "", lang))
         # Trong deal: tin là PHẢN HỒI/COUNTER của đối tác → VÒNG ĐÀM PHÁN có cấu trúc (không phải Q&A chung).
         if conv.context and _is_counter_offer(text or ""):
             return ChatReply(self._negotiate(conv, text or "", lang, org.id, thread_context),
@@ -650,6 +676,29 @@ class ChatHandler:
             return ChatReply(self._followup(conv, text or "", lang))
         return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "
                          "hoặc đặt câu hỏi pháp lý nhé.")
+
+    def _reformat(self, conv: Conversation, request: str, lang: str) -> str:
+        """Biến thể GIỌNG/ĐỊNH DẠNG cho nội dung tư vấn GẦN NHẤT. 'email/thư' → bọc THƯ trang trọng TẤT ĐỊNH
+        (giữ 100% substance, không LLM). Giọng khác (rút gọn/mềm hơn…) → model NHANH viết lại, prompt CẤM
+        đổi số liệu/điều luật/đề xuất. Công bố AI 1 lần. Lỗi/offline → trả nguyên bản (không mất nội dung)."""
+        prev = _previous_review(conv)
+        if not prev:
+            return "Chưa có nội dung tư vấn nào trong hội thoại để trình bày lại."
+        if _EMAIL_VARIANT_RE.search(request):        # deterministic — an toàn substance tuyệt đối
+            return _with_ai_disclosure(to_email_wrap(prev))
+        llm = self.service.judge if self.service.judge.available else self.service.reasoner
+        if not llm.available:                        # offline → không viết lại được, trả nguyên bản
+            return _with_ai_disclosure(prev)
+        tail = " Viết bằng tiếng Việt." if lang == "vi" else " Write in English."
+        prompt = (
+            "Dưới đây là NỘI DUNG TƯ VẤN pháp lý đã soạn. Hãy TRÌNH BÀY LẠI đúng theo yêu cầu của khách. "
+            "TUYỆT ĐỐI GIỮ NGUYÊN mọi số liệu, tên điều luật, tên các bên, và đề xuất sửa (kể cả song ngữ "
+            "Việt/Anh nếu có) — KHÔNG thêm/bớt nội dung pháp lý, CHỈ đổi GIỌNG VĂN và ĐỊNH DẠNG.\n"
+            f"Yêu cầu của khách: {request}\n\nNội dung:\n{prev}" + tail)
+        try:
+            return _with_ai_disclosure(llm.complete(prompt))
+        except LLMError:
+            return _with_ai_disclosure(prev)         # lỗi → trả nguyên bản, không mất nội dung
 
     def _negotiate(self, conv: Conversation, partner_message: str, lang: str, org_id: str = "",
                    thread_context: str = "") -> str:

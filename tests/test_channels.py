@@ -351,6 +351,51 @@ def test_make_progress_cb_ignores_zero():
     assert not getattr(s, "updated", [])         # chưa có rủi ro → không update
 
 
+def test_is_reformat_request_detects_intent():
+    from legalguard.adapters.inbound.channels import _is_reformat_request
+    assert _is_reformat_request("cho tôi bản email")
+    assert _is_reformat_request("format lại giúp tôi") and _is_reformat_request("trình bày lại")
+    assert _is_reformat_request("rút gọn lại") and _is_reformat_request("viết trang trọng hơn")
+    assert _is_reformat_request("dạng memo") and _is_reformat_request("as an email")
+    assert not _is_reformat_request("mức phạt tối đa bao nhiêu?")        # câu hỏi
+    assert not _is_reformat_request("đối tác đồng ý giảm phạt còn 10%")  # counter-offer
+
+
+def test_reformat_email_deterministic_keeps_substance():
+    from legalguard.domain.models import Conversation
+    h = _handler()
+    conv = Conversation(id="c", context="deal")
+    conv.add("assistant", "Sau khi rà soát… (1) Tại điều khoản “Điều 5”: phạt 15% vượt trần.")
+    out = h._reformat(conv, "cho tôi bản email", "vi")
+    assert out.startswith("Kính gửi Quý Công ty,")
+    assert "(1) Tại điều khoản “Điều 5”: phạt 15% vượt trần." in out   # GIỮ NGUYÊN nội dung
+    assert "Trân trọng." in out and out.count("trí tuệ nhân tạo") == 1  # công bố 1 lần
+
+
+def test_reformat_no_previous_review():
+    from legalguard.domain.models import Conversation
+    out = _handler()._reformat(Conversation(id="c", context="deal"), "bản email", "vi")
+    assert "Chưa có nội dung" in out
+
+
+def test_reformat_non_email_offline_returns_prev():
+    # judge/reasoner stub (offline) → giọng khác trả NGUYÊN BẢN (không mất nội dung, không bịa).
+    from legalguard.domain.models import Conversation
+    h = _handler()
+    conv = Conversation(id="c", context="deal")
+    conv.add("assistant", "Nội dung tư vấn gốc giữ nguyên.")
+    out = h._reformat(conv, "rút gọn giúp", "vi")
+    assert "Nội dung tư vấn gốc giữ nguyên." in out
+
+
+def test_reformat_routing_in_deal():
+    # Trong deal, "cho tôi bản email" → nhánh trình-bày-lại (không nhầm counter-offer/followup).
+    h = _handler()
+    h.reply("cRe", text="Bên B chịu phạt 15% giá trị hợp đồng; tranh chấp bằng trọng tài Bắc Kinh.")
+    out = h.reply("cRe", text="cho tôi bản email")
+    assert out.startswith("Kính gửi Quý Công ty,") and "Trân trọng." in out
+
+
 def test_trust_query_returns_accuracy_publication():
     # Hỏi về độ tin cậy (meta) → trả công bố độ chính xác, KHÔNG đi lookup/analyze.
     out = _handler().reply("cT", text="Độ chính xác của hệ thống thế nào, có đáng tin không?")
