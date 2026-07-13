@@ -234,6 +234,19 @@ def test_classify_contract_returns_drafting_issues():
     assert "PHÁT TRIỂỂN" in notes[0] and "sửa:" in notes[0] and "PHÁT TRIỂN" in notes[0]
 
 
+def test_classify_contract_drops_noop_and_collapses_multiline_drafting():
+    # Lỗi thực tế: LLM chép quote == fix (tên các bên) → nhiễu; quote nhiều dòng làm vỡ "→ sửa:".
+    svc = build_service()
+    svc.judge = _JsonJudge(
+        '{"contract_type":"hđ","protected_party":"X","drafting_issues":['
+        '{"quote":"PARTY A\\n\\nNGUYỄN TƯƠNG MINH","fix":"PARTY A\\n\\nNGUYỄN TƯƠNG MINH"},'  # y hệt → bỏ
+        '{"quote":"Contact address :\\nNo. 275","fix":"Contact address: No. 275"}]}')          # có sửa thật → giữ, 1 dòng
+    _, _, notes = svc._classify_contract("hđ", hint="", lang="vi")
+    assert len(notes) == 1                                   # bỏ mục no-op (tên các bên)
+    assert "\n" not in notes[0]                              # gộp về 1 dòng (không vỡ "→ sửa:")
+    assert "Contact address :" in notes[0] and "sửa: Contact address: No. 275" in notes[0]
+
+
 def test_analyze_populates_contract_type_party_and_drafting():
     svc = build_service()
     svc.judge = _JsonJudge('{"contract_type":"hợp đồng thương mại","protected_party":"Công ty X",'

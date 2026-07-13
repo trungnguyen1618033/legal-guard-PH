@@ -564,7 +564,8 @@ class AnalysisService:
             "không xác định được → chuỗi rỗng, KHÔNG bịa.\n"
             "- drafting_issues: CHỈ LỖI SOẠN THẢO rõ ràng (chính tả, gõ sai/thừa ký tự, sai/thiếu đánh số "
             "điều khoản, tham chiếu điều khoản để trống, format lộn xộn) — KHÔNG liệt kê rủi ro pháp lý ở "
-            "đây. Mỗi lỗi: quote đoạn sai + cách sửa. Không có lỗi → [].\n\n"
+            "đây. Mỗi lỗi: quote đoạn sai + cách sửa. `fix` PHẢI KHÁC `quote` (có sửa thật); KHÔNG chép lại "
+            "tên riêng/địa chỉ/đoạn không có lỗi. Không có lỗi → [].\n\n"
             f"<<<HỢP ĐỒNG>>>\n{contract_text[:6000]}\n<<<HẾT>>>"
         )
         parsed: dict = {}
@@ -579,13 +580,17 @@ class AnalysisService:
         notes: list[str] = []
         for it in (parsed.get("drafting_issues") or [])[:10]:     # trần 10 lỗi tránh reply phình
             if isinstance(it, dict):
-                q, fix = str(it.get("quote") or "").strip(), str(it.get("fix") or "").strip()
+                # Gộp khoảng trắng (kể cả xuống dòng) → 1 dòng: chống quote nhiều dòng làm vỡ "→ sửa:".
+                q = " ".join(str(it.get("quote") or "").split())
+                fix = " ".join(str(it.get("fix") or "").split())
                 if q and fix:
+                    if q == fix:      # "sửa" y hệt bản gốc → KHÔNG phải lỗi thật → bỏ (nhiễu, vd tên các bên)
+                        continue
                     notes.append(f"“{q}” → sửa: {fix}")
                 elif q or fix:
                     notes.append(q or fix)
             elif isinstance(it, str) and it.strip():
-                notes.append(it.strip())
+                notes.append(" ".join(it.split()))
         return ctype, party, notes
 
     def _summarize(self, risks: list, lang: str) -> tuple[str, str | None]:
