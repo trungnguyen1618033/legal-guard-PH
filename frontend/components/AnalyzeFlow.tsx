@@ -396,7 +396,7 @@ function RiskItem({ n, r, f, t, leverage, caseId }: {
       ) : (
         <>
           {sugg && <p className="mt-1 text-sm"><strong>{t("proposeAmend")}:</strong> {sugg}.</p>}
-          <AmendRisk r={r} f={f} t={t} leverage={leverage} />
+          <AmendRisk r={r} f={f} t={t} leverage={leverage} caseId={caseId} />
         </>
       )}
       {reason && <p className="mt-1 text-xs text-muted"><strong>{t("amendRationale")}:</strong> {reason.slice(0, 300)}</p>}
@@ -409,30 +409,40 @@ function RiskItem({ n, r, f, t, leverage, caseId }: {
 function AgreeRisk({ r, t, caseId }: { r: RiskDTO; t: Tr; caseId: string }) {
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
   if (!caseId) return null;
   async function agree() {
     if (busy || done) return;
     setBusy(true);
+    setErr(null);
     try {
       const res = await fetch(`/api/cases/${caseId}/outcome`, {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ clause: r.clause, tactic: "agreed_amendment", result: "agreed_fix" }),
       });
-      if (res.ok) setDone(true);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      setDone(true);
+    } catch (e) {
+      setErr((e as Error).message);          // hiện lỗi thay vì im lặng (đồng bộ AmendRisk)
     } finally {
       setBusy(false);
     }
   }
   if (done) return <p className="mt-1 text-xs text-muted">{t("agreeDone")}</p>;
   return (
-    <Button variant="ghost" onClick={agree} disabled={busy} className="mt-2 px-3 py-1 text-xs">
-      {t("agreeBtn")}
-    </Button>
+    <div className="mt-2">
+      <Button variant="ghost" onClick={agree} disabled={busy} className="px-3 py-1 text-xs">
+        {t("agreeBtn")}
+      </Button>
+      {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+    </div>
   );
 }
 
 // Nút "Đồng ý sửa" → /counter dùng NGUYÊN VĂN evidence (trích HĐ) làm điều khoản cũ → LLM viết lại cả đoạn.
-function AmendRisk({ r, f, t, leverage }: { r: RiskDTO; f?: FallbackDTO; t: Tr; leverage: string }) {
+function AmendRisk({ r, f, t, leverage, caseId }: {
+  r: RiskDTO; f?: FallbackDTO; t: Tr; leverage: string; caseId: string;
+}) {
   const [box, setBox] = useState<Counter | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -452,6 +462,13 @@ function AmendRisk({ r, f, t, leverage }: { r: RiskDTO; f?: FallbackDTO; t: Tr; 
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
       setBox(await res.json());
+      // parity Slack _run_amend: ghi event 'đồng ý sửa' (audit). Fire-and-forget, không chặn UX.
+      if (caseId) {
+        fetch(`/api/cases/${caseId}/outcome`, {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ clause: r.clause, tactic: "agreed_amendment", result: "agreed_fix" }),
+        }).catch(() => { /* audit phụ */ });
+      }
     } catch (e) {
       setErr((e as Error).message);
     } finally {

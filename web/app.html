@@ -491,7 +491,19 @@ async function amendRisk(i) {
       `<div style="margin-top:4px"><b>Điều khoản đề xuất (Tiếng Việt):</b> ${esc(d.vi)}</div>` +
       (d.en ? `<div style="margin-top:4px"><b>Suggested clause (English):</b> ${esc(d.en)}</div>` : '') +
       (d.rationale ? `<div class="muted" style="margin-top:4px">Lý do: ${esc(d.rationale)}</div>` : '');
+    _recordAgreedFix(r.clause);              // parity Slack _run_amend: ghi event 'đồng ý sửa' (audit)
   } catch (e) { box.textContent = 'Lỗi: ' + e.message; }
+}
+
+// Ghi event agreed_fix (audit, không tính win-rate) — dùng cho cả nút soạn (amendRisk) lẫn xác nhận
+// (agreeRisk), đồng bộ Slack. Fire-and-forget: lỗi ghi KHÔNG chặn UX (event là phụ).
+async function _recordAgreedFix(clause) {
+  if (!_caseId) return;
+  try {
+    await fetch(`/cases/${_caseId}/outcome`, { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ clause, tactic:'agreed_amendment', result:'agreed_fix' }) });
+  } catch { /* audit phụ — nuốt lỗi */ }
 }
 
 const _NEGO_STATUS = {
