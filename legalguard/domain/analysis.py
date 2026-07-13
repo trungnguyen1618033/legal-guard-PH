@@ -495,6 +495,14 @@ class AnalysisService:
         items = self.list_obligations(org_id, within_days=within_days)
         return items, format_obligation_digest(items, date.today())
 
+    def portfolio(self, org_id: str, limit: int = 200) -> list[dict]:
+        """Danh mục HĐ hành-động-được (per-HĐ, sắp theo khẩn) — gộp cases + obligations (SẴN CÓ, không LLM).
+        Degrade an toàn: chưa bật obligation_tracking → không có 'hạn gần nhất', xếp theo must_fix/duyệt."""
+        from legalguard.domain.portfolio import build_portfolio
+        cases = self.cases.list_by_org(org_id, limit) if self.cases else []
+        obs = self.obligations.list_by_org(org_id, status="pending") if self.obligations else []
+        return build_portfolio(cases, obs, date.today())
+
     # ── Playbook công ty — API dùng chung mọi kênh ──
     def list_policies(self, org_id: str, active_only: bool = True) -> list[OrgPolicy]:
         return self.org_policies.list_by_org(org_id, active_only) if self.org_policies else []

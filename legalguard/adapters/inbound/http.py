@@ -635,6 +635,12 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
         service.set_obligation_status(obligation_id, org.id, body.status)
         return {"ok": True}
 
+    @app.get("/portfolio")
+    def portfolio(org: Organization = Depends(require_auth)) -> dict:
+        # Danh mục HĐ hành-động-được (per-HĐ, sắp theo khẩn) — KHÁC /insights/dashboard (số gộp).
+        rows = service.portfolio(org.id)
+        return {"portfolio": rows, "count": len(rows)}
+
     # ── Playbook công ty (chính sách cấp org) — cùng service, dùng chung mọi kênh ──
     @app.get("/org/policy")
     def list_policy(org: Organization = Depends(require_auth)) -> dict:
