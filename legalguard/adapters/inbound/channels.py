@@ -15,6 +15,7 @@ import threading
 import time
 import unicodedata
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import parse_qs
@@ -483,7 +484,8 @@ class ChatHandler:
                  filename: str | None = None, lang: str = "vi",
                  thread_msgs: list[dict] | None = None, bot_uid: str = "",
                  asker_id: str = "", names: dict[str, str] | None = None,
-                 in_thread: bool = False) -> ChatReply:
+                 in_thread: bool = False,
+                 on_progress: "Callable[[dict], None] | None" = None) -> ChatReply:
         with self._conv_lock(conversation_id):     # tuần tự hóa theo hội thoại (chống race)
             conv = self.store.get(conversation_id) or Conversation(id=conversation_id)
             # PERSIST-FIRST: lưu tin user (đã REDACT PII) TRƯỚC khi xử lý → lỗi bất ngờ trong `_handle`
@@ -507,7 +509,8 @@ class ChatHandler:
                 conv.add("user", user_msg)
                 conv.updated_at = datetime.now(timezone.utc).isoformat()
                 self.store.save(conv)               # save #1 — tin user đã BỀN (trước điểm có thể chết)
-            res = self._handle(conv, text, attachment, filename, lang, thread_context, in_thread)
+            res = self._handle(conv, text, attachment, filename, lang, thread_context, in_thread,
+                               on_progress=on_progress)
             conv.add("assistant", res.text)
             self._summarize(conv)
             conv.updated_at = datetime.now(timezone.utc).isoformat()   # 'last active'
@@ -533,7 +536,8 @@ class ChatHandler:
                 pass
 
     def _handle(self, conv: Conversation, text, attachment, filename, lang,
-                thread_context: str = "", in_thread: bool = False) -> ChatReply:
+                thread_context: str = "", in_thread: bool = False,
+                on_progress: "Callable[[dict], None] | None" = None) -> ChatReply:
         org = default_org(self.default_tenant)
         # Bảng help CHỈ khi CHƯA vào deal/thread. Đang rà soát (đã analyze → conv.context) hoặc giữa thread
         # thì "help me…"/"giúp…" là HỎI TIẾP, KHÔNG phải xin hướng dẫn dùng bot (user báo: upload file →
@@ -577,7 +581,8 @@ class ChatHandler:
                                                            or len(text or "") < 300) else ""
             position = NegotiationPosition(protected_party=hint) if hint else None
             try:
-                result = self.service.analyze(contract, org, lang=lang, position=position, source=source)
+                result = self.service.analyze(contract, org, lang=lang, position=position,
+                                              source=source, on_progress=on_progress)
             except (ValueError, LLMError) as exc:
                 return ChatReply(f"Xin lỗi, chưa xử lý được: {exc}")
             conv.context = _context_from_result(result)    # nhớ deal đang bàn
@@ -1049,8 +1054,13 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         bool(text) and not _is_question(text) and any(s in text.lower() for s in _SIGNALS)
         # chỉ BỎ ack cho yêu cầu rà soát NGẮN không file (→ hướng dẫn đính kèm); HĐ DÁN dài vẫn ack + analyze.
         and not (len((text or "").strip()) < 200 and _wants_whole_contract_review(text or "")))
+    on_progress = None
     if will_analyze:
-        _safe_send(sender, send_to, _ACK, thread_ts)
+        ack_ts = _safe_send(sender, send_to, _ACK, thread_ts)
+        # Heartbeat tiến triển (A1): cập nhật TẠI CHỖ ack (chat.update) khi agent flag thêm rủi ro. Chỉ khi
+        # sender hỗ trợ update (Slack) + có ts ack. Callback optional → default None = 0 đổi hành vi/accuracy.
+        if ack_ts and hasattr(sender, "update"):
+            on_progress = _make_progress_cb(sender, send_to, ack_ts)
     elif text and _looks_like_question(text):       # lookup/follow-up cũng chậm (~30s) → ack để không "chờ im"
         _safe_send(sender, send_to, "Đang tra cứu văn bản pháp luật, vui lòng chờ trong giây lát…", thread_ts)
     attachment: bytes | None = None
@@ -1074,7 +1084,8 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         res = handler.reply_ex(key, text=text, attachment=attachment, filename=filename,
                                thread_msgs=thread_msgs, bot_uid=bot_uid,
                                asker_id=asker_id, names=names,
-                               in_thread=thread_fetch is not None)
+                               in_thread=thread_fetch is not None,
+                               on_progress=on_progress)
         reply = (reply_prefix + res.text) if reply_prefix else res.text   # vd "🔄 (cập nhật…)" khi chạy lại từ tin sửa
         if supports_buttons and res.kind:          # gắn nút feedback (Slack) cho câu trả lời thật
             if res.kind == "analysis" and res.result is not None:
@@ -1097,11 +1108,31 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
 
 
 def _safe_send(sender: ChatSenderPort, send_to: str, text: str, thread_ts: str | None,
-               blocks: list | None = None) -> None:
+               blocks: list | None = None) -> str | None:
     try:
-        sender.send(send_to, text, thread_ts, blocks)
+        return sender.send(send_to, text, thread_ts, blocks)   # ts (Slack) → cho phép chat.update heartbeat
     except Exception:  # noqa: BLE001 — gửi lỗi (token sai/channel sai) không làm sập task nền
         _log.exception("Không gửi được reply (%s)", send_to)
+        return None
+
+
+def _make_progress_cb(sender: ChatSenderPort, send_to: str, ack_ts: str):
+    """Callback THROTTLE cập nhật ack "đang phân tích… đã tìm N rủi ro" (Slack chat.update). Chỉ update khi
+    #rủi ro TĂNG và cách lần trước ≥8s (chống spam rate-limit); lỗi nuốt (tiến triển là phụ)."""
+    state = {"n": 0, "t": 0.0}
+
+    def _cb(ev: dict) -> None:
+        n = int(ev.get("risks", 0) or 0)
+        now = time.monotonic()
+        if n <= state["n"] or now - state["t"] < 8:
+            return
+        state["n"], state["t"] = n, now
+        try:
+            sender.update(send_to, ack_ts, f"Đang rà soát hợp đồng… đã phát hiện {n} rủi ro (tiếp tục)…")
+        except Exception:  # noqa: BLE001 — heartbeat phụ, không làm hỏng task nền
+            _log.debug("chat.update heartbeat lỗi", exc_info=True)
+
+    return _cb
 
 
 def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "",

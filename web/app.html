@@ -212,12 +212,13 @@ $('sample').onclick = () => {
 const _STEPS = ['Đọc & tách điều khoản…', 'Tra cứu KB luật (grounding)…', 'Gắn cờ rủi ro (trái luật / bất lợi)…',
   'Đối chiếu NLI điều luật…', 'Soạn chiến thuật fallback theo vị thế…', 'Tổng hợp chiến lược đàm phán…'];
 let _timer = null;
+let _hbActive = false;    // heartbeat thật (đã tìm N rủi ro) tiếp quản → ngừng cycle thông báo chung
 function startProgress(){
-  let t = 0, i = 0;
+  let t = 0, i = 0; _hbActive = false;
   $('spin-msg').textContent = _STEPS[0];
   _timer = setInterval(() => {
     t += 1;
-    if (t % 12 === 0 && i < _STEPS.length - 1) $('spin-msg').textContent = _STEPS[++i];
+    if (!_hbActive && t % 12 === 0 && i < _STEPS.length - 1) $('spin-msg').textContent = _STEPS[++i];
     $('spin-time').textContent = `(${t}s — thường 1–3 phút, đừng đóng tab)`;
   }, 1000);
 }
@@ -247,7 +248,11 @@ $('go').onclick = async () => {
       const p = await fetch('/analyze/result/' + encodeURIComponent(job.case_id), { headers });
       if (p.status === 200) { res = await p.json(); break; }
       if (p.status === 502) throw new Error((await p.json().catch(()=>({}))).detail || 'Phân tích lỗi');
-      // 404 = đang xử lý → chờ tiếp
+      if (p.status === 202) {                             // heartbeat: hiện #rủi ro đã tìm được
+        const n = ((await p.json().catch(()=>({}))).progress || {}).risks || 0;
+        if (n > 0) { _hbActive = true; $('spin-msg').textContent = `Đang phân tích… đã tìm ${n} rủi ro`; }
+      }
+      // 404 = đang xử lý (chưa có heartbeat) → chờ tiếp
     }
     if (!res) throw new Error('Quá thời gian chờ phân tích — thử lại.');
     render(res);

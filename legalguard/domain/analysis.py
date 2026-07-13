@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
 import unicodedata
 import uuid
 from collections import OrderedDict
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import date, datetime, timezone
@@ -604,7 +606,8 @@ class AnalysisService:
 
     def analyze(self, contract_text: str, org: Organization, lang: str = "en",
                 position: NegotiationPosition | None = None,
-                source: SourceMeta | None = None, case_id: str | None = None) -> AnalysisResult:
+                source: SourceMeta | None = None, case_id: str | None = None,
+                on_progress: "Callable[[dict], None] | None" = None) -> AnalysisResult:
         t0 = time.monotonic()
         jurisdiction = get_tenant(org.country)   # quốc gia → KB luật + bối cảnh
 
@@ -630,11 +633,28 @@ class AnalysisService:
 
         errors: list[LLMError] = []
 
+        # Heartbeat tiến triển: gộp #rủi ro qua các cửa sổ (thread-safe) → báo tổng cho caller (Slack/web).
+        # Optional (on_progress None → 0 overhead). KHÔNG đụng nội dung/quyết định agent → accuracy KHÔNG đổi.
+        _prog_counts = [0] * len(windows)
+        _prog_lock = threading.Lock()
+
+        def _emit(i: int, ev: dict):
+            if on_progress is None:
+                return
+            with _prog_lock:
+                _prog_counts[i] = ev.get("risks", 0)
+                total = sum(_prog_counts)
+            try:
+                on_progress({"risks": total, "windows": len(windows)})
+            except Exception:  # noqa: BLE001 — progress phụ, không chặn phân tích
+                pass
+
         def _one(i: int):
             # Lỗi LLM ở 1 cửa sổ KHÔNG được xóa kết quả các cửa sổ khác → trả None, gom lỗi.
             try:
                 return run_agent(windows[i], jurisdiction.country, self.reasoner, contexts[i],
-                                 lang=lang, position=position, max_iters=route["max_iters"])
+                                 lang=lang, position=position, max_iters=route["max_iters"],
+                                 on_progress=(lambda ev, _i=i: _emit(_i, ev)) if on_progress else None)
             except LLMError as exc:
                 _log.warning("Cửa sổ %d lỗi LLM: %s", i, exc)
                 errors.append(exc)

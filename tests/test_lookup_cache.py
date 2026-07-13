@@ -46,7 +46,8 @@ def test_cache_hit_skips_second_llm_call():
     a1, _ = svc.lookup("Mức phạt vi phạm tối đa bao nhiêu?", _ORG)
     a2, _ = svc.lookup("Mức phạt vi phạm tối đa bao nhiêu?", _ORG)
     assert llm.calls == 1              # lần 2 lấy từ cache
-    assert a1 == a2 == "**Trả lời:** đáp án 1"
+    assert a1 == a2                    # cache hit trả y hệt (kèm cả dòng độ tin cậy)
+    assert a1.startswith("**Trả lời:** đáp án 1")   # đáp án lần 1 (không tính lại)
 
 
 def test_cache_normalizes_question():

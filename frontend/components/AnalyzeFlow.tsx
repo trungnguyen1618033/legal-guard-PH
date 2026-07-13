@@ -72,6 +72,7 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
   });
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [foundRisks, setFoundRisks] = useState(0);   // heartbeat A1: #rủi ro tìm được giữa chừng
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<AnalysisResultDTO | null>(null);
   const [review, setReview] = useState<"pending" | "approved" | "rejected">("pending");
@@ -85,6 +86,7 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
     setReview("pending");
     setRejectMsg(null);
     setElapsed(0);
+    setFoundRisks(0);
   }
 
   async function submit(e: React.FormEvent) {
@@ -132,7 +134,12 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
         }
         try {
           const res = await fetch(`/api/analyze/${caseId}`);
-          if (res.status === 404) {
+          if (res.status === 404 || res.status === 202) {
+            if (res.status === 202) {                 // heartbeat: #rủi ro đã tìm được
+              const d = await res.json().catch(() => ({}));
+              const n = d?.progress?.risks ?? 0;
+              if (n > 0) setFoundRisks(n);
+            }
             pollRef.current = setTimeout(attempt, 2500);
             return;
           }
@@ -232,7 +239,9 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
         <Button type="submit"
           disabled={busy || (mode === "text" ? !text.trim() : !file)}
           className="self-start px-5 py-2.5">
-          {busy ? `${L.analyzing} ${elapsed}s` : L.submit}
+          {busy
+            ? `${L.analyzing} ${elapsed}s${foundRisks > 0 ? ` · ${foundRisks} ${L.esRisks}` : ""}`
+            : L.submit}
         </Button>
       </form>
 

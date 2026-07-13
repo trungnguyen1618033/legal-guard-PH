@@ -41,6 +41,11 @@ class _FakeSender:
         self.sent.append((conv, text))
         self.threads.append(thread_ts)
         self.blocks = blocks
+        return "111.222"                   # ts giả (cho phép chat.update heartbeat)
+
+    def update(self, conv, ts, text, blocks=None):
+        self.updated = getattr(self, "updated", [])
+        self.updated.append((conv, ts, text))
 
     def download(self, url):
         self.downloaded.append(url)
@@ -276,6 +281,28 @@ def test_process_reuses_contract_file_from_thread():
     assert "u_doc" in s.downloaded                          # đã tải file HĐ trong thread
     joined = " ".join(t for _, t in s.sent)
     assert "ĐÍNH KÈM" not in joined                         # KHÔNG hỏi đính kèm nữa (đã dùng file thread)
+
+
+def test_make_progress_cb_throttles_and_only_on_increase():
+    # Heartbeat A1: callback update ack CHỈ khi #rủi ro TĂNG và cách ≥8s (chống spam chat.update).
+    from legalguard.adapters.inbound.channels import _make_progress_cb
+    s = _FakeSender()
+    cb = _make_progress_cb(s, "C1", "111.222")
+    cb({"risks": 2})              # lần đầu, n>0 → update
+    cb({"risks": 2})              # n không tăng → bỏ
+    cb({"risks": 3})             # tăng NHƯNG <8s từ lần trước → throttle bỏ
+    updated = getattr(s, "updated", [])
+    assert len(updated) == 1
+    assert "2 rủi ro" in updated[0][2]
+    assert updated[0][1] == "111.222"           # đúng ts ack
+
+
+def test_make_progress_cb_ignores_zero():
+    from legalguard.adapters.inbound.channels import _make_progress_cb
+    s = _FakeSender()
+    cb = _make_progress_cb(s, "C1", "111.222")
+    cb({"risks": 0})
+    assert not getattr(s, "updated", [])         # chưa có rủi ro → không update
 
 
 def test_trust_query_returns_accuracy_publication():
@@ -798,10 +825,19 @@ def test_confirm_amend_records_event_without_llm():
                         risks=[{"clause": "Phạt 15%", "risk": "vượt trần"}], fallbacks=[], trace=[])
 
     class _Svc:
-        def __init__(self): self.outcomes = []; self.drafted = False
-        def get_case(self, cid): return case if cid == "c1" else None
-        def record_outcome(self, o): self.outcomes.append(o)
-        def draft_counter_clause(self, **kw): self.drafted = True; return {}
+        def __init__(self):
+            self.outcomes = []
+            self.drafted = False
+
+        def get_case(self, cid):
+            return case if cid == "c1" else None
+
+        def record_outcome(self, o):
+            self.outcomes.append(o)
+
+        def draft_counter_clause(self, **kw):
+            self.drafted = True
+            return {}
 
     svc, sender = _Svc(), _FakeSender()
     _confirm_amend(svc, sender, "default", "c1", 0, "C1", "th1")

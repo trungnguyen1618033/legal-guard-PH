@@ -23,7 +23,7 @@ class SlackSender:
         return bool(self.bot_token)
 
     def send(self, conversation_id: str, text: str, thread_ts: str | None = None,
-             blocks: list | None = None) -> None:
+             blocks: list | None = None) -> str | None:
         payload: dict = {"channel": conversation_id, "text": text}
         if blocks:                          # Block Kit (vd nút feedback); text vẫn giữ làm fallback
             payload["blocks"] = blocks
@@ -38,6 +38,29 @@ class SlackSender:
         if not data.get("ok"):
             _log.error("Slack chat.postMessage lỗi: %s (channel=%s)",
                        data.get("error"), conversation_id)
+            return None
+        return data.get("ts")               # ts tin đã gửi → cho phép chat.update (heartbeat A1)
+
+    def update(self, conversation_id: str, ts: str, text: str,
+               blocks: list | None = None) -> None:
+        """Sửa TẠI CHỖ 1 tin đã gửi (chat.update) — dùng cho heartbeat tiến triển: cập nhật ack "đang phân
+        tích… đã tìm N rủi ro" thay vì spam tin mới. Lỗi/thiếu ts → bỏ qua (tiến triển là phụ)."""
+        if not ts:
+            return
+        payload: dict = {"channel": conversation_id, "ts": ts, "text": text}
+        if blocks:
+            payload["blocks"] = blocks
+        try:
+            resp = httpx.post("https://slack.com/api/chat.update",
+                              headers={"Authorization": f"Bearer {self.bot_token}"},
+                              json=payload, timeout=30)
+            data = resp.json()
+        except Exception:  # noqa: BLE001 — heartbeat phụ, không được làm hỏng luồng chính
+            _log.exception("Slack chat.update lỗi (channel=%s)", conversation_id)
+            return
+        if not data.get("ok"):
+            _log.warning("Slack chat.update từ chối: %s (channel=%s)",
+                         data.get("error"), conversation_id)
 
     def download(self, url: str) -> bytes:
         resp = httpx.get(url, headers={"Authorization": f"Bearer {self.bot_token}"},
@@ -127,6 +150,10 @@ class ZaloSender:
         if resp.json().get("error"):     # Zalo: error != 0 là fail
             _log.error("Zalo gửi tin lỗi: %s (user=%s)", resp.json().get("message"),
                        conversation_id)
+
+    def update(self, conversation_id: str, ts: str, text: str,
+               blocks: list | None = None) -> None:
+        return                         # Zalo OA không sửa được tin đã gửi → no-op (heartbeat bỏ qua)
 
     def download(self, url: str) -> bytes:
         resp = httpx.get(url, timeout=60, follow_redirects=True)

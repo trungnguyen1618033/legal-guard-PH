@@ -57,6 +57,24 @@ def _async_get(cid: str, org_id: str) -> dict | None:
     return v[1] if v and v[0] == org_id else None   # cô lập theo org
 
 
+# Tiến triển HEARTBEAT (A1): {case_id: (org_id, {risks, windows})} — cập nhật giữa chừng bởi on_progress
+# callback (agent flag rủi ro), poll trả 202 để client hiện "đang phân tích… đã tìm N rủi ro". Cùng org-scope.
+_async_progress: "OrderedDict[str, tuple]" = OrderedDict()
+
+
+def _progress_put(cid: str, org_id: str, prog: dict) -> None:
+    with _async_lock:
+        _async_progress[cid] = (org_id, prog)
+        while len(_async_progress) > 50:
+            _async_progress.popitem(last=False)
+
+
+def _progress_get(cid: str, org_id: str) -> dict | None:
+    with _async_lock:
+        v = _async_progress.get(cid)
+    return v[1] if v and v[0] == org_id else None
+
+
 _LANDING = Path("web/index.html")
 _APP = Path("web/app.html")
 _LOOKUP = Path("web/lookup.html")
@@ -349,10 +367,13 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
         if async_mode:
             cid = uuid.uuid4().hex
 
+            def _on_prog(ev: dict) -> None:
+                _progress_put(cid, org.id, ev)               # heartbeat: poll thấy #rủi ro tăng dần
+
             def _bg():
                 try:
                     res = service.analyze(contract_text, org, lang=lang, position=position,
-                                          source=source, case_id=cid)
+                                          source=source, case_id=cid, on_progress=_on_prog)
                     _async_put(cid, org.id, res.__dict__)        # full result shape cho UI poll
                 except Exception as exc:  # noqa: BLE001 — lỗi nền: lưu để client poll thấy, vẫn log
                     _async_put(cid, org.id, {"error": str(exc)})
@@ -379,11 +400,17 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
         return result.__dict__
 
     @app.get("/analyze/result/{case_id}")
-    def analyze_result(case_id: str, org: Organization = Depends(require_auth)) -> dict:
-        """Poll kết quả phân tích NỀN (async_mode): 404 = đang xử lý / không thấy; 200 = full result;
-        502 = lỗi phân tích. Client gọi lặp tới khi 200. (Kết quả đầy đủ — khác /cases/{id} chỉ có core.)"""
+    def analyze_result(case_id: str, response: Response,
+                       org: Organization = Depends(require_auth)) -> dict:
+        """Poll kết quả phân tích NỀN (async_mode): 202 = đang xử lý (kèm progress heartbeat nếu có);
+        404 = không thấy; 200 = full result; 502 = lỗi. Client gọi lặp tới khi 200. (Kết quả đầy đủ —
+        khác /cases/{id} chỉ có core.)"""
         res = _async_get(case_id, org.id)
         if res is None:
+            prog = _progress_get(case_id, org.id)
+            if prog is not None:                         # đã bắt đầu, chưa xong → 202 + heartbeat
+                response.status_code = 202
+                return {"status": "analyzing", "progress": prog}
             raise HTTPException(status_code=404, detail="Đang xử lý hoặc không tìm thấy kết quả.")
         if res.get("error"):
             raise HTTPException(status_code=502, detail=f"Phân tích lỗi: {res['error']}")

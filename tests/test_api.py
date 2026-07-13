@@ -227,6 +227,23 @@ def test_analyze_async_mode_returns_case_id_then_pollable(client, sample_contrac
     assert client.get(f"/cases/{d['case_id']}").status_code == 200
 
 
+def test_analyze_result_202_progress_heartbeat(client):
+    # A1: đang phân tích + có heartbeat (chưa xong) → 202 + {status, progress}. (Auth tắt → org 'default'.)
+    from legalguard.adapters.inbound import http as http_mod
+    cid = "prog-test-1"
+    http_mod._progress_put(cid, "default", {"risks": 3, "windows": 1})
+    r = client.get(f"/analyze/result/{cid}", headers={"x-tenant-id": "VN"})
+    assert r.status_code == 202
+    d = r.json()
+    assert d["status"] == "analyzing" and d["progress"]["risks"] == 3
+
+
+def test_analyze_result_404_when_no_progress(client):
+    # Không có result cũng không có heartbeat → 404 (như cũ).
+    r = client.get("/analyze/result/does-not-exist", headers={"x-tenant-id": "VN"})
+    assert r.status_code == 404
+
+
 def test_landing_page(client):
     r = client.get("/")
     assert r.status_code == 200
