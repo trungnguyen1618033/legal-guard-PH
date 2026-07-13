@@ -1,0 +1,69 @@
+{
+  "aggregate": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "date_accuracy": 1.0,
+    "tp": 8,
+    "fp": 0,
+    "fn": 0,
+    "date_total": 4,
+    "date_correct": 4
+  },
+  "cases": [
+    {
+      "name": "Mua bán — thanh toán mốc tuyệt đối + bảo hành",
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "date_total": 1,
+      "date_correct": 1,
+      "n_extracted": 2
+    },
+    {
+      "name": "Dịch vụ — tự gia hạn + hạn báo chấm dứt (mốc tương đối)",
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "date_total": 1,
+      "date_correct": 1,
+      "n_extracted": 1
+    },
+    {
+      "name": "Xây dựng — giao hàng theo mốc + phạt chậm",
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "date_total": 1,
+      "date_correct": 1,
+      "n_extracted": 1
+    },
+    {
+      "name": "Thuê — thanh toán định kỳ (mốc lặp) + đặt cọc hoàn trả",
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "date_total": 0,
+      "date_correct": 0,
+      "n_extracted": 2
+    },
+    {
+      "name": "NDA — không có nghĩa vụ CÓ MỐC (kiểm chống bịa)",
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "date_total": 0,
+      "date_correct": 0,
+      "n_extracted": 0
+    },
+    {
+      "name": "Vay — trả gốc/lãi theo kỳ + đáo hạn",
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "date_total": 1,
+      "date_correct": 1,
+      "n_extracted": 2
+    }
+  ]
+}

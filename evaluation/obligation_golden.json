@@ -1,0 +1,49 @@
+{
+  "_note": "Golden trích NGHĨA VỤ & HẠN CHÓT (tính năng A, sau-ký). HĐ mẫu TỔNG HỢP (luật sư xác minh sau, như golden khác). expected: mỗi nghĩa vụ-có-mốc kỳ vọng {kind, keywords (≥1 xuất hiện trong description/source thì coi là bắt được), due_date (nếu ra được mốc tuyệt đối) hoặc rule_substr}. Eval đo precision/recall bắt nghĩa vụ + độ chính xác NGÀY. Chạy (cần QWEN key): uv run python -m evaluation.obligation_eval. score_case THUẦN → test offline.",
+  "cases": [
+    {
+      "name": "Mua bán — thanh toán mốc tuyệt đối + bảo hành",
+      "contract": "HỢP ĐỒNG MUA BÁN. Điều 3 (Thanh toán): Bên Mua thanh toán đợt 2 bằng 40% giá trị hợp đồng vào ngày 01/09/2026. Điều 6 (Bảo hành): Bên Bán bảo hành thiết bị trong 12 tháng kể từ ngày nghiệm thu; sau thời hạn này Bên Bán không chịu trách nhiệm.",
+      "expected": [
+        {"kind": "payment", "keywords": ["thanh toán", "đợt 2", "40%"], "due_date": "2026-09-01"},
+        {"kind": "warranty", "keywords": ["bảo hành", "12 tháng"]}
+      ]
+    },
+    {
+      "name": "Dịch vụ — tự gia hạn + hạn báo chấm dứt (mốc tương đối)",
+      "contract": "HỢP ĐỒNG DỊCH VỤ. Điều 2 (Thời hạn): Hợp đồng có hiệu lực đến hết ngày 31/12/2026 và TỰ ĐỘNG GIA HẠN thêm 12 tháng nếu không bên nào thông báo chấm dứt. Điều 2.2: Bên muốn không gia hạn phải gửi thông báo bằng văn bản CHẬM NHẤT 30 ngày trước ngày hết hạn hợp đồng.",
+      "contract_end": "2026-12-31",
+      "expected": [
+        {"kind": "termination_notice", "keywords": ["thông báo", "không gia hạn", "30 ngày"], "due_date": "2026-12-01"}
+      ]
+    },
+    {
+      "name": "Xây dựng — giao hàng theo mốc + phạt chậm",
+      "contract": "HỢP ĐỒNG THI CÔNG. Điều 4: Nhà thầu bàn giao hạng mục A trước ngày 15/10/2026. Chậm bàn giao chịu phạt 0,05%/ngày trên giá trị hạng mục.",
+      "expected": [
+        {"kind": "delivery", "keywords": ["bàn giao", "hạng mục A"], "due_date": "2026-10-15"}
+      ]
+    },
+    {
+      "name": "Thuê — thanh toán định kỳ (mốc lặp) + đặt cọc hoàn trả",
+      "contract": "HỢP ĐỒNG THUÊ. Điều 3: Tiền thuê thanh toán trước ngày 05 hằng tháng. Điều 5: Bên cho thuê hoàn trả tiền đặt cọc trong vòng 15 ngày kể từ ngày kết thúc hợp đồng.",
+      "expected": [
+        {"kind": "payment", "keywords": ["tiền thuê", "hằng tháng", "ngày 05"]},
+        {"kind": "other", "keywords": ["đặt cọc", "hoàn trả", "15 ngày"]}
+      ]
+    },
+    {
+      "name": "NDA — không có nghĩa vụ CÓ MỐC (kiểm chống bịa)",
+      "contract": "THỎA THUẬN BẢO MẬT. Hai bên cam kết giữ bí mật thông tin trao đổi trong quá trình hợp tác. Không tiết lộ cho bên thứ ba.",
+      "expected": []
+    },
+    {
+      "name": "Vay — trả gốc/lãi theo kỳ + đáo hạn",
+      "contract": "HỢP ĐỒNG VAY. Điều 2: Bên vay trả lãi vào ngày cuối mỗi quý. Điều 3: Toàn bộ nợ gốc phải hoàn trả vào ngày 30/06/2027 (ngày đáo hạn).",
+      "expected": [
+        {"kind": "payment", "keywords": ["lãi", "quý"]},
+        {"kind": "payment", "keywords": ["nợ gốc", "đáo hạn"], "due_date": "2027-06-30"}
+      ]
+    }
+  ]
+}
