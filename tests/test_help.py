@@ -19,6 +19,15 @@ def test_is_help_query_ignores_normal_questions():
         assert not _is_help_query(t), t
 
 
+def test_is_help_query_not_hijacked_by_help_me_review():
+    # BUG thực tế: "help me to review this contract" bắt đầu bằng 'help' → TỪNG bị trả bảng hướng dẫn thay vì
+    # rà soát. 'help me <hành động>' có động từ rà soát / tín hiệu HĐ → KHÔNG phải xin hướng dẫn dùng bot.
+    for t in ["help me to review this contract for Phu Quoc side",
+              "help me review this contract", "help me analyze the arbitration clause",
+              "help me rà soát hợp đồng này", "help me check the payment terms"]:
+        assert not _is_help_query(t), t
+
+
 def test_format_help_text_covers_all_four_sections():
     txt = format_help_text("slack")
     assert "HƯỚNG DẪN" in txt

@@ -101,10 +101,22 @@ def _is_trust_query(text: str) -> bool:
 _HELP_RE = re.compile(
     r"^\s*(help|/help|trợ giúp|tro giup|hướng dẫn|huong dan|dùng thế nào|dùng sao|"
     r"how to use|bắt đầu thế nào|làm sao dùng|dùng công cụ)\b", re.IGNORECASE)
+# "help me <làm X>" là YÊU CẦU HÀNH ĐỘNG (vd "help me review this contract"), KHÔNG phải xin hướng dẫn
+# dùng bot → có động từ hành động rà soát/soạn thì loại khỏi help-docs.
+_HELP_ACTION_RE = re.compile(
+    r"\b(review|analyz|analyse|check|draft)\b|rà soát|ra soat|kiểm tra|phân tích|phan tich|soạn|xem giúp",
+    re.IGNORECASE)
 
 
 def _is_help_query(text: str) -> bool:
-    return bool(text and _HELP_RE.search(text.strip()))
+    t = (text or "").strip()
+    if not t or not _HELP_RE.search(t):
+        return False
+    # "help me review this contract for X" → có tín hiệu HĐ hoặc động từ hành động → RÀ SOÁT, không phải help.
+    low = t.lower()
+    if any(s in low for s in _SIGNALS) or _HELP_ACTION_RE.search(low):
+        return False
+    return True
 
 
 def _mentions(text: str, uid: str) -> bool:
