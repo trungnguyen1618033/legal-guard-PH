@@ -200,6 +200,21 @@ def test_legal_question_in_thread_routes_followup_not_lookup():
     assert r.kind == ""                                  # followup theo ngữ cảnh, KHÔNG phải lookup
 
 
+def test_help_query_not_shown_mid_deal():
+    # BUG user báo: upload file → hỏi (analyze) → HỎI LẠI thì bot trả bảng HELP thay vì trả lời tiếp.
+    # Đang trong deal (conv.context đã set) → 'help me…' là hỏi tiếp → followup, KHÔNG phải bảng hướng dẫn.
+    h = _handler()
+    h.reply("cHelpDeal", text=MSG)                       # analyze → conv.context set
+    r = h.reply_ex("cHelpDeal", text="help me understand this better")
+    assert "HƯỚNG DẪN" not in r.text                    # không nuốt thành bảng hướng dẫn
+    assert r.kind == ""                                  # đi followup theo deal context
+
+
+def test_help_query_still_shown_when_fresh():
+    # Không có deal/thread → 'help' vẫn ra bảng hướng dẫn (không regress).
+    assert "HƯỚNG DẪN" in _handler().reply("cHelpFresh", text="help")
+
+
 def test_trust_query_returns_accuracy_publication():
     # Hỏi về độ tin cậy (meta) → trả công bố độ chính xác, KHÔNG đi lookup/analyze.
     out = _handler().reply("cT", text="Độ chính xác của hệ thống thế nào, có đáng tin không?")

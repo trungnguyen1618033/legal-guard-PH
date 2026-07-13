@@ -506,7 +506,10 @@ class ChatHandler:
     def _handle(self, conv: Conversation, text, attachment, filename, lang,
                 thread_context: str = "", in_thread: bool = False) -> ChatReply:
         org = default_org(self.default_tenant)
-        if attachment is None and _is_help_query(text or ""):      # xin hướng dẫn / trợ giúp → bảng help
+        # Bảng help CHỈ khi CHƯA vào deal/thread. Đang rà soát (đã analyze → conv.context) hoặc giữa thread
+        # thì "help me…"/"giúp…" là HỎI TIẾP, KHÔNG phải xin hướng dẫn dùng bot (user báo: upload file →
+        # hỏi → hỏi lại thì bot trả HELP thay vì trả lời tiếp).
+        if attachment is None and not conv.context and not thread_context and _is_help_query(text or ""):
             from legalguard.domain.help import format_help_text
             return ChatReply(format_help_text("slack"))
         if attachment is None and _is_trust_query(text or ""):     # meta-câu-hỏi về độ tin cậy → công bố
