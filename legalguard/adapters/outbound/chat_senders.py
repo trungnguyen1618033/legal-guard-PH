@@ -68,7 +68,10 @@ class SlackSender:
                              data.get("error"), channel)
                 return out
             out += [{"user": m.get("user", ""), "bot_id": m.get("bot_id", ""),
-                     "text": m.get("text", ""), "ts": m.get("ts", "")}
+                     "text": m.get("text", ""), "ts": m.get("ts", ""),
+                     # file đính kèm (nếu có) → cho phép rà soát lại file HĐ đã có trong thread
+                     "files": [{"url": fi.get("url_private", ""), "name": fi.get("name", "")}
+                               for fi in (m.get("files") or []) if fi.get("url_private")]}
                     for m in data.get("messages", [])]
             cursor = (data.get("response_metadata") or {}).get("next_cursor", "")
             if not cursor:

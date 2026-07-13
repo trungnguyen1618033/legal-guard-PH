@@ -232,6 +232,34 @@ def test_wants_whole_contract_review_detector():
     assert not _wants_whole_contract_review("Mức phạt tối đa bao nhiêu %?")          # câu hỏi luật
 
 
+def test_latest_contract_file_picks_most_recent():
+    from legalguard.adapters.inbound.channels import _latest_contract_file
+    msgs = [
+        {"ts": "1", "files": [{"url": "u_old", "name": "contract_v1.docx"}]},
+        {"ts": "2", "text": "chat", "files": []},
+        {"ts": "3", "files": [{"url": "u_new", "name": "contract_v2.pdf"}]},
+        {"ts": "4", "text": "@bot review this contract", "files": []},
+    ]
+    assert _latest_contract_file(msgs) == ("u_new", "contract_v2.pdf")     # file HĐ GẦN NHẤT
+    # không có file loại tài liệu → (None, None)
+    assert _latest_contract_file([{"files": [{"url": "u", "name": "pic.gif"}]}]) == (None, None)
+
+
+def test_process_reuses_contract_file_from_thread():
+    # User yêu cầu rà soát KHÔNG kèm file; thread có file HĐ ở tin trước → _process dùng file đó → rà soát
+    # (KHÔNG hỏi đính kèm lại). Fix cho phản ánh: 'không biết trong thread có file nào không'.
+    from legalguard.adapters.inbound.channels import _process
+    thread = [{"user": "U1", "text": "hợp đồng đây", "ts": "1",
+               "files": [{"url": "u_doc", "name": "hopdong.txt"}]}]
+    s = _FakeSender(file_bytes=b"HOP DONG: phat vi pham 15%; thanh toan 90 ngay.", thread_msgs=thread)
+    _process(_handler(), s, "slack:C1:100", "C1",
+             "help me to review this contract for Phu Quoc side", None, None, "100",
+             supports_buttons=True, thread_fetch=("C1", "100"))
+    assert "u_doc" in s.downloaded                          # đã tải file HĐ trong thread
+    joined = " ".join(t for _, t in s.sent)
+    assert "ĐÍNH KÈM" not in joined                         # KHÔNG hỏi đính kèm nữa (đã dùng file thread)
+
+
 def test_trust_query_returns_accuracy_publication():
     # Hỏi về độ tin cậy (meta) → trả công bố độ chính xác, KHÔNG đi lookup/analyze.
     out = _handler().reply("cT", text="Độ chính xác của hệ thống thế nào, có đáng tin không?")

@@ -662,6 +662,21 @@ def _slack_file(event: dict) -> tuple[str | None, str | None]:
     return None, None
 
 
+_CONTRACT_EXT = (".pdf", ".docx", ".doc", ".txt", ".png", ".jpg", ".jpeg")
+
+
+def _latest_contract_file(msgs: list[dict]) -> tuple[str | None, str | None]:
+    """Tìm FILE hợp đồng GẦN NHẤT trong các tin thread (dùng khi user yêu cầu rà soát mà không đính kèm
+    lại — file đã có sẵn trong thread). Trả (url, tên) hoặc (None, None). `msgs` cần có key `files`
+    ([{url, name}]) do sender.fetch_thread cung cấp."""
+    for m in reversed(msgs):
+        for f in (m.get("files") or []):
+            name = (f.get("name") or "").lower()
+            if f.get("url") and name.endswith(_CONTRACT_EXT):
+                return f["url"], f.get("name", "file")
+    return None, None
+
+
 def _zalo_file(message: dict) -> tuple[str | None, str | None]:
     for att in message.get("attachments") or []:
         url = (att.get("payload") or {}).get("url")
@@ -991,10 +1006,17 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
             names = sender.resolve_names(sorted(ids))
         except Exception:  # noqa: BLE001 — tên là phụ: lỗi → builder dùng nhãn ẩn danh Người A/B/C
             _log.warning("resolve_names lỗi — dùng nhãn ẩn danh", exc_info=True)
-    # Ack ngay khi sắp PHÂN TÍCH HĐ (lâu ~vài phút). Câu hỏi tra cứu (lookup) nhanh → KHÔNG ack
-    # (khớp routing: tín hiệu HĐ mà là câu hỏi thì đi lookup, không phân tích).
+    # Yêu cầu rà soát CẢ hợp đồng nhưng KHÔNG kèm file trực tiếp → dùng FILE HĐ GẦN NHẤT trong thread
+    # (user đã đính kèm ở tin trước, không cần gửi lại). Không thấy file nào → _handle sẽ hướng dẫn đính kèm.
+    if not file_url and thread_msgs and _wants_whole_contract_review(text or ""):
+        turl, tfn = _latest_contract_file(thread_msgs)
+        if turl:
+            file_url, filename = turl, tfn
+    # Ack ngay khi sắp PHÂN TÍCH HĐ (lâu ~vài phút). Câu hỏi tra cứu (lookup) nhanh → KHÔNG ack. Yêu cầu
+    # rà soát mà KHÔNG có file (trực tiếp/thread) → sẽ hướng dẫn đính kèm → KHÔNG ack (tránh 'Đã nhận HĐ' sai).
     will_analyze = bool(file_url) or (
-        bool(text) and not _is_question(text) and any(s in text.lower() for s in _SIGNALS))
+        bool(text) and not _is_question(text) and any(s in text.lower() for s in _SIGNALS)
+        and not _wants_whole_contract_review(text or ""))
     if will_analyze:
         _safe_send(sender, send_to, _ACK, thread_ts)
     elif text and _looks_like_question(text):       # lookup/follow-up cũng chậm (~30s) → ack để không "chờ im"
