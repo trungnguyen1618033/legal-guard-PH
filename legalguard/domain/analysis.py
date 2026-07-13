@@ -887,12 +887,12 @@ class AnalysisService:
             answer = llm.complete(prompt)
         except LLMError as exc:
             return f"Chưa trả lời được: {exc}", snippets
-        # NLI (model nhanh): câu trả lời có được CHÍNH các nguồn hậu thuẫn không? Không → cảnh báo.
-        if self.nli_verification and nli_supports(answer, sources, self.judge) is False:
-            answer += ("\n\nLưu ý: câu trả lời có thể chưa được nguồn dẫn hậu thuẫn đầy đủ; đề nghị đối chiếu "
-                       "văn bản gốc trước khi áp dụng." if lang == "vi" else
-                       "\n\nNote: this answer may not be fully supported by the cited sources; please verify "
-                       "against the original text.")
+        # ĐỘ TIN CẬY (từ tín hiệu ĐÃ TÍNH — NLI + độ tập trung evidence; KHÔNG thêm LLM call). Gộp cảnh báo
+        # NLI-phủ-định cũ vào nhãn 'Thấp'. User biết khi nào tin, khi nào cần luật sư đối chiếu.
+        from legalguard.domain.confidence import answer_confidence, confidence_line
+        nli_ok = nli_supports(answer, sources, self.judge) if self.nli_verification else None
+        n_kept = elbow_cutoff([s.score for s in snippets], min_keep=3) if snippets else 0
+        answer += "\n\n" + confidence_line(answer_confidence(nli_ok, n_kept), lang)
         if self.observer is not None:
             self.observer.event("lookup", {"tenant": get_tenant(org.country).id,
                                            "lang": lang, "hits": len(snippets)})
