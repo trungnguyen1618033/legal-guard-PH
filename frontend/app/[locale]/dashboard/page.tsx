@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import DashboardView, { type DashboardLabels } from "@/components/DashboardView";
+import PortfolioPlaybook from "@/components/PortfolioPlaybook";
 import { PageShell } from "@/components/ui";
 
 export default async function DashboardPage({ params: { locale } }: { params: { locale: string } }) {
@@ -16,6 +17,9 @@ export default async function DashboardPage({ params: { locale } }: { params: { 
   return (
     <PageShell back={t("back")} title={t("h1")} lede={t("lede")}>
       <DashboardView labels={labels} />
+      <div className="mt-8">
+        <PortfolioPlaybook />
+      </div>
     </PageShell>
   );
 }

@@ -28,7 +28,21 @@
     "topClauses": "Most risky clauses",
     "feedback": "User feedback",
     "noFeedback": "No feedback yet.",
-    "topTactics": "Tactics by win rate"
+    "topTactics": "Tactics by win rate",
+    "portfolioTitle": "Contract portfolio — prioritized",
+    "portfolioEmpty": "No contracts yet.",
+    "contract": "Contract",
+    "mustFix": "Must-fix",
+    "illegal": "Illegal",
+    "nextDue": "Next deadline",
+    "needsReviewTag": "needs review",
+    "obligationsTitle": "Obligations & deadlines (30 days)",
+    "obligationsEmpty": "No obligations due within 30 days.",
+    "playbookTitle": "Company policy (playbook)",
+    "playbookEmpty": "No policies yet.",
+    "policyPlaceholder": "Policy rule…",
+    "add": "Add",
+    "delete": "Delete"
   },
   "app": {
     "back": "← Home",

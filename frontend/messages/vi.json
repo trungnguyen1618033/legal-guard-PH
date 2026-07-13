@@ -28,7 +28,21 @@
     "topClauses": "Điều khoản hay rủi ro",
     "feedback": "Phản hồi người dùng",
     "noFeedback": "Chưa có phản hồi.",
-    "topTactics": "Chiến thuật theo tỉ lệ thắng"
+    "topTactics": "Chiến thuật theo tỉ lệ thắng",
+    "portfolioTitle": "Danh mục hợp đồng — ưu tiên xử lý",
+    "portfolioEmpty": "Chưa có hợp đồng nào.",
+    "contract": "Hợp đồng",
+    "mustFix": "Bắt buộc sửa",
+    "illegal": "Trái luật",
+    "nextDue": "Hạn gần nhất",
+    "needsReviewTag": "cần duyệt",
+    "obligationsTitle": "Nghĩa vụ & hạn chót (30 ngày)",
+    "obligationsEmpty": "Không có nghĩa vụ nào đến hạn trong 30 ngày.",
+    "playbookTitle": "Chính sách công ty (playbook)",
+    "playbookEmpty": "Chưa có chính sách nào.",
+    "policyPlaceholder": "Nội dung chính sách…",
+    "add": "Thêm",
+    "delete": "Xóa"
   },
   "app": {
     "back": "← Trang chủ",
