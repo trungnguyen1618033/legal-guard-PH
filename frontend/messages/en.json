@@ -167,6 +167,7 @@
     "compile": "Compile memo",
     "busy": "Compiling…",
     "docx": "Download Word (.docx)",
+    "redline": "📄 Download redline (.docx)",
     "docxUnavailable": "Word export not enabled on the server — use the markdown below."
   },
   "lookup": {

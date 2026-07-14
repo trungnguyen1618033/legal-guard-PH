@@ -167,6 +167,7 @@
     "compile": "Gộp bản ghi nhớ",
     "busy": "Đang gộp…",
     "docx": "Tải Word (.docx)",
+    "redline": "📄 Tải bản đối chiếu sửa đổi (.docx)",
     "docxUnavailable": "Chưa bật xuất Word trên máy chủ — dùng bản markdown bên dưới."
   },
   "lookup": {

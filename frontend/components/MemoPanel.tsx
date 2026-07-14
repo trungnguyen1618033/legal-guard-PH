@@ -26,6 +26,20 @@ export default function MemoPanel({ risks, fallbacks, protectedParty }: {
     });
   }
 
+  // Bản ĐỐI CHIẾU: điều khoản cũ (evidence) → mới (counter_clause vi/en, hoặc suggestion) + căn cứ.
+  function redlineItems() {
+    return risks.map((r) => {
+      const fb = fallbacks.find((f) => f.clause === r.clause);
+      const cc = r.counter_clause;
+      return {
+        clause: r.clause, evidence: r.evidence ?? "",
+        vi: cc?.vi ?? fb?.suggestion ?? "", en: cc?.en ?? "",
+        rationale: cc?.rationale ?? r.legal_basis ?? "",
+        legal_status: r.legal_status, violated_law: r.violated_law ?? "",
+      };
+    });
+  }
+
   async function compile() {
     if (busy) return;
     setBusy(true);
@@ -62,6 +76,26 @@ export default function MemoPanel({ risks, fallbacks, protectedParty }: {
     URL.revokeObjectURL(url);
   }
 
+  async function downloadRedline() {
+    setDocxNote(null);
+    const res = await fetch("/api/amendments/redline-docx", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ items: redlineItems(), protected_party: protectedParty ?? "" }),
+    });
+    if (!res.ok) {
+      setDocxNote(t("docxUnavailable"));
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ban-doi-chieu-sua-doi.docx";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (risks.length === 0) return null;
 
   return (
@@ -70,6 +104,7 @@ export default function MemoPanel({ risks, fallbacks, protectedParty }: {
       <div className="flex flex-wrap gap-2">
         <Button onClick={compile} disabled={busy}>{busy ? t("busy") : t("compile")}</Button>
         {markdown && <Button variant="ghost" onClick={downloadDocx}>{t("docx")}</Button>}
+        <Button variant="ghost" onClick={downloadRedline}>{t("redline")}</Button>
       </div>
       {docxNote && <Note className="mt-3">{docxNote}</Note>}
       {markdown && (
