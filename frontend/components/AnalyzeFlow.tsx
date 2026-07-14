@@ -60,6 +60,7 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
   const locale = useLocale();
   const t = useTranslations("app");
   const [mode, setMode] = useState<"text" | "file">("text");
+  const [reviewMode, setReviewMode] = useState<"deep" | "fast">("deep");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [pos, setPos] = useState({
@@ -108,6 +109,7 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
       fd.set("relationship", pos.relationship);
       fd.set("alternatives", String(pos.alternatives));
       fd.set("protected_party", pos.protected_party);
+      fd.set("mode", reviewMode);
 
       const res = await fetch("/api/analyze", { method: "POST", body: fd });
       const data = await res.json();
@@ -234,6 +236,15 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
             </label>
           </div>
         </fieldset>
+
+        <label className="text-sm">
+          <span className="mb-1 block text-muted">{t("reviewMode")}</span>
+          <select value={reviewMode} onChange={(e) => setReviewMode(e.target.value as "deep" | "fast")}
+            className="w-full rounded-md border border-line bg-paper px-3 py-1.5 outline-none focus:border-accent-d sm:max-w-md">
+            <option value="deep">{t("reviewModeDeep")}</option>
+            <option value="fast">{t("reviewModeFast")}</option>
+          </select>
+        </label>
 
         <Button type="submit"
           disabled={busy || (mode === "text" ? !text.trim() : !file)}
