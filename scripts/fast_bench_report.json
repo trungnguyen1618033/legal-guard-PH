@@ -1,0 +1,49 @@
+{
+  "base": "https://legalguard.duckdns.org",
+  "cases": 8,
+  "reps": 2,
+  "fast": {
+    "runs": 16,
+    "errors": 0,
+    "latency_s": {
+      "min": 5.9,
+      "median": 7.4,
+      "p95": 9.1,
+      "max": 10.2,
+      "avg": 7.5
+    },
+    "illegal_recall_pct": 100.0,
+    "miss_illegal": 0,
+    "miss_illegal_pct": 0.0,
+    "overflag": 6,
+    "overflag_pct": 30.0,
+    "detect_recall_pct": 100.0,
+    "n_illegal": 8,
+    "n_unfav": 20,
+    "warned_pct": 100.0,
+    "needs_human_review_pct": 100.0,
+    "counter_inline_total": 0
+  },
+  "deep": {
+    "runs": 2,
+    "errors": 0,
+    "latency_s": {
+      "min": 119.8,
+      "median": 119.8,
+      "p95": 136.1,
+      "max": 136.1,
+      "avg": 127.9
+    },
+    "illegal_recall_pct": 100.0,
+    "miss_illegal": 0,
+    "miss_illegal_pct": 0.0,
+    "overflag": 0,
+    "overflag_pct": 0.0,
+    "detect_recall_pct": 100.0,
+    "n_illegal": 2,
+    "n_unfav": 1,
+    "warned_pct": 0.0,
+    "needs_human_review_pct": 100.0,
+    "counter_inline_total": 3
+  }
+}
