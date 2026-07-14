@@ -47,6 +47,11 @@ class _FakeSender:
         self.updated = getattr(self, "updated", [])
         self.updated.append((conv, ts, text))
 
+    def upload_file(self, conv, filename, data, thread_ts=None, title="", comment=""):
+        self.uploaded = getattr(self, "uploaded", [])
+        self.uploaded.append((conv, filename, len(data), thread_ts))
+        return True
+
     def download(self, url):
         self.downloaded.append(url)
         return self._fb
@@ -821,13 +826,70 @@ def test_slack_interaction_records_outcome():
 
 
 def test_review_action_blocks_two_buttons():
-    # Reply rà soát MỚI: chỉ 2 nút quyết định Chốt / Sửa lại (gộp kết quả + feedback).
+    # Reply rà soát: Chốt / Sửa lại + nút 📄 Bản đối chiếu (khi có case_id).
     from legalguard.adapters.inbound.channels import _review_action_blocks
     blocks = _review_action_blocks("analysis", "case1")
     assert len(blocks) == 1 and blocks[0]["block_id"] == "lg_review"
     els = blocks[0]["elements"]
-    assert [e["action_id"] for e in els] == ["rv_close", "rv_revise"]
-    assert [e["text"]["text"] for e in els] == ["Chốt", "Sửa lại"]
+    assert [e["action_id"] for e in els] == ["rv_close", "rv_revise", "redline_dl"]
+    assert els[0]["text"]["text"] == "Chốt" and els[1]["text"]["text"] == "Sửa lại"
+    # không có case_id → không có nút tải file
+    assert len(_review_action_blocks("analysis", "")[0]["elements"]) == 2
+
+
+def test_redline_items_from_case_maps_old_new():
+    from legalguard.adapters.inbound.channels import _redline_items_from_case
+    from legalguard.domain.models import AnalysisCase
+    case = AnalysisCase(id="c1", org_id="default", tenant="VN", created_at="t", lang="vi",
+                        contract_excerpt="", summary="", needs_human_review=True, trace=[],
+                        risks=[{"clause": "Phạt 15%", "evidence": "Phạt 15%.", "legal_status": "illegal",
+                                "violated_law": "Điều 301",
+                                "counter_clause": {"vi": "Tối đa 8%.", "en": "Cap 8%.", "rationale": "Đ.301"}},
+                               {"clause": "TT 90 ngày", "evidence": "TT 90 ngày."}],
+                        fallbacks=[{"clause": "TT 90 ngày", "suggestion": "rút 30 ngày"}])
+    items = _redline_items_from_case(case)
+    assert items[0]["evidence"] == "Phạt 15%." and items[0]["vi"] == "Tối đa 8%." and items[0]["en"] == "Cap 8%."
+    assert items[1]["vi"] == "rút 30 ngày"          # không có counter → dùng suggestion fallback
+
+
+def test_send_redline_uploads_docx():
+    from dataclasses import asdict
+
+    import pytest
+    pytest.importorskip("docx")
+    from legalguard.adapters.inbound.channels import _send_redline
+    from legalguard.domain.models import AnalysisCase
+    case = AnalysisCase(id="c1", org_id="default", tenant="VN", created_at="t", lang="vi",
+                        contract_excerpt="", summary="", needs_human_review=True, trace=[],
+                        risks=[{"clause": "Phạt 15%", "evidence": "Phạt 15%.", "legal_status": "illegal",
+                                "counter_clause": {"vi": "Tối đa 8%.", "en": "Cap 8%."}}], fallbacks=[])
+
+    class _Svc:
+        def get_case(self, cid):
+            return case if cid == "c1" else None
+
+        def compile_redline(self, items, title="", protected_party=""):
+            from legalguard.domain.amendments import compile_redline
+            return asdict(compile_redline(items, title=title, protected_party=protected_party))
+
+    sender = _FakeSender()
+    _send_redline(_Svc(), sender, "default", "c1", "C1", "th1")
+    up = getattr(sender, "uploaded", [])
+    assert len(up) == 1 and up[0][1] == "ban-doi-chieu-sua-doi.docx" and up[0][3] == "th1"
+    assert up[0][2] > 500                            # docx bytes
+
+
+def test_send_redline_wrong_org_or_missing():
+    from legalguard.adapters.inbound.channels import _send_redline
+
+    class _Svc:
+        def get_case(self, cid):
+            return None
+
+    sender = _FakeSender()
+    _send_redline(_Svc(), sender, "default", "nope", "C1", "th1")
+    assert not getattr(sender, "uploaded", [])       # không upload
+    assert "không tìm thấy" in sender.sent[-1][1].lower()
 
 
 def test_slack_interaction_rv_close_records_accepted_and_helpful():

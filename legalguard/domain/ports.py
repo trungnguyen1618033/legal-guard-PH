@@ -117,6 +117,10 @@ class ChatSenderPort(Protocol):
     def update(self, conversation_id: str, ts: str, text: str,
                blocks: list | None = None) -> None: ...
 
+    # Đăng FILE (vd .docx bản đối chiếu) vào kênh/thread. Trả True nếu OK; kênh không hỗ trợ → False.
+    def upload_file(self, conversation_id: str, filename: str, data: bytes,
+                    thread_ts: str | None = None, title: str = "", comment: str = "") -> bool: ...
+
     def download(self, url: str) -> bytes: ...
 
     # Đọc toàn bộ tin trong 1 thread (catch-up ngữ cảnh khi được mention giữa hội thoại / dán link

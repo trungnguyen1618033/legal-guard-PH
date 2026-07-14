@@ -902,9 +902,10 @@ def _review_action_blocks(kind: str, ref: str) -> list[dict]:
             b["style"] = style
         return b
 
-    return [{"type": "actions", "block_id": "lg_review", "elements": [
-        btn("Chốt", "rv_close", "primary"),
-        btn("Sửa lại", "rv_revise", "danger")]}]
+    els = [btn("Chốt", "rv_close", "primary"), btn("Sửa lại", "rv_revise", "danger")]
+    if ref:                                    # có case_id → nút tải BẢN ĐỐI CHIẾU .docx (redline)
+        els.append(btn("📄 Bản đối chiếu", "redline_dl"))
+    return [{"type": "actions", "block_id": "lg_review", "elements": els}]
 
 
 def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, result: str) -> int:
@@ -929,6 +930,55 @@ def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, re
         except Exception:  # noqa: BLE001 — outcome là phụ; vẫn ack để Slack không retry
             _log.exception("Không ghi được outcome từ Slack")
     return n
+
+
+def _redline_items_from_case(case) -> list[dict]:
+    """Dựng items cho bản đối chiếu từ case ĐÃ LƯU: mỗi rủi ro → cũ (evidence) + mới (counter_clause.vi/en
+    hoặc suggestion fallback) + căn cứ. THUẦN (test offline)."""
+    sugg = {f.get("clause", ""): (f.get("suggestion") or "") for f in (case.fallbacks or [])}
+    items = []
+    for r in (case.risks or []):
+        cc = r.get("counter_clause") or {}
+        items.append({"clause": r.get("clause", ""), "evidence": r.get("evidence", ""),
+                      "vi": cc.get("vi") or sugg.get(r.get("clause", ""), ""), "en": cc.get("en", ""),
+                      "rationale": cc.get("rationale") or r.get("legal_basis", ""),
+                      "legal_status": r.get("legal_status", "unfavorable"),
+                      "violated_law": r.get("violated_law", "")})
+    return items
+
+
+def _send_redline(service: AnalysisService, sender: ChatSenderPort, org_id: str, case_id: str,
+                  send_to: str, thread_ts: str | None) -> None:
+    """Chạy nền (nút 📄): nạp case (cô lập org) → dựng bản ĐỐI CHIẾU .docx → upload vào thread. Lỗi/không
+    hỗ trợ → báo text (bản đối chiếu vẫn tải được trên web /app)."""
+    try:
+        case = service.get_case(case_id)
+        if case is None or getattr(case, "org_id", None) != org_id:
+            _safe_send(sender, send_to, "Không tìm thấy hồ sơ rà soát để tạo bản đối chiếu "
+                       "(có thể đã hết hạn).", thread_ts)
+            return
+        items = _redline_items_from_case(case)
+        if not items:
+            _safe_send(sender, send_to, "Không có điều khoản để tạo bản đối chiếu.", thread_ts)
+            return
+        rl = service.compile_redline(items, protected_party=getattr(case, "protected_party", "") or "")
+        from legalguard.adapters.outbound.docx_export import DocxUnavailable, redline_to_docx
+        try:
+            data = redline_to_docx(rl)
+        except DocxUnavailable:
+            _safe_send(sender, send_to, "Chưa bật xuất Word trên máy chủ (cần group export). "
+                       "Bản đối chiếu vẫn tải được trên web /app.", thread_ts)
+            return
+        ok = sender.upload_file(send_to, "ban-doi-chieu-sua-doi.docx", data, thread_ts,
+                                title="Bản đối chiếu sửa đổi",
+                                comment="📄 Bản đối chiếu sửa đổi — điều khoản cũ (gạch ngang) → đề xuất mới. "
+                                        "Luật sư đối chiếu bản gốc trước khi áp dụng.")
+        if not ok:
+            _safe_send(sender, send_to, "Chưa gửi được file (kiểm tra scope files:write của bot). "
+                       "Bản đối chiếu vẫn tải được trên web /app.", thread_ts)
+    except Exception:  # noqa: BLE001 — task nền: lỗi không được làm sập
+        _log.exception("Lỗi tạo bản đối chiếu (%s)", case_id)
+        _safe_send(sender, send_to, "Xin lỗi, chưa tạo được bản đối chiếu. Vui lòng thử lại.", thread_ts)
 
 
 # Nút "Đồng ý sửa" per-risk (Slack) — accessory trên section rủi ro. Bấm → soạn điều khoản sửa (cũ→mới).
@@ -1413,6 +1463,17 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 task = _confirm_amend if ctx.get("confirm") else _run_amend
                 background.add_task(task, handler.service, slack_sender, org.id,
                                     ctx.get("c", ""), ctx.get("i", -1), send_to, thread_ts)
+                return {"ok": True}
+
+            if aid == "redline_dl":                # nút 📄 Bản đối chiếu → dựng .docx + upload vào thread
+                if not (slack_sender and slack_sender.available):
+                    return {"ok": True}
+                container = payload.get("container") or {}
+                msg = payload.get("message") or {}
+                send_to = (payload.get("channel") or {}).get("id", "")
+                thread_ts = container.get("thread_ts") or msg.get("thread_ts") or msg.get("ts")
+                background.add_task(_send_redline, handler.service, slack_sender, org.id,
+                                    ctx.get("c", ""), send_to, thread_ts)
                 return {"ok": True}
 
             if aid in _RV_ACTION:                  # nút QUYẾT ĐỊNH gộp: Chốt / Sửa lại

@@ -62,6 +62,37 @@ class SlackSender:
             _log.warning("Slack chat.update từ chối: %s (channel=%s)",
                          data.get("error"), conversation_id)
 
+    def upload_file(self, conversation_id: str, filename: str, data: bytes,
+                    thread_ts: str | None = None, title: str = "", comment: str = "") -> bool:
+        """Đăng FILE (vd .docx bản đối chiếu) vào kênh/thread — flow MỚI của Slack (files.upload cũ đã khai
+        tử): getUploadURLExternal → PUT bytes → completeUploadExternal. Cần scope `files:write`. Trả True nếu
+        OK; lỗi → log + False (best-effort, không raise). Zalo không hỗ trợ (no-op ở ZaloSender)."""
+        hdr = {"Authorization": f"Bearer {self.bot_token}"}
+        try:
+            r1 = httpx.post("https://slack.com/api/files.getUploadURLExternal", headers=hdr,
+                            data={"filename": filename, "length": len(data)}, timeout=30).json()
+            if not r1.get("ok"):
+                _log.error("Slack getUploadURLExternal lỗi: %s", r1.get("error"))
+                return False
+            httpx.post(r1["upload_url"], content=data, timeout=60).raise_for_status()   # 2) PUT bytes
+            payload: dict = {"files": [{"id": r1["file_id"], "title": title or filename}],
+                             "channel_id": conversation_id}
+            if comment:
+                payload["initial_comment"] = comment
+            if thread_ts:
+                payload["thread_ts"] = thread_ts
+            r3 = httpx.post("https://slack.com/api/files.completeUploadExternal",
+                            headers={**hdr, "Content-Type": "application/json; charset=utf-8"},
+                            json=payload, timeout=30).json()
+            if not r3.get("ok"):
+                _log.error("Slack completeUploadExternal lỗi: %s (channel=%s)",
+                           r3.get("error"), conversation_id)
+                return False
+            return True
+        except Exception:  # noqa: BLE001 — upload là phụ; lỗi → False, caller báo text
+            _log.exception("Slack upload_file lỗi (channel=%s)", conversation_id)
+            return False
+
     def download(self, url: str) -> bytes:
         resp = httpx.get(url, headers={"Authorization": f"Bearer {self.bot_token}"},
                          timeout=60, follow_redirects=True)
@@ -154,6 +185,10 @@ class ZaloSender:
     def update(self, conversation_id: str, ts: str, text: str,
                blocks: list | None = None) -> None:
         return                         # Zalo OA không sửa được tin đã gửi → no-op (heartbeat bỏ qua)
+
+    def upload_file(self, conversation_id: str, filename: str, data: bytes,
+                    thread_ts: str | None = None, title: str = "", comment: str = "") -> bool:
+        return False                   # Zalo OA: chưa hỗ trợ gửi file .docx → no-op (caller báo text/web)
 
     def download(self, url: str) -> bytes:
         resp = httpx.get(url, timeout=60, follow_redirects=True)
