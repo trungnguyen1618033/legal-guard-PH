@@ -31,6 +31,7 @@ from legalguard.domain.models import (
     SourceMeta,
 )
 from legalguard.domain.ports import DocumentParserPort, LLMError
+from legalguard.domain.presentation import parse_lookup
 from legalguard.domain.redline import change_ratio, redline
 from legalguard.domain.reporting import render_markdown_report
 from legalguard.domain.tenants import Organization, default_org, get_tenant
@@ -429,7 +430,11 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
             answer, snippets = service.lookup(body.question, org, lang=lang)
         except LLMError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from None
-        return {"answer": answer, "sources": [s.source for s in snippets]}
+        # STRUCTURED (B): parse text (KHÔNG đổi generation → accuracy giữ nguyên) → answer_core/citations/
+        # confidence cho web render giàu (link điều luật + badge). `answer` FULL vẫn giữ (tương thích ngược).
+        p = parse_lookup(answer)
+        return {"answer": answer, "answer_core": p["answer"], "citations": p["citations"],
+                "confidence": p["confidence"], "sources": [s.source for s in snippets]}
 
     @app.post("/evidence/revenue")
     def record_revenue(body: RevenueIn, _: Organization = Depends(require_auth)) -> dict:

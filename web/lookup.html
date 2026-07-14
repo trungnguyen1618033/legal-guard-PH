@@ -148,9 +148,20 @@ $('go').onclick = async () => {
     if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
     const d = await r.json();
     _q = q;
-    // esc trước rồi mới thêm <strong> — an toàn, chỉ render **đậm** của template Trả lời/Căn cứ.
-    $('answer').innerHTML = esc(d.answer || "(không có câu trả lời)")
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // STRUCTURED (B): answer_core + citations (link điều luật) + badge tin cậy; fallback answer FULL (server cũ).
+    if (d.answer_core) {
+      const cf = { high: ['Độ tin cậy: Cao', '#0a7'], medium: ['Độ tin cậy: Trung bình', '#b80'],
+                   low: ['Độ tin cậy: Thấp — cần luật sư đối chiếu', '#c33'] }[d.confidence] || null;
+      let html = `<div><strong>Trả lời:</strong> ${esc(d.answer_core)}</div>`;
+      if ((d.citations || []).length)
+        html += `<div style="margin-top:8px"><strong>Căn cứ:</strong><ul style="margin:4px 0">`
+          + d.citations.map(c => `<li>${esc(c)}</li>`).join('') + `</ul></div>`;
+      if (cf) html += `<div style="margin-top:6px;font-weight:600;color:${cf[1]}">${cf[0]}</div>`;
+      $('answer').innerHTML = html;
+    } else {
+      $('answer').innerHTML = esc(d.answer || "(không có câu trả lời)")
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    }
     $('sources').innerHTML = (d.sources||[]).length
       ? "<b>Nguồn:</b> " + d.sources.map(s => `<code>${esc(s)}</code>`).join(" · ")
       : '<span class="muted">(không có nguồn — chưa đủ căn cứ trong cơ sở tri thức)</span>';

@@ -148,6 +148,9 @@ def test_ask_returns_grounded_answer_with_sources(client):
     d = r.json()
     assert "answer" in d and isinstance(d["sources"], list)
     assert d["sources"]                                  # có nguồn KB (tra cứu thật)
+    # STRUCTURED (B): kèm answer_core/citations/confidence (parse từ text, backward-compat 'answer' vẫn còn)
+    assert "answer_core" in d and isinstance(d["citations"], list)
+    assert d["confidence"] in ("high", "medium", "low")
 
 
 def test_ask_requires_question(client):

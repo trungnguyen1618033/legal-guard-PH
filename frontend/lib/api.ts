@@ -107,7 +107,10 @@ export async function getDashboard(): Promise<DashboardDTO> {
   return res.json() as Promise<DashboardDTO>;
 }
 
-export type AskResult = { answer: string; sources: string[] };
+export type AskResult = {
+  answer: string; sources: string[];
+  answer_core?: string; citations?: string[]; confidence?: "high" | "medium" | "low";  // structured (B)
+};
 
 // Tra cứu pháp luật: POST /ask (cần auth) — gọi server-side, key kín.
 export async function askLegal(question: string, lang: "vi" | "en"): Promise<AskResult> {

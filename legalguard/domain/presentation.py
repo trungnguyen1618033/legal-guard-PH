@@ -61,3 +61,32 @@ def to_email_wrap(body: str) -> str:
     """Bọc nội dung tư vấn ĐÃ SOẠN thành THƯ trang trọng (giữ NGUYÊN substance — deterministic, không LLM).
     Dùng cho biến thể 'bản email'."""
     return f"{_EMAIL_OPEN}\n\n{(body or '').strip()}\n\n{_EMAIL_CLOSE}"
+
+
+# ---- Structured lookup (B) — PARSE text tra cứu → cấu trúc để render giàu (link điều luật, badge tin cậy) ----
+_CONF_PREFIX = ("độ tin cậy:", "confidence:")
+# Nhãn = ĐẦU DÒNG + (tùy chọn `**`) + tên + DẤU HAI CHẤM (bắt buộc) + (tùy chọn `**`). Colon bắt buộc +
+# neo đầu dòng → KHÔNG khớp "căn cứ" giữa câu (vd 'Chưa đủ căn cứ trong…').
+_BASIS_SPLIT = re.compile(r"^\s*\*{0,2}\s*(?:Căn cứ|Basis)\s*:\s*\*{0,2}\s*", re.IGNORECASE | re.MULTILINE)
+_ANS_PREFIX = re.compile(r"^\s*\*{0,2}\s*(?:Trả lời|Answer)\s*:\s*\*{0,2}\s*", re.IGNORECASE)
+
+
+def parse_lookup(text: str) -> dict:
+    """Tách text tra cứu ('**Trả lời:** … **Căn cứ:** … + dòng Độ tin cậy') → {answer, citations[],
+    confidence}. THUẦN, không LLM, khoan dung (không khớp → answer = cả text). KHÔNG đổi generation ⇒
+    accuracy KHÔNG đổi; chỉ để RENDER giàu hơn (web link điều luật / badge). confidence: high|medium|low."""
+    t = (text or "").strip()
+    conf = "medium"
+    kept: list[str] = []
+    for ln in t.split("\n"):
+        s = ln.strip().lstrip("*").strip().lower()
+        if s.startswith(_CONF_PREFIX):
+            conf = "low" if ("thấp" in s or "low" in s) else "high" if ("cao" in s or "high" in s) else "medium"
+            continue                                  # bỏ dòng tin cậy khỏi thân
+        kept.append(ln)
+    body = "\n".join(kept).strip()
+    parts = _BASIS_SPLIT.split(body, maxsplit=1)
+    answer = _ANS_PREFIX.sub("", parts[0].strip()).strip()
+    citations = [re.sub(r"^[-•*]\s*", "", c).strip()
+                 for c in (parts[1].strip().split("\n") if len(parts) > 1 else []) if c.strip()]
+    return {"answer": answer, "citations": citations, "confidence": conf}

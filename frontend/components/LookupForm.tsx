@@ -6,13 +6,18 @@ import { Card, Section, Note } from "@/components/ui";
 import { Button } from "@/components/ui/Button";
 import FeedbackButtons from "@/components/FeedbackButtons";
 
-type Result = { answer: string; sources: string[] };
+type Result = {
+  answer: string; sources: string[];
+  answer_core?: string; citations?: string[]; confidence?: "high" | "medium" | "low";  // structured (B)
+};
 type Labels = {
   placeholder: string;
   submit: string;
   loading: string;
   answer: string;
+  basis: string;
   sources: string;
+  conf: { high: string; medium: string; low: string };
   error: string;
   examples: string;
   exampleList: string[];
@@ -94,7 +99,31 @@ export default function LookupForm({ labels }: { labels: Labels }) {
 
       {result && (
         <Section title={labels.answer} className="mt-8">
-          <Card className="whitespace-pre-wrap p-5 leading-relaxed">{result.answer}</Card>
+          {/* STRUCTURED (B): answer + căn cứ (list) + badge tin cậy; fallback answer FULL (server cũ) */}
+          <Card className="p-5 leading-relaxed">
+            {result.answer_core ? (
+              <>
+                <p className="whitespace-pre-wrap">{result.answer_core}</p>
+                {(result.citations?.length ?? 0) > 0 && (
+                  <div className="mt-3">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted">{labels.basis}</span>
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-sm">
+                      {result.citations!.map((c, i) => <li key={i}>{c}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {result.confidence && (
+                  <p className={`mt-3 text-sm font-semibold ${
+                    result.confidence === "high" ? "text-emerald-700"
+                      : result.confidence === "low" ? "text-red-700" : "text-amber-700"}`}>
+                    {labels.conf[result.confidence]}
+                  </p>
+                )}
+              </>
+            ) : (
+              <span className="whitespace-pre-wrap">{result.answer}</span>
+            )}
+          </Card>
           {result.sources.length > 0 && (
             <Section title={labels.sources} className="mt-6">
               <ul className="space-y-1.5">
