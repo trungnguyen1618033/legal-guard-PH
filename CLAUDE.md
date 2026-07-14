@@ -33,6 +33,7 @@ uv run python -m evaluation.zalo_ltr_eval # eval trên BENCHMARK CÔNG KHAI Zalo
 uv run python -m evaluation.rerank_ab --reranker qwen3-api [--limit N] # A/B RERANK trên Zalo LTR: BM25 top-N → rerank → đo LIFT MRR@10/Recall@10. Arm qwen3-api chạy ngay (cần key); arm hf:<model> cần GPU (docs/internal/reranker-ab-deploy.md). Đo 2/7 (40 query): qwen3-rerank nâng MRR 0.487→0.622
 uv run python -m evaluation.accuracy_eval [--no-write] [--repeat=N] # eval ĐỘ CHÍNH XÁC CÂU TRẢ LỜI (golden đáp-án-đã-biết) → accuracy_report.json cho /trust. --no-write: thí nghiệm không ghi đè report. --repeat=N: majority-vote N lần/ca → số ỔN ĐỊNH + đánh dấu ca FLAKY (chống nhiễu LLM hosted dải 52-54; điều kiện tiên quyết đo được thay đổi nhỏ khi mở rộng KB)
 uv run python -m evaluation.nli_eval      # eval RIÊNG judge NLI (16 ca có nhãn + hard negative, flash vs flagship; cần QWEN key) → nli_report.json (đo 2/7: flash 16/16, đồng thuận 100%)
+uv run python -m evaluation.fast_ab [--reps 4] [--models flagship,plus,flash] # A/B MODEL cho /analyze mode=fast: bộ HĐ có NHÃN (neo luật VN: phạt>8%/lãi>20%=illegal; 120-ngày/luật-ngoài=unfavorable) → đo illegal_recall / MISS_illegal / over-flag / latency mỗi model × reps (khử nhiễu). Đo 14/7 reps=4: flash 6s recall 87.5% 0 over-flag (mặc định); plus 18s 25% over-flag (bỏ); flagship 72s 0 miss. Cần QWEN key, KHÔNG cần KB → fast_ab_report.json
 uv run python -m evaluation.golden_to_review # sinh PHIẾU LUẬT SƯ DUYỆT từ golden → docs/internal/golden-set-lawyer-review.{csv,md} (gửi luật sư xác nhận)
 uv run python -m ingestion.hf_to_kb --pages 4 --keyword "hóa đơn" --out knowledge_base/_ingested # ETL sample: HF dataset luật VN → KB .md (front-matter status)
 uv run python -m ingestion.hf_to_kb --bulk --limit 2000 --out knowledge_base/_ingested # CON BATCH bulk: ingest toàn bộ th1nhng0 (cần `uv add datasets`) + cạnh đồ thị (amends/replaced_by/guides) + hiệu lực
@@ -86,13 +87,16 @@ ngưỡng trùng ≥3 thuật ngữ để tránh căn cứ lạc), adaptive rout
 câu point-in-time (có năm/ngày, `_PIT_RE`) tự route flagship vì plus yếu hơn ở suy luận thời điểm (đã đo).
 **FAST-PATH `/analyze` (`mode="fast"`, `domain/fast_review.py`, `docs/internal/latency-analysis-2026-07.md`)**:
 nút thắt latency = agent loop (3–6 call flagship TUẦN TỰ, ~100s). Fast = **1 call** trích rủi ro/fallback
-(KHÔNG ReAct) bằng **`lookup_llm` (qwen-plus)** — **đo thật cùng HĐ: flagship 1-call=61s, plus=15s (ngang
-ChatGPT) VẪN bắt trái luật (Đ.5 phạt 30%>trần), flash=5s BỎ SÓT illegal → loại**; populate ctx QUA
-`execute_tool` (dùng CHUNG QA + shape với agent) → `_finish_analyze` (post-agent CHUNG deep+fast). Ít sâu →
-LUÔN `needs_human_review`. HĐ >`_FAST_MAX`(12000) tự về deep. Route riêng, opt-in (`mode` form /analyze +
-chọn "Sâu/Nhanh" web app.html + **Next.js `/app`**) → **accuracy golden (=lookup) KHÔNG đổi; deep vẫn mặc
-định**. ĐỘ CHÍNH XÁC fast < deep theo THIẾT KẾ (1-call, không tra KB/rủi ro) — bù bằng bắt buộc người duyệt;
-plus hay OVER-flag (hướng an toàn), `_detect_illegal` chỉ NÂNG under-flag (không hạ over-flag).
+(KHÔNG ReAct) bằng **`fast_review_llm` (cấu hình `QWEN_FAST_REVIEW_MODEL`, mặc định `qwen-flash`)**; populate
+ctx QUA `execute_tool` (dùng CHUNG QA + shape với agent) → `_finish_analyze` (post-agent CHUNG deep+fast).
+Ít sâu → LUÔN `needs_human_review`. HĐ >`_FAST_MAX`(12000) tự về deep. Route riêng, opt-in (`mode` form
+/analyze + chọn "Sâu/Nhanh" web app.html + **Next.js `/app`**) → **accuracy golden (=lookup) KHÔNG đổi; deep
+vẫn mặc định**. **A/B THẬT chọn model (`evaluation/fast_ab.py`, reps=4, nhãn neo luật VN)**: flash=6s
+illegal_recall 87.5% + **0 over-flag** (MẶC ĐỊNH — nhanh nhất, accuracy = plus); plus=18s cùng recall nhưng
+**25% over-flag** (BỊ ĐÈ, đã bỏ); flagship=72s **0 bỏ sót** (đổi `QWEN_FAST_REVIEW_MODEL=qwen3.7-max` khi ưu
+tiên an toàn hơn tốc độ). ĐỘ CHÍNH XÁC fast < deep theo THIẾT KẾ — model nhanh **bỏ sót ~12.5% trái luật** →
+bù bằng bắt buộc người duyệt; `_detect_illegal` chỉ NÂNG under-flag (cứu 1 phần hướng bỏ sót nếu grounding tìm
+ra điều luật), KHÔNG hạ over-flag. **Bài học đã lưu**: n=1 từng khiến tôi chọn plus SAI — phải A/B đủ reps.
 Lookup còn: template cố định **Trả lời/Căn cứ**, redact PII câu hỏi trước khi gửi LLM, cache LRU
 (`LOOKUP_CACHE_SIZE`, hỏi lặp→0ms), ack "đang tra cứu". **Nhãn ĐỘ TIN CẬY (`domain/confidence.py`
 `answer_confidence`)** từ tín hiệu ĐÃ TÍNH (NLI supports + độ tập trung evidence elbow) — Cao/Trung bình/

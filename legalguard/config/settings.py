@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     # Model cho TRA CỨU (lookup Q&A): qwen-plus ~10x nhanh hơn flagship, format/citation y hệt. HYBRID:
     # câu có MỐC THỜI GIAN (point-in-time) tự dùng flagship cho chính xác. Rỗng = luôn flagship.
     qwen_lookup_model: str = "qwen-plus"
+    # Model cho RÀ SOÁT NHANH (/analyze mode=fast, 1-call). Đo A/B thật (evaluation/fast_ab.py, reps=4):
+    # flash=6s + illegal_recall 87.5% + 0 over-flag; plus=18s cùng recall nhưng 25% over-flag (BỊ ĐÈ);
+    # flagship=72s + 0 bỏ sót (an toàn nhất). Mặc định flash (nhanh nhất, accuracy = plus). Đổi qwen3.7-max
+    # nếu ưu tiên 0 bỏ sót trái luật hơn tốc độ. Rỗng = flash. Fast LUÔN cần người duyệt (bù ~12.5% miss).
+    qwen_fast_review_model: str = "qwen-flash"
     qwen_embed_model: str = "text-embedding-v4"  # Qwen3-Embedding: đa ngữ 100+, #1 MTEB
     qwen_vl_model: str = "qwen3.7-plus"   # multimodal — OCR HĐ scan/ảnh (thay Qwen-VL, chính xác hơn)
     qwen_rerank_model: str = "qwen3-rerank"  # cross-encoder rerank (Model Studio: Qwen-Rerank, 100+ ngôn ngữ)

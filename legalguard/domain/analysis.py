@@ -342,6 +342,7 @@ class AnalysisService:
                  lookup_cache_size: int = 256,
                  lookup_llm: LLMPort | None = None,
                  lookup_pit_llm: LLMPort | None = None,
+                 fast_review_llm: LLMPort | None = None,
                  illegal_detection: bool = True,
                  coverage_gated_abstain: bool = True,
                  hyde_query_expansion: bool = False,
@@ -381,6 +382,10 @@ class AnalysisService:
         # Model tra cứu point-in-time (câu có năm/ngày): flagship (suy luận thời điểm). Container dựng ở
         # temperature=0 → câu trả lời TRA CỨU tất định (hết flaky must_say do sampling). Mặc định = reasoner.
         self.lookup_pit_llm = lookup_pit_llm or reasoner
+        # Model RÀ SOÁT NHANH (mode=fast, 1-call). A/B thật (evaluation/fast_ab.py): flash mặc định (nhanh
+        # nhất + illegal_recall = plus + 0 over-flag); đổi flagship khi ưu tiên 0 bỏ sót trái luật. Mặc
+        # định = judge (flash) → cùng model nhanh; rỗng/stub → reasoner (giữ tương thích).
+        self.fast_review_llm = fast_review_llm or self.judge
 
     def record_outcome(self, outcome: Outcome) -> str | None:
         return self.outcomes.record(outcome) if self.outcomes else None
@@ -673,16 +678,17 @@ class AnalysisService:
         # FAST-PATH (mode="fast"): 1 call flagship trích rủi ro/fallback (KHÔNG ReAct loop) → ~8–20s thay vì
         # ~100s. Ít sâu hơn (không tra KB từng rủi ro) → LUÔN cần luật sư duyệt. Route riêng, post-agent CHUNG
         # → accuracy golden (lookup) KHÔNG đổi. HĐ > _FAST_MAX ký tự → tự về deep (fast 1-call không kham nổi).
-        # Dùng lookup_llm (qwen-plus) KHÔNG phải reasoner (flagship): đo thật 1-call flagship=61s vs plus=15s
-        # (~ngang ChatGPT) — plus VẪN bắt trái luật (Đ.5 30%>trần); flash 5s BỎ SÓT illegal → loại.
-        # ĐỘ CHÍNH XÁC: fast NÔNG hơn deep (1-call, KHÔNG tra KB/rủi ro) → LUÔN needs_human_review; deep vẫn là
-        # mặc định. Plus có xu hướng OVER-flag (hướng AN TOÀN cho công cụ sàng lọc) — _detect_illegal CHỈ NÂNG
-        # under-flag (không hạ over-flag) nên over-flag KHÔNG tự mất; lưới an toàn = hướng bảo thủ + người duyệt.
+        # Dùng fast_review_llm (right-sized qua env): A/B thật (evaluation/fast_ab.py, reps=4) — flash=6s
+        # illegal_recall 87.5% + 0 over-flag (MẶC ĐỊNH); plus=18s cùng recall nhưng 25% over-flag; flagship=72s
+        # 0 bỏ sót (đổi qua QWEN_FAST_REVIEW_MODEL khi ưu tiên an toàn hơn tốc độ).
+        # ĐỘ CHÍNH XÁC: fast NÔNG hơn deep (1-call, KHÔNG tra KB/rủi ro) — model nhanh bỏ sót ~12.5% trái luật
+        # → LUÔN needs_human_review; deep vẫn mặc định. _detect_illegal chỉ NÂNG under-flag (hướng bỏ sót có thể
+        # được cứu 1 phần nếu grounding tìm ra điều luật), KHÔNG hạ over-flag; lưới an toàn = bắt buộc người duyệt.
         if mode == "fast" and text_chars <= _FAST_MAX:
             from legalguard.domain.fast_review import fast_review
             windows, route = [contract_text], {"label": "nhanh (1-call)", "max_iters": 1}
             trace, truncated, failed_windows = [], False, 0
-            strategy = fast_review(self.lookup_llm, contract_text, jurisdiction.country, lang,
+            strategy = fast_review(self.fast_review_llm, contract_text, jurisdiction.country, lang,
                                    position, ctx, on_progress=on_progress)
             ctx.needs_human_review = True             # màn sàng lọc nhanh → luôn cần người duyệt
             ctx.risks, ctx.fallbacks = _dedupe(ctx.risks), _dedupe(ctx.fallbacks)

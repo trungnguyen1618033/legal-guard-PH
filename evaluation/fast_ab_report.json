@@ -1,0 +1,45 @@
+{
+  "reps": 2,
+  "cases": [
+    "thuong_mai",
+    "vay_dich_vu"
+  ],
+  "models": {
+    "flagship": {
+      "model": "flagship (qwen3.7-max)",
+      "avg_latency_s": 71.7,
+      "detect_recall_pct": 100.0,
+      "illegal_recall_pct": 100.0,
+      "miss_illegal": 0,
+      "miss_illegal_pct": 0.0,
+      "overflag": 0,
+      "overflag_pct": 0.0,
+      "n_illegal": 4,
+      "n_unfav": 8
+    },
+    "plus": {
+      "model": "plus (qwen-plus)",
+      "avg_latency_s": 18.1,
+      "detect_recall_pct": 50.0,
+      "illegal_recall_pct": 50.0,
+      "miss_illegal": 2,
+      "miss_illegal_pct": 50.0,
+      "overflag": 2,
+      "overflag_pct": 25.0,
+      "n_illegal": 4,
+      "n_unfav": 8
+    },
+    "flash": {
+      "model": "flash (qwen-flash)",
+      "avg_latency_s": 5.4,
+      "detect_recall_pct": 91.7,
+      "illegal_recall_pct": 75.0,
+      "miss_illegal": 1,
+      "miss_illegal_pct": 25.0,
+      "overflag": 0,
+      "overflag_pct": 0.0,
+      "n_illegal": 4,
+      "n_unfav": 8
+    }
+  }
+}
