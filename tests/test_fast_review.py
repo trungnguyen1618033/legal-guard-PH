@@ -54,7 +54,7 @@ def test_fast_review_offline_returns_empty():
 def test_analyze_mode_fast_end_to_end():
     from legalguard.config.container import build_service
     svc = build_service()
-    svc.reasoner = _FakeReasoner()
+    svc.reasoner = svc.lookup_llm = _FakeReasoner()   # fast dùng lookup_llm (qwen-plus, right-sized ~15s)
     svc.auto_counter_on_analyze = False           # cô lập: chỉ đo trích nhanh
     svc.legal_basis_grounding = False
     svc.illegal_detection = False

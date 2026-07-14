@@ -1,9 +1,11 @@
 """ĐƯỜNG NHANH (fast-path) — rà soát HĐ bằng 1 LLM call, KHÔNG vòng ReAct.
 
-Đổi tốc lấy độ sâu: agent đầy đủ = 3–6 call flagship TUẦN TỰ (~100s); fast = 1 call trích rủi ro/fallback
-(~8–20s, ngang ChatGPT). Ít sâu hơn (KHÔNG tra KB từng rủi ro trong lúc trích) → LUÔN cần luật sư duyệt.
-Populate `ctx` QUA `execute_tool` (dùng CHUNG QA + shape Risk/Fallback với agent) → post-agent (legal_basis/
-illegal/counter/verify) CHẠY Y HỆT. Route riêng, opt-in → KHÔNG đụng accuracy golden (đó là lookup).
+Đổi tốc lấy độ sâu: agent đầy đủ = 3–6 call flagship TUẦN TỰ (~100s); fast = 1 call trích rủi ro/fallback.
+Caller RIGHT-SIZE model: dùng qwen-plus (lookup_llm) ~15s (ngang ChatGPT) — đo thật flagship=61s, plus=15s
+VẪN bắt trái luật, flash=5s BỎ SÓT illegal (loại). Ít sâu hơn (KHÔNG tra KB từng rủi ro trong lúc trích) →
+LUÔN cần luật sư duyệt. Populate `ctx` QUA `execute_tool` (dùng CHUNG QA + shape Risk/Fallback với agent) →
+post-agent (legal_basis/illegal/counter/verify) CHẠY Y HỆT → over-flag nhẹ của plus được verify lại.
+Route riêng, opt-in → KHÔNG đụng accuracy golden (đó là lookup).
 """
 from __future__ import annotations
 

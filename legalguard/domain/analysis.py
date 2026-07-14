@@ -673,11 +673,14 @@ class AnalysisService:
         # FAST-PATH (mode="fast"): 1 call flagship trích rủi ro/fallback (KHÔNG ReAct loop) → ~8–20s thay vì
         # ~100s. Ít sâu hơn (không tra KB từng rủi ro) → LUÔN cần luật sư duyệt. Route riêng, post-agent CHUNG
         # → accuracy golden (lookup) KHÔNG đổi. HĐ > _FAST_MAX ký tự → tự về deep (fast 1-call không kham nổi).
+        # Dùng lookup_llm (qwen-plus) KHÔNG phải reasoner (flagship): đo thật 1-call flagship=61s vs plus=15s
+        # (~ngang ChatGPT) — plus VẪN bắt trái luật (Đ.5 30%>trần); flash 5s BỎ SÓT illegal → loại. Over-flag
+        # nhẹ của plus được hậu-agent CHUNG (_detect_illegal + legal_basis_grounding, model nhanh) verify lại.
         if mode == "fast" and text_chars <= _FAST_MAX:
             from legalguard.domain.fast_review import fast_review
             windows, route = [contract_text], {"label": "nhanh (1-call)", "max_iters": 1}
             trace, truncated, failed_windows = [], False, 0
-            strategy = fast_review(self.reasoner, contract_text, jurisdiction.country, lang,
+            strategy = fast_review(self.lookup_llm, contract_text, jurisdiction.country, lang,
                                    position, ctx, on_progress=on_progress)
             ctx.needs_human_review = True             # màn sàng lọc nhanh → luôn cần người duyệt
             ctx.risks, ctx.fallbacks = _dedupe(ctx.risks), _dedupe(ctx.fallbacks)

@@ -86,10 +86,13 @@ ngưỡng trùng ≥3 thuật ngữ để tránh căn cứ lạc), adaptive rout
 câu point-in-time (có năm/ngày, `_PIT_RE`) tự route flagship vì plus yếu hơn ở suy luận thời điểm (đã đo).
 **FAST-PATH `/analyze` (`mode="fast"`, `domain/fast_review.py`, `docs/internal/latency-analysis-2026-07.md`)**:
 nút thắt latency = agent loop (3–6 call flagship TUẦN TỰ, ~100s). Fast = **1 call** trích rủi ro/fallback
-(KHÔNG ReAct) → ~8–20s (ngang ChatGPT) cho HĐ ngắn/việc nhẹ; populate ctx QUA `execute_tool` (dùng CHUNG QA +
-shape với agent) → `_finish_analyze` (post-agent CHUNG deep+fast). Ít sâu → LUÔN `needs_human_review`. HĐ
->`_FAST_MAX`(12000) tự về deep. Route riêng, opt-in (`mode` form /analyze + chọn "Sâu/Nhanh" web) → accuracy
-golden (lookup) KHÔNG đổi. Mặc định `deep` (không đổi hành vi cũ).
+(KHÔNG ReAct) bằng **`lookup_llm` (qwen-plus)** — **đo thật cùng HĐ: flagship 1-call=61s, plus=15s (ngang
+ChatGPT) VẪN bắt trái luật (Đ.5 phạt 30%>trần), flash=5s BỎ SÓT illegal → loại**; populate ctx QUA
+`execute_tool` (dùng CHUNG QA + shape với agent) → `_finish_analyze` (post-agent CHUNG deep+fast:
+`_detect_illegal`+`legal_basis_grounding` model nhanh verify lại → over-flag nhẹ của plus được sửa). Ít sâu →
+LUÔN `needs_human_review`. HĐ >`_FAST_MAX`(12000) tự về deep. Route riêng, opt-in (`mode` form /analyze +
+chọn "Sâu/Nhanh" web app.html + **Next.js `/app`**) → accuracy golden (lookup) KHÔNG đổi. Mặc định `deep`
+(không đổi hành vi cũ).
 Lookup còn: template cố định **Trả lời/Căn cứ**, redact PII câu hỏi trước khi gửi LLM, cache LRU
 (`LOOKUP_CACHE_SIZE`, hỏi lặp→0ms), ack "đang tra cứu". **Nhãn ĐỘ TIN CẬY (`domain/confidence.py`
 `answer_confidence`)** từ tín hiệu ĐÃ TÍNH (NLI supports + độ tập trung evidence elbow) — Cao/Trung bình/
