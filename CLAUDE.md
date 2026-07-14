@@ -88,11 +88,11 @@ câu point-in-time (có năm/ngày, `_PIT_RE`) tự route flagship vì plus yế
 nút thắt latency = agent loop (3–6 call flagship TUẦN TỰ, ~100s). Fast = **1 call** trích rủi ro/fallback
 (KHÔNG ReAct) bằng **`lookup_llm` (qwen-plus)** — **đo thật cùng HĐ: flagship 1-call=61s, plus=15s (ngang
 ChatGPT) VẪN bắt trái luật (Đ.5 phạt 30%>trần), flash=5s BỎ SÓT illegal → loại**; populate ctx QUA
-`execute_tool` (dùng CHUNG QA + shape với agent) → `_finish_analyze` (post-agent CHUNG deep+fast:
-`_detect_illegal`+`legal_basis_grounding` model nhanh verify lại → over-flag nhẹ của plus được sửa). Ít sâu →
+`execute_tool` (dùng CHUNG QA + shape với agent) → `_finish_analyze` (post-agent CHUNG deep+fast). Ít sâu →
 LUÔN `needs_human_review`. HĐ >`_FAST_MAX`(12000) tự về deep. Route riêng, opt-in (`mode` form /analyze +
-chọn "Sâu/Nhanh" web app.html + **Next.js `/app`**) → accuracy golden (lookup) KHÔNG đổi. Mặc định `deep`
-(không đổi hành vi cũ).
+chọn "Sâu/Nhanh" web app.html + **Next.js `/app`**) → **accuracy golden (=lookup) KHÔNG đổi; deep vẫn mặc
+định**. ĐỘ CHÍNH XÁC fast < deep theo THIẾT KẾ (1-call, không tra KB/rủi ro) — bù bằng bắt buộc người duyệt;
+plus hay OVER-flag (hướng an toàn), `_detect_illegal` chỉ NÂNG under-flag (không hạ over-flag).
 Lookup còn: template cố định **Trả lời/Căn cứ**, redact PII câu hỏi trước khi gửi LLM, cache LRU
 (`LOOKUP_CACHE_SIZE`, hỏi lặp→0ms), ack "đang tra cứu". **Nhãn ĐỘ TIN CẬY (`domain/confidence.py`
 `answer_confidence`)** từ tín hiệu ĐÃ TÍNH (NLI supports + độ tập trung evidence elbow) — Cao/Trung bình/
