@@ -26,7 +26,12 @@ _SYSTEM = (
     '"fallbacks":[{"clause":"<khớp clause ở trên>","suggestion":"<hướng sửa cụ thể>","english_reply":'
     '"<câu gửi đối tác, tiếng Anh>"}],"strategy":"<chiến lược đàm phán: giữ gì/nhượng gì/điểm rút>"}\n'
     "legal_status=illegal CHỈ khi vi phạm rõ quy định bắt buộc (vd phạt > trần 8% Điều 301); nghi ngờ → "
-    "unfavorable (bảo thủ). CHỈ dùng thuật ngữ pháp lý VN chuẩn; KHÔNG bịa. Đây là RÀ SOÁT NHANH."
+    "unfavorable (bảo thủ). CHỈ dùng thuật ngữ pháp lý VN chuẩn; KHÔNG bịa. Đây là RÀ SOÁT NHANH.\n"
+    "CHỌN LỌC (giảm báo dư): CHỈ nêu điều khoản THỰC SỰ rủi ro/bất lợi cho BÊN ĐƯỢC BẢO VỆ hoặc trái luật. "
+    "BỎ QUA điều khoản TIÊU CHUẨN/vô hại: thông báo, hiệu lực, mô tả (diện tích/số lượng), sửa đổi bằng văn "
+    "bản, nghiệm thu/kiểm tra thông thường, cách trả lương, kỳ hạn trung tính, trọng tài VIAC chuẩn, mức phạt "
+    "TRONG trần luật (≤8% thương mại), lãi TRONG trần (≤20%/năm). Nếu điều khoản cân bằng/thông lệ → KHÔNG nêu. "
+    "Thà bỏ 1 mục vô hại còn hơn ngập báo dư — nhưng TUYỆT ĐỐI không bỏ điều khoản trái luật hay bất lợi rõ."
 )
 
 

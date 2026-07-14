@@ -169,12 +169,15 @@ def _post_analyze(text: str, protected: str, mode: str) -> tuple[dict, float]:
 
 
 def _delete_case(cid: str) -> bool:
-    req = urllib.request.Request(f"{BASE}/cases/{cid}", method="DELETE", headers={"X-API-Key": KEY})
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return r.status == 200
-    except urllib.error.URLError:
-        return False
+    for _ in range(3):                       # retry: DELETE lẻ tẻ lỗi mạng → thử lại (chống sót case)
+        req = urllib.request.Request(f"{BASE}/cases/{cid}", method="DELETE", headers={"X-API-Key": KEY})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                if r.status == 200:
+                    return True
+        except (urllib.error.URLError, TimeoutError):
+            time.sleep(1)
+    return False
 
 
 def _find(risks: list, anchor: str):
@@ -313,8 +316,17 @@ def main() -> None:
     n_cln = sum(1 for c in CASES for cl in c.clauses if cl.label == CLEAN)
     print(f"== FAST-PATH BENCH @ {BASE} · {len(CASES)} HĐ × {args.reps} lần "
           f"({n_ill} illegal + {n_unf} unfavorable + {n_cln} clean/âm) ==\n")
-    created: list[str] = []
+    cleanup = not args.keep
+    clean = {"created": 0, "deleted": 0}
     fast, deep = Stat(), Stat()
+
+    def _cleanup_case(res: dict) -> None:
+        cid = res.get("case_id")
+        if not cid:
+            return
+        clean["created"] += 1
+        if cleanup and _delete_case(cid):    # XOÁ NGAY sau mỗi ca → không sót dù run gián đoạn/batch lỗi
+            clean["deleted"] += 1
 
     for rep in range(args.reps):
         for c in CASES:
@@ -330,10 +342,9 @@ def main() -> None:
                 continue
             fast.lat.append(dt)
             _score(fast, c, res)
-            if res.get("case_id"):
-                created.append(res["case_id"])
             ill = sum(1 for x in res["risks"] if x.get("legal_status") == ILLEGAL)
             print(f"  [fast r{rep+1}] {c.name:<14} {dt:5.1f}s · {len(res['risks'])} risk · {ill} illegal")
+            _cleanup_case(res)
 
     for c in CASES[:args.deep]:
         try:
@@ -341,9 +352,8 @@ def main() -> None:
             if "risks" in res:
                 deep.lat.append(dt)
                 _score(deep, c, res)
-                if res.get("case_id"):
-                    created.append(res["case_id"])
                 print(f"  [DEEP] {c.name:<14} {dt:5.1f}s")
+                _cleanup_case(res)
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
             print(f"  [DEEP] {c.name}: LỖI {e}")
 
@@ -369,9 +379,8 @@ def main() -> None:
         dl = report["deep"]["latency_s"]["median"]
         print(f"  DEEP median {dl}s → fast nhanh ~{round(dl / max(f['latency_s']['median'], 0.1))}×")
 
-    if not args.keep and created:
-        ok = sum(1 for cid in created if _delete_case(cid))
-        print(f"\n  Dọn: xoá {ok}/{len(created)} case test")
+    if cleanup:
+        print(f"\n  Dọn: xoá {clean['deleted']}/{clean['created']} case test (inline)")
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(report, fh, ensure_ascii=False, indent=2)
     print(f"→ {args.out}")
