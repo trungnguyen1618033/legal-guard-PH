@@ -130,15 +130,17 @@ def slack_interact(payload: dict, bad_sig: bool = False):
                  "X-Slack-Request-Timestamp": sts, "X-Slack-Signature": sig}, body.encode(), 20)
 
 
-def wait_bot_reply(thread_ts: str, bot_uid: str, timeout: int = 120) -> str:
-    """Poll thread tới khi có reply BOT KHÔNG phải ack (hoặc hết giờ). Trả text reply cuối."""
+def wait_bot_reply(thread_ts: str, bot_uid: str, timeout: int = 120, contains: str = "") -> str:
+    """Poll thread tới khi có reply BOT KHÔNG phải ack (hoặc hết giờ). Trả text reply cuối.
+    `contains`: chỉ nhận reply CHỨA chuỗi này (để chờ reply MỚI khi thread đã có reply cũ — vd reformat)."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         r = slack_get("conversations.replies", {"channel": CHANNEL, "ts": thread_ts})
         for m in r.get("messages", [])[1:]:
             is_bot = m.get("user") == bot_uid or m.get("bot_id")
             txt = m.get("text", "")
-            if is_bot and "Đang tra cứu" not in txt and "Đã nhận" not in txt:
+            if is_bot and "Đang tra cứu" not in txt and "Đã nhận" not in txt \
+                    and (not contains or contains in txt):
                 return txt
         time.sleep(5)
     return ""
@@ -178,6 +180,11 @@ def run_api_llm():
     s, d = api("POST", "/ask", {"question": "Trần lãi suất cho vay theo Bộ luật Dân sự?", "lang": "vi"}, timeout=90)
     ok = s == 200 and "468" in d.get("answer", "")
     record(g, "ask (grounded)", ok, (d.get("answer", "")[:60] if s == 200 else f"HTTP {s}"))
+    # STRUCTURED (B): /ask kèm answer_core/citations/confidence (parse từ text, không đổi accuracy)
+    record(g, "ask structured (B)",
+           s == 200 and "answer_core" in d and isinstance(d.get("citations"), list)
+           and d.get("confidence") in ("high", "medium", "low"),
+           f"conf={d.get('confidence')} cites={len(d.get('citations', []))}")
     # analyze (multipart) + execution_summary
     body, ctype = _multipart({"text": "Bên B chịu phạt 15% nếu giao chậm; tranh chấp xử tại Singapore.",
                               "lang": "vi"})
@@ -256,6 +263,15 @@ def run_slack(no_llm: bool):
             slack_event(q, ts, bot_uid=bot_uid)
             reply = wait_bot_reply(ts, bot_uid, timeout=130)
             record(g, "event analyze", bool(reply) and ("301" in reply or "phạt" in reply.lower()), reply[:70])
+            # FORMAT reply (A): văn xuôi pháp lý đánh số — mở đầu "Sau khi rà soát…"
+            record(g, "reply format (A)", "Sau khi rà soát" in reply, reply[:50])
+            # BIẾN THỂ GIỌNG (D): trong thread có review → "cho tôi bản email" → thư 'Kính gửi…' (tất định)
+            if reply:
+                rts = slack_post_msg("[SMOKE reformat] cho tôi bản email")
+                if rts:
+                    slack_event("cho tôi bản email", rts, thread=ts, bot_uid=bot_uid)
+                    r2 = wait_bot_reply(ts, bot_uid, timeout=45, contains="Kính gửi")
+                    record(g, "event reformat email (D)", "Kính gửi" in r2, r2[:60] or "(không có)")
     else:
         record(g, "events (lookup/trust/analyze)", None, "--no-llm")
 
