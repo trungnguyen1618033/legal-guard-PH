@@ -1,8 +1,8 @@
 """Tầng TRÌNH BÀY dùng chung (semantic document → serialize theo kênh).
 
 Một NGUỒN (list[Block]) → nhiều kênh: text/Zalo (`to_text`), Slack mrkdwn (`md_to_slack` + block builder
-ở adapter), web/markdown (`to_markdown`). Giải VĨNH VIỄN lớp lỗi trình bày (markdown `**`↔`*`, giãn dòng,
-lặp footer) — sửa 1 chỗ, mọi kênh đúng. Thuần (không phụ thuộc adapter/framework) → test offline, tái dùng.
+ở adapter). Giải VĨNH VIỄN lớp lỗi trình bày (markdown `**`↔`*`, giãn dòng, lặp footer) — sửa 1 chỗ, mọi
+kênh đúng. Thuần (không phụ thuộc adapter/framework) → test offline, tái dùng.
 
 `Block` = 1 khối ngữ nghĩa (đoạn/mục/ghi chú). `action` = metadata nút (chỉ kênh có nút như Slack dùng);
 `context` = khối phụ (vd công bố AI — kênh Slack render kiểu 'context', text render thường).
@@ -29,7 +29,7 @@ class Block:
         return (self.text or "").strip()
 
 
-Doc = list      # Doc = list[Block] (alias cho dễ đọc)
+Doc = list[Block]      # alias cho dễ đọc
 
 
 def md_to_slack(text: str) -> str:
@@ -43,11 +43,6 @@ def md_to_slack(text: str) -> str:
 
 def to_text(doc: Doc, *, sep: str = "\n\n") -> str:
     """Serialize Doc → text thuần (Zalo/email/fallback). Bỏ khối rỗng; ngăn cách bằng dòng trống."""
-    return sep.join(b.clean() for b in doc if b.clean())
-
-
-def to_markdown(doc: Doc, *, sep: str = "\n\n") -> str:
-    """Serialize Doc → markdown chuẩn (web). Hiện giữ nguyên text (nội dung đã là markdown/plain)."""
     return sep.join(b.clean() for b in doc if b.clean())
 
 

@@ -3,7 +3,6 @@ from legalguard.domain.presentation import (
     Block,
     md_to_slack,
     parse_lookup,
-    to_markdown,
     to_text,
 )
 
@@ -19,11 +18,6 @@ def test_md_to_slack_bold_and_headers():
 def test_to_text_joins_nonempty_with_blank_line():
     doc = [Block("Mở đầu"), Block("  "), Block("(1) Điều 5"), Block("Kết")]
     assert to_text(doc) == "Mở đầu\n\n(1) Điều 5\n\nKết"     # bỏ khối rỗng, ngăn dòng trống
-
-
-def test_to_markdown_keeps_content():
-    doc = [Block("**đậm**"), Block("thường")]
-    assert to_markdown(doc) == "**đậm**\n\nthường"          # web giữ markdown gốc
 
 
 def test_block_clean_strips():

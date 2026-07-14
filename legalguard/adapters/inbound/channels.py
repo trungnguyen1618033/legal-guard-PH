@@ -879,26 +879,10 @@ def _send_error_with_retry(sender: ChatSenderPort, send_to: str, conv_key: str, 
     _safe_send(sender, send_to, msg, thread_ts, blocks)
 
 
-# Nút GHI KẾT QUẢ đàm phán (flywheel) — chỉ gắn cho reply phân tích có case_id. value mang case_id.
-# GIỮ cho tương thích NGƯỢC: tin phân tích đã gửi trước đây vẫn còn nút oc_* → handler dưới xử lý được.
-# Reply MỚI dùng _review_action_blocks (Chốt / Sửa lại) gộp cả kết quả + feedback.
+# Nút GHI KẾT QUẢ đàm phán CŨ (oc_*) — reply MỚI dùng _review_action_blocks (Chốt/Sửa lại). GIỮ map này
+# cho TƯƠNG THÍCH NGƯỢC: tin phân tích đã gửi trước đây vẫn còn nút oc_* → handler interactions xử lý được
+# (builder _outcome_blocks đã bỏ — không dựng nút oc_* mới nữa).
 _OC_RESULT = {"oc_accepted": "accepted", "oc_partial": "partial", "oc_rejected": "rejected"}
-
-
-def _outcome_blocks(case_id: str) -> list[dict]:
-    val = json.dumps({"c": case_id[:120]}, ensure_ascii=False)
-
-    def btn(txt: str, aid: str, style: str | None = None) -> dict:
-        b = {"type": "button", "text": {"type": "plain_text", "text": txt, "emoji": True},
-             "action_id": aid, "value": val}
-        if style:
-            b["style"] = style
-        return b
-
-    return [{"type": "actions", "block_id": "lg_outcome", "elements": [
-        btn("Chốt được", "oc_accepted", "primary"),
-        btn("Một phần", "oc_partial"),
-        btn("Không đạt", "oc_rejected", "danger")]}]
 
 
 # Nút QUYẾT ĐỊNH trên reply RÀ SOÁT — GỘP kết quả đàm phán + feedback thành 2 nút:
