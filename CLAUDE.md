@@ -84,6 +84,12 @@ ngưỡng trùng ≥3 thuật ngữ để tránh căn cứ lạc), adaptive rout
 — đo thực tế: NLI flagship ~23s vs flash ~0.5s, flash KHỚP flagship → cắt hậu-agent ~264s→~7s. TRA CỨU
 (`lookup`) dùng `qwen-plus` (`QWEN_LOOKUP_MODEL`, ~4-6s vs ~48s flagship, format/citation y hệt) — HYBRID:
 câu point-in-time (có năm/ngày, `_PIT_RE`) tự route flagship vì plus yếu hơn ở suy luận thời điểm (đã đo).
+**FAST-PATH `/analyze` (`mode="fast"`, `domain/fast_review.py`, `docs/internal/latency-analysis-2026-07.md`)**:
+nút thắt latency = agent loop (3–6 call flagship TUẦN TỰ, ~100s). Fast = **1 call** trích rủi ro/fallback
+(KHÔNG ReAct) → ~8–20s (ngang ChatGPT) cho HĐ ngắn/việc nhẹ; populate ctx QUA `execute_tool` (dùng CHUNG QA +
+shape với agent) → `_finish_analyze` (post-agent CHUNG deep+fast). Ít sâu → LUÔN `needs_human_review`. HĐ
+>`_FAST_MAX`(12000) tự về deep. Route riêng, opt-in (`mode` form /analyze + chọn "Sâu/Nhanh" web) → accuracy
+golden (lookup) KHÔNG đổi. Mặc định `deep` (không đổi hành vi cũ).
 Lookup còn: template cố định **Trả lời/Căn cứ**, redact PII câu hỏi trước khi gửi LLM, cache LRU
 (`LOOKUP_CACHE_SIZE`, hỏi lặp→0ms), ack "đang tra cứu". **Nhãn ĐỘ TIN CẬY (`domain/confidence.py`
 `answer_confidence`)** từ tín hiệu ĐÃ TÍNH (NLI supports + độ tập trung evidence elbow) — Cao/Trung bình/
