@@ -139,7 +139,9 @@ def wait_bot_reply(thread_ts: str, bot_uid: str, timeout: int = 120, contains: s
         for m in r.get("messages", [])[1:]:
             is_bot = m.get("user") == bot_uid or m.get("bot_id")
             txt = m.get("text", "")
-            if is_bot and "Đang tra cứu" not in txt and "Đã nhận" not in txt \
+            # Bỏ QUA các tin TẠM (ack + heartbeat A1 'Đang rà soát hợp đồng… đã phát hiện N rủi ro') →
+            # chỉ nhận reply CUỐI ('Sau khi rà soát…' / lookup / email).
+            if is_bot and not any(x in txt for x in ("Đang tra cứu", "Đã nhận", "Đang rà soát")) \
                     and (not contains or contains in txt):
                 return txt
         time.sleep(5)
@@ -256,12 +258,14 @@ def run_slack(no_llm: bool):
             reply = wait_bot_reply(ts, bot_uid, timeout=60)
             record(g, name, expect.lower() in reply.lower(), reply[:70] or "(không có reply)")
 
-        # analyze qua Slack (chậm) + nút trong reply
-        q = "Rà soát: Bên B chịu phạt 15% nếu giao chậm; tranh chấp xử tại Singapore."
+        # analyze qua Slack (chậm) + nút trong reply. LƯU Ý: text phải CÓ tín hiệu HĐ (hợp đồng/điều khoản/
+        # trọng tài…) để route RÀ SOÁT, và KHÔNG dùng cụm "rà soát hợp đồng" (→ nhánh hướng dẫn đính kèm file).
+        q = ("Điều khoản hợp đồng: Bên B chịu phạt vi phạm 15% giá trị hợp đồng nếu giao chậm; "
+             "mọi tranh chấp giải quyết bằng trọng tài tại Singapore.")
         ts = slack_post_msg(f"[SMOKE analyze] {q}")
         if ts:
             slack_event(q, ts, bot_uid=bot_uid)
-            reply = wait_bot_reply(ts, bot_uid, timeout=130)
+            reply = wait_bot_reply(ts, bot_uid, timeout=240)   # analyze prod chậm (agent loop + counter)
             record(g, "event analyze", bool(reply) and ("301" in reply or "phạt" in reply.lower()), reply[:70])
             # FORMAT reply (A): văn xuôi pháp lý đánh số — mở đầu "Sau khi rà soát…"
             record(g, "reply format (A)", "Sau khi rà soát" in reply, reply[:50])
