@@ -259,3 +259,7 @@ frontend/next-env.d.ts
 
 # A/B rerank report là run-specific (subset smoke hay full) — không version
 evaluation/rerank_ab_report.json
+
+# Moat/private — KHÔNG commit (bổ sung: bắt cả file .zip, không chỉ thư mục docs/internal/)
+docs/internal.zip
+docs/*.zip
