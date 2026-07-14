@@ -127,6 +127,32 @@ CASES: list[Case] = [
          "Điều 10. Lương: trả qua tài khoản ngân hàng vào ngày 5 hằng tháng.\n",
          [Clause("Điều 8", UNFAV, "non-compete 3 năm không bồi thường — bất lợi/khó thực thi"),
           Clause("Điều 10", CLEAN, "cách trả lương — tiêu chuẩn")]),
+    Case("vay_lai36", "lai_vay", "HỢP ĐỒNG VAY TIÊU DÙNG\n"
+         "Điều 2. Lãi suất: 36%/năm tính trên dư nợ gốc.\n"
+         "Điều 4. Kỳ hạn: vay 12 tháng, trả gốc và lãi hằng tháng.\n",
+         [Clause("Điều 2", ILLEGAL, "lãi 36%/năm > trần 20%/năm BLDS Đ.468"),
+          Clause("Điều 4", CLEAN, "kỳ hạn trả góp — tiêu chuẩn")]),
+    Case("tm_phat20", "thuong_mai", "HỢP ĐỒNG GIA CÔNG\n"
+         "Điều 6. Phạt vi phạm: 20% giá trị hợp đồng nếu giao sản phẩm không đạt chuẩn.\n"
+         "Điều 9. Kiểm tra: Bên A kiểm tra chất lượng trong 7 ngày kể từ nhận hàng.\n",
+         [Clause("Điều 6", ILLEGAL, "phạt 20% > trần 8% LTM Đ.301"),
+          Clause("Điều 9", CLEAN, "thời hạn kiểm tra chất lượng — tiêu chuẩn")]),
+    Case("hoadon_tron", "thue", "HỢP ĐỒNG DỊCH VỤ\n"
+         "Điều 5. Hóa đơn: Hai bên thống nhất KHÔNG xuất hóa đơn cho phần thanh toán tiền mặt để giảm thuế.\n"
+         "Điều 7. Nghiệm thu: hai bên ký biên bản nghiệm thu khi hoàn thành.\n",
+         [Clause("Điều 5", ILLEGAL, "thỏa thuận không xuất hóa đơn trốn thuế — vi phạm luật quản lý thuế"),
+          Clause("Điều 7", CLEAN, "biên bản nghiệm thu — tiêu chuẩn")]),
+    Case("trongtai_sach", "to_tung", "HỢP ĐỒNG THƯƠNG MẠI\n"
+         "Điều 11. Giải quyết tranh chấp: tranh chấp giải quyết tại Trung tâm Trọng tài Quốc tế Việt Nam "
+         "(VIAC) theo Quy tắc tố tụng của VIAC.\n"
+         "Điều 13. Hiệu lực: hợp đồng có hiệu lực kể từ ngày hai bên ký.\n",
+         [Clause("Điều 11", CLEAN, "trọng tài VIAC theo quy tắc — tiêu chuẩn, hợp lệ"),
+          Clause("Điều 13", CLEAN, "điều khoản hiệu lực — vô hại")]),
+    Case("dat_thue", "dat_dai", "HỢP ĐỒNG THUÊ ĐẤT\n"
+         "Điều 4. Tăng giá: Bên A được đơn phương tăng giá thuê tùy ý mỗi năm, Bên B không có quyền phản đối.\n"
+         "Điều 8. Diện tích: thửa đất 500m2 theo giấy chứng nhận quyền sử dụng đất.\n",
+         [Clause("Điều 4", UNFAV, "đơn phương tăng giá tùy ý — bất lợi Bên B"),
+          Clause("Điều 8", CLEAN, "mô tả diện tích đất — vô hại")]),
 ]
 
 

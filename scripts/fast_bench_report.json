@@ -1,68 +1,68 @@
 {
   "base": "https://legalguard.duckdns.org",
-  "cases": 15,
+  "cases": 20,
   "reps": 3,
   "labels": {
-    "illegal": 6,
-    "unfavorable": 11,
-    "clean": 14
+    "illegal": 9,
+    "unfavorable": 12,
+    "clean": 20
   },
   "label_note": "nhãn tác giả gán (neo luật VN), CHƯA luật-sư-verify — smoke/regression",
   "fast": {
-    "runs": 45,
+    "runs": 60,
     "errors": 0,
     "latency_s": {
-      "median": 6.8,
-      "p95": 8.6,
-      "p99": 9.5,
-      "min": 4.5,
-      "max": 9.5,
+      "median": 6.9,
+      "p95": 9.2,
+      "p99": 11.4,
+      "min": 3.7,
+      "max": 11.6,
       "mean": 6.9,
       "mean_ci95": [
-        6.5,
-        7.2
+        6.6,
+        7.3
       ]
     },
     "detection": {
-      "precision": 0.585,
-      "recall": 0.941,
-      "f1": 0.722,
-      "f2": 0.839,
+      "precision": 0.545,
+      "recall": 0.952,
+      "f1": 0.694,
+      "f2": 0.829,
       "recall_ci95": [
-        84.1,
-        98.0
+        86.9,
+        98.4
       ],
-      "tp": 48,
-      "fp": 34,
+      "tp": 60,
+      "fp": 50,
       "fn": 3,
-      "tn": 8
+      "tn": 10
     },
-    "illegal_recall_pct": 83.3,
+    "illegal_recall_pct": 81.5,
     "illegal_recall_ci95": [
-      60.8,
-      94.2
+      63.3,
+      91.8
     ],
-    "miss_illegal": 3,
-    "n_illegal": 18,
-    "overflag": 9,
-    "overflag_pct": 12.0,
-    "n_nonillegal": 75,
-    "false_alarm_pct_on_clean": 81.0,
+    "miss_illegal": 5,
+    "n_illegal": 27,
+    "overflag": 11,
+    "overflag_pct": 11.5,
+    "n_nonillegal": 96,
+    "false_alarm_pct_on_clean": 83.3,
     "warned_pct": 100.0,
     "human_review_pct": 100.0,
     "counter_inline_total": 0,
     "per_domain_detect": {
       "thuong_mai": {
-        "tp": 14,
-        "fn": 1,
-        "fp": 13,
-        "tn": 5
+        "tp": 18,
+        "fn": 0,
+        "fp": 19,
+        "tn": 2
       },
       "lai_vay": {
-        "tp": 5,
-        "fn": 1,
-        "fp": 5,
-        "tn": 1
+        "tp": 9,
+        "fn": 0,
+        "fp": 6,
+        "tn": 3
       },
       "dich_vu": {
         "tp": 9,
@@ -77,16 +77,16 @@
         "tn": 0
       },
       "shtt": {
-        "tp": 6,
-        "fn": 0,
+        "tp": 4,
+        "fn": 2,
         "fp": 0,
         "tn": 0
       },
       "lao_dong": {
         "tp": 6,
         "fn": 0,
-        "fp": 5,
-        "tn": 1
+        "fp": 2,
+        "tn": 4
       },
       "dan_su": {
         "tp": 3,
@@ -95,68 +95,140 @@
         "tn": 0
       },
       "dau_tu": {
+        "tp": 3,
+        "fn": 0,
+        "fp": 3,
+        "tn": 0
+      },
+      "thue": {
         "tp": 2,
         "fn": 1,
         "fp": 2,
         "tn": 1
+      },
+      "to_tung": {
+        "tp": 0,
+        "fn": 0,
+        "fp": 6,
+        "tn": 0
+      },
+      "dat_dai": {
+        "tp": 3,
+        "fn": 0,
+        "fp": 3,
+        "tn": 0
       }
     }
   },
   "deep": {
-    "runs": 2,
+    "runs": 19,
     "errors": 0,
     "latency_s": {
-      "median": 120.5,
-      "p95": 134.5,
-      "p99": 134.5,
-      "min": 120.5,
-      "max": 134.5,
-      "mean": 127.5,
+      "median": 129.0,
+      "p95": 179.2,
+      "p99": 179.7,
+      "min": 109.1,
+      "max": 179.7,
+      "mean": 131.6,
       "mean_ci95": [
-        113.7,
-        141.2
+        122.8,
+        140.5
       ]
     },
     "detection": {
-      "precision": 0.75,
+      "precision": 0.556,
       "recall": 1.0,
-      "f1": 0.857,
-      "f2": 0.938,
+      "f1": 0.714,
+      "f2": 0.862,
       "recall_ci95": [
-        43.8,
+        83.9,
         100.0
       ],
-      "tp": 3,
-      "fp": 1,
+      "tp": 20,
+      "fp": 16,
       "fn": 0,
-      "tn": 1
+      "tn": 3
     },
-    "illegal_recall_pct": 100.0,
+    "illegal_recall_pct": 88.9,
     "illegal_recall_ci95": [
-      34.2,
-      100.0
+      56.5,
+      98.0
     ],
-    "miss_illegal": 0,
-    "n_illegal": 2,
-    "overflag": 0,
-    "overflag_pct": 0.0,
-    "n_nonillegal": 3,
-    "false_alarm_pct_on_clean": 50.0,
+    "miss_illegal": 1,
+    "n_illegal": 9,
+    "overflag": 3,
+    "overflag_pct": 10.0,
+    "n_nonillegal": 30,
+    "false_alarm_pct_on_clean": 84.2,
     "warned_pct": 0.0,
     "human_review_pct": 100.0,
-    "counter_inline_total": 3,
+    "counter_inline_total": 20,
     "per_domain_detect": {
       "thuong_mai": {
-        "tp": 2,
+        "tp": 6,
         "fn": 0,
-        "fp": 0,
+        "fp": 6,
         "tn": 1
       },
       "lai_vay": {
+        "tp": 3,
+        "fn": 0,
+        "fp": 3,
+        "tn": 0
+      },
+      "dich_vu": {
+        "tp": 3,
+        "fn": 0,
+        "fp": 1,
+        "tn": 0
+      },
+      "xay_dung": {
         "tp": 1,
         "fn": 0,
         "fp": 1,
         "tn": 0
+      },
+      "shtt": {
+        "tp": 2,
+        "fn": 0,
+        "fp": 0,
+        "tn": 0
+      },
+      "dan_su": {
+        "tp": 1,
+        "fn": 0,
+        "fp": 0,
+        "tn": 1
+      },
+      "dau_tu": {
+        "tp": 1,
+        "fn": 0,
+        "fp": 1,
+        "tn": 0
+      },
+      "lao_dong": {
+        "tp": 1,
+        "fn": 0,
+        "fp": 1,
+        "tn": 0
+      },
+      "thue": {
+        "tp": 1,
+        "fn": 0,
+        "fp": 1,
+        "tn": 0
+      },
+      "to_tung": {
+        "tp": 0,
+        "fn": 0,
+        "fp": 2,
+        "tn": 0
+      },
+      "dat_dai": {
+        "tp": 1,
+        "fn": 0,
+        "fp": 0,
+        "tn": 1
       }
     }
   }
