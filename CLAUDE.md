@@ -142,7 +142,18 @@ HĐ thương mại phạt 15%→illegal Đ.301; HĐ vay→illegal Đ.466.
 {items} → memo markdown (bảng Điều|Vấn đề|Tính chất|Căn cứ|Đề xuất|Ưu tiên, TRÁI LUẬT sắp đầu) +
 `POST /amendments/compile.docx` → tải Word (`outbound/docx_export.py`, group `export`/python-docx; thiếu→501,
 markdown vẫn dùng). UI app.html: card "📄 Bản ghi nhớ sửa đổi" gộp risk+fallback → preview + tải .docx.
-Đây là lời hứa "fallback theo thế trận thật". MCP + observability: `inbound/mcp_server.py` expose tool `analyze_contract` qua Model Context Protocol
+Đây là lời hứa "fallback theo thế trận thật".
+**SỬA-FILE Mức 1 — BẢN ĐỐI CHIẾU redline .docx (`docs/internal/edit-contract-file-research-2026-07.md`)**:
+xuất file Word điều khoản CŨ (đỏ + gạch ngang) → MỚI (xanh + highlight) song ngữ + căn cứ, giống "ChatGPT
+sửa file" nhưng counter GROUNDED. `domain/amendments.compile_redline` (thuần, TRÁI LUẬT lên đầu, khoá linh
+hoạt evidence/old·vi/en·rationale) → `outbound/docx_export.redline_to_docx` (python-docx: `strike`/màu/
+highlight) → `POST /amendments/redline.docx`. Isolated → accuracy KHÔNG đổi. UI: nút "📄 Tải bản đối chiếu"
+web app.html + Next.js `MemoPanel` (BFF `/api/amendments/redline-docx`). **Slack: nút "📄 Bản đối chiếu"**
+(`_review_action_blocks` khi có case_id) → `redline_dl` → `_send_redline` (nền, cô lập org) nạp case →
+`_redline_items_from_case` → `redline_to_docx` → **`ChatSenderPort.upload_file`** (SlackSender: flow MỚI
+`files.getUploadURLExternal`→PUT bytes→`completeUploadExternal`, cần scope **`files:write`**; Zalo no-op) upload
+.docx vào thread; thiếu lib/scope → báo text (web vẫn tải được). Mức 2 (sửa in-place) BỎ; Mức 3 (track-changes)
+để hậu-judging. MCP + observability: `inbound/mcp_server.py` expose tool `analyze_contract` qua Model Context Protocol
 (`make mcp`); `outbound/observability.py` `ObservabilityPort` (NoOp / Langfuse qua `LANGFUSE_*`) →
 `AnalysisService.observer` emit event mỗi lần analyze.
 
@@ -218,7 +229,8 @@ vẫn chạy `web/*.html`): Next 14 App Router + TS + Tailwind + `next-intl` (SS
 call API qua **BFF** (`app/api/*` route handler giữ `LG_API_KEY` server-side — KHÔNG lộ browser; helper
 `lib/bff.ts`). Trang: `/`·`/app` (analyze async+poll, **format luật sư: dòng đầu loại HĐ+khách hàng bảo vệ,
 risk đánh số văn phong pháp lý, nút "Đồng ý sửa"→điều khoản cũ→mới, mục lỗi soạn thảo**, human-checkpoint,
-outcome, đàm phán đa phiên, memo+docx, feedback)·`/lookup` (ask + feedback + Autopilot monitor + impact +
+outcome, đàm phán đa phiên, memo+docx, **bản đối chiếu redline .docx**, feedback)·`/lookup` (ask +
+**structured: answer/citations/badge tin cậy** + feedback + Autopilot monitor + impact +
 **kiểm tra hiệu lực VB** `/in-force` + redline)·
 `/dashboard` (client fetch, authed)·`/trust` (SSG/ISR). Component dùng chung ở `components/ui/`
 (Card·Section·Badge·Note·PageShell·Button). Quy tắc: không lộ key (BFF), tái dùng ui/, i18n vi/en đối xứng,
