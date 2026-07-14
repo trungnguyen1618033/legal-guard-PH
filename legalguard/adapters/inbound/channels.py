@@ -429,6 +429,7 @@ def _policy_lines(result: AnalysisResult) -> list[str]:
 
 
 _HUMAN_NOTE = "Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng."
+_FAST_NOTE_MARK = "⚡"        # tiền tố note RÀ NHANH (nguồn: analysis._finish_analyze) → surface đầu reply
 
 
 def _review_doc(result: AnalysisResult, prefix: str = "", case_id: str = "") -> list[Block]:
@@ -440,6 +441,12 @@ def _review_doc(result: AnalysisResult, prefix: str = "", case_id: str = "") -> 
     draft_segs = _drafting_segments(result, len(risk_segs) + 1)     # đánh số TIẾP sau rủi ro
     has = bool(risk_segs or draft_segs)
     doc = [Block(prefix + _review_head(result, has_findings=has))]
+    # Cảnh báo RÀ NHANH (nếu có) lên NGAY sau câu mở đầu — nguồn CHUNG result.notes (web/Next render notes;
+    # Slack/text bỏ notes nên surface tại đây), để người dùng không nhầm fast với deep. Idempotent (1 note).
+    for n in result.notes:
+        if n.startswith(_FAST_NOTE_MARK):
+            doc.append(Block(n))
+            break
     for num, idx, _clause, seg, needs_draft in risk_segs:
         # Nút 'Đồng ý sửa' NHẤT QUÁN: chưa có điều khoản inline → SOẠN (draft); đã có → GHI NHẬN (confirm:1).
         action = None

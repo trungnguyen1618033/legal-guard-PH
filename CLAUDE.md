@@ -96,7 +96,10 @@ illegal_recall 87.5% + **0 over-flag** (MẶC ĐỊNH — nhanh nhất, accuracy
 **25% over-flag** (BỊ ĐÈ, đã bỏ); flagship=72s **0 bỏ sót** (đổi `QWEN_FAST_REVIEW_MODEL=qwen3.7-max` khi ưu
 tiên an toàn hơn tốc độ). ĐỘ CHÍNH XÁC fast < deep theo THIẾT KẾ — model nhanh **bỏ sót ~12.5% trái luật** →
 bù bằng bắt buộc người duyệt; `_detect_illegal` chỉ NÂNG under-flag (cứu 1 phần hướng bỏ sót nếu grounding tìm
-ra điều luật), KHÔNG hạ over-flag. **Bài học đã lưu**: n=1 từng khiến tôi chọn plus SAI — phải A/B đủ reps.
+ra điều luật), KHÔNG hạ over-flag. **Cảnh báo RÀ NHANH hiện RÕ mọi kênh** (`_finish_analyze` thêm note `⚡ Bản
+RÀ NHANH… có thể BỎ SÓT…` + review_reason; `_review_doc` surface note `_FAST_NOTE_MARK` lên đầu reply Slack/
+text; web/Next render notes + human-checkpoint) → người dùng không nhầm fast với deep. **Bài học đã lưu**: n=1
+từng khiến tôi chọn plus SAI — phải A/B đủ reps (`fast_ab.py`); model đổi được qua env → đánh giá + thay sau.
 Lookup còn: template cố định **Trả lời/Căn cứ**, redact PII câu hỏi trước khi gửi LLM, cache LRU
 (`LOOKUP_CACHE_SIZE`, hỏi lặp→0ms), ack "đang tra cứu". **Nhãn ĐỘ TIN CẬY (`domain/confidence.py`
 `answer_confidence`)** từ tín hiệu ĐÃ TÍNH (NLI supports + độ tập trung evidence elbow) — Cao/Trung bình/

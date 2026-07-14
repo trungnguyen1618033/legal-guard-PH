@@ -65,3 +65,8 @@ def test_analyze_mode_fast_end_to_end():
     assert res.needs_human_review is True          # fast = màn sàng lọc → luôn cần duyệt
     assert any("nhanh" in n.lower() for n in res.notes)   # route note
     assert res.strategy == "Giữ trần phạt 8%, nhượng thời hạn."
+    # Cảnh báo RÀ NHANH hiện RÕ: trong notes (web/Next) VÀ trong reply chat (Slack/text surface note ⚡).
+    assert any(n.startswith("⚡") and "BỎ SÓT" in n for n in res.notes)
+    assert any("nhanh" in r.lower() for r in res.review_reasons)   # human-checkpoint box
+    from legalguard.adapters.inbound.channels import format_chat_reply
+    assert "RÀ NHANH" in format_chat_reply(res, lang="vi")
