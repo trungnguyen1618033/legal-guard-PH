@@ -679,9 +679,10 @@ class AnalysisService:
         retriever = self.kb.for_org(org, rerank=False)   # KB quốc gia + overlay riêng công ty
         ctx = AgentContext(retriever=retriever)
 
-        # FAST-PATH (mode="fast"): 1 call flagship trích rủi ro/fallback (KHÔNG ReAct loop) → ~8–20s thay vì
-        # ~100s. Ít sâu hơn (không tra KB từng rủi ro) → LUÔN cần luật sư duyệt. Route riêng, post-agent CHUNG
-        # → accuracy golden (lookup) KHÔNG đổi. HĐ > _FAST_MAX ký tự → tự về deep (fast 1-call không kham nổi).
+        # FAST-PATH (mode="fast"): 1 call fast_review_llm trích rủi ro/fallback (KHÔNG ReAct loop) → end-to-end
+        # ~15-18s (fast bỏ auto-counter) thay vì deep ~130s. Ít sâu hơn (không tra KB từng rủi ro) → LUÔN cần
+        # luật sư duyệt. Route riêng, post-agent CHUNG → accuracy golden (lookup) KHÔNG đổi. HĐ > _FAST_MAX ký
+        # tự → tự về deep (fast 1-call không kham nổi).
         # Dùng fast_review_llm (right-sized qua env): A/B thật (evaluation/fast_ab.py, reps=4) — flash=6s
         # illegal_recall 87.5% + 0 over-flag (MẶC ĐỊNH); plus=18s cùng recall nhưng 25% over-flag; flagship=72s
         # 0 bỏ sót (đổi qua QWEN_FAST_REVIEW_MODEL khi ưu tiên an toàn hơn tốc độ).
