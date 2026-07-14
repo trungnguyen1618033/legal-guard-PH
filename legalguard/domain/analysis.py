@@ -57,6 +57,7 @@ _log = logging.getLogger(__name__)
 _CHUNK = 6000        # ký tự / cửa sổ cho hợp đồng dài
 _OVERLAP = 400       # chồng lấn để không cắt mất điều khoản ở biên
 _SIMPLE_MAX = 1500   # ngưỡng "đơn giản" cho adaptive routing
+_FAST_MAX = 12000    # trần ký tự cho fast-path (1 call, không cửa sổ) — HĐ dài hơn nên dùng deep
 # Câu hỏi point-in-time (có năm 19xx/20xx hoặc ngày d/m/y) cần suy luận thời điểm → dùng flagship,
 # không dùng model nhanh (qwen-plus yếu hơn ở reasoning thời điểm — đã đo). Hybrid lookup.
 _PIT_RE = re.compile(r"\b(?:19|20)\d{2}\b|\b\d{1,2}/\d{1,2}/\d{2,4}\b")
@@ -650,7 +651,8 @@ class AnalysisService:
     def analyze(self, contract_text: str, org: Organization, lang: str = "en",
                 position: NegotiationPosition | None = None,
                 source: SourceMeta | None = None, case_id: str | None = None,
-                on_progress: "Callable[[dict], None] | None" = None) -> AnalysisResult:
+                on_progress: "Callable[[dict], None] | None" = None,
+                mode: str = "deep") -> AnalysisResult:
         t0 = time.monotonic()
         jurisdiction = get_tenant(org.country)   # quốc gia → KB luật + bối cảnh
 
@@ -667,6 +669,24 @@ class AnalysisService:
         # user. Lookup (Q&A pháp lý cần xếp hạng chính xác) vẫn giữ rerank ở for_org mặc định.
         retriever = self.kb.for_org(org, rerank=False)   # KB quốc gia + overlay riêng công ty
         ctx = AgentContext(retriever=retriever)
+
+        # FAST-PATH (mode="fast"): 1 call flagship trích rủi ro/fallback (KHÔNG ReAct loop) → ~8–20s thay vì
+        # ~100s. Ít sâu hơn (không tra KB từng rủi ro) → LUÔN cần luật sư duyệt. Route riêng, post-agent CHUNG
+        # → accuracy golden (lookup) KHÔNG đổi. HĐ > _FAST_MAX ký tự → tự về deep (fast 1-call không kham nổi).
+        if mode == "fast" and text_chars <= _FAST_MAX:
+            from legalguard.domain.fast_review import fast_review
+            windows, route = [contract_text], {"label": "nhanh (1-call)", "max_iters": 1}
+            trace, truncated, failed_windows = [], False, 0
+            strategy = fast_review(self.reasoner, contract_text, jurisdiction.country, lang,
+                                   position, ctx, on_progress=on_progress)
+            ctx.needs_human_review = True             # màn sàng lọc nhanh → luôn cần người duyệt
+            ctx.risks, ctx.fallbacks = _dedupe(ctx.risks), _dedupe(ctx.fallbacks)
+            _log.info("fast-path (1 call) %dms", round((time.monotonic() - t0) * 1000))
+            return self._finish_analyze(
+                ctx=ctx, org=org, jurisdiction=jurisdiction, contract_text=contract_text,
+                retriever=retriever, lang=lang, position=position, source=source, case_id=case_id,
+                strategy=strategy, trace=trace, truncated=truncated, failed_windows=failed_windows,
+                redacted_n=redacted_n, text_chars=text_chars, route=route, windows=windows, t0=t0)
 
         # Adaptive routing + chunking hợp đồng dài. Các cửa sổ ĐỘC LẬP → chạy SONG SONG
         # (mỗi cửa sổ ctx riêng, merge theo thứ tự — kết quả tất định, ~3× nhanh hơn tuần tự).
@@ -730,7 +750,20 @@ class AnalysisService:
         strategy = "\n\n".join(strategies)
         ctx.risks = _dedupe(ctx.risks)
         ctx.fallbacks = _dedupe(ctx.fallbacks)
+        return self._finish_analyze(
+            ctx=ctx, org=org, jurisdiction=jurisdiction, contract_text=contract_text,
+            retriever=retriever, lang=lang, position=position, source=source, case_id=case_id,
+            strategy=strategy, trace=trace, truncated=truncated, failed_windows=failed_windows,
+            redacted_n=redacted_n, text_chars=text_chars, route=route, windows=windows, t0=t0)
 
+    def _finish_analyze(self, *, ctx: AgentContext, org: Organization, jurisdiction,
+                        contract_text: str, retriever, lang: str,
+                        position: NegotiationPosition | None, source: SourceMeta,
+                        case_id: str | None, strategy: str, trace: list, truncated: bool,
+                        failed_windows: int, redacted_n: int, text_chars: int,
+                        route: dict, windows: list, t0: float) -> AnalysisResult:
+        """Hậu-agent CHUNG (deep + fast): win-rate · notes · verify∥summary∥legal_basis · illegal · counter ·
+        classify · build result · persist. Tách để fast-path & deep-path dùng CHUNG (một nguồn)."""
         # Outcome-aware ranking: gắn win-rate lịch sử cho mỗi fallback. CÔ LẬP org (privacy + tín hiệu
         # đúng công ty — outcome công ty khác KHÔNG được ảnh hưởng advice công ty này).
         if self.outcomes is not None:

@@ -18,6 +18,14 @@ def test_health(client):
     assert body["qwen_ready"] is False
 
 
+def test_analyze_mode_fast_route(client, sample_contract):
+    # Fast-path (1-call): endpoint nhận mode=fast → route "nhanh" + luôn cần người duyệt. (stub → 0 rủi ro.)
+    r = client.post("/analyze", data={"text": sample_contract, "mode": "fast"}, headers={"x-tenant-id": "VN"})
+    assert r.status_code == 200
+    d = r.json()
+    assert any("nhanh" in n.lower() for n in d["notes"]) and d["needs_human_review"] is True
+
+
 def test_analyze_returns_structured_result(client, sample_contract):
     r = client.post("/analyze", data={"text": sample_contract}, headers={"x-tenant-id": "VN"})
     assert r.status_code == 200

@@ -92,6 +92,8 @@
         <input id="protected_party" placeholder="vd: Bên Vay / Bên B / Buyer (trống = mặc định SME)"></div>
       <div><label>Ngôn ngữ báo cáo</label>
         <select id="lang"><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
+      <div><label>Chế độ rà soát</label>
+        <select id="mode"><option value="deep">Sâu (agent đầy đủ, ~1-3 phút)</option><option value="fast">Nhanh (1-call, ~15s — cần luật sư duyệt)</option></select></div>
       <div><label>API key (bỏ trống nếu dev)</label>
         <input type="password" id="apikey" placeholder="X-API-Key" /></div>
     </div>
@@ -230,7 +232,7 @@ $('go').onclick = async () => {
   if (!text && !file) { $('err').textContent = 'Dán nội dung hoặc chọn file hợp đồng trước đã.'; return; }
   const fd = new FormData();
   if (file) fd.append('file', file); else fd.append('text', text);
-  for (const k of ['lang','leverage','urgency','relationship','alternatives','protected_party']) fd.append(k, $(k).value);
+  for (const k of ['lang','leverage','urgency','relationship','alternatives','protected_party','mode']) fd.append(k, $(k).value);
   fd.append('async_mode', 'true');   // HĐ dài → chạy nền + poll, không vỡ ở trình duyệt/proxy timeout
   const headers = {};
   const key = $('apikey').value.trim();

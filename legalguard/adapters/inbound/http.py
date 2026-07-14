@@ -333,10 +333,12 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
         alternatives: bool = Form(default=False),
         protected_party: str = Form(default=""),
         async_mode: bool = Form(default=False),   # HĐ dài → chạy NỀN, trả case_id ngay, client poll /cases/{id}
+        mode: str = Form(default="deep"),         # deep = agent đầy đủ; fast = rà soát nhanh 1-call (~8-20s)
         background: BackgroundTasks = None,
         org: Organization = Depends(require_auth),
     ):
         lang = lang if lang in ("en", "vi") else "en"
+        mode = mode if mode in ("deep", "fast") else "deep"
         position = NegotiationPosition(leverage=leverage, urgency=urgency,
                                        relationship=relationship, alternatives=alternatives,
                                        protected_party=protected_party[:120])
@@ -374,7 +376,7 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
             def _bg():
                 try:
                     res = service.analyze(contract_text, org, lang=lang, position=position,
-                                          source=source, case_id=cid, on_progress=_on_prog)
+                                          source=source, case_id=cid, on_progress=_on_prog, mode=mode)
                     _async_put(cid, org.id, res.__dict__)        # full result shape cho UI poll
                 except Exception as exc:  # noqa: BLE001 — lỗi nền: lưu để client poll thấy, vẫn log
                     _async_put(cid, org.id, {"error": str(exc)})
@@ -388,7 +390,7 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
             # service.analyze ĐỒNG BỘ (HTTP blocking + ThreadPool) → đẩy sang threadpool để KHÔNG
             # chặn event loop (handler async vì phải await file.read()). 1 phân tích chậm không treo worker.
             result = await run_in_threadpool(service.analyze, contract_text, org, lang=lang,
-                                             position=position, source=source)
+                                             position=position, source=source, mode=mode)
         except ValueError as exc:        # quốc gia chưa hỗ trợ
             raise HTTPException(status_code=400, detail=str(exc)) from None
         except LLMError as exc:
