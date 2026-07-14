@@ -91,7 +91,11 @@ nút thắt latency = agent loop (3–6 call flagship TUẦN TỰ, ~100s). Fast 
 ctx QUA `execute_tool` (dùng CHUNG QA + shape với agent) → `_finish_analyze` (post-agent CHUNG deep+fast).
 Ít sâu → LUÔN `needs_human_review`. HĐ >`_FAST_MAX`(12000) tự về deep. Route riêng, opt-in (`mode` form
 /analyze + chọn "Sâu/Nhanh" web app.html + **Next.js `/app`**) → **accuracy golden (=lookup) KHÔNG đổi; deep
-vẫn mặc định**. **A/B THẬT chọn model (`evaluation/fast_ab.py`, reps=4, nhãn neo luật VN)**: flash=6s
+vẫn mặc định**. **LATENCY thật (đo prod warm)**: fast=58s vs deep=129s ban đầu — nút thắt là hậu-agent CHUNG
+`_attach_counter_clauses` (soạn counter bằng **flagship** cho illegal/must_fix ~40s). Fix: fast **BỎ auto-counter**
+(`fast_auto_counter`/`FAST_AUTO_COUNTER` default OFF; `_finish_analyze(auto_counter=)`) → fast **~15-18s**;
+người dùng soạn on-demand qua nút "Đồng ý sửa". Deep KHÔNG đổi (luôn auto-counter). Bật lại counter trong fast:
+`FAST_AUTO_COUNTER=1`. **A/B THẬT chọn model (`evaluation/fast_ab.py`, reps=4, nhãn neo luật VN)**: flash=6s
 illegal_recall 87.5% + **0 over-flag** (MẶC ĐỊNH — nhanh nhất, accuracy = plus); plus=18s cùng recall nhưng
 **25% over-flag** (BỊ ĐÈ, đã bỏ); flagship=72s **0 bỏ sót** (đổi `QWEN_FAST_REVIEW_MODEL=qwen3.7-max` khi ưu
 tiên an toàn hơn tốc độ). ĐỘ CHÍNH XÁC fast < deep theo THIẾT KẾ — model nhanh **bỏ sót ~12.5% trái luật** →

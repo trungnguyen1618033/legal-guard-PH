@@ -347,7 +347,8 @@ class AnalysisService:
                  coverage_gated_abstain: bool = True,
                  hyde_query_expansion: bool = False,
                  auto_counter_on_analyze: bool = True,
-                 auto_counter_max: int = 6) -> None:
+                 auto_counter_max: int = 6,
+                 fast_auto_counter: bool = False) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp) + tóm tắt SME (_summarize). Mặc định = reasoner (giữ tương thích/stub),
         # prod truyền qwen-flash → cắt mạnh latency khâu hậu-agent mà KHÔNG giảm bước kiểm nào.
@@ -368,6 +369,9 @@ class AnalysisService:
         # Sinh INLINE điều khoản mới (song ngữ) cho rủi ro illegal/must_fix ngay khi rà (bounded, song song).
         self.auto_counter_on_analyze = auto_counter_on_analyze
         self.auto_counter_max = auto_counter_max      # trần số điều khoản auto/lần (chặn spike quota HĐ dài)
+        # Auto-counter trong mode=fast: TẮT mặc định (counter flagship ~40s nuốt lợi thế tốc độ fast); deep
+        # luôn bật. Bật lại qua env FAST_AUTO_COUNTER nếu muốn counter soạn sẵn trong fast.
+        self.fast_auto_counter = fast_auto_counter
         # Coverage-Gated Abstention: cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain.
         self.coverage_gated_abstain = coverage_gated_abstain
         # HyDE-lite: LLM sinh thuật ngữ luật cầu nối cách-hỏi vs cách-luật-viết → cụm evidence chặt hơn
@@ -697,7 +701,8 @@ class AnalysisService:
                 ctx=ctx, org=org, jurisdiction=jurisdiction, contract_text=contract_text,
                 retriever=retriever, lang=lang, position=position, source=source, case_id=case_id,
                 strategy=strategy, trace=trace, truncated=truncated, failed_windows=failed_windows,
-                redacted_n=redacted_n, text_chars=text_chars, route=route, windows=windows, t0=t0)
+                redacted_n=redacted_n, text_chars=text_chars, route=route, windows=windows, t0=t0,
+                auto_counter=self.fast_auto_counter)   # fast: BỎ counter flagship (~40s) → ~15-18s
 
         # Adaptive routing + chunking hợp đồng dài. Các cửa sổ ĐỘC LẬP → chạy SONG SONG
         # (mỗi cửa sổ ctx riêng, merge theo thứ tự — kết quả tất định, ~3× nhanh hơn tuần tự).
@@ -772,7 +777,8 @@ class AnalysisService:
                         position: NegotiationPosition | None, source: SourceMeta,
                         case_id: str | None, strategy: str, trace: list, truncated: bool,
                         failed_windows: int, redacted_n: int, text_chars: int,
-                        route: dict, windows: list, t0: float) -> AnalysisResult:
+                        route: dict, windows: list, t0: float,
+                        auto_counter: bool = True) -> AnalysisResult:
         """Hậu-agent CHUNG (deep + fast): win-rate · notes · verify∥summary∥legal_basis · illegal · counter ·
         classify · build result · persist. Tách để fast-path & deep-path dùng CHUNG (một nguồn)."""
         # Outcome-aware ranking: gắn win-rate lịch sử cho mỗi fallback. CÔ LẬP org (privacy + tín hiệu
@@ -848,7 +854,8 @@ class AnalysisService:
 
         # Sinh INLINE điều khoản mới cho rủi ro illegal/must_fix (SAU illegal-detection: nhãn đã chốt +
         # SAU legal_basis: có căn cứ). Song song, bounded, dùng reasoner (flagship). Rủi ro nhẹ → nút.
-        if self.auto_counter_on_analyze and (nc := _attach_counter_clauses(
+        # `auto_counter=False` (fast mode) → BỎ để giữ latency ~15-18s; người dùng soạn on-demand qua nút.
+        if auto_counter and self.auto_counter_on_analyze and (nc := _attach_counter_clauses(
                 ctx.risks, ctx.fallbacks, self.reasoner, self.auto_counter_max)):
             notes.append(f"📝 Đã soạn sẵn điều khoản sửa cho {nc} điều khoản quan trọng (trái luật / bắt buộc sửa).")
 

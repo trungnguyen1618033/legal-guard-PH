@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # nếu ưu tiên 0 bỏ sót trái luật hơn tốc độ. Rỗng = flash. Fast LUÔN cần người duyệt (bù ~12.5% miss).
     qwen_fast_review_model: str = "qwen-flash"
     qwen_embed_model: str = "text-embedding-v4"  # Qwen3-Embedding: đa ngữ 100+, #1 MTEB
+    # Auto-counter (soạn điều khoản sửa INLINE) trong mode=fast. MẶC ĐỊNH TẮT: đo prod fast=58s vì
+    # _attach_counter_clauses dùng flagship cho illegal/must_fix (~40s) → nuốt lợi thế tốc độ. Tắt → fast
+    # ~15-18s; người dùng vẫn soạn on-demand qua nút "Đồng ý sửa". Bật lại (FAST_AUTO_COUNTER=1) nếu muốn
+    # counter soạn sẵn trong fast (chấp nhận chậm). KHÔNG ảnh hưởng deep (deep luôn auto-counter).
+    fast_auto_counter: bool = False
     qwen_vl_model: str = "qwen3.7-plus"   # multimodal — OCR HĐ scan/ảnh (thay Qwen-VL, chính xác hơn)
     qwen_rerank_model: str = "qwen3-rerank"  # cross-encoder rerank (Model Studio: Qwen-Rerank, 100+ ngôn ngữ)
     llm_temperature: float = 0.1          # thấp = nhất quán/ổn định (legal cần xác định)

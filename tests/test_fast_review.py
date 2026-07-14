@@ -55,7 +55,8 @@ def test_analyze_mode_fast_end_to_end():
     from legalguard.config.container import build_service
     svc = build_service()
     svc.reasoner = svc.fast_review_llm = _FakeReasoner()   # fast dùng fast_review_llm (right-sized qua env)
-    svc.auto_counter_on_analyze = False           # cô lập: chỉ đo trích nhanh
+    svc.auto_counter_on_analyze = True            # bật để CHỨNG fast vẫn BỎ counter (fast_auto_counter=False)
+    assert svc.fast_auto_counter is False         # mặc định TẮT → fast nhanh (~15-18s), không counter flagship
     svc.legal_basis_grounding = False
     svc.illegal_detection = False
     svc.nli_verification = False
@@ -70,3 +71,5 @@ def test_analyze_mode_fast_end_to_end():
     assert any("nhanh" in r.lower() for r in res.review_reasons)   # human-checkpoint box
     from legalguard.adapters.inbound.channels import format_chat_reply
     assert "RÀ NHANH" in format_chat_reply(res, lang="vi")
+    # fast BỎ auto-counter (fast_auto_counter=False) → không risk nào có counter_clause inline (soạn on-demand)
+    assert all(not r.get("counter_clause") for r in res.risks)

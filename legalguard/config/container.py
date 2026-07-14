@@ -105,6 +105,7 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                            hyde_query_expansion=cfg.hyde_query_expansion,
                            auto_counter_on_analyze=cfg.auto_counter_on_analyze,
                            auto_counter_max=cfg.auto_counter_max,
+                           fast_auto_counter=cfg.fast_auto_counter,
                            obligations=obligations, obligation_tracking=cfg.obligation_tracking,
                            org_policies=org_policies, org_playbook=cfg.org_playbook)
 
