@@ -775,6 +775,19 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
         return Response(content=data, media_type=_DOCX_MIME,
                         headers={"Content-Disposition": 'attachment; filename="ban-ghi-nho-sua-doi.docx"'})
 
+    @app.post("/amendments/redline.docx")
+    def amendments_redline_docx(body: CompileIn, _: Organization = Depends(require_auth)):
+        # Mức 1 sửa-file: bản ĐỐI CHIẾU (điều khoản cũ→mới) ra .docx — cũ đỏ/gạch, mới xanh/highlight.
+        from legalguard.adapters.outbound.docx_export import DocxUnavailable, redline_to_docx
+
+        rl = service.compile_redline(body.items, title=body.title, protected_party=body.protected_party)
+        try:
+            data = redline_to_docx(rl)
+        except DocxUnavailable as exc:
+            raise HTTPException(status_code=501, detail=str(exc)) from exc
+        return Response(content=data, media_type=_DOCX_MIME,
+                        headers={"Content-Disposition": 'attachment; filename="ban-doi-chieu-sua-doi.docx"'})
+
     @app.post("/redline")
     def text_redline(body: RedlineIn, _: Organization = Depends(require_auth)) -> dict:
         # So 2 phiên bản text → redline ([+thêm+]/[-bỏ-]) + tỉ lệ giống nhau. Tất định, không LLM.

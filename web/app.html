@@ -131,7 +131,8 @@
       <h2>Bản ghi nhớ sửa đổi (cho luật sư)</h2>
       <p class="muted">Gộp các điều khoản (TRÁI LUẬT lên đầu) thành bản ghi nhớ: Điều · Vấn đề · Căn cứ · Đề xuất · Ưu tiên — dán/gửi được.</p>
       <p><button type="button" class="btn" id="memo-go">Gộp bản ghi nhớ</button>
-        <button type="button" class="ghost" id="memo-docx" style="display:none">Tải Word (.docx)</button></p>
+        <button type="button" class="ghost" id="memo-docx" style="display:none">Tải Word (.docx)</button>
+        <button type="button" class="ghost" id="redline-docx">📄 Tải bản đối chiếu sửa đổi (.docx)</button></p>
       <div id="memo" class="md"></div>
     </div>
 
@@ -443,6 +444,29 @@ $('memo-docx').onclick = async () => {
     const blob = await r.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = url; a.download = 'ban-ghi-nho-sua-doi.docx'; a.click(); URL.revokeObjectURL(url);
   } catch (e) { toast('Lỗi tải Word: ' + e.message); }
+};
+// Bản ĐỐI CHIẾU sửa đổi (cũ→mới): điều khoản cũ (đỏ/gạch) → điều khoản mới song ngữ (xanh/highlight).
+function _redlineItems() {
+  const fb = window._fb || [];
+  return (window._risks || []).map(r => {
+    const cc = r.counter_clause || {}, f = fb.find(x => x.clause === r.clause) || {};
+    return { clause: r.clause, evidence: r.evidence || '', vi: cc.vi || f.suggestion || '',
+             en: cc.en || '', rationale: cc.rationale || r.legal_basis || '',
+             legal_status: r.legal_status, violated_law: r.violated_law || '' };
+  });
+}
+$('redline-docx').onclick = async () => {
+  const items = _redlineItems();
+  if (!items.length) { toast('Chưa có điều khoản để đối chiếu — chạy rà soát trước.'); return; }
+  try {
+    const r = await fetch('/amendments/redline.docx', { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ items, protected_party: $('protected_party').value }) });
+    if (r.status === 501) { toast('Word export chưa bật trên server (cần group export).'); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const blob = await r.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = 'ban-doi-chieu-sua-doi.docx'; a.click(); URL.revokeObjectURL(url);
+  } catch (e) { toast('Lỗi tải bản đối chiếu: ' + e.message); }
 };
 
 $('audit-go').onclick = async () => {

@@ -69,3 +69,43 @@ def compile_memo(items: list[dict], title: str = "", protected_party: str = "") 
 def _cell(s: str) -> str:
     """An toàn cho ô bảng Markdown: bỏ xuống dòng + thoát dấu '|'."""
     return (s or "").replace("\n", " ").replace("|", "/").strip() or "—"
+
+
+# ---- REDLINE: bản ĐỐI CHIẾU sửa đổi (điều khoản cũ → mới) để xuất .docx (Mức 1 sửa-file) ----
+@dataclass
+class RedlineRow:
+    clause: str
+    old: str = ""                # điều khoản CŨ nguyên văn (evidence)
+    new_vi: str = ""             # điều khoản MỚI (tiếng Việt)
+    new_en: str = ""             # điều khoản MỚI (tiếng Anh)
+    reason: str = ""             # lý do / căn cứ
+    legal_status: str = "unfavorable"
+    violated_law: str = ""
+
+
+@dataclass
+class RedlineMemo:
+    rows: list[RedlineRow] = field(default_factory=list)
+    illegal_count: int = 0
+    title: str = "BẢN ĐỐI CHIẾU SỬA ĐỔI HỢP ĐỒNG"
+    protected_party: str = ""
+
+
+def compile_redline(items: list[dict], title: str = "", protected_party: str = "") -> RedlineMemo:
+    """Gộp mục đã chọn → bản ĐỐI CHIẾU (cũ→mới) cho xuất .docx. Mỗi item chấp nhận khóa linh hoạt:
+    {clause, old|evidence, new_vi|vi, new_en|en, reason|rationale|legal_basis, legal_status, violated_law}.
+    Sắp TRÁI LUẬT trước. THUẦN (test offline). Bỏ mục không có clause."""
+    rows = [RedlineRow(
+        clause=(it.get("clause") or "").strip(),
+        old=(it.get("old") or it.get("evidence") or "").strip(),
+        new_vi=(it.get("new_vi") or it.get("vi") or it.get("suggestion") or "").strip(),
+        new_en=(it.get("new_en") or it.get("en") or "").strip(),
+        reason=(it.get("reason") or it.get("rationale") or it.get("legal_basis") or "").strip(),
+        legal_status=it.get("legal_status", "unfavorable"),
+        violated_law=(it.get("violated_law") or "").strip(),
+    ) for it in items if (it.get("clause") or "").strip()]
+    rows.sort(key=lambda r: r.legal_status != "illegal")     # TRÁI LUẬT lên đầu
+    illegal = sum(r.legal_status == "illegal" for r in rows)
+    return RedlineMemo(rows=rows, illegal_count=illegal,
+                       title=title.strip() or "BẢN ĐỐI CHIẾU SỬA ĐỔI HỢP ĐỒNG",
+                       protected_party=protected_party.strip())

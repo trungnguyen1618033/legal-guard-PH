@@ -483,6 +483,15 @@ class AnalysisService:
             self.observer.event("compile_memo", {"rows": len(memo.rows), "illegal": memo.illegal_count})
         return asdict(memo)
 
+    def compile_redline(self, items: list[dict], title: str = "", protected_party: str = "") -> dict:
+        """Bản ĐỐI CHIẾU sửa đổi (cũ→mới) để xuất .docx (sửa-file Mức 1). Thuần, isolated → accuracy KHÔNG đổi."""
+        from legalguard.domain.amendments import compile_redline as _compile
+
+        rl = _compile(items, title=title, protected_party=protected_party)
+        if self.observer:
+            self.observer.event("compile_redline", {"rows": len(rl.rows), "illegal": rl.illegal_count})
+        return asdict(rl)
+
     def get_case(self, case_id: str) -> AnalysisCase | None:
         return self.cases.get(case_id) if self.cases else None
 

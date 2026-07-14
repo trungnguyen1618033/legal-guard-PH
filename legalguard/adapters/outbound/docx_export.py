@@ -46,3 +46,59 @@ def memo_to_docx(memo: dict) -> bytes:
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+def redline_to_docx(rl: dict) -> bytes:
+    """Bản ĐỐI CHIẾU sửa đổi (dict từ `compile_redline`) → .docx: mỗi điều khoản → tiêu đề + điều khoản CŨ
+    (đỏ, gạch ngang) → điều khoản MỚI (xanh, highlight) song ngữ + căn cứ. Raise DocxUnavailable nếu thiếu lib."""
+    try:
+        from docx import Document
+        from docx.enum.text import WD_COLOR_INDEX
+        from docx.shared import RGBColor
+    except ImportError as exc:  # noqa: TRY003
+        raise DocxUnavailable("Cần cài: uv sync --group export (python-docx).") from exc
+
+    _RED, _GREEN = RGBColor(0xC0, 0x00, 0x00), RGBColor(0x0A, 0x6A, 0x30)
+    doc = Document()
+    doc.add_heading(rl.get("title") or "BẢN ĐỐI CHIẾU SỬA ĐỔI HỢP ĐỒNG", level=0)
+    if rl.get("protected_party"):
+        doc.add_paragraph(f"Bên được bảo vệ: {rl['protected_party']}")
+
+    def _run(par, text, *, color=None, strike=False, highlight=False, bold=False):
+        r = par.add_run(text)
+        if color is not None:
+            r.font.color.rgb = color
+        r.font.strike = strike
+        r.bold = bold
+        if highlight:
+            r.font.highlight_color = WD_COLOR_INDEX.BRIGHT_GREEN
+        return r
+
+    for i, row in enumerate(rl.get("rows", []), 1):
+        tag = ""
+        if row.get("legal_status") == "illegal":
+            tag = f" — TRÁI LUẬT{(' (' + row['violated_law'] + ')') if row.get('violated_law') else ''}"
+        doc.add_heading(f"({i}) {row.get('clause', '')}{tag}", level=2)
+        if row.get("old"):
+            p = doc.add_paragraph()
+            _run(p, "Điều khoản gốc: ", bold=True)
+            _run(p, row["old"], color=_RED, strike=True)      # cũ: đỏ + gạch ngang
+        new_vi, new_en = row.get("new_vi", ""), row.get("new_en", "")
+        if new_vi or new_en:
+            p = doc.add_paragraph()
+            _run(p, "Đề xuất sửa: ", bold=True)
+            if new_vi:
+                _run(p, new_vi, color=_GREEN, highlight=True)  # mới: xanh + highlight
+            if new_en:
+                pe = doc.add_paragraph()
+                _run(pe, "EN: ", bold=True)
+                _run(pe, new_en, color=_GREEN)
+        if row.get("reason"):
+            p = doc.add_paragraph()
+            _run(p, "Căn cứ: ", bold=True)
+            _run(p, row["reason"])
+    doc.add_paragraph()
+    doc.add_paragraph("⚠️ Bản đối chiếu do AI hỗ trợ soạn — luật sư cần đối chiếu bản gốc trước khi áp dụng.")
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()

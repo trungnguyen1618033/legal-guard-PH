@@ -58,6 +58,19 @@ def test_amendments_compile_endpoint(client):
     assert d["illegal_count"] == 1 and "TRÁI LUẬT" in d["markdown"] and len(d["rows"]) == 1
 
 
+def test_amendments_redline_docx_endpoint(client):
+    # Mức 1 sửa-file: bản đối chiếu cũ→mới ra .docx (hoặc 501 nếu chưa cài python-docx).
+    r = client.post("/amendments/redline.docx", json={"items": [
+        {"clause": "Điều 5 phạt", "evidence": "Phạt 15%.", "vi": "Phạt tối đa 8%.",
+         "legal_status": "illegal", "violated_law": "Điều 301"}], "protected_party": "Bên B"})
+    assert r.status_code in (200, 501)
+    if r.status_code == 200:
+        assert r.headers["content-type"] == _DOCX_MIME_TEST and r.content[:2] == b"PK"
+
+
+_DOCX_MIME_TEST = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
 def test_negotiate_endpoint(client):
     # Vòng đàm phán đa phiên: bối cảnh deal + tin đối tác → round có status hợp lệ.
     r = client.post("/negotiate", json={"deal_context": "phạt 15% trái Điều 301",

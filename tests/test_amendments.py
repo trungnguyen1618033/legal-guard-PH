@@ -1,5 +1,5 @@
 """Phase C — gộp Bản ghi nhớ sửa đổi (memo) + xuất Word."""
-from legalguard.domain.amendments import compile_memo
+from legalguard.domain.amendments import compile_memo, compile_redline
 
 _ITEMS = [
     {"clause": "Điều 5 — Trọng tài", "risk": "Bất lợi địa điểm", "legal_status": "unfavorable",
@@ -37,3 +37,41 @@ def test_memo_to_docx_bytes():
     from legalguard.adapters.outbound.docx_export import memo_to_docx
     data = memo_to_docx(asdict(compile_memo(_ITEMS)))
     assert data[:2] == b"PK" and len(data) > 500     # docx = zip
+
+
+# ---- REDLINE (Mức 1 sửa-file): bản đối chiếu cũ→mới ----
+_RL_ITEMS = [
+    {"clause": "Điều 8 — Thanh toán", "evidence": "Thanh toán trong 90 ngày.",
+     "vi": "Thanh toán trong 30 ngày.", "en": "Payment within 30 days.", "legal_status": "unfavorable"},
+    {"clause": "Điều 5 — Phạt", "evidence": "Phạt 15% giá trị hợp đồng.", "vi": "Phạt tối đa 8%.",
+     "en": "Cap 8%.", "rationale": "Điều 301 LTM 2005", "legal_status": "illegal",
+     "violated_law": "Điều 301"},
+]
+
+
+def test_compile_redline_sorts_illegal_first_flexible_keys():
+    rl = compile_redline(_RL_ITEMS, title="Đối chiếu HĐ", protected_party="Bên B")
+    assert rl.rows[0].legal_status == "illegal" and rl.rows[0].clause.startswith("Điều 5")  # illegal đầu
+    assert rl.rows[0].old == "Phạt 15% giá trị hợp đồng." and rl.rows[0].new_vi == "Phạt tối đa 8%."
+    assert rl.rows[0].reason == "Điều 301 LTM 2005" and rl.illegal_count == 1
+    assert rl.rows[1].new_en == "Payment within 30 days."      # 'en' → new_en
+    assert compile_redline([{"clause": ""}]).rows == []        # bỏ mục thiếu clause
+
+
+def test_redline_to_docx_bytes_and_content():
+    from dataclasses import asdict
+
+    import pytest
+    pytest.importorskip("docx")
+    import io
+
+    from docx import Document
+
+    from legalguard.adapters.outbound.docx_export import redline_to_docx
+    data = redline_to_docx(asdict(compile_redline(_RL_ITEMS)))
+    assert data[:2] == b"PK" and len(data) > 500              # docx = zip
+    doc = Document(io.BytesIO(data))
+    full = "\n".join(p.text for p in doc.paragraphs)
+    assert "Phạt 15% giá trị hợp đồng." in full and "Phạt tối đa 8%." in full   # cũ + mới
+    # điều khoản CŨ phải gạch ngang (strike) — dấu hiệu redline
+    assert any(r.font.strike for p in doc.paragraphs for r in p.runs)
