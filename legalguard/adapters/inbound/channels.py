@@ -1106,26 +1106,31 @@ def _send_comment_doc(service: AnalysisService, sender: ChatSenderPort, org_id: 
         _safe_send(sender, send_to, "Xin lỗi, chưa tạo được file có nhận xét. Vui lòng thử lại.", thread_ts)
 
 
-# Nút "Đồng ý sửa" per-risk (Slack) — accessory trên section rủi ro. Bấm → soạn điều khoản sửa (cũ→mới).
-# value mang {c: case_id, i: index0}; handler nạp lại case (đã BỀN) → draft_counter_clause. KHÔNG cần
-# store in-process: case đã persist với risks+fallbacks (sống sót restart, không TTL — bền hơn _RetryStore).
-def _block_to_slack_section(b: Block) -> dict:
-    """1 Block → 1 Slack section; `key`→block_id; `action`→nút accessory (Đồng ý sửa)."""
+# Nút "Đồng ý sửa" per-risk (Slack) — actions block DƯỚI section rủi ro (không accessory bên phải → chữ
+# full-width). value mang {c: case_id, i: index0}; handler nạp lại case (đã BỀN) → draft_counter_clause. KHÔNG
+# cần store in-process: case đã persist với risks+fallbacks (sống sót restart, không TTL — bền hơn _RetryStore).
+def _block_to_slack(b: Block) -> list[dict]:
+    """1 Block → 1 Slack section (chữ FULL-WIDTH) + (nếu có action) 1 `actions` block DƯỚI mang nút 'Đồng ý sửa'.
+    Nút ĐẶT DƯỚI (không phải accessory bên phải) → chữ dùng trọn chiều rộng, dễ đọc văn bản pháp lý DÀI và
+    đồng nhất với block không nút (chiến lược/must-fix). `key`→block_id."""
     sec: dict = {"type": "section", "text": {"type": "mrkdwn", "text": b.clean()[:2900]}}
     if b.key:
         sec["block_id"] = b.key
-    if b.action:
-        sec["accessory"] = {
-            "type": "button", "text": {"type": "plain_text", "text": b.action["label"], "emoji": False},
-            "action_id": b.action["action_id"],
-            "value": json.dumps(b.action["value"], ensure_ascii=False)}
-    return sec
+    if not b.action:
+        return [sec]
+    act: dict = {"type": "actions", "elements": [{
+        "type": "button", "text": {"type": "plain_text", "text": b.action["label"], "emoji": False},
+        "action_id": b.action["action_id"],
+        "value": json.dumps(b.action["value"], ensure_ascii=False)}]}
+    if b.key:
+        act["block_id"] = f"{b.key}_act"        # block_id riêng (Slack yêu cầu duy nhất)
+    return [sec, act]
 
 
 def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> list[dict]:
-    """Slack blocks reply rà soát HĐ — serialize `_review_doc` (nguồn chung với text): mỗi Block → 1 section,
-    rủi ro kèm nút 'Đồng ý sửa' (soạn/ghi-nhận theo trạng thái), + công bố AI (context) + cap 50-block Slack."""
-    blocks = [_block_to_slack_section(b) for b in _review_doc(result, prefix, case_id)]
+    """Slack blocks reply rà soát HĐ — serialize `_review_doc` (nguồn chung với text): mỗi Block → 1 section
+    (full-width) + nút 'Đồng ý sửa' ở actions block dưới, + công bố AI (context) + cap 50-block Slack."""
+    blocks = [blk for b in _review_doc(result, prefix, case_id) for blk in _block_to_slack(b)]
     blocks.append({"type": "context",
                    "elements": [{"type": "mrkdwn", "text": _AI_DISCLOSURE_LEGAL.strip()}]})
     # Slack chặn 50 block/tin → HĐ nhiều rủi ro có thể vượt → chat.postMessage LỖI (im lặng, mất reply).

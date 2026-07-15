@@ -155,8 +155,8 @@ def test_drafting_issues_structured_render_card_and_button():
     assert num == 2 and dclause == "Điều 1.2 bản EN"
     assert "**(2) Lỗi soạn thảo tại" in seg and "**Tiếng Việt:**" in seg and "**Tiếng Anh:**" in seg
     blocks = _analysis_blocks(res, "case1")
-    vals = [_j.loads(b["accessory"]["value"]) for b in blocks if b.get("accessory")]
-    assert any(v.get("dc") == "Điều 1.2 bản EN" and v.get("confirm") == 1 for v in vals)  # nút drafting
+    vals = [_j.loads(el["value"]) for b in blocks if b["type"] == "actions" for el in b["elements"]]
+    assert any(v.get("dc") == "Điều 1.2 bản EN" and v.get("confirm") == 1 for v in vals)  # nút drafting (actions block dưới)
     assert "**" not in _j.dumps(blocks, ensure_ascii=False)                               # đã slackify
 
 
@@ -1143,7 +1143,7 @@ def _amend_result():
 def test_analysis_blocks_agree_button_per_risk():
     from legalguard.adapters.inbound.channels import _analysis_blocks
     blocks = _analysis_blocks(_amend_result(), "case1")
-    buttons = [b["accessory"] for b in blocks if b.get("accessory")]
+    buttons = [el for b in blocks if b["type"] == "actions" for el in b["elements"]]   # nút ở actions block dưới
     assert len(buttons) == 2                                # nút cho MỌI rủi ro (kể cả không có fallback)
     assert all(b["action_id"] == "amend_ok" and b["text"]["text"] == "Đồng ý sửa" for b in buttons)
     assert json.loads(buttons[0]["value"]) == {"c": "case1", "i": 0}
@@ -1168,7 +1168,7 @@ def test_analysis_blocks_caps_at_slack_limit():
 def test_analysis_blocks_no_button_without_case_id():
     from legalguard.adapters.inbound.channels import _analysis_blocks
     blocks = _analysis_blocks(_amend_result(), "")         # không case_id → không thể nạp lại → không nút
-    assert not any(b.get("accessory") for b in blocks)
+    assert not any(b["type"] == "actions" for b in blocks)   # không có actions block (nút) nào
 
 
 # ---- Khối 4 phần (cũ → mới → lý do): counter_clause inline cho illegal/must_fix, nút cho rủi ro nhẹ ----
@@ -1210,7 +1210,7 @@ def test_analysis_blocks_always_button_confirm_or_draft():
     # (ghi nhận); chưa có → soạn.
     from legalguard.adapters.inbound.channels import _analysis_blocks
     blocks = _analysis_blocks(_counter_result(), "case1")
-    btns = [b["accessory"] for b in blocks if b.get("accessory")]
+    btns = [el for b in blocks if b["type"] == "actions" for el in b["elements"]]   # nút ở actions block dưới
     assert len(btns) == 2                                   # cả 2 rủi ro đều có nút
     assert all(b["text"]["text"] == "Đồng ý sửa" for b in btns)   # nhãn NHẤT QUÁN
     assert json.loads(btns[0]["value"]) == {"c": "case1", "i": 0, "confirm": 1}   # rủi ro 1 (inline) → ghi nhận
