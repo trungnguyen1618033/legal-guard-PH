@@ -364,6 +364,77 @@ def test_process_keeps_plain_text_for_zalo():
     assert any("**đậm**" == t for _, t in s.sent)               # nguyên văn (không đụng)
 
 
+def test_wants_file_export_intent():
+    from legalguard.adapters.inbound.channels import _wants_file_export
+    assert _wants_file_export("thêm mục comment vào tệp này")       # phản ánh thật của user
+    assert _wants_file_export("cho tôi file word có nhận xét")
+    assert _wants_file_export("xuất file docx giúp tôi")
+    assert _wants_file_export("tải bản word")
+    assert _wants_file_export("add comments to the file")
+    assert not _wants_file_export("mức phạt vi phạm hợp đồng là bao nhiêu?")   # câu hỏi thường
+    assert not _wants_file_export("rà soát giúp hợp đồng này")                 # yêu cầu rà soát
+
+
+def test_comment_to_docx_has_word_comments():
+    import io
+    import zipfile
+
+    from legalguard.adapters.outbound.docx_export import comment_to_docx
+    data = comment_to_docx({"items": [
+        {"clause": "Điều 5", "evidence": "Bên B chịu phạt 15%", "risk": "vượt trần 8%",
+         "legal_status": "illegal", "violated_law": "Điều 301", "vi": "giảm về 8%",
+         "en": "reduce to 8%", "rationale": "Điều 301 LTM 2005"}], "protected_party": "Bên B"})
+    assert data[:2] == b"PK"                              # docx = zip package
+    z = zipfile.ZipFile(io.BytesIO(data))
+    assert any("comments" in n for n in z.namelist())    # có comment thật (comments.xml)
+
+
+def test_export_command_routes_to_export_doc():
+    from legalguard.domain.models import Conversation
+    h = _handler()
+    h.store.save(Conversation(id="kExp", context="deal đang bàn", last_case_id="case-xyz"))
+    r = h.reply_ex("kExp", text="cho tôi file word có nhận xét")
+    assert r.kind == "export_doc" and r.ref == "case-xyz"    # KHÔNG rà soát lại — trả file
+
+
+def test_export_command_without_case_gives_guidance():
+    from legalguard.domain.models import Conversation
+    h = _handler()
+    h.store.save(Conversation(id="kExp2", context="deal"))    # chưa có last_case_id
+    r = h.reply_ex("kExp2", text="xuất file word cho tôi")
+    assert r.kind == "" and "chưa có kết quả rà soát" in r.text.lower()
+
+
+def test_process_export_doc_uploads_commented_docx():
+    from types import SimpleNamespace
+
+    from legalguard.adapters.inbound.channels import ChatReply, _process
+    from legalguard.domain.tenants import default_org
+    org = default_org("VN")
+    case = SimpleNamespace(
+        org_id=org.id, protected_party="Bên B", contract_type="mua bán",
+        risks=[{"clause": "Điều 5", "evidence": "phạt 15%", "risk": "vượt trần 8%",
+                "legal_status": "illegal", "violated_law": "Điều 301",
+                "counter_clause": {"vi": "giảm 8%", "en": "8%", "rationale": "Đ.301"}}],
+        fallbacks=[])
+
+    class _Svc:
+        def get_case(self, cid):
+            return case
+
+    class _H:
+        default_tenant = "VN"
+        service = _Svc()
+
+        def reply_ex(self, key, **kw):
+            return ChatReply("Đang tạo file Word có nhận xét…", "export_doc", "case-1")
+
+    s = _FakeSender()
+    _process(_H(), s, "k", "C1", "xuất file", None, None, "th", 10 * 1024 * 1024, True)
+    assert getattr(s, "uploaded", []) and s.uploaded[0][1] == "ra-soat-co-nhan-xet.docx"
+    assert any("đang tạo file" in t.lower() for _, t in s.sent)   # ack đã gửi
+
+
 def test_make_progress_cb_throttles_and_only_on_increase():
     # Heartbeat A1: callback update ack CHỈ khi #rủi ro TĂNG và cách ≥8s (chống spam chat.update).
     from legalguard.adapters.inbound.channels import _make_progress_cb

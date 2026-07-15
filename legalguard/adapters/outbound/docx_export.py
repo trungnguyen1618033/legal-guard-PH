@@ -102,3 +102,66 @@ def redline_to_docx(rl: dict) -> bytes:
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+_STATUS_TAG = {"illegal": "⚠️ TRÁI LUẬT", "unfavorable": "Bất lợi"}
+
+
+def comment_to_docx(doc_data: dict) -> bytes:
+    """File Word có COMMENT thật (bong bóng nhận xét Word) — mỗi điều khoản bị gắn cờ → đoạn trích nguyên
+    văn + 1 comment chứa: [trạng thái] rủi ro (+ điều luật vi phạm) · đề xuất sửa song ngữ · căn cứ.
+    Giống 'file có comment như ChatGPT' nhưng nhận xét GROUNDED (từ dữ liệu case).
+
+    `doc_data` = {title, protected_party, contract_type, items:[{clause, evidence, risk, legal_status,
+    violated_law, vi, en, rationale}]}. Raise DocxUnavailable nếu thiếu python-docx hoặc bản cũ không có
+    add_comment (cần python-docx ≥ 1.2)."""
+    try:
+        from docx import Document
+        from docx.shared import RGBColor
+    except ImportError as exc:  # noqa: TRY003
+        raise DocxUnavailable("Cần cài: uv sync --group export (python-docx).") from exc
+
+    doc = Document()
+    if not hasattr(doc, "add_comment"):     # python-docx < 1.2 chưa hỗ trợ comment
+        raise DocxUnavailable("Cần python-docx ≥ 1.2 để chèn comment vào Word.")
+
+    _RED = RGBColor(0xC0, 0x00, 0x00)
+    doc.add_heading(doc_data.get("title") or "HỢP ĐỒNG — BẢN RÀ SOÁT CÓ NHẬN XÉT", level=0)
+    if doc_data.get("protected_party"):
+        doc.add_paragraph(f"Bên được bảo vệ: {doc_data['protected_party']}")
+    if doc_data.get("contract_type"):
+        doc.add_paragraph(f"Loại hợp đồng: {doc_data['contract_type']}")
+    doc.add_paragraph("Mỗi điều khoản dưới đây có gắn NHẬN XÉT (comment) — mở bằng Microsoft Word để xem "
+                      "chi tiết rủi ro và đề xuất sửa.")
+    doc.add_paragraph()
+
+    items = sorted(doc_data.get("items") or [],
+                   key=lambda it: it.get("legal_status") != "illegal")   # TRÁI LUẬT lên đầu
+    for i, it in enumerate(items, 1):
+        clause = (it.get("clause") or "").strip()
+        evidence = (it.get("evidence") or "").strip() or clause
+        status = it.get("legal_status", "unfavorable")
+        doc.add_heading(f"({i}) {clause}", level=2)
+        p = doc.add_paragraph()
+        run = p.add_run(evidence)                      # đoạn trích nguyên văn — mỏ neo cho comment
+        if status == "illegal":
+            run.font.color.rgb = _RED
+        # Nội dung comment: trạng thái + rủi ro + điều luật vi phạm + đề xuất song ngữ + căn cứ.
+        parts = [f"[{_STATUS_TAG.get(status, 'Bất lợi')}]"]
+        if (risk := (it.get("risk") or "").strip()):
+            parts.append(risk.rstrip(".") + ".")
+        if status == "illegal" and (vl := (it.get("violated_law") or "").strip()):
+            parts.append(f"Trái quy định tại {vl} — phần vi phạm có thể bị tuyên vô hiệu.")
+        if (vi := (it.get("vi") or "").strip()):
+            parts.append(f"Đề xuất sửa (VI): {vi}")
+        if (en := (it.get("en") or "").strip()):
+            parts.append(f"Suggested (EN): {en}")
+        if (rat := (it.get("rationale") or "").strip()):
+            parts.append(f"Căn cứ: {rat.rstrip('.')}.")
+        doc.add_comment(runs=p.runs, text="\n".join(parts), author="Legal Guard", initials="LG")
+
+    doc.add_paragraph()
+    doc.add_paragraph("⚠️ Nhận xét do AI hỗ trợ soạn — luật sư cần đối chiếu bản gốc trước khi áp dụng.")
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()

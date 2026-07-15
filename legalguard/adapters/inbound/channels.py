@@ -113,6 +113,25 @@ def _is_reformat_request(text: str) -> bool:
     return bool(text and _REFORMAT_RE.search(text))
 
 
+# XUẤT FILE — user muốn nhận KẾT QUẢ dưới dạng FILE (Word có comment/bản đối chiếu) thay vì đọc trong chat.
+# Nguồn phản ánh THẬT: "thêm mục comment vào tệp này 4 ý…" → bot rà soát lại thay vì trả file. Bắt các cụm
+# rõ ý "file/tệp/tải/xuất/comment vào". Neo ít nhất 1 danh từ file để không nuốt câu hỏi thường.
+_FILE_EXPORT_RE = re.compile(
+    r"(xuất|xuat|tải|tai|cho (tôi|mình)|gửi|gui|tạo|tao|kết xuất|download|export)\s+"
+    r"(ra\s+)?(file|tệp|tep|bản\s+word|ban\s+word|word|docx|pdf|văn bản)|"
+    r"(thêm|them|chèn|chen|gắn|gan|đưa|dua|bổ sung|bo sung).{0,20}"
+    r"(comment|nhận xét|nhan xet|bình luận|binh luan|ghi chú|ghi chu).{0,12}"
+    r"(vào|vao|lên|len|cho|trong)?\s*(file|tệp|tep|văn bản|hợp đồng|hop dong)|"
+    r"file\s+(có\s+)?(comment|nhận xét)|"
+    r"(có\s+)?comment\s+(vào\s+)?(file|tệp)|"
+    r"bản\s+(word|docx|có\s+comment|có\s+nhận xét)|"
+    r"add\s+comments?|comment(ed)?\s+(file|version|docx)", re.IGNORECASE)
+
+
+def _wants_file_export(text: str) -> bool:
+    return bool(text and _FILE_EXPORT_RE.search(text))
+
+
 def _previous_review(conv) -> str:
     """Nội dung tư vấn GẦN NHẤT (tin assistant cuối) trong hội thoại — để trình bày lại. Rỗng nếu chưa có."""
     for m in reversed(conv.history or []):
@@ -613,6 +632,16 @@ class ChatHandler:
         if attachment is None and _is_trust_query(text or ""):     # meta-câu-hỏi về độ tin cậy → công bố
             from legalguard.domain.trust import format_trust_text
             return ChatReply(format_trust_text())
+        # XUẤT FILE theo LỆNH CHAT (Word có comment): user muốn nhận KẾT QUẢ dạng file, KHÔNG phải rà soát lại
+        # (phản ánh thật: "thêm comment vào tệp này" → bot rà soát lại). Có case rà soát gần nhất → trả file;
+        # chưa có → hướng dẫn. Gate attachment None (kèm file = rà soát mới) + không phải câu hỏi.
+        if attachment is None and _wants_file_export(text or "") and not _is_question(text or ""):
+            if conv.last_case_id:
+                return ChatReply("Đang tạo file Word có nhận xét (comment) cho bản rà soát gần nhất — "
+                                 "sẽ gửi vào đây trong giây lát…", "export_doc", conv.last_case_id)
+            if not (text and any(s in text.lower() for s in _SIGNALS)):   # không kèm HĐ để rà → hướng dẫn
+                return ChatReply("Chưa có kết quả rà soát nào trong phiên để xuất file. Vui lòng gửi/đính "
+                                 "kèm hợp đồng để tôi rà soát trước, rồi yêu cầu xuất file có nhận xét.")
         # Yêu cầu rà soát CẢ hợp đồng nhưng KHÔNG kèm file / KHÔNG dán nội dung → hướng dẫn ĐÍNH KÈM. CHỈ khi
         # CHƯA vào deal/thread (fresh): đang trong deal/thread → là follow-up ("re-review điều khoản X") →
         # để nhánh followup trả lời theo ngữ cảnh, KHÔNG chặn thành prompt. (File trong thread đã được
@@ -651,6 +680,7 @@ class ChatHandler:
             except (ValueError, LLMError) as exc:
                 return ChatReply(f"Xin lỗi, chưa xử lý được: {exc}")
             conv.context = _context_from_result(result)    # nhớ deal đang bàn
+            conv.last_case_id = result.case_id or ""        # → xuất file (comment/redline) theo lệnh chat sau này
             # Seed red-line đàm phán = các rủi ro must_fix (điểm sống còn KHÔNG nhượng) → vòng đàm phán sau
             # có bộ nhớ cấu trúc + guardrail walk-away tất định.
             red = [r["clause"] for r in result.risks if r.get("priority") == "must_fix" and r.get("clause")]
@@ -988,6 +1018,58 @@ def _send_redline(service: AnalysisService, sender: ChatSenderPort, org_id: str,
         _safe_send(sender, send_to, "Xin lỗi, chưa tạo được bản đối chiếu. Vui lòng thử lại.", thread_ts)
 
 
+def _comment_items_from_case(case) -> list[dict]:
+    """Items cho FILE WORD CÓ COMMENT từ case đã lưu — như redline nhưng GIỮ text RỦI RO (nội dung comment).
+    Mỗi rủi ro → đoạn trích (evidence) + rủi ro + căn cứ + đề xuất song ngữ. THUẦN (test offline)."""
+    sugg = {f.get("clause", ""): (f.get("suggestion") or "") for f in (case.fallbacks or [])}
+    items = []
+    for r in (case.risks or []):
+        cc = r.get("counter_clause") or {}
+        items.append({"clause": r.get("clause", ""), "evidence": r.get("evidence", ""),
+                      "risk": r.get("risk", ""),
+                      "vi": cc.get("vi") or sugg.get(r.get("clause", ""), ""), "en": cc.get("en", ""),
+                      "rationale": cc.get("rationale") or r.get("legal_basis", ""),
+                      "legal_status": r.get("legal_status", "unfavorable"),
+                      "violated_law": r.get("violated_law", "")})
+    return items
+
+
+def _send_comment_doc(service: AnalysisService, sender: ChatSenderPort, org_id: str, case_id: str,
+                      send_to: str, thread_ts: str | None) -> None:
+    """Chạy nền (lệnh chat 'xuất file/thêm comment'): nạp case (cô lập org) → dựng FILE WORD CÓ COMMENT
+    (mỗi điều khoản 1 bong bóng nhận xét) → upload vào thread. Lỗi/không hỗ trợ → báo text (web /app vẫn có)."""
+    try:
+        case = service.get_case(case_id)
+        if case is None or getattr(case, "org_id", None) != org_id:
+            _safe_send(sender, send_to, "Không tìm thấy hồ sơ rà soát để tạo file (có thể đã hết hạn). "
+                       "Vui lòng gửi lại hợp đồng để rà soát.", thread_ts)
+            return
+        items = _comment_items_from_case(case)
+        if not items:
+            _safe_send(sender, send_to, "Bản rà soát không có điều khoản nào để gắn nhận xét.", thread_ts)
+            return
+        doc_data = {"items": items, "protected_party": getattr(case, "protected_party", "") or "",
+                    "contract_type": getattr(case, "contract_type", "") or "",
+                    "title": "HỢP ĐỒNG — BẢN RÀ SOÁT CÓ NHẬN XÉT"}
+        from legalguard.adapters.outbound.docx_export import DocxUnavailable, comment_to_docx
+        try:
+            data = comment_to_docx(doc_data)
+        except DocxUnavailable as exc:
+            _safe_send(sender, send_to, f"Chưa tạo được file Word có comment ({exc}). "
+                       "Bản đối chiếu/ghi nhớ vẫn tải được trên web /app.", thread_ts)
+            return
+        ok = sender.upload_file(send_to, "ra-soat-co-nhan-xet.docx", data, thread_ts,
+                                title="Bản rà soát có nhận xét",
+                                comment="📄 File Word có nhận xét (comment) trên từng điều khoản — mở bằng "
+                                        "Microsoft Word để xem. Luật sư đối chiếu bản gốc trước khi áp dụng.")
+        if not ok:
+            _safe_send(sender, send_to, "Chưa gửi được file (kiểm tra scope files:write của bot). "
+                       "File vẫn tải được trên web /app.", thread_ts)
+    except Exception:  # noqa: BLE001 — task nền: lỗi không được làm sập
+        _log.exception("Lỗi tạo file có comment (%s)", case_id)
+        _safe_send(sender, send_to, "Xin lỗi, chưa tạo được file có nhận xét. Vui lòng thử lại.", thread_ts)
+
+
 # Nút "Đồng ý sửa" per-risk (Slack) — accessory trên section rủi ro. Bấm → soạn điều khoản sửa (cũ→mới).
 # value mang {c: case_id, i: index0}; handler nạp lại case (đã BỀN) → draft_counter_clause. KHÔNG cần
 # store in-process: case đã persist với risks+fallbacks (sống sót restart, không TTL — bền hơn _RetryStore).
@@ -1214,7 +1296,9 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         # sender hỗ trợ update (Slack) + có ts ack. Callback optional → default None = 0 đổi hành vi/accuracy.
         if ack_ts and hasattr(sender, "update"):
             on_progress = _make_progress_cb(sender, send_to, ack_ts)
-    elif text and _looks_like_question(text):       # lookup/follow-up cũng chậm (~30s) → ack để không "chờ im"
+    elif text and _looks_like_question(text) and not _wants_file_export(text):
+        # lookup/follow-up cũng chậm (~30s) → ack để không "chờ im". Nhưng lệnh XUẤT FILE có ack riêng
+        # ("đang tạo file…") → bỏ ack tra-cứu-luật sai ở đây (tránh 2 ack lẫn lộn).
         _safe_send(sender, send_to, "Đang tra cứu văn bản pháp luật, vui lòng chờ trong giây lát…", thread_ts)
     attachment: bytes | None = None
     if file_url:
@@ -1240,6 +1324,11 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
                                in_thread=thread_fetch is not None,
                                on_progress=on_progress)
         reply = (reply_prefix + res.text) if reply_prefix else res.text   # vd "🔄 (cập nhật…)" khi chạy lại từ tin sửa
+        if res.kind == "export_doc" and res.ref:   # LỆNH CHAT xuất file: gửi ack + dựng Word có comment & upload
+            _safe_send(sender, send_to, reply, thread_ts)   # ack "đang tạo file…"
+            org = default_org(handler.default_tenant)
+            _send_comment_doc(handler.service, sender, org.id, res.ref, send_to, thread_ts)
+            return
         if supports_buttons and res.kind:          # gắn nút feedback (Slack) cho câu trả lời thật
             if res.kind == "analysis" and res.result is not None:
                 # Reply rà soát: MỖI rủi ro 1 section + nút 'Đồng ý sửa' (→ soạn điều khoản sửa), rồi

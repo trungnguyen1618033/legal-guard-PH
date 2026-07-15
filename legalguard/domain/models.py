@@ -124,6 +124,7 @@ class Conversation:
     history: list[dict] = field(default_factory=list)   # [{role, content}]
     context: str = ""                                   # tóm tắt deal đang bàn
     nego_state: str = ""                                # sổ nhượng-bộ đàm phán (JSON, xem negotiation.state_*)
+    last_case_id: str = ""                              # case rà soát GẦN NHẤT của phiên → xuất file (comment/redline) theo lệnh chat
     updated_at: str = ""
 
     def add(self, role: str, content: str) -> None:

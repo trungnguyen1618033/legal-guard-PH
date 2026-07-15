@@ -173,7 +173,17 @@ web app.html + Next.js `MemoPanel` (BFF `/api/amendments/redline-docx`). **Slack
 `_redline_items_from_case` → `redline_to_docx` → **`ChatSenderPort.upload_file`** (SlackSender: flow MỚI
 `files.getUploadURLExternal`→PUT bytes→`completeUploadExternal`, cần scope **`files:write`**; Zalo no-op) upload
 .docx vào thread; thiếu lib/scope → báo text (web vẫn tải được). Mức 2 (sửa in-place) BỎ; Mức 3 (track-changes)
-để hậu-judging. MCP + observability: `inbound/mcp_server.py` expose tool `analyze_contract` qua Model Context Protocol
+để hậu-judging.
+**FILE WORD CÓ COMMENT (lệnh chat, `docx_export.comment_to_docx`, python-docx ≥1.2 `add_comment`)**: phản ánh
+thật user "thêm comment vào tệp này ⇒ trả file có comment như ChatGPT" — nhưng bot RÀ SOÁT LẠI (lỗ hổng định
+tuyến). Vá: `_wants_file_export` bắt intent "xuất file/tải bản word/thêm comment vào tệp" → `_handle` trả
+`ChatReply(kind="export_doc", ref=case_id)` (KHÔNG re-analyze) → `_process` gọi `_send_comment_doc`: nạp case
+(cô lập org) → `_comment_items_from_case` (giữ text rủi ro) → `comment_to_docx` (mỗi điều khoản = đoạn trích +
+1 bong bóng comment Word: [trạng thái] rủi ro + điều luật vi phạm + đề xuất sửa song ngữ + căn cứ, TRÁI LUẬT
+lên đầu) → `upload_file` vào thread. Nhớ case qua `Conversation.last_case_id` (set sau analyze; cột SQL +
+migration 0013). KHÔNG lưu toàn văn HĐ (chỉ excerpt/evidence) → file dựng từ dữ liệu case, không phải file gốc.
+Verify: integration end-to-end (không LLM) — lệnh chat → upload .docx hợp lệ CÓ comments.xml chứa "Điều 301"
++ đề xuất "8%". KHÔNG thêm nút (user muốn ÍT nút — "chỉ Chốt/Sửa lại"). MCP + observability: `inbound/mcp_server.py` expose tool `analyze_contract` qua Model Context Protocol
 (`make mcp`); `outbound/observability.py` `ObservabilityPort` (NoOp / Langfuse qua `LANGFUSE_*`) →
 `AnalysisService.observer` emit event mỗi lần analyze.
 
