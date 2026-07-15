@@ -59,6 +59,7 @@ class CaseRow(Base):
     source_name: Mapped[str] = mapped_column(String, default="")
     source_bytes: Mapped[int] = mapped_column(Integer, default=0)
     text_chars: Mapped[int] = mapped_column(Integer, default=0)
+    drafting_issues: Mapped[list] = mapped_column(JSON, default=list)   # lỗi soạn thảo cấu trúc → file .docx có comment
 
 
 class SqlAlchemyCaseRepository:
@@ -101,4 +102,5 @@ def _to_case(row: CaseRow) -> AnalysisCase:
         risks=row.risks, fallbacks=row.fallbacks, trace=row.trace,
         source_sha256=row.source_sha256, source_name=row.source_name,
         source_bytes=row.source_bytes, text_chars=row.text_chars,
+        drafting_issues=row.drafting_issues or [],
     )

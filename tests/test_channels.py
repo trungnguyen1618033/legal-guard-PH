@@ -160,6 +160,39 @@ def test_drafting_issues_structured_render_card_and_button():
     assert "**" not in _j.dumps(blocks, ensure_ascii=False)                               # đã slackify
 
 
+def test_comment_items_from_case_includes_drafting():
+    # File Word có comment gồm CẢ lỗi soạn thảo (không chỉ rủi ro): location→clause, issue→risk, fix→vi/en.
+    from types import SimpleNamespace
+
+    from legalguard.adapters.inbound.channels import _comment_items_from_case
+    case = SimpleNamespace(
+        risks=[{"clause": "Điều 5", "evidence": "phạt 15%", "risk": "vượt trần",
+                "counter_clause": {"vi": "8%"}, "legal_status": "illegal", "violated_law": "Đ.301"}],
+        fallbacks=[],
+        drafting_issues=[{"location": "Điều 1.2 EN", "issue": "sai tên LIN",
+                          "fix_vi": "LIN HSUAN", "fix_en": "LIN HSUAN"}])
+    items = _comment_items_from_case(case)
+    assert len(items) == 2 and items[0]["clause"] == "Điều 5"                 # rủi ro trước
+    assert items[1]["clause"] == "Lỗi soạn thảo tại Điều 1.2 EN"              # drafting sau
+    assert items[1]["risk"] == "sai tên LIN" and items[1]["vi"] == "LIN HSUAN"
+
+
+def test_case_roundtrips_drafting_issues():
+    # drafting_issues persist + nạp lại (save→get) — cần cho xuất file comment ở lượt chat sau.
+    import uuid
+
+    from legalguard.adapters.outbound.sql_case_repository import SqlAlchemyCaseRepository
+    from legalguard.domain.models import AnalysisCase
+    repo = SqlAlchemyCaseRepository("sqlite://")           # in-memory: create_all + round-trip
+    cid = uuid.uuid4().hex
+    repo.save(AnalysisCase(id=cid, org_id="o1", tenant="VN", created_at="t", lang="vi",
+                           contract_excerpt="", summary="", needs_human_review=False,
+                           risks=[], fallbacks=[], trace=[],
+                           drafting_issues=[{"location": "Đ.1", "issue": "x", "fix_vi": "y", "fix_en": ""}]))
+    got = repo.get(cid)
+    assert got is not None and got.drafting_issues == [{"location": "Đ.1", "issue": "x", "fix_vi": "y", "fix_en": ""}]
+
+
 def test_confirm_drafting_fix_records_without_llm():
     from legalguard.adapters.inbound.channels import _confirm_drafting_fix
 

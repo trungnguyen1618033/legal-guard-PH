@@ -1057,6 +1057,16 @@ def _comment_items_from_case(case) -> list[dict]:
                       "rationale": cc.get("rationale") or r.get("legal_basis", ""),
                       "legal_status": r.get("legal_status", "unfavorable"),
                       "violated_law": r.get("violated_law", "")})
+    # LỖI SOẠN THẢO cũng vào file comment (đúng ngữ nghĩa 'chú thích mọi lỗi'): location→clause/evidence
+    # (mỏ neo), issue→risk, fix_vi/fix_en→đề xuất. legal_status='unfavorable' (lỗi soạn thảo, không xếp trái luật).
+    for it in (getattr(case, "drafting_issues", None) or []):
+        loc = (it.get("location") or "").strip()
+        issue = (it.get("issue") or "").strip()
+        items.append({"clause": f"Lỗi soạn thảo{(' tại ' + loc) if loc else ''}",
+                      "evidence": issue or loc, "risk": issue,
+                      "vi": (it.get("fix_vi") or "").strip(), "en": (it.get("fix_en") or "").strip(),
+                      "rationale": "Lỗi soạn thảo / khác biệt Việt–Anh",
+                      "legal_status": "unfavorable", "violated_law": ""})
     return items
 
 

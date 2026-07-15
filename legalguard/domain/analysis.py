@@ -951,6 +951,7 @@ class AnalysisService:
                 risks=result.risks, fallbacks=result.fallbacks, trace=result.trace,
                 source_sha256=source.sha256, source_name=source.filename,
                 source_bytes=source.size_bytes, text_chars=text_chars,
+                drafting_issues=result.drafting_issues,   # → file .docx có comment gồm cả lỗi soạn thảo
             )
             try:
                 result.case_id = self.cases.save(case)
