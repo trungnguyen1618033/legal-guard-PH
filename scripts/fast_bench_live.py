@@ -155,6 +155,29 @@ CASES: list[Case] = [
           Clause("Điều 8", CLEAN, "mô tả diện tích đất — vô hại")]),
 ]
 
+_GOLDEN_OVERRIDE = "docs/internal/fast-bench-golden.json"
+
+
+def _apply_golden_override() -> str:
+    """Nếu có golden lawyer-verified (bench_review_to_golden.py sinh) → GHI ĐÈ nhãn CASES bằng nhãn THẬT.
+    Đóng vòng: sau khi luật sư duyệt, benchmark tự đo trên nhãn đã xác nhận (hết caveat 'tác giả gán')."""
+    import json as _json
+    import os as _os
+    if not _os.path.exists(_GOLDEN_OVERRIDE):
+        return "nhãn ĐỀ XUẤT (tác giả gán — chưa lawyer-verify)"
+    with open(_GOLDEN_OVERRIDE, encoding="utf-8") as fh:
+        gmap = {(g["hd"], g["dieu"]): g["label"] for g in _json.load(fh)}
+    n = 0
+    for c in CASES:
+        for cl in c.clauses:
+            if (c.name, cl.anchor) in gmap:
+                cl.label = gmap[(c.name, cl.anchor)]
+                n += 1
+    return f"nhãn LAWYER-VERIFIED ({n} điều khoản từ {_GOLDEN_OVERRIDE})"
+
+
+_LABEL_SOURCE = _apply_golden_override()
+
 
 def _post_analyze(text: str, protected: str, mode: str) -> tuple[dict, float]:
     parts = []
@@ -315,7 +338,8 @@ def main() -> None:
     n_unf = sum(1 for c in CASES for cl in c.clauses if cl.label == UNFAV)
     n_cln = sum(1 for c in CASES for cl in c.clauses if cl.label == CLEAN)
     print(f"== FAST-PATH BENCH @ {BASE} · {len(CASES)} HĐ × {args.reps} lần "
-          f"({n_ill} illegal + {n_unf} unfavorable + {n_cln} clean/âm) ==\n")
+          f"({n_ill} illegal + {n_unf} unfavorable + {n_cln} clean/âm) ==")
+    print(f"   Nhãn: {_LABEL_SOURCE}\n")
     cleanup = not args.keep
     clean = {"created": 0, "deleted": 0}
     fast, deep = Stat(), Stat()
