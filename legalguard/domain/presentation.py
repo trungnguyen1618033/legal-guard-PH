@@ -41,6 +41,15 @@ def md_to_slack(text: str) -> str:
     return _MD_HEADER_RE.sub(r"*\1*", t)
 
 
+def strip_md(text: str) -> str:
+    """Bỏ dấu markdown ĐẬM (`**x**`→`x`) + tiêu đề (`#…`→`…`) cho kênh KHÔNG render markdown (Zalo/text
+    thuần) — tránh lộ dấu `**` thô. Thuần; giữ nguyên nội dung, chỉ gỡ dấu định dạng."""
+    if not text:
+        return text
+    t = _MD_BOLD_RE.sub(r"\1", text)
+    return _MD_HEADER_RE.sub(r"\1", t)
+
+
 def to_text(doc: Doc, *, sep: str = "\n\n") -> str:
     """Serialize Doc → text thuần (Zalo/email/fallback). Bỏ khối rỗng; ngăn cách bằng dòng trống."""
     return sep.join(b.clean() for b in doc if b.clean())

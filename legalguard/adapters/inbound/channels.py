@@ -34,7 +34,7 @@ from legalguard.domain.models import (
 from legalguard.domain.negotiation import NegotiationState, state_from_json, state_to_json
 from legalguard.domain.presentation import Block  # tầng trình bày dùng chung
 from legalguard.domain.presentation import md_to_slack as _md_to_slack
-from legalguard.domain.presentation import to_email_wrap, to_text
+from legalguard.domain.presentation import strip_md, to_email_wrap, to_text
 from legalguard.domain.ports import (
     ChatSenderPort,
     ConversationStorePort,
@@ -378,18 +378,19 @@ def _review_head(result: AnalysisResult, has_findings: bool = True) -> str:
 
 def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, bool]]:
     """(số hiển thị, index0, clause, ĐOẠN văn xuôi, cần-nút-'Đồng ý sửa') cho MỖI rủi ro — dùng CHUNG cho
-    text reply (Zalo/web) và Slack blocks. VĂN XUÔI PHÁP LÝ ĐÁNH SỐ (kiểu thư gửi khách), KHÔNG nhãn/icon:
-      (N) Tại điều khoản “<clause>”: <rủi ro>[; dấu hiệu trái quy định tại <điều luật>…].
-      Nội dung hiện tại: “<evidence>”.
-      Đề xuất sửa như sau:  (rồi 'Tiếng Việt:'/'Tiếng Anh:' khi có điều khoản mới song ngữ)
-      Căn cứ: <bối cảnh + căn cứ pháp lý>.
+    text reply (Zalo/web) và Slack blocks. VĂN XUÔI PHÁP LÝ ĐÁNH SỐ (kiểu thư gửi khách). NHÃN in đậm
+    markdown `**…**` (Slack→`*…*` qua slackify; text/Zalo→bỏ dấu qua strip_md — không kênh nào lộ `**`):
+      **(N) Tại điều khoản “<clause>”:** <rủi ro>[; dấu hiệu trái quy định tại <điều luật>…].
+      **Nội dung hiện tại:** “<evidence>”.
+      **Đề xuất sửa như sau:**  (rồi '**Tiếng Việt:**'/'**Tiếng Anh:**' khi có điều khoản mới song ngữ)
+      **Căn cứ:** <bối cảnh + căn cứ pháp lý>.
     Nút 'Đồng ý sửa' CHỈ hiện khi CHƯA có điều khoản mới inline (tránh trùng — rủi ro illegal/must_fix đã auto)."""
     sugg = {f.get("clause", ""): (f.get("suggestion") or "").strip() for f in result.fallbacks}
     out: list[tuple[int, int, str, str, bool]] = []
     for idx, r in enumerate(result.risks):
         num = idx + 1
         risk_txt = (r.get("risk") or "").strip().rstrip(".")
-        core = f"({num}) Tại điều khoản “{r['clause']}”: {risk_txt}."
+        core = f"**({num}) Tại điều khoản “{r['clause']}”:** {risk_txt}."
         if r.get("legal_status") == "illegal":       # nêu trái luật bằng văn phong pháp lý (không icon)
             vl = (r.get("violated_law") or "").strip()
             core += f" Điều khoản này có dấu hiệu trái quy định{(' tại ' + vl) if vl else ' của pháp luật'}" \
@@ -397,25 +398,25 @@ def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, boo
         lines = [core]
         ev = (r.get("evidence") or "").strip()
         if ev:
-            lines.append(f"Nội dung hiện tại: “{ev[:600]}”.")
+            lines.append(f"**Nội dung hiện tại:** “{ev[:600]}”.")
         cc = r.get("counter_clause") or {}
         _disc = _AI_DISCLOSURE_LEGAL.strip()          # bỏ công bố AI nếu lọt vào nội dung (chống lặp 2 lần)
         vi = (cc.get("vi") or "").replace(_disc, "").strip()
         en = (cc.get("en") or "").replace(_disc, "").strip()
         has_inline = bool(vi)
         if has_inline:                               # rủi ro quan trọng: điều khoản mới dán-được-ngay (song ngữ)
-            lines.append("Đề xuất sửa như sau:")
-            lines.append(f"Tiếng Việt: {vi}")
+            lines.append("**Đề xuất sửa như sau:**")
+            lines.append(f"**Tiếng Việt:** {vi}")
             if en:
-                lines.append(f"Tiếng Anh: {en}")
+                lines.append(f"**Tiếng Anh:** {en}")
         else:                                        # rủi ro nhẹ: gợi ý sửa (bản dán-được qua nút 'Đồng ý sửa')
             s = sugg.get(r["clause"], "")
             if s:
                 s = re.sub(r"^\s*đề xuất\s*:?\s*", "", s, flags=re.IGNORECASE)
-                lines.append(f"Đề xuất sửa: {s.rstrip('.')}.")
+                lines.append(f"**Đề xuất sửa:** {s.rstrip('.')}.")
         reason = (cc.get("rationale") or "").strip() or (r.get("legal_basis") or "").strip()
         if reason:
-            lines.append(f"Căn cứ: {reason.rstrip('.')}.")
+            lines.append(f"**Căn cứ:** {reason.rstrip('.')}.")
         out.append((num, idx, r["clause"], "\n".join(lines), not has_inline))
     return out
 
@@ -485,8 +486,9 @@ def _review_doc(result: AnalysisResult, prefix: str = "", case_id: str = "") -> 
 
 
 def format_chat_reply(result: AnalysisResult, lang: str = "vi") -> str:
-    """Trả lời rà soát HĐ (text/Zalo) — serialize `_review_doc` → văn xuôi pháp lý đánh số + công bố AI 1 lần."""
-    out = _with_ai_disclosure(to_text(_review_doc(result)))
+    """Trả lời rà soát HĐ (text/Zalo) — serialize `_review_doc` → văn xuôi pháp lý đánh số + công bố AI 1 lần.
+    text/Zalo KHÔNG render markdown → strip_md gỡ dấu `**` nhãn (Slack giữ đậm qua _analysis_blocks slackify)."""
+    out = _with_ai_disclosure(strip_md(to_text(_review_doc(result))))
     return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
 

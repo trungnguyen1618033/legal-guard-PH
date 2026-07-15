@@ -385,6 +385,23 @@ def test_chat_reply_bodies_have_no_icons():
     assert not _has_emoji(format_trust_text())               # công bố độ tin cậy sạch icon
 
 
+def test_review_bold_labels_per_channel():
+    # Nhãn IN ĐẬM: Slack render `*đậm*` (từ `**`→`*` qua slackify); text/Zalo GỠ sạch dấu (không lộ `**`).
+    import json as _json
+
+    from legalguard.adapters.inbound.channels import _analysis_blocks
+    res = AnalysisResult(
+        tenant="VN", contract_type="hợp đồng mua bán", protected_party="Bên B",
+        risks=[{"clause": "Điều 5", "risk": "phạt 15%", "evidence": "Bên B chịu phạt 15%",
+                "priority": "must_fix", "legal_status": "illegal", "violated_law": "Điều 301",
+                "counter_clause": {"vi": "tối đa 8%", "en": "max 8%", "rationale": "Đ.301"}}],
+        fallbacks=[], needs_human_review=True, review_reasons=[], summary="", trace=[], strategy="")
+    text = format_chat_reply(res, lang="vi")
+    assert "**" not in text and "Nội dung hiện tại:" in text and "Căn cứ:" in text   # text: sạch dấu
+    slack = _json.dumps(_analysis_blocks(res, "c1"), ensure_ascii=False)
+    assert "**" not in slack and "*Nội dung hiện tại:*" in slack and "*Căn cứ:*" in slack   # Slack: đậm
+
+
 def test_wants_file_export_intent():
     from legalguard.adapters.inbound.channels import _wants_file_export
     assert _wants_file_export("thêm mục comment vào tệp này")       # phản ánh thật của user
@@ -1102,18 +1119,19 @@ def _counter_result():
 def test_risk_segments_four_part_block_with_inline_counter():
     from legalguard.adapters.inbound.channels import _risk_segments
     _num, _idx, _clause, seg, show_button = _risk_segments(_counter_result())[0]
-    assert "(1) Tại điều khoản “Phạt 15%”: vượt trần" in seg and "trái quy định tại Điều 301" in seg
-    assert "Nội dung hiện tại: “Bên B chịu phạt 15% giá trị hợp đồng.”" in seg
-    assert "Đề xuất sửa như sau:" in seg
-    assert "Tiếng Việt: Mức phạt tối đa 8% phần vi phạm." in seg and "Tiếng Anh: Cap 8%." in seg
-    assert "Căn cứ: Điều 301 LTM 2005 giới hạn 8%." in seg
+    # nhãn IN ĐẬM markdown `**…**` (Slack→`*`, text/Zalo→strip); nội dung giữ nguyên
+    assert "**(1) Tại điều khoản “Phạt 15%”:** vượt trần" in seg and "trái quy định tại Điều 301" in seg
+    assert "**Nội dung hiện tại:** “Bên B chịu phạt 15% giá trị hợp đồng.”" in seg
+    assert "**Đề xuất sửa như sau:**" in seg
+    assert "**Tiếng Việt:** Mức phạt tối đa 8% phần vi phạm." in seg and "**Tiếng Anh:** Cap 8%." in seg
+    assert "**Căn cứ:** Điều 301 LTM 2005 giới hạn 8%." in seg
     assert show_button is False                             # đã có điều khoản mới inline → KHÔNG nút
 
 
 def test_risk_segments_button_and_suggestion_when_no_counter():
     from legalguard.adapters.inbound.channels import _risk_segments
     _num, _idx, _clause, seg, show_button = _risk_segments(_counter_result())[1]
-    assert "(2) Tại điều khoản “Thanh toán 90 ngày”" in seg and "Đề xuất sửa: rút về 30-45 ngày." in seg
+    assert "(2) Tại điều khoản “Thanh toán 90 ngày”" in seg and "**Đề xuất sửa:** rút về 30-45 ngày." in seg
     assert "Đề xuất sửa như sau:" not in seg                # không song ngữ → không có khối này
     assert show_button is True                              # chưa có counter → cần nút
 
@@ -1128,7 +1146,7 @@ def test_analysis_blocks_always_button_confirm_or_draft():
     assert all(b["text"]["text"] == "Đồng ý sửa" for b in btns)   # nhãn NHẤT QUÁN
     assert json.loads(btns[0]["value"]) == {"c": "case1", "i": 0, "confirm": 1}   # rủi ro 1 (inline) → ghi nhận
     assert json.loads(btns[1]["value"]) == {"c": "case1", "i": 1}                 # rủi ro 2 (chưa có) → soạn
-    assert "Tiếng Việt: Mức phạt tối đa 8%" in json.dumps(blocks, ensure_ascii=False)
+    assert "*Tiếng Việt:* Mức phạt tối đa 8%" in json.dumps(blocks, ensure_ascii=False)  # slackify **→*
 
 
 def test_confirm_amend_records_event_without_llm():
