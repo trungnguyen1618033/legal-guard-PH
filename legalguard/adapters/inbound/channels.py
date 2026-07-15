@@ -1255,6 +1255,11 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
                                (key, send_to, text, file_url, filename, thread_ts), thread_ts,
                                "Xin lỗi, có lỗi khi xử lý. Vui lòng thử lại.", supports_buttons)
         return
+    # Slack + reply text THÔ (reformat/followup/help/trust/error — res.kind rỗng nên không build blocks):
+    # vẫn phải qua presentation.md_to_slack, nếu không markdown `**đậm**` do LLM sinh sẽ RÒ ra Slack dạng
+    # chữ (Slack chỉ render MỘT `*`). Các nhánh có blocks đã slackify sẵn; text field khi đó chỉ là fallback.
+    if supports_buttons and blocks is None:
+        reply = _md_to_slack(reply)
     _safe_send(sender, send_to, reply, thread_ts, blocks)
 
 

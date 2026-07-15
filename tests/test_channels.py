@@ -334,6 +334,36 @@ def test_analysis_blocks_slackifies_bold_in_strategy():
     assert "**" not in dump and "*Giữ:*" in dump
 
 
+def test_process_slackifies_kindless_reply_on_slack():
+    # Hồi quy: reply KHÔNG có kind (reformat/followup/help) → _process không build blocks → PHẢI vẫn qua
+    # _md_to_slack, nếu không markdown **đậm** do LLM sinh rò ra Slack dạng chữ (bug user báo:
+    # "mấy cái dấu sao này là in đậm mà lỗi ạ?").
+    from legalguard.adapters.inbound.channels import ChatReply, _process
+
+    class _H:
+        def reply_ex(self, key, **kw):
+            return ChatReply("**(1) Sai sót:** cần sửa", "")   # kind rỗng (như _reformat/_followup)
+
+    s = _FakeSender()
+    _process(_H(), s, "k", "C1", "viết lại dãn dòng", None, None, "th",
+             10 * 1024 * 1024, True)                            # supports_buttons=True = Slack
+    sent = " ".join(t for _, t in s.sent)
+    assert "**" not in sent and "*(1) Sai sót:*" in sent        # đã slackify, không rò ** thô
+
+
+def test_process_keeps_plain_text_for_zalo():
+    # Zalo (supports_buttons=False) KHÔNG slackify — giữ nguyên (Zalo không dùng cú pháp Slack).
+    from legalguard.adapters.inbound.channels import ChatReply, _process
+
+    class _H:
+        def reply_ex(self, key, **kw):
+            return ChatReply("**đậm**", "")
+
+    s = _FakeSender()
+    _process(_H(), s, "k", "U1", "câu hỏi", None, None, None, 10 * 1024 * 1024, False)
+    assert any("**đậm**" == t for _, t in s.sent)               # nguyên văn (không đụng)
+
+
 def test_make_progress_cb_throttles_and_only_on_increase():
     # Heartbeat A1: callback update ack CHỈ khi #rủi ro TĂNG và cách ≥8s (chống spam chat.update).
     from legalguard.adapters.inbound.channels import _make_progress_cb
