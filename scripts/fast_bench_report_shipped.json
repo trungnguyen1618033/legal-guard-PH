@@ -1,0 +1,117 @@
+{
+  "base": "https://legalguard.duckdns.org",
+  "cases": 20,
+  "reps": 3,
+  "labels": {
+    "illegal": 4,
+    "unfavorable": 13,
+    "clean": 12
+  },
+  "label_note": "nhãn tác giả gán (neo luật VN), CHƯA luật-sư-verify — smoke/regression",
+  "fast": {
+    "runs": 42,
+    "errors": 0,
+    "latency_s": {
+      "median": 7.0,
+      "p95": 11.7,
+      "p99": 11.9,
+      "min": 4.6,
+      "max": 11.9,
+      "mean": 7.6,
+      "mean_ci95": [
+        7.0,
+        8.2
+      ]
+    },
+    "detection": {
+      "precision": 0.766,
+      "recall": 0.961,
+      "f1": 0.852,
+      "f2": 0.914,
+      "recall_ci95": [
+        86.8,
+        98.9
+      ],
+      "tp": 49,
+      "fp": 15,
+      "fn": 2,
+      "tn": 21
+    },
+    "illegal_recall_pct": 100.0,
+    "illegal_recall_ci95": [
+      75.7,
+      100.0
+    ],
+    "miss_illegal": 0,
+    "n_illegal": 12,
+    "overflag": 23,
+    "overflag_pct": 30.7,
+    "n_nonillegal": 75,
+    "false_alarm_pct_on_clean": 41.7,
+    "warned_pct": 0.0,
+    "human_review_pct": 100.0,
+    "counter_inline_total": 0,
+    "per_domain_detect": {
+      "thuong_mai": {
+        "tp": 11,
+        "fn": 1,
+        "fp": 1,
+        "tn": 8
+      },
+      "dich_vu": {
+        "tp": 9,
+        "fn": 0,
+        "fp": 1,
+        "tn": 2
+      },
+      "xay_dung": {
+        "tp": 3,
+        "fn": 0,
+        "fp": 2,
+        "tn": 1
+      },
+      "shtt": {
+        "tp": 5,
+        "fn": 1,
+        "fp": 0,
+        "tn": 0
+      },
+      "dan_su": {
+        "tp": 3,
+        "fn": 0,
+        "fp": 3,
+        "tn": 0
+      },
+      "lai_vay": {
+        "tp": 6,
+        "fn": 0,
+        "fp": 2,
+        "tn": 4
+      },
+      "dau_tu": {
+        "tp": 3,
+        "fn": 0,
+        "fp": 3,
+        "tn": 0
+      },
+      "lao_dong": {
+        "tp": 3,
+        "fn": 0,
+        "fp": 3,
+        "tn": 0
+      },
+      "thue": {
+        "tp": 3,
+        "fn": 0,
+        "fp": 0,
+        "tn": 3
+      },
+      "dat_dai": {
+        "tp": 3,
+        "fn": 0,
+        "fp": 0,
+        "tn": 3
+      }
+    }
+  }
+}
