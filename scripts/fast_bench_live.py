@@ -156,6 +156,8 @@ CASES: list[Case] = [
 ]
 
 _GOLDEN_OVERRIDE = "docs/internal/fast-bench-golden.json"
+# 6 HĐ có clause ĐÃ nhúng vào few-shot của fast_review._SYSTEM → --holdout LOẠI để đo TRUNG THỰC (chống học tủ)
+FEWSHOT_IN_PROMPT = {"mb_phat50", "vay_lai60", "ld_thuviec", "mb_rui_ro", "tm_sach", "trongtai_sach"}
 
 
 def _apply_golden_override() -> str:
@@ -330,16 +332,21 @@ def main() -> None:
     ap.add_argument("--deep", type=int, default=0)
     ap.add_argument("--out", default="scripts/fast_bench_report.json")
     ap.add_argument("--keep", action="store_true")
+    ap.add_argument("--holdout", action="store_true",
+                    help="LOẠI 6 HĐ nguồn few-shot → đo TRUNG THỰC (few-shot đã nhúng _SYSTEM)")
     args = ap.parse_args()
     if not KEY:
         raise SystemExit("Thiếu API_KEYS/API_KEY.")
 
-    n_ill = sum(1 for c in CASES for cl in c.clauses if cl.label == ILLEGAL)
-    n_unf = sum(1 for c in CASES for cl in c.clauses if cl.label == UNFAV)
-    n_cln = sum(1 for c in CASES for cl in c.clauses if cl.label == CLEAN)
-    print(f"== FAST-PATH BENCH @ {BASE} · {len(CASES)} HĐ × {args.reps} lần "
+    cases = [c for c in CASES if c.name not in FEWSHOT_IN_PROMPT] if args.holdout else CASES
+    n_ill = sum(1 for c in cases for cl in c.clauses if cl.label == ILLEGAL)
+    n_unf = sum(1 for c in cases for cl in c.clauses if cl.label == UNFAV)
+    n_cln = sum(1 for c in cases for cl in c.clauses if cl.label == CLEAN)
+    print(f"== FAST-PATH BENCH @ {BASE} · {len(cases)} HĐ × {args.reps} lần "
           f"({n_ill} illegal + {n_unf} unfavorable + {n_cln} clean/âm) ==")
-    print(f"   Nhãn: {_LABEL_SOURCE}\n")
+    print(f"   Nhãn: {_LABEL_SOURCE}"
+          + ("  · HELD-OUT (loại 6 HĐ few-shot — số trung thực)" if args.holdout
+             else "  · ⚠️ FULL (gồm HĐ few-shot — dùng --holdout cho số công bố)") + "\n")
     cleanup = not args.keep
     clean = {"created": 0, "deleted": 0}
     fast, deep = Stat(), Stat()
@@ -353,7 +360,7 @@ def main() -> None:
             clean["deleted"] += 1
 
     for rep in range(args.reps):
-        for c in CASES:
+        for c in cases:
             try:
                 res, dt = _post_analyze(c.text, c.protected, "fast")
                 if "risks" not in res:
@@ -370,7 +377,7 @@ def main() -> None:
             print(f"  [fast r{rep+1}] {c.name:<14} {dt:5.1f}s · {len(res['risks'])} risk · {ill} illegal")
             _cleanup_case(res)
 
-    for c in CASES[:args.deep]:
+    for c in cases[:args.deep]:
         try:
             res, dt = _post_analyze(c.text, c.protected, "deep")
             if "risks" in res:
