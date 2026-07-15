@@ -1345,9 +1345,10 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         # sender hỗ trợ update (Slack) + có ts ack. Callback optional → default None = 0 đổi hành vi/accuracy.
         if ack_ts and hasattr(sender, "update"):
             on_progress = _make_progress_cb(sender, send_to, ack_ts)
-    elif text and _looks_like_question(text) and not _wants_file_export(text):
-        # lookup/follow-up cũng chậm (~30s) → ack để không "chờ im". Nhưng lệnh XUẤT FILE có ack riêng
-        # ("đang tạo file…") → bỏ ack tra-cứu-luật sai ở đây (tránh 2 ack lẫn lộn).
+    elif text and _looks_like_question(text) and not (_wants_file_export(text) and not _is_question(text)):
+        # lookup/follow-up cũng chậm (~30s) → ack để không "chờ im". BỎ ack CHỈ khi tin thật sự route sang
+        # XUẤT FILE (điều kiện Y HỆT _handle: _wants_file_export AND not _is_question) — khi ấy đã có ack
+        # "đang tạo file…". Câu HỎI chứa từ khóa file ("cho tôi file… ?") vẫn route lookup → GIỮ ack (không im).
         _safe_send(sender, send_to, "Đang tra cứu văn bản pháp luật, vui lòng chờ trong giây lát…", thread_ts)
     attachment: bytes | None = None
     if file_url:
