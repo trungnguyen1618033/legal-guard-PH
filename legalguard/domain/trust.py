@@ -52,13 +52,37 @@ def _live_accuracy() -> dict | None:
         return None
 
 
+def _live_fast_review() -> dict | None:
+    """Đọc số ĐO THẬT rà-soát-nhanh (fast_bench_live --holdout, lawyer-verified) → công bố chất lượng RÀ SOÁT
+    (khác accuracy tra cứu). TRUNG THỰC: nêu cỡ mẫu nhỏ + held-out (chống học tủ) + cần luật sư duyệt."""
+    import json
+    from pathlib import Path
+    p = Path("scripts/fast_bench_report_shipped.json")
+    if not p.exists():
+        return None
+    try:
+        r = json.loads(p.read_text(encoding="utf-8"))
+        f = r["fast"]
+        det = f["detection"]
+        f1, ir = det["f1"], f["illegal_recall_pct"]
+        fa, med = f["false_alarm_pct_on_clean"], f["latency_s"]["median"]
+        note = (f"Chế độ rà soát NHANH: F1 {f1} (precision {det['precision']} · recall {det['recall']}), "
+                f"bắt điều khoản TRÁI LUẬT {ir:.0f}%, báo dư trên điều-khoản-vô-hại {fa:.0f}%, ~{med:.0f}s/HĐ. "
+                f"Trên {r['cases']} HĐ HELD-OUT luật-sư-duyệt ({f['runs']} lượt; loại HĐ dùng làm ví dụ mẫu → "
+                f"chống học tủ). Bộ nhỏ, không suy ra mọi HĐ; luôn cần luật sư duyệt.")
+        return {"name": "Chất lượng rà soát nhanh (bộ luật-sư-duyệt)",
+                "value": f"F1 {f1} · trái luật {ir:.0f}%", "note": note}
+    except (json.JSONDecodeError, KeyError, OSError):
+        return None
+
+
 def trust_report() -> dict:
     """Báo cáo độ tin cậy có cấu trúc: phương pháp đo + số đo + disclaimer. Dùng cho /trust + Slack.
     Nếu đã chạy `accuracy_eval` → chèn số ĐO THẬT lên đầu (sống), không thì dùng số nền."""
     metrics = [{"name": n, "value": val, "note": note} for n, val, note in _METRICS]
-    live = _live_accuracy()
-    if live:
-        metrics.insert(0, live)
+    for live in (_live_fast_review(), _live_accuracy()):   # số sống lên đầu (accuracy trên cùng)
+        if live:
+            metrics.insert(0, live)
     return {
         "methodology": [{"layer": k, "desc": v} for k, v in _METHODOLOGY],
         "metrics": metrics,
