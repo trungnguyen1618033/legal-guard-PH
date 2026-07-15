@@ -155,3 +155,16 @@ def test_agent_marks_truncation_of_long_input(sample_contract):
     assert run.truncated is True
     run2 = run_agent(sample_contract, "Việt Nam", _stub_llm(), _ctx())
     assert run2.truncated is False
+
+
+def test_is_input_request_filters_generic_onboarding():
+    # Agent đôi khi kết bằng câu 'đòi cung cấp hợp đồng' (onboarding) thay vì chiến lược → phải bị lọc
+    # khỏi strategy (đã có HĐ rồi). Bug thấy trên web /app: đoạn 'Tôi là agent… Vui lòng chia sẻ…' ở cuối.
+    from legalguard.domain.analysis import _is_input_request
+    assert _is_input_request("Tôi là agent pháp chế. Để phân tích, tôi cần bạn cung cấp nội dung "
+                             "hợp đồng cần xem xét. Vui lòng chia sẻ: toàn văn hợp đồng.")
+    assert _is_input_request("Please provide the contract text so I can review it.")
+    # Chiến lược THẬT không bị loại
+    assert not _is_input_request("Giữ trần phạt 8% (must_fix); có thể nhượng thời hạn thanh toán để chốt.")
+    assert not _is_input_request("Ưu tiên bảo vệ điều khoản indemnity; walk-away nếu Bên A từ chối.")
+    assert not _is_input_request("")

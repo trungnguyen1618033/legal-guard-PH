@@ -170,6 +170,23 @@ def _route(text: str) -> dict:
         else {"label": "full", "max_iters": 6}
 
 
+# Agent ĐÔI KHI kết bằng câu ONBOARDING/đòi input ("Tôi là agent… hãy cung cấp hợp đồng… Vui lòng chia sẻ:
+# toàn văn hợp đồng…") thay vì CHIẾN LƯỢC thật → lọt vào strategy, hiện ở cuối reply dù ĐÃ có HĐ (bug thấy
+# trên web /app). Các cụm này chiến lược THẬT không bao giờ nói → 1 tín hiệu đủ để loại (bảo thủ, không đụng risks).
+_INPUT_REQUEST_SIGNALS = (
+    "cung cấp nội dung hợp đồng", "cung cấp hợp đồng", "vui lòng chia sẻ", "toàn văn hợp đồng",
+    "paste trực tiếp", "hãy gửi hợp đồng", "gửi cho tôi hợp đồng", "cần bạn cung cấp",
+    "provide the contract", "share the contract", "paste the contract",
+)
+
+
+def _is_input_request(msg: str) -> bool:
+    """True nếu `msg` là câu agent ĐÒI người dùng cung cấp hợp đồng (onboarding/generic) — KHÔNG phải chiến
+    lược. Dùng lọc khỏi strategy (đã có HĐ rồi thì không hỏi lại). THUẦN."""
+    low = (msg or "").lower()
+    return any(s in low for s in _INPUT_REQUEST_SIGNALS)
+
+
 def _dedupe(items: list) -> list:
     # Khóa theo (clause, nội dung) — KHÔNG chỉ clause: hai rủi ro KHÁC NHAU trên cùng tên điều khoản
     # (vd "Thanh toán": rủi ro trả-sau VÀ rủi ro phạt) phải giữ cả hai, không nuốt mất.
@@ -758,8 +775,8 @@ class AnalysisService:
                 continue
             trace += run.trace
             truncated = truncated or run.truncated
-            if run.final_message:                      # gom chiến lược mọi cửa sổ (không bỏ sót)
-                strategies.append(run.final_message)
+            if run.final_message and not _is_input_request(run.final_message):
+                strategies.append(run.final_message)   # gom chiến lược mọi cửa sổ; BỎ câu 'đòi cung cấp HĐ'
             ctx.risks += wctx.risks
             ctx.fallbacks += wctx.fallbacks
             ctx.needs_human_review = ctx.needs_human_review or wctx.needs_human_review
@@ -814,6 +831,8 @@ class AnalysisService:
         # BA việc hậu-agent ĐỘC LẬP (mỗi việc ghi trường khác nhau: verify→`verified`,
         # summary→chỉ đọc, legal_basis→`legal_basis`) → chạy SONG SONG thay vì 3 chặng tuần tự.
         # Đây là phần nặng latency nhất sau agent (mỗi NLI là 1 round-trip LLM).
+        if _is_input_request(strategy):     # safety net (fast-path/1 cửa sổ): strategy = câu đòi HĐ → bỏ hẳn
+            strategy = ""
         summary = strategy
         judge = self.judge if self.nli_verification else None        # NLI (model nhanh): điều luật hậu thuẫn claim
         do_basis = self.legal_basis_grounding and (ctx.risks or ctx.fallbacks)
