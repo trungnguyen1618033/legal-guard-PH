@@ -109,6 +109,7 @@
     "amendEn": "Suggested clause (English)",
     "amendRationale": "Rationale",
     "draftingTitle": "Drafting / spelling errors to fix",
+    "draftingItemTitle": "Drafting error",
     "policyTitle": "Company policy violations",
     "policyViolatePre": "violates policy",
     "trace": "Reasoning trace (audit)",

@@ -326,14 +326,25 @@ export default function AnalyzeFlow({ labels: L }: { labels: AnalyzeLabels }) {
             );
           })()}
 
-          {result.drafting_notes && result.drafting_notes.length > 0 && (
+          {/* Lỗi soạn thảo: CÓ CẤU TRÚC → thẻ + nút 'Đồng ý sửa' (đánh số tiếp, ĐỒNG NHẤT với rủi ro);
+              fallback chuỗi drafting_notes → danh sách text (không nút). Đồng bộ web/app.html + Slack. */}
+          {result.drafting_issues && result.drafting_issues.length > 0 ? (
+            <Section title={t("draftingTitle")}>
+              <div className="flex flex-col gap-4">
+                {result.drafting_issues.map((it, i) => (
+                  <DraftingItem key={i} n={(result.risks?.length || 0) + i + 1} it={it} t={t}
+                    caseId={result.case_id ?? ""} />
+                ))}
+              </div>
+            </Section>
+          ) : result.drafting_notes && result.drafting_notes.length > 0 ? (
             <Section title={t("draftingTitle")}>
               <ul className="list-disc space-y-2 pl-5 text-sm">
                 {/* whitespace-pre-line: đề xuất song ngữ VN/EN xuống dòng đúng */}
                 {result.drafting_notes.map((n, i) => <li key={i} className="whitespace-pre-line">{n}</li>)}
               </ul>
             </Section>
-          )}
+          ) : null}
 
           {result.fallbacks?.length > 0 && (
             <Section title={L.fallbacks}>
@@ -466,6 +477,58 @@ function AgreeRisk({ r, t, caseId }: { r: RiskDTO; t: Tr; caseId: string }) {
         {t("agreeBtn")}
       </Button>
       {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+    </div>
+  );
+}
+
+// Lỗi soạn thảo CÓ CẤU TRÚC → thẻ (giống RiskItem) + nút 'Đồng ý sửa' (fix đã inline → GHI NHẬN agreed_fix).
+// Đồng bộ web/app.html (agreeDrafting) + Slack (_confirm_drafting_fix).
+function DraftingItem({ n, it, t, caseId }: {
+  n: number; it: { location?: string; issue?: string; fix_vi?: string; fix_en?: string }; t: Tr; caseId: string;
+}) {
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const loc = (it.location || "").trim();
+  const fv = (it.fix_vi || "").trim();
+  const fe = (it.fix_en || "").trim();
+  const clause = loc || (it.issue || "").slice(0, 80);
+  async function agree() {
+    if (busy || done || !caseId) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/cases/${caseId}/outcome`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ clause, tactic: "agreed_amendment", result: "agreed_fix" }),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      setDone(true);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div>
+      <p className="text-sm leading-relaxed">
+        ({n}) <strong className="text-ink">{t("draftingItemTitle")}</strong>{loc ? ` (${loc})` : ""}: {it.issue}.
+      </p>
+      {(fv || fe) && (
+        <p className="mt-1 text-sm">
+          <strong>{t("proposeAmend")}:</strong> {fv}
+          {fe && <span className="mt-0.5 block text-xs text-muted">(EN: {fe})</span>}
+        </p>
+      )}
+      {(fv || fe) && caseId && (done ? (
+        <p className="mt-1 text-xs text-muted">{t("agreeDone")}</p>
+      ) : (
+        <div className="mt-2">
+          <Button variant="ghost" onClick={agree} disabled={busy} className="px-3 py-1 text-xs">{t("agreeBtn")}</Button>
+          {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+        </div>
+      ))}
     </div>
   );
 }

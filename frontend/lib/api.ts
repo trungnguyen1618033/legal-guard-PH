@@ -61,7 +61,8 @@ export type AnalysisResultDTO = {
   policy_violations?: { policy_id: string; rule_text: string; clause: string; severity: string; kind: string }[];  // vi phạm chính sách công ty (playbook)
   contract_type?: string;       // loại HĐ (do _classify_contract) — dòng đầu văn phong luật sư
   protected_party?: string;     // tên đầy đủ khách hàng được bảo vệ
-  drafting_notes?: string[];    // lỗi soạn thảo/chính tả trong HĐ cần sửa
+  drafting_notes?: string[];    // lỗi soạn thảo/chính tả trong HĐ cần sửa (chuỗi — fallback)
+  drafting_issues?: { location?: string; issue?: string; fix_vi?: string; fix_en?: string }[];  // lỗi soạn thảo CÓ CẤU TRÚC → thẻ + nút 'Đồng ý sửa'
   execution_summary?: {
     total_tool_calls: number; searches: number; risks_flagged: number;
     fallbacks_proposed: number; human_review_requested: number;

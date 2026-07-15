@@ -134,6 +134,24 @@ def _format_drafting_issue(it: object) -> str:
     return head
 
 
+def _drafting_issue_struct(it: object) -> dict | None:
+    """1 lỗi soạn thảo → dict CÓ CẤU TRÚC {location, issue, fix_vi, fix_en} để render thẻ + nút (giống risk).
+    `fix` 1-ngôn-ngữ → gộp vào fix_vi. Bỏ mục rỗng / no-op (đề xuất y hệt). THUẦN — test offline."""
+    if not isinstance(it, dict):
+        return None
+    loc = _norm_ws(it.get("location"))
+    issue = _norm_ws(it.get("issue") or it.get("quote"))
+    fix = _norm_ws(it.get("fix"))
+    fix_vi, fix_en = _norm_ws(it.get("fix_vi")), _norm_ws(it.get("fix_en"))
+    if fix and not fix_vi:                                      # schema 1-ngôn-ngữ → coi là VI
+        fix_vi = fix
+    if issue and fix_vi and issue.lower() == fix_vi.lower():    # no-op
+        return None
+    if not (loc or issue):
+        return None
+    return {"location": loc, "issue": issue, "fix_vi": fix_vi, "fix_en": fix_en}
+
+
 _HYDE_PROMPT = (
     "Cho câu hỏi pháp lý sau, liệt kê 5-8 THUẬT NGỮ / cụm từ PHÁP LÝ có KHẢ NĂNG XUẤT HIỆN trong điều luật "
     "trả lời câu hỏi (danh từ pháp lý, tên thủ tục, chế định). CHỈ liệt kê cách nhau bởi dấu phẩy, KHÔNG "
@@ -611,15 +629,16 @@ class AnalysisService:
         except Exception:  # noqa: BLE001 — probe: lỗi DB → chưa sẵn sàng
             return False
 
-    def _classify_contract(self, contract_text: str, hint: str, lang: str) -> tuple[str, str, list[str]]:
+    def _classify_contract(self, contract_text: str, hint: str,
+                           lang: str) -> tuple[str, str, list[str], list[dict]]:
         """Xác định LOẠI HỢP ĐỒNG + TÊN ĐẦY ĐỦ bên được bảo vệ + LỖI SOẠN THẢO/CHÍNH TẢ trong HĐ (mục cuối
         reply luật sư) — cho dòng đầu reply. 1 call MODEL NHANH (`self.judge`), chạy SONG SONG hậu-agent.
         `hint` = gợi ý bên bảo vệ từ tin chat (vd 'Phu Quoc side') → LLM tinh thành tên pháp lý đầy đủ khớp
         trong HĐ. KHÔNG đụng vòng agent (risk/citation/verify) → KHÔNG ảnh hưởng accuracy golden. Lỗi/offline
-        → ('', hint, []) an toàn (không bịa)."""
+        → ('', hint, [], []) an toàn (không bịa). Trả THÊM `issues` CÓ CẤU TRÚC (render thẻ + nút, giống risk)."""
         hint = (hint or "").strip()
         if not self.judge.available:
-            return "", hint, []
+            return "", hint, [], []
         hint_line = f"Gợi ý bên khách muốn bảo vệ (từ người dùng): {hint}\n" if hint else ""
         prompt = (
             "Đọc hợp đồng dưới đây. Trả về DUY NHẤT một JSON (không giải thích thêm) gồm 3 khóa:\n"
@@ -652,11 +671,15 @@ class AnalysisService:
         ctype = str(parsed.get("contract_type") or "").strip()
         party = str(parsed.get("protected_party") or "").strip() or hint
         notes: list[str] = []
+        issues: list[dict] = []
         for it in (parsed.get("drafting_issues") or [])[:10]:     # trần 10 lỗi tránh reply phình
             note = _format_drafting_issue(it)
+            struct = _drafting_issue_struct(it)
             if note:
                 notes.append(note)
-        return ctype, party, notes
+            if struct:                                            # song song: bản chuỗi (compat) + bản cấu trúc (thẻ+nút)
+                issues.append(struct)
+        return ctype, party, notes, issues
 
     def _summarize(self, risks: list, lang: str) -> tuple[str, str | None]:
         """Tóm tắt rủi ro cho chủ SME bằng MODEL NHANH (`self.judge` = qwen-flash) — task nhẹ, right-size
@@ -841,9 +864,9 @@ class AnalysisService:
         # qwen-flash đồng thời): nếu để chung pool, dashscope rate-limit/rớt kết nối chính call này (đo
         # thật trên HĐ 18 rủi ro → classify rỗng). Chạy riêng ~1-2s, KHÔNG đáng kể so với vòng agent.
         hint = position.protected_party if position else ""
-        contract_type, protected_party, drafting_notes = "", (hint or "").strip(), []
+        contract_type, protected_party, drafting_notes, drafting_issues = "", (hint or "").strip(), [], []
         if self.judge.available:
-            contract_type, protected_party, drafting_notes = \
+            contract_type, protected_party, drafting_notes, drafting_issues = \
                 self._classify_contract(contract_text, hint, lang)
         t_post = time.monotonic()
         with ThreadPoolExecutor(max_workers=3) as pool:
@@ -899,6 +922,7 @@ class AnalysisService:
             contract_type=contract_type,
             protected_party=protected_party,
             drafting_notes=drafting_notes,
+            drafting_issues=drafting_issues,
             notes=notes,
         )
         result.execution_summary = execution_summary(result.trace)   # bằng chứng agent gọi tool (AI-Native)

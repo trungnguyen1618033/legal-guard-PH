@@ -136,6 +136,14 @@ song ngữ) · Căn cứ". `loại HĐ + TÊN khách bảo vệ` + `drafting_not
 `_classify_contract` (1 call judge NHANH, đọc 12000 ký tự để thấy cả 2 bản song ngữ, ISOLATED → accuracy
 KHÔNG đổi; `_format_drafting_issue` soạn câu "Tại <vị trí>… đề xuất sửa…", bỏ mục no-op quote==fix, gộp
 multiline). Prompt agent CẤM cụm bịa ngoài luật VN ("chế tài chồng lấn"/"bất đối xứng").
+**LỖI SOẠN THẢO ĐỒNG NHẤT với rủi ro (thẻ + nút, 15/7)**: `_classify_contract` trả THÊM `drafting_issues`
+CÓ CẤU TRÚC (`_drafting_issue_struct` → {location,issue,fix_vi,fix_en}) bên cạnh `drafting_notes` (chuỗi,
+compat) → `AnalysisResult.drafting_issues`. Reply render (5)(6)(7) GIỐNG rủi ro (1)-(4): thẻ nhãn-đậm +
+nút "Đồng ý sửa" (Slack `_drafting_segments` trả (num,seg,dclause) + `_confirm_drafting_fix` GHI NHẬN
+agreed_fix — clause mang trong value nút, KHÔNG cần migration; web app.html `agreeDrafting`; Next.js
+`DraftingItem`). Fallback không cấu trúc → chuỗi cũ (không nút). (Trước: drafting là text thường không
+nút — user hỏi vì sao (1)-(4) có nút mà (5)-(7) không.) `strategy` lọc câu ONBOARDING/đòi cung cấp HĐ
+(`_is_input_request`) — agent đôi khi kết bằng "hãy cung cấp hợp đồng" lọt vào strategy (bug web /app).
 **HYBRID auto-counter (`AUTO_COUNTER_ON_ANALYZE` default ON, `_attach_counter_clauses`)**: rủi ro `illegal`/
 `must_fix` → tự sinh điều khoản mới INLINE song ngữ (`draft_counter_clause` SONG SONG hậu-agent, bounded
 `AUTO_COUNTER_MAX` default 6, ưu tiên illegal; KHÔNG đụng vòng agent → accuracy KHÔNG đổi).

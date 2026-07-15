@@ -205,7 +205,7 @@ def test_classify_contract_extracts_type_and_full_party_name():
     svc = build_service()
     svc.judge = _JsonJudge('{"contract_type":"hợp đồng mua bán hàng hóa",'
                            '"protected_party":"Công ty CP Du lịch Phú Quốc"}')
-    ctype, party, notes = svc._classify_contract("… các bên …", hint="Phu Quoc side", lang="vi")
+    ctype, party, notes, _ = svc._classify_contract("… các bên …", hint="Phu Quoc side", lang="vi")
     assert ctype == "hợp đồng mua bán hàng hóa" and party == "Công ty CP Du lịch Phú Quốc"
     assert notes == []
 
@@ -213,13 +213,13 @@ def test_classify_contract_extracts_type_and_full_party_name():
 def test_classify_contract_offline_returns_hint():
     svc = build_service()
     svc.judge = _JsonJudge(available=False)                     # judge chưa cấu hình → không bịa
-    assert svc._classify_contract("hđ", hint="Bên B", lang="vi") == ("", "Bên B", [])
+    assert svc._classify_contract("hđ", hint="Bên B", lang="vi") == ("", "Bên B", [], [])
 
 
 def test_classify_contract_empty_party_falls_back_to_hint():
     svc = build_service()
     svc.judge = _JsonJudge('{"contract_type":"hợp đồng vay","protected_party":""}')
-    ctype, party, _ = svc._classify_contract("hđ", hint="Bên Vay", lang="vi")
+    ctype, party, _, _ = svc._classify_contract("hđ", hint="Bên Vay", lang="vi")
     assert ctype == "hợp đồng vay" and party == "Bên Vay"       # LLM để rỗng → dùng gợi ý
 
 
@@ -230,7 +230,7 @@ def test_classify_contract_returns_drafting_issues():
                            '"drafting_issues":['
                            '{"location":"Điều 3","issue":"gõ nhầm PHÁT TRIỂỂN","fix":"PHÁT TRIỂN"},'
                            '{"location":"Điều 7","issue":"số điều để trống","fix":"điền số điều"}]}')
-    _, _, notes = svc._classify_contract("hđ", hint="", lang="vi")
+    _, _, notes, _ = svc._classify_contract("hđ", hint="", lang="vi")
     assert len(notes) == 2
     assert "Tại Điều 3" in notes[0] and "PHÁT TRIỂỂN" in notes[0]
     assert "đề xuất sửa thành: PHÁT TRIỂN" in notes[0]
@@ -243,7 +243,7 @@ def test_classify_contract_bilingual_and_vn_en_discrepancy():
         '{"contract_type":"hđ","protected_party":"LIN HSUAN","drafting_issues":['
         '{"location":"phần địa chỉ ông LIN HSUAN","issue":"thiếu quốc gia",'
         '"fix_vi":"..., Đài Loan","fix_en":"..., Taiwan"}]}')
-    _, _, notes = svc._classify_contract("hđ", hint="", lang="vi")
+    _, _, notes, _ = svc._classify_contract("hđ", hint="", lang="vi")
     assert len(notes) == 1
     assert "Tại phần địa chỉ ông LIN HSUAN, thiếu quốc gia; đề xuất sửa như sau:" in notes[0]
     assert "Tiếng Việt: ..., Đài Loan" in notes[0] and "Tiếng Anh: ..., Taiwan" in notes[0]
@@ -256,7 +256,7 @@ def test_classify_contract_drops_noop_and_collapses_multiline_drafting():
         '{"contract_type":"hđ","protected_party":"X","drafting_issues":['
         '{"issue":"PARTY A\\n\\nNGUYỄN TƯƠNG MINH","fix":"PARTY A NGUYỄN TƯƠNG MINH"},'  # y hệt → bỏ
         '{"location":"phần địa chỉ","issue":"Contact address :\\nNo. 275","fix":"Contact address: No. 275"}]}')
-    _, _, notes = svc._classify_contract("hđ", hint="", lang="vi")
+    _, _, notes, _ = svc._classify_contract("hđ", hint="", lang="vi")
     assert len(notes) == 1                                   # bỏ mục no-op (tên các bên)
     assert "\n" not in notes[0]                              # gộp về 1 dòng
     assert "đề xuất sửa thành: Contact address: No. 275" in notes[0]
@@ -270,3 +270,5 @@ def test_analyze_populates_contract_type_party_and_drafting():
                       position=NegotiationPosition(protected_party="X"))
     assert res.contract_type == "hợp đồng thương mại" and res.protected_party == "Công ty X"
     assert res.drafting_notes and "thanh toán" in res.drafting_notes[0]
+    # bản CÓ CẤU TRÚC (render thẻ + nút): fix 1-ngôn-ngữ gộp vào fix_vi
+    assert res.drafting_issues and res.drafting_issues[0]["fix_vi"] == "thanh toán"

@@ -138,7 +138,43 @@ def test_drafting_segments_continuous_numbering_skips_empty():
                          needs_human_review=False, review_reasons=[], summary="", trace=[],
                          drafting_notes=["", "Tại Điều 2, lỗi; đề xuất sửa thành: X", "  "])
     segs = _drafting_segments(res, start_num=2)             # 1 rủi ro → drafting bắt đầu (2)
-    assert segs == ["(2) Tại Điều 2, lỗi; đề xuất sửa thành: X"]
+    # fallback drafting_notes (không cấu trúc) → (num, text, dclause="" → KHÔNG nút)
+    assert segs == [(2, "(2) Tại Điều 2, lỗi; đề xuất sửa thành: X", "")]
+
+
+def test_drafting_issues_structured_render_card_and_button():
+    # Lỗi soạn thảo CÓ CẤU TRÚC → thẻ nhãn-đậm + nút 'Đồng ý sửa' (giống risk); Slack slackify **→*.
+    import json as _j
+
+    from legalguard.adapters.inbound.channels import _analysis_blocks, _drafting_segments
+    res = AnalysisResult(tenant="VN", risks=[{"clause": "A", "risk": "b"}], fallbacks=[],
+                         needs_human_review=False, review_reasons=[], summary="", trace=[],
+                         drafting_issues=[{"location": "Điều 1.2 bản EN", "issue": "sai tên LIN",
+                                           "fix_vi": "Sửa thành LIN HSUAN", "fix_en": "Change to LIN HSUAN"}])
+    num, seg, dclause = _drafting_segments(res, start_num=2)[0]
+    assert num == 2 and dclause == "Điều 1.2 bản EN"
+    assert "**(2) Lỗi soạn thảo tại" in seg and "**Tiếng Việt:**" in seg and "**Tiếng Anh:**" in seg
+    blocks = _analysis_blocks(res, "case1")
+    vals = [_j.loads(b["accessory"]["value"]) for b in blocks if b.get("accessory")]
+    assert any(v.get("dc") == "Điều 1.2 bản EN" and v.get("confirm") == 1 for v in vals)  # nút drafting
+    assert "**" not in _j.dumps(blocks, ensure_ascii=False)                               # đã slackify
+
+
+def test_confirm_drafting_fix_records_without_llm():
+    from legalguard.adapters.inbound.channels import _confirm_drafting_fix
+
+    class _Svc:
+        def __init__(self):
+            self.outcomes = []
+
+        def record_outcome(self, o):
+            self.outcomes.append(o)
+
+    svc, s = _Svc(), _FakeSender()
+    _confirm_drafting_fix(svc, s, "default", "c1", "Điều 1.2 bản EN", "C1", "th")
+    assert len(svc.outcomes) == 1 and svc.outcomes[0].result == "agreed_fix"
+    assert svc.outcomes[0].clause == "Điều 1.2 bản EN"
+    assert "soạn thảo" in s.sent[-1][1].lower() and s.threads[-1] == "th"
 
 
 def test_format_chat_reply_marks_illegal():

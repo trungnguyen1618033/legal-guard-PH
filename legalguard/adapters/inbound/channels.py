@@ -421,14 +421,34 @@ def _risk_segments(result: AnalysisResult) -> list[tuple[int, int, str, str, boo
     return out
 
 
-def _drafting_segments(result: AnalysisResult, start_num: int) -> list[str]:
-    """Lỗi soạn thảo / khác biệt VN–EN → văn xuôi ĐÁNH SỐ TIẾP TỤC sau rủi ro (kiểu demo). Mỗi note đã được
-    `_classify_contract` soạn sẵn dạng câu 'Tại <vị trí>, <vấn đề>; đề xuất sửa…' → chỉ gắn số '(M)'."""
-    out: list[str] = []
-    for note in result.drafting_notes or []:
+def _drafting_segments(result: AnalysisResult, start_num: int) -> list[tuple[int, str, str]]:
+    """Lỗi soạn thảo / khác biệt VN–EN → ĐÁNH SỐ TIẾP sau rủi ro. Trả (num, đoạn văn xuôi, dclause-cho-nút).
+    Có `drafting_issues` CÓ CẤU TRÚC → format THẺ nhãn-đậm (giống risk) + `dclause` để gắn nút 'Đồng ý sửa'
+    (fix đã inline → nút = GHI NHẬN); không có cấu trúc → fallback chuỗi `drafting_notes` cũ, dclause="" (KHÔNG nút)."""
+    out: list[tuple[int, str, str]] = []
+    issues = result.drafting_issues or []
+    if issues:
+        for it in issues:
+            num = start_num + len(out)
+            loc = (it.get("location") or "").strip()
+            issue = (it.get("issue") or "").strip().rstrip(".")
+            head = (f"**({num}) Lỗi soạn thảo tại “{loc}”:** {issue}." if loc
+                    else f"**({num}) Lỗi soạn thảo:** {issue}.")
+            lines = [head]
+            fv, fe = (it.get("fix_vi") or "").strip(), (it.get("fix_en") or "").strip()
+            if fv or fe:
+                lines.append("**Đề xuất sửa như sau:**")
+                if fv:
+                    lines.append(f"**Tiếng Việt:** {fv}")
+                if fe:
+                    lines.append(f"**Tiếng Anh:** {fe}")
+            out.append((num, "\n".join(lines), loc or issue[:80]))
+        return out
+    for note in result.drafting_notes or []:              # fallback (không cấu trúc): chuỗi cũ, KHÔNG nút
         n = (note or "").strip()
         if n:
-            out.append(f"({start_num + len(out)}) {n}")   # số theo VỊ TRÍ HIỂN THỊ (bỏ note rỗng không tạo gap)
+            num = start_num + len(out)
+            out.append((num, f"({num}) {n}", ""))
     return out
 
 
@@ -474,8 +494,12 @@ def _review_doc(result: AnalysisResult, prefix: str = "", case_id: str = "") -> 
             val = {"c": case_id[:120], "i": idx} if needs_draft else {"c": case_id[:120], "i": idx, "confirm": 1}
             action = {"label": "Đồng ý sửa", "action_id": "amend_ok", "value": val}
         doc.append(Block(seg, key=f"lg_amend_{num}", action=action))
-    for seg in draft_segs:                            # lỗi soạn thảo / khác biệt VN–EN (không nút)
-        doc.append(Block(seg))
+    for num, seg, dclause in draft_segs:              # lỗi soạn thảo — có cấu trúc → kèm nút 'Đồng ý sửa'
+        action = None
+        if case_id and dclause:                       # fix đã inline → nút = GHI NHẬN (ghi audit, không LLM)
+            action = {"label": "Đồng ý sửa", "action_id": "amend_ok",
+                      "value": {"c": case_id[:120], "confirm": 1, "dc": dclause[:80]}}
+        doc.append(Block(seg, key=f"lg_draft_{num}", action=action))
     if result.strategy:
         doc.append(Block(result.strategy))
     if (pl := _policy_lines(result)):
@@ -1132,6 +1156,19 @@ def _record_agreed_fix(service: AnalysisService, org_id: str, case_id: str, clau
         _log.exception("Không ghi được event 'đồng ý sửa' (%s)", case_id)
 
 
+def _confirm_drafting_fix(service: AnalysisService, sender: ChatSenderPort, org_id: str, case_id: str,
+                          clause: str, send_to: str, thread_ts: str | None) -> None:
+    """Nút 'Đồng ý sửa' cho LỖI SOẠN THẢO (đề xuất fix ĐÃ hiển thị inline) → chỉ ghi event agreed_fix +
+    báo nhận. KHÔNG gọi LLM, KHÔNG cần nạp case (clause mang trong value nút; outcome cô lập theo org đã auth)."""
+    try:
+        _record_agreed_fix(service, org_id, case_id, clause)
+        _safe_send(sender, send_to, f"Đã ghi nhận đồng ý sửa lỗi soạn thảo: {clause} "
+                   "(đề xuất đã nêu ở phần rà soát trên).", thread_ts)
+    except Exception:  # noqa: BLE001 — task nền: lỗi không được làm sập
+        _log.exception("Lỗi ghi nhận sửa soạn thảo (%s)", case_id)
+        _safe_send(sender, send_to, "Xin lỗi, chưa ghi nhận được. Vui lòng thử lại.", thread_ts)
+
+
 def _confirm_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, case_id: str,
                    idx: int, send_to: str, thread_ts: str | None) -> None:
     """Nút 'Xác nhận áp dụng' — cho rủi ro ĐÃ có điều khoản mới INLINE trong reply. Chỉ GHI event
@@ -1562,6 +1599,10 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 msg = payload.get("message") or {}
                 send_to = (payload.get("channel") or {}).get("id", "")
                 thread_ts = container.get("thread_ts") or msg.get("thread_ts") or msg.get("ts")
+                if ctx.get("dc"):                  # LỖI SOẠN THẢO (fix inline) → chỉ GHI NHẬN (clause trong value)
+                    background.add_task(_confirm_drafting_fix, handler.service, slack_sender, org.id,
+                                        ctx.get("c", ""), ctx.get("dc", ""), send_to, thread_ts)
+                    return {"ok": True}
                 # confirm=1: rủi ro ĐÃ có điều khoản mới inline → chỉ ghi event (nhanh); else → soạn (gọi LLM).
                 task = _confirm_amend if ctx.get("confirm") else _run_amend
                 background.add_task(task, handler.service, slack_sender, org.id,

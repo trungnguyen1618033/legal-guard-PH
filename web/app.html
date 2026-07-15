@@ -320,6 +320,7 @@ function render(d) {
 
   window._fb = d.fallbacks || [];
   window._risks = d.risks || [];
+  window._draftingIssues = d.drafting_issues || [];
 
   // Dòng ĐẦU: loại HĐ + TÊN ĐẦY ĐỦ khách hàng bảo vệ (văn phong luật sư) — đồng bộ với reply Slack.
   const _fbByClause = {};
@@ -359,12 +360,33 @@ function render(d) {
     </div>`;
   }).join('') || '<p class="muted">Không phát hiện điều khoản rủi ro rõ ràng </p>';
 
-  // Mục cuối: lỗi soạn thảo / chính tả trong HĐ cần sửa (yêu cầu #8).
+  // Mục cuối: lỗi soạn thảo / chính tả. CÓ CẤU TRÚC (drafting_issues) → THẺ đánh số tiếp + nút "Đồng ý sửa"
+  // (đồng nhất với rủi ro); fallback drafting_notes (chuỗi cũ) → danh sách text (không nút).
+  const risksN = (d.risks||[]).length;
+  const di = d.drafting_issues || [];
   const dn = d.drafting_notes || [];
-  $('drafting').innerHTML = dn.length     // \n (đề xuất song ngữ VN/EN) → <br> để hiện đúng dòng
-    ? `<div style="margin-top:14px"><b>Lỗi soạn thảo / khác biệt VN–EN cần sửa:</b><ul>`
-      + dn.map(n => `<li style="margin-bottom:6px">${esc(n).replace(/\n/g,'<br>')}</li>`).join('') + `</ul></div>`
-    : '';
+  if (di.length) {
+    $('drafting').innerHTML = `<div style="margin-top:14px"><b>Lỗi soạn thảo / khác biệt VN–EN:</b></div>`
+      + di.map((it,j) => {
+        const num = risksN + j + 1;
+        const loc = (it.location||'').trim(), fv = (it.fix_vi||'').trim(), fe = (it.fix_en||'').trim();
+        const fix = (fv||fe)
+          ? `<div style="margin-top:4px"><b>Đề xuất sửa đổi:</b> ${esc(fv)}`
+              + (fe?`<div class="muted" style="margin-top:2px">(EN: ${esc(fe)})</div>`:'') + `</div>`
+              + `<button class="ghost" style="margin-top:6px" onclick="agreeDrafting(${j},this)">Đồng ý sửa</button>`
+              + `<span id="dg-${j}" class="muted"></span>`
+          : '';
+        return `<div class="risk-item" style="margin-bottom:16px">
+          <div>(${num}) <strong>Lỗi soạn thảo${loc?(' tại “'+esc(loc)+'”'):''}</strong>: ${esc(it.issue||'')}.</div>
+          ${fix}
+        </div>`;
+      }).join('');
+  } else if (dn.length) {   // \n (đề xuất song ngữ VN/EN) → <br> để hiện đúng dòng
+    $('drafting').innerHTML = `<div style="margin-top:14px"><b>Lỗi soạn thảo / khác biệt VN–EN cần sửa:</b><ul>`
+      + dn.map(n => `<li style="margin-bottom:6px">${esc(n).replace(/\n/g,'<br>')}</li>`).join('') + `</ul></div>`;
+  } else {
+    $('drafting').innerHTML = '';
+  }
 
   $('memo').innerHTML = ''; $('memo-docx').style.display = 'none';
   $('fallbacks').innerHTML = (d.fallbacks||[]).map((f,i) => `<div style="margin-bottom:14px">
@@ -530,6 +552,21 @@ async function amendRisk(i) {
 
 // Ghi event agreed_fix (audit, không tính win-rate) — dùng cho cả nút soạn (amendRisk) lẫn xác nhận
 // (agreeRisk), đồng bộ Slack. Fire-and-forget: lỗi ghi KHÔNG chặn UX (event là phụ).
+async function agreeDrafting(j, btn) {
+  // Nút "Đồng ý sửa" cho LỖI SOẠN THẢO (fix đã hiển thị inline) → GHI NHẬN agreed_fix (parity Slack _confirm_drafting_fix).
+  const it = (window._draftingIssues || [])[j]; if (!it) return;
+  const clause = (it.location||'').trim() || (it.issue||'').slice(0,80);
+  if (!_caseId) { $('dg-'+j).textContent = ' — cần lưu case trước (chạy phân tích thật).'; return; }
+  if (btn) btn.disabled = true;
+  $('dg-'+j).textContent = ' đang ghi…';
+  try {
+    const res = await fetch(`/cases/${_caseId}/outcome`, { method:'POST',
+      headers: { 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify({ clause, tactic:'agreed_amendment', result:'agreed_fix' }) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    $('dg-'+j).textContent = ' — đã ghi nhận đồng ý sửa.';
+  } catch (e) { $('dg-'+j).textContent = ' — lỗi: ' + e.message; if (btn) btn.disabled = false; }
+}
 async function _recordAgreedFix(clause) {
   if (!_caseId) return;
   try {

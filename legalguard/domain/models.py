@@ -200,6 +200,7 @@ class AnalysisResult:
     contract_type: str = ""      # loại hợp đồng (LLM tự xác định) — nêu ở dòng đầu reply luật sư
     protected_party: str = ""    # TÊN ĐẦY ĐỦ khách hàng được bảo vệ (LLM trích từ HĐ) — dòng đầu reply
     drafting_notes: list[str] = field(default_factory=list)  # lỗi CHÍNH TẢ/soạn thảo trong HĐ + cách sửa (cuối reply)
+    drafting_issues: list[dict] = field(default_factory=list)  # lỗi soạn thảo CÓ CẤU TRÚC {location,issue,fix_vi,fix_en} → render thẻ + nút 'Đồng ý sửa' (giống risk)
     notes: list[str] = field(default_factory=list)
     case_id: str = ""            # id bản ghi đã lưu (nếu có persistence)
     execution_summary: dict = field(default_factory=dict)  # đếm tool-call (evidence AI-Native, xem domain/runs.py)
