@@ -448,7 +448,7 @@ def _policy_lines(result: AnalysisResult) -> list[str]:
 
 
 _HUMAN_NOTE = "Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng."
-_FAST_NOTE_MARK = "⚡"        # tiền tố note RÀ NHANH (nguồn: analysis._finish_analyze) → surface đầu reply
+_FAST_NOTE_MARK = "Bản RÀ NHANH"   # tiền tố (TEXT, không icon) note RÀ NHANH (analysis._finish_analyze) → surface đầu reply
 
 
 def _review_doc(result: AnalysisResult, prefix: str = "", case_id: str = "") -> list[Block]:
@@ -1008,7 +1008,7 @@ def _send_redline(service: AnalysisService, sender: ChatSenderPort, org_id: str,
             return
         ok = sender.upload_file(send_to, "ban-doi-chieu-sua-doi.docx", data, thread_ts,
                                 title="Bản đối chiếu sửa đổi",
-                                comment="📄 Bản đối chiếu sửa đổi — điều khoản cũ (gạch ngang) → đề xuất mới. "
+                                comment="Bản đối chiếu sửa đổi — điều khoản cũ (gạch ngang) → đề xuất mới. "
                                         "Luật sư đối chiếu bản gốc trước khi áp dụng.")
         if not ok:
             _safe_send(sender, send_to, "Chưa gửi được file (kiểm tra scope files:write của bot). "
@@ -1060,7 +1060,7 @@ def _send_comment_doc(service: AnalysisService, sender: ChatSenderPort, org_id: 
             return
         ok = sender.upload_file(send_to, "ra-soat-co-nhan-xet.docx", data, thread_ts,
                                 title="Bản rà soát có nhận xét",
-                                comment="📄 File Word có nhận xét (comment) trên từng điều khoản — mở bằng "
+                                comment="File Word có nhận xét (comment) trên từng điều khoản — mở bằng "
                                         "Microsoft Word để xem. Luật sư đối chiếu bản gốc trước khi áp dụng.")
         if not ok:
             _safe_send(sender, send_to, "Chưa gửi được file (kiểm tra scope files:write của bot). "

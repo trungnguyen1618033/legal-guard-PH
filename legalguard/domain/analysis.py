@@ -795,7 +795,7 @@ class AnalysisService:
         # Cảnh báo RÀ NHANH (mode=fast): 1-call nông hơn deep — đo A/B bỏ sót ~12.5% trái luật. Hiện RÕ trên
         # reply mọi kênh (notes + review_reasons) để người dùng KHÔNG nhầm fast với deep; luật sư phải đối chiếu.
         if route.get("max_iters") == 1 and route.get("label", "").startswith("nhanh"):
-            notes.append("⚡ Bản RÀ NHANH (1-lượt, nông hơn rà Sâu) — có thể BỎ SÓT điều khoản/trái luật; "
+            notes.append("Bản RÀ NHANH (1-lượt, nông hơn rà Sâu) — có thể BỎ SÓT điều khoản/trái luật; "
                          "luật sư cần đối chiếu bản gốc. Cần chắc chắn hơn → chạy lại chế độ Sâu.")
             ctx.needs_human_review = True
             ctx.review_reasons.append("Bản rà nhanh (nông) — luật sư đối chiếu bản gốc, có thể bỏ sót.")

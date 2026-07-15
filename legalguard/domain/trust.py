@@ -69,7 +69,7 @@ def trust_report() -> dict:
 def format_trust_text(report: dict | None = None) -> str:
     """Tóm tắt độ tin cậy dạng văn bản (Slack/markdown). Tái dùng cùng số liệu với trang /trust."""
     r = report or trust_report()
-    lines = ["🔎 *Độ tin cậy Legal Guard* — cách chúng tôi đảm bảo KHÔNG bịa:"]
+    lines = ["*Độ tin cậy Legal Guard* — cách chúng tôi đảm bảo KHÔNG bịa:"]
     lines += [f"• *{m['layer']}*: {m['desc']}" for m in r["methodology"]]
     lines += ["", "*Số đo (golden set nội bộ):*"]
     lines += [f"• {m['name']}: *{m['value']}* — {m['note']}" for m in r["metrics"]]

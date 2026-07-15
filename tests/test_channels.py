@@ -364,6 +364,27 @@ def test_process_keeps_plain_text_for_zalo():
     assert any("**đậm**" == t for _, t in s.sent)               # nguyên văn (không đụng)
 
 
+def _has_emoji(s: str) -> bool:
+    import re as _re
+    return bool(_re.search(r"[\U0001F000-\U0001FAFF☀-➿⚖✅⚡⭐]", s or ""))
+
+
+def test_chat_reply_bodies_have_no_icons():
+    # User yêu cầu: tin chat BỎ HẲN icon (giữ nhãn nút + file .docx riêng). Khóa: reply rà soát (kể cả
+    # cảnh báo rà-nhanh) + công bố độ tin cậy KHÔNG chứa emoji.
+    from legalguard.domain.trust import format_trust_text
+    res = AnalysisResult(
+        tenant="VN", risks=[{"clause": "Điều 5", "risk": "phạt 15%", "evidence": "phạt 15%",
+                             "priority": "must_fix", "legal_status": "unfavorable"}],
+        fallbacks=[], needs_human_review=True, review_reasons=["nhanh"], summary="", trace=[],
+        strategy="Giữ trần 8%.",
+        notes=["Bản RÀ NHANH (1-lượt, nông hơn rà Sâu) — có thể BỎ SÓT điều khoản/trái luật; "
+               "luật sư cần đối chiếu bản gốc."])
+    reply = format_chat_reply(res, lang="vi")
+    assert "RÀ NHANH" in reply and not _has_emoji(reply)     # cảnh báo còn text, sạch icon
+    assert not _has_emoji(format_trust_text())               # công bố độ tin cậy sạch icon
+
+
 def test_wants_file_export_intent():
     from legalguard.adapters.inbound.channels import _wants_file_export
     assert _wants_file_export("thêm mục comment vào tệp này")       # phản ánh thật của user
