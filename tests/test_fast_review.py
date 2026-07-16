@@ -125,6 +125,21 @@ def test_analyze_mode_deep_only_from_short_instruction():
     assert _analyze_mode("rà kỹ", has_attachment=True) == "deep"         # caption file ngắn → deep OK
 
 
+def test_fast_huge_contract_caps_windows():
+    """Round 3: HĐ khổng lồ → CẮT ở _FAST_MAX_WINDOWS + truncated (chống phình chi phí/latency)."""
+    from legalguard.config.container import build_service
+    from legalguard.domain import analysis as A
+    svc = build_service()
+    svc.reasoner = svc.fast_review_llm = _FakeReasoner()
+    svc.legal_basis_grounding = svc.illegal_detection = svc.nli_verification = False
+    svc.auto_counter_on_analyze = False
+    # Text ĐA DẠNG (không 'x'*n — chuỗi lặp 1 ký tự gây ReDoS ở redact, artifact test). > trần cửa sổ.
+    huge = "Điều 5. Phạt vi phạm 30 phần trăm giá trị hợp đồng nếu chậm giao. " * 8000
+    res = svc.analyze(huge, Organization(id="default", country="VN"), lang="vi", mode="fast")
+    assert any(f"map {A._FAST_MAX_WINDOWS}" in n for n in res.notes)          # cắt đúng trần
+    assert any("vượt giới hạn" in n.lower() or "chưa được rà" in n.lower() for n in res.notes)  # truncated note
+
+
 def test_fast_single_window_keeps_distinct_same_clause_risks():
     """FIX G: single-window fast giữ 2 rủi ro KHÁC NHAU cùng điều khoản (dùng _dedupe, KHÔNG _dedupe_clause)."""
     from legalguard.config.container import build_service
