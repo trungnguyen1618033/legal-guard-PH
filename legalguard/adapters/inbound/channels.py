@@ -1659,6 +1659,13 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 msg = payload.get("message") or {}
                 send_to = (payload.get("channel") or {}).get("id", "")
                 thread_ts = container.get("thread_ts") or msg.get("thread_ts") or msg.get("ts")
+                # Đổi nút '✅ Đã đồng ý sửa' NGAY (spawn cập nhật response_url TRƯỚC việc chậm → FastAPI chạy
+                # background TUẦN TỰ, nếu spawn sau _run_amend[LLM] thì nút phải đợi cả LLM mới đổi → user thấy
+                # trễ). Cập nhật qua response_url (Slack bỏ qua `blocks` ở HTTP response trực tiếp).
+                new_blocks = _mark_button_agreed(msg.get("blocks") or [], action.get("block_id", ""))
+                resp = ({"ok": True} if new_blocks is None else
+                        _slack_update_msg(payload, background, {"text": "Đã đồng ý sửa", "blocks": new_blocks}))
+                # Việc chậm (ghi DB / soạn điều khoản LLM) chạy SAU cập nhật nút.
                 if ctx.get("dc"):                  # LỖI SOẠN THẢO (fix inline) → chỉ GHI NHẬN (clause trong value)
                     background.add_task(_confirm_drafting_fix, handler.service, slack_sender, org.id,
                                         ctx.get("c", ""), ctx.get("dc", ""), send_to, thread_ts)
@@ -1667,14 +1674,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                     task = _confirm_amend if ctx.get("confirm") else _run_amend
                     background.add_task(task, handler.service, slack_sender, org.id,
                                         ctx.get("c", ""), ctx.get("i", -1), send_to, thread_ts)
-                # Đánh dấu NGAY tại chỗ: nút đã bấm → '✅ Đã đồng ý sửa' (mục đã đồng ý hiện rõ, không bấm
-                # trùng, trạng thái lưu trong tin). Cập nhật QUA response_url (Slack hay BỎ QUA `blocks` nếu
-                # trả trực tiếp trong HTTP response); thiếu response_url → fallback trả trực tiếp.
-                new_blocks = _mark_button_agreed(msg.get("blocks") or [], action.get("block_id", ""))
-                if new_blocks is not None:
-                    return _slack_update_msg(payload, background,
-                                             {"text": "Đã đồng ý sửa", "blocks": new_blocks})
-                return {"ok": True}
+                return resp
 
             if aid == "redline_dl":                # nút 📄 Bản đối chiếu → dựng .docx + upload vào thread
                 if not (slack_sender and slack_sender.available):
