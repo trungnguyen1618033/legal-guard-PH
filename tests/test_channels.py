@@ -1289,6 +1289,16 @@ def test_summary_from_decisions_three_groups():
     assert "chưa có điều khoản nào" in _summary_from_decisions(case, []).lower()
 
 
+def test_summary_untouched_no_false_prefix_match():
+    # Khớp theo token số-điều: đồng ý 'Điều 3' KHÔNG được nuốt nhầm 'Điều 3.2' khỏi 'chưa xử lý'.
+    from types import SimpleNamespace
+
+    from legalguard.adapters.inbound.channels import _summary_from_decisions
+    case = SimpleNamespace(risks=[{"clause": "Điều 3"}, {"clause": "Điều 3.2"}])
+    s = _summary_from_decisions(case, [{"clause": "Điều 3", "action": "agreed", "text": "x"}])
+    assert "Chưa xử lý (1)" in s and "Điều 3.2" in s     # Điều 3.2 VẪN chưa xử lý (không bị nuốt)
+
+
 def test_rv_close_posts_three_group_summary_e2e():
     # E2E: seed case + decisions → bấm 'Chốt' → tổng hợp 3 nhóm đăng vào thread (giữ bài).
     import json as _j

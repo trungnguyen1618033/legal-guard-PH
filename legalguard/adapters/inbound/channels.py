@@ -1264,17 +1264,24 @@ def _add_decision(store, conv_key: str, clause: str, action: str, text: str = ""
         _log.exception("Không ghi được decision (%s)", conv_key)
 
 
+def _clause_key(s: str) -> str:
+    """Khóa so khớp điều khoản: token 'Điều <số>' nếu có (agreed dùng tên đầy đủ 'Điều 5 - Phạt', revise dùng
+    'Điều 5' tự do → cùng token 'điều 5'); không có 'Điều' → cả chuỗi. Tránh 'Điều 3' NUỐT nhầm 'Điều 3.2'
+    (substring cũ sai: 'điều 3' in 'điều 3.2')."""
+    m = _CLAUSE_REF_RE.search(s or "")
+    return (m.group(0) if m else (s or "")).strip().lower()
+
+
 def _summary_from_decisions(case, decisions: list[dict]) -> str:
     """BẢN TỔNG HỢP CHỐT (thuần): A. đã đồng ý · B. đã sửa theo ý · C. chưa xử lý (clause case − đã quyết).
-    Rỗng quyết định → nhắc user. Khớp 'chưa xử lý' bằng substring 2 chiều (best-effort với clause revise tự do)."""
+    Rỗng quyết định → nhắc user. Khớp 'chưa xử lý' theo token số-điều (khớp CHÍNH XÁC, không nuốt nhầm)."""
     agreed = [d for d in decisions if d.get("action") == "agreed"]
     revised = [d for d in decisions if d.get("action") == "revised"]
-    decided = [(d.get("clause") or "").lower() for d in decisions if d.get("clause")]
+    decided = {_clause_key(d.get("clause") or "") for d in decisions if d.get("clause")}
     all_cl = [r.get("clause", "") for r in (case.risks or []) if r.get("clause")]
     all_cl += [(it.get("location") or "") for it in (getattr(case, "drafting_issues", None) or [])
                if it.get("location")]
-    untouched = [c for c in all_cl
-                 if not any(k and (k in c.lower() or c.lower() in k) for k in decided)]
+    untouched = [c for c in all_cl if _clause_key(c) not in decided]
     if not (agreed or revised):
         return ("Chưa có điều khoản nào được đồng ý hoặc sửa. Bạn có thể bấm “Đồng ý sửa” ở từng điều "
                 "hoặc “Sửa lại” để chỉnh, rồi bấm “Chốt” lại.")
