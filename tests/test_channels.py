@@ -1392,10 +1392,39 @@ def test_slack_interaction_amend_ok_marks_button_agreed_in_place():
     r = _slack_interaction(c, "sek", "amend_ok", val, extra={
         "container": {"thread_ts": "th9"}, "message": {"ts": "m1", "blocks": blocks},
         "actions": [{"action_id": "amend_ok", "block_id": "lg_amend_1_act", "value": val}]})
-    body = r.json()
+    body = r.json()   # KHÔNG có response_url → fallback trả trực tiếp
     assert body.get("replace_original") is True
     assert body["blocks"][1]["type"] == "section"                      # actions → section nổi bật (nút biến mất)
     assert "Đã đồng ý sửa" in body["blocks"][1]["text"]["text"] and "✅" in body["blocks"][1]["text"]["text"]
+
+
+def test_slack_interaction_amend_ok_updates_via_response_url(monkeypatch):
+    # CÓ response_url → cập nhật tin QUA response_url (tin cậy cho blocks); HTTP response chỉ ack {"ok": True}.
+    import httpx
+    captured = {}
+
+    def _fake_post(url, json=None, timeout=None):
+        captured["url"], captured["body"] = url, json
+        class _R:
+            status_code = 200
+        return _R()
+    monkeypatch.setattr(httpx, "post", _fake_post)
+    c = _client(slack="sek", slack_sender=_FakeSender())
+    blocks = [
+        {"type": "section", "block_id": "lg_amend_1", "text": {"type": "mrkdwn", "text": "(1)"}},
+        {"type": "actions", "block_id": "lg_amend_1_act",
+         "elements": [{"type": "button", "action_id": "amend_ok", "value": "{}"}]},
+    ]
+    val = json.dumps({"c": "nocase", "i": 0, "confirm": 1})
+    r = _slack_interaction(c, "sek", "amend_ok", val, extra={
+        "container": {"thread_ts": "th9"}, "message": {"ts": "m1", "blocks": blocks},
+        "response_url": "https://hooks.slack.test/xxx",
+        "actions": [{"action_id": "amend_ok", "block_id": "lg_amend_1_act", "value": val}]})
+    assert r.json() == {"ok": True}                                    # HTTP chỉ ack
+    assert captured["url"] == "https://hooks.slack.test/xxx"           # cập nhật đi qua response_url
+    assert captured["body"]["replace_original"] is True and captured["body"]["text"] == "Đã đồng ý sửa"
+    assert captured["body"]["blocks"][1]["type"] == "section"
+    assert "Đã đồng ý sửa" in captured["body"]["blocks"][1]["text"]["text"]
 
 
 def test_reply_ex_marks_lookup_and_analysis_kind():

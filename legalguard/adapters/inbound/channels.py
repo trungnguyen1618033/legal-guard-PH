@@ -1127,6 +1127,18 @@ def _block_to_slack(b: Block) -> list[dict]:
     return [sec, act]
 
 
+def _post_response_url(response_url: str, body: dict) -> None:
+    """Cập nhật TIN GỐC của interaction qua `response_url` — cách TIN CẬY cho tin có `blocks` (trả blocks
+    TRỰC TIẾP trong HTTP response hay bị Slack BỎ QUA, chỉ nhận text). Best-effort, nuốt lỗi (cập nhật UI phụ)."""
+    if not response_url:
+        return
+    try:
+        import httpx
+        httpx.post(response_url, json=body, timeout=10)
+    except Exception:  # noqa: BLE001 — cập nhật UI là phụ, lỗi không làm hỏng luồng chính
+        _log.exception("POST response_url lỗi")
+
+
 def _mark_button_agreed(blocks: list, clicked_block_id: str) -> list | None:
     """Sau khi bấm 'Đồng ý sửa': thay actions block ĐÃ BẤM (khớp block_id) bằng SECTION nổi bật
     '✅ *Đã đồng ý sửa*' → user thấy RÕ mục nào đã đồng ý (✅ xanh, cỡ thường — không mờ như context),
@@ -1641,11 +1653,17 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                     task = _confirm_amend if ctx.get("confirm") else _run_amend
                     background.add_task(task, handler.service, slack_sender, org.id,
                                         ctx.get("c", ""), ctx.get("i", -1), send_to, thread_ts)
-                # Đánh dấu NGAY tại chỗ: nút đã bấm → '*Đã đồng ý sửa*' (mục đã đồng ý hiện rõ, không bấm trùng,
-                # trạng thái lưu trong thread). replace_original thay nguyên tin — các nút/mục khác giữ nguyên.
+                # Đánh dấu NGAY tại chỗ: nút đã bấm → '✅ Đã đồng ý sửa' (mục đã đồng ý hiện rõ, không bấm
+                # trùng, trạng thái lưu trong tin). Cập nhật QUA response_url (Slack hay BỎ QUA `blocks` nếu
+                # trả trực tiếp trong HTTP response); thiếu response_url → fallback trả trực tiếp.
                 new_blocks = _mark_button_agreed(msg.get("blocks") or [], action.get("block_id", ""))
                 if new_blocks is not None:
-                    return {"replace_original": True, "blocks": new_blocks}
+                    upd = {"replace_original": True, "text": "Đã đồng ý sửa", "blocks": new_blocks}
+                    resp_url = payload.get("response_url", "")
+                    if resp_url:
+                        background.add_task(_post_response_url, resp_url, upd)
+                        return {"ok": True}
+                    return upd
                 return {"ok": True}
 
             if aid == "redline_dl":                # nút 📄 Bản đối chiếu → dựng .docx + upload vào thread
