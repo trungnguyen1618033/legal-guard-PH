@@ -19,7 +19,9 @@ _NAME = r"(?:[A-ZÀ-Ỹ][a-zà-ỹ]+\s+){0,3}[A-ZÀ-Ỹ][a-zà-ỹ]+"
 _NAME_MARKER = r"(Ông|Bà|Ngài|Mr|Mrs|Ms|đại diện(?: bởi)?|người đại diện|ký bởi|họ và tên|họ tên)"
 
 _PATTERNS = [
-    (re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"), "[EMAIL]"),
+    # Email: CHẶN độ dài quantifier ({1,64} local-part theo RFC, {1,255} domain) → chống O(n²)/ReDoS trên
+    # chuỗi \w dài (vd file chứa 'xxxx…' rất dài): không bound → mỗi vị trí quét cả run rồi fail ở '@'.
+    (re.compile(r"[\w.+-]{1,64}@[\w-]{1,255}\.[\w.-]{1,255}"), "[EMAIL]"),
     # CCCD/CMND có nhãn → che cả số (9-12 chữ số)
     (re.compile(r"(?i)\b(CCCD|CMND|căn cước|chứng minh nhân dân)\b[\s:]*\d[\d.\s]{7,}\d"), "[CCCD]"),
     # chuỗi số dài ≥9 (điện thoại, MST, tài khoản; cho phép dấu chấm/gạch/space) — không chạm số ngắn "60"
