@@ -388,7 +388,7 @@ def main() -> None:
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
             print(f"  [DEEP] {c.name}: LỖI {e}")
 
-    report = {"base": BASE, "cases": len(CASES), "reps": args.reps,
+    report = {"base": BASE, "cases": len(cases), "holdout": args.holdout, "reps": args.reps,
               "labels": {"illegal": n_ill, "unfavorable": n_unf, "clean": n_cln},
               "label_note": "nhãn tác giả gán (neo luật VN), CHƯA luật-sư-verify — smoke/regression",
               "fast": _summary(fast)}
