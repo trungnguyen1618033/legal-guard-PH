@@ -191,6 +191,13 @@ def _wants_deep_review(text: str) -> bool:
     return bool(text and _DEEP_REVIEW_RE.search(text))
 
 
+def _analyze_mode(text: str, has_attachment: bool) -> str:
+    """Chọn deep/fast. Slack mặc định FAST. Opt-in deep CHỈ từ CHỈ-DẪN ngắn / caption file — KHÔNG quét thân
+    HĐ DÁN dài (HĐ chứa 'chi tiết/sâu/kỹ' sẽ deep OAN → 15'). Guard len<300 như `_extract_protected_hint`."""
+    is_instruction = has_attachment or len((text or "").strip()) < 300
+    return "deep" if (is_instruction and _wants_deep_review(text or "")) else "fast"
+
+
 def _mentions(text: str, uid: str) -> bool:
     """text có mention user `uid` không — chịu cả 2 dạng Slack: `<@Uxxx>` và `<@Uxxx|tên hiển thị>`.
     Dùng cho MENTION GATE (dạng có `|tên` mà chỉ so substring `<@Uxxx>` sẽ TRƯỢT → bot im lặng oan)."""
@@ -503,6 +510,11 @@ def _review_doc(result: AnalysisResult, prefix: str = "", case_id: str = "") -> 
         if n.startswith(_FAST_NOTE_MARK):
             doc.append(Block(n))
             break
+    # Cảnh báo AN TOÀN ⚠️ (rà CHƯA HOÀN TẤT: phân đoạn lỗi / HĐ quá dài bị cắt) — PHẢI hiện trên reply, nếu
+    # không user thấy "không phát hiện rủi ro" mà tưởng HĐ sạch trong khi thực ra rà chưa xong.
+    for n in result.notes:
+        if n.startswith("⚠️"):
+            doc.append(Block(n))
     for num, idx, _clause, seg, needs_draft in risk_segs:
         # Nút 'Đồng ý sửa' NHẤT QUÁN: chưa có điều khoản inline → SOẠN (draft); đã có → GHI NHẬN (confirm:1).
         action = None
@@ -730,9 +742,8 @@ class ChatHandler:
             hint = _extract_protected_hint(text or "") if (attachment is not None
                                                            or len(text or "") < 300) else ""
             position = NegotiationPosition(protected_party=hint) if hint else None
-            # Slack MẶC ĐỊNH fast (~7-30s kể cả HĐ dài nhờ map-reduce) — deep ~2-15' quá lâu cho chat.
-            # Opt-in deep khi user yêu cầu rõ ("rà kỹ"/"sâu"/"deep"/"chi tiết") → chấp nhận chờ.
-            a_mode = "deep" if _wants_deep_review(text or "") else "fast"
+            # Slack MẶC ĐỊNH fast (~7-30s kể cả HĐ dài nhờ map-reduce); deep opt-in từ chỉ-dẫn ngắn (xem helper).
+            a_mode = _analyze_mode(text or "", attachment is not None)
             try:
                 result = self.service.analyze(contract, org, lang=lang, position=position,
                                               source=source, on_progress=on_progress, mode=a_mode)

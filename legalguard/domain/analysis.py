@@ -802,8 +802,10 @@ class AnalysisService:
                 strategy, failed_windows = self._fast_map_reduce(windows, ctx, jurisdiction.country, lang,
                                                                  position, on_progress)
             ctx.needs_human_review = True             # màn sàng lọc nhanh → luôn cần người duyệt
-            # Fast: dedup theo CLAUSE (gộp overlap cửa sổ + LLM lặp cùng điều khoản) — 1 mục/điều khoản.
-            ctx.risks, ctx.fallbacks = _dedupe_clause(ctx.risks), _dedupe_clause(ctx.fallbacks)
+            # Multi-window (map-reduce): dedup theo CLAUSE (gộp trùng do overlap cửa sổ). Single-window: giữ
+            # _dedupe (clause,risk) — KHÔNG mất rủi ro KHÁC NHAU cùng điều khoản (vd Thanh toán: trả-sau + phạt).
+            _dd = _dedupe_clause if len(windows) > 1 else _dedupe
+            ctx.risks, ctx.fallbacks = _dd(ctx.risks), _dd(ctx.fallbacks)
             _log.info("fast-path (%d cửa sổ) %dms", len(windows), round((time.monotonic() - t0) * 1000))
             return self._finish_analyze(
                 ctx=ctx, org=org, jurisdiction=jurisdiction, contract_text=contract_text,

@@ -110,6 +110,35 @@ def test_fast_llm_error_surfaces_failed_window():
     res = svc.analyze("Bên B phạt 30%.", Organization(id="default", country="VN"), lang="vi", mode="fast")
     assert res.needs_human_review is True
     assert any("phân đoạn lỗi" in n.lower() or "chưa rà" in n.lower() for n in res.notes), res.notes
+    # FIX E: cảnh báo lỗi PHẢI hiện trên reply chat (không giấu → user không tưởng HĐ sạch)
+    from legalguard.adapters.inbound.channels import format_chat_reply
+    assert "chưa rà" in format_chat_reply(res, lang="vi").lower()
+
+
+def test_analyze_mode_deep_only_from_short_instruction():
+    """FIX F: 'chi tiết/sâu' trong CHỈ-DẪN ngắn → deep; nhưng trong THÂN HĐ DÁN dài → KHÔNG deep oan (15')."""
+    from legalguard.adapters.inbound.channels import _analyze_mode
+    assert _analyze_mode("rà kỹ giúp tôi", has_attachment=False) == "deep"
+    assert _analyze_mode("rà giúp", has_attachment=False) == "fast"
+    long_paste = "HỢP ĐỒNG. Điều 1. Bên A kiểm tra chi tiết, phân tích sâu hàng hóa. " + ("x" * 400)
+    assert _analyze_mode(long_paste, has_attachment=False) == "fast"     # thân HĐ chứa 'chi tiết/sâu' KHÔNG deep
+    assert _analyze_mode("rà kỹ", has_attachment=True) == "deep"         # caption file ngắn → deep OK
+
+
+def test_fast_single_window_keeps_distinct_same_clause_risks():
+    """FIX G: single-window fast giữ 2 rủi ro KHÁC NHAU cùng điều khoản (dùng _dedupe, KHÔNG _dedupe_clause)."""
+    from legalguard.config.container import build_service
+    two_same_clause = ('{"risks":[{"clause":"Điều 8","risk":"thanh toán trả sau 90 ngày","severity":"medium"},'
+                       '{"clause":"Điều 8","risk":"phạt chậm trả 20%","severity":"high"}],"fallbacks":[],'
+                       '"strategy":"x"}')
+    svc = build_service()
+    svc.reasoner = svc.fast_review_llm = _FakeReasoner(two_same_clause)
+    svc.legal_basis_grounding = svc.illegal_detection = svc.nli_verification = False
+    svc.auto_counter_on_analyze = False
+    res = svc.analyze("Điều 8 thanh toán trả sau và phạt chậm.", Organization(id="default", country="VN"),
+                      lang="vi", mode="fast")
+    d8 = [r for r in res.risks if r["clause"] == "Điều 8"]
+    assert len(d8) == 2, f"single-window fast phải giữ CẢ 2 rủi ro Điều 8, got {len(d8)}"
 
 
 def test_dedupe_clause_keeps_most_severe():
