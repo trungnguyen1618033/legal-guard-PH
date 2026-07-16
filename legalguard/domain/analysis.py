@@ -230,6 +230,28 @@ def _dedupe(items: list) -> list:
     return out
 
 
+_SEV_RANK = {"high": 0, "medium": 1, "low": 2}
+_PRI_RANK = {"must_fix": 0, "negotiate": 1, "acceptable": 2}
+
+
+def _dedupe_clause(items: list) -> list:
+    """Gộp theo CLAUSE, giữ mục QUAN TRỌNG nhất (severity → priority). Dùng cho FAST MAP-REDUCE: overlap cửa
+    sổ + LLM lặp → cùng điều khoản trích nhiều lần với chữ HƠI KHÁC → `_dedupe` (clause,risk) KHÔNG gộp được →
+    user thấy điều khoản lặp. Fast = sàng lọc, 1 mục/điều khoản là đủ (deep giữ `_dedupe` để không mất rủi ro
+    khác-nhau-cùng-điều-khoản). Giữ THỨ TỰ xuất hiện đầu."""
+    best: dict = {}
+    order: list = []
+    for it in items:
+        c = it.clause
+        rank = (_SEV_RANK.get(getattr(it, "severity", ""), 3), _PRI_RANK.get(getattr(it, "priority", ""), 3))
+        if c not in best:
+            best[c] = (rank, it)
+            order.append(c)
+        elif rank < best[c][0]:                    # cùng clause → giữ mục nặng hơn
+            best[c] = (rank, it)
+    return [best[c][1] for c in order]
+
+
 _LEGAL_BASIS_MIN_OVERLAP = 3   # số thuật ngữ phải trùng tối thiểu để gắn căn cứ (tránh căn cứ lạc)
 _LEGAL_BASIS_MIN_REL = 0.5     # điểm chunk điều luật ≥ 50% top hit mới gắn (điều luật phải thật sự liên quan)
 
@@ -776,7 +798,8 @@ class AnalysisService:
                 strategy = self._fast_map_reduce(windows, ctx, jurisdiction.country, lang, position,
                                                  on_progress)
             ctx.needs_human_review = True             # màn sàng lọc nhanh → luôn cần người duyệt
-            ctx.risks, ctx.fallbacks = _dedupe(ctx.risks), _dedupe(ctx.fallbacks)
+            # Fast: dedup theo CLAUSE (gộp overlap cửa sổ + LLM lặp cùng điều khoản) — 1 mục/điều khoản.
+            ctx.risks, ctx.fallbacks = _dedupe_clause(ctx.risks), _dedupe_clause(ctx.fallbacks)
             _log.info("fast-path (%d cửa sổ) %dms", len(windows), round((time.monotonic() - t0) * 1000))
             return self._finish_analyze(
                 ctx=ctx, org=org, jurisdiction=jurisdiction, contract_text=contract_text,

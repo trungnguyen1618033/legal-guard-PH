@@ -90,3 +90,20 @@ def test_analyze_mode_fast_long_map_reduce():
     assert res.needs_human_review is True
     assert any("map" in n.lower() for n in res.notes)              # route note = 'nhanh (map N cửa sổ)'
     assert len(res.risks) >= 1                                     # gộp + dedupe từ các cửa sổ
+    clauses = [r["clause"] for r in res.risks]                     # FIX A: dedup theo clause → KHÔNG lặp
+    assert len(clauses) == len(set(clauses)), f"clause trùng: {clauses}"
+
+
+def test_dedupe_clause_keeps_most_severe():
+    """FIX A: _dedupe_clause gộp cùng clause, giữ mục nặng nhất (severity→priority), giữ thứ tự."""
+    from legalguard.domain.analysis import _dedupe_clause
+    from legalguard.domain.models import Risk
+    items = [
+        Risk(clause="Điều 5", risk="phạt nhẹ", severity="low", priority="acceptable"),
+        Risk(clause="Điều 8", risk="thanh toán", severity="medium", priority="negotiate"),
+        Risk(clause="Điều 5", risk="phạt vượt trần", severity="high", priority="must_fix"),
+    ]
+    out = _dedupe_clause(items)
+    assert [r.clause for r in out] == ["Điều 5", "Điều 8"]         # 1 mục/clause, giữ thứ tự
+    d5 = next(r for r in out if r.clause == "Điều 5")
+    assert d5.severity == "high" and d5.priority == "must_fix"     # giữ mục NẶNG nhất
