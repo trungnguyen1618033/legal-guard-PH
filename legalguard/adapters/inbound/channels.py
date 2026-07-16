@@ -1127,6 +1127,23 @@ def _block_to_slack(b: Block) -> list[dict]:
     return [sec, act]
 
 
+def _mark_button_agreed(blocks: list, clicked_block_id: str) -> list | None:
+    """Sau khi bấm 'Đồng ý sửa': thay actions block ĐÃ BẤM (khớp block_id) bằng context '*Đã đồng ý sửa*'
+    → user thấy NGAY mục nào đã đồng ý, nút biến mất (không bấm trùng), trạng thái lưu trong tin. Không icon
+    (theo yêu cầu). THUẦN. Trả blocks mới; None nếu không tìm thấy (không thay → caller giữ nguyên tin)."""
+    if not clicked_block_id:
+        return None
+    out, hit = [], False
+    for b in blocks or []:
+        if b.get("type") == "actions" and b.get("block_id") == clicked_block_id:
+            out.append({"type": "context", "block_id": clicked_block_id,
+                        "elements": [{"type": "mrkdwn", "text": "*Đã đồng ý sửa* — đã ghi nhận."}]})
+            hit = True
+        else:
+            out.append(b)
+    return out if hit else None
+
+
 def _analysis_blocks(result: AnalysisResult, case_id: str, prefix: str = "") -> list[dict]:
     """Slack blocks reply rà soát HĐ — serialize `_review_doc` (nguồn chung với text): mỗi Block → 1 section
     (full-width) + nút 'Đồng ý sửa' ở actions block dưới, + công bố AI (context) + cap 50-block Slack."""
@@ -1618,11 +1635,16 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 if ctx.get("dc"):                  # LỖI SOẠN THẢO (fix inline) → chỉ GHI NHẬN (clause trong value)
                     background.add_task(_confirm_drafting_fix, handler.service, slack_sender, org.id,
                                         ctx.get("c", ""), ctx.get("dc", ""), send_to, thread_ts)
-                    return {"ok": True}
-                # confirm=1: rủi ro ĐÃ có điều khoản mới inline → chỉ ghi event (nhanh); else → soạn (gọi LLM).
-                task = _confirm_amend if ctx.get("confirm") else _run_amend
-                background.add_task(task, handler.service, slack_sender, org.id,
-                                    ctx.get("c", ""), ctx.get("i", -1), send_to, thread_ts)
+                else:
+                    # confirm=1: rủi ro ĐÃ có điều khoản mới inline → chỉ ghi event (nhanh); else → soạn (LLM).
+                    task = _confirm_amend if ctx.get("confirm") else _run_amend
+                    background.add_task(task, handler.service, slack_sender, org.id,
+                                        ctx.get("c", ""), ctx.get("i", -1), send_to, thread_ts)
+                # Đánh dấu NGAY tại chỗ: nút đã bấm → '*Đã đồng ý sửa*' (mục đã đồng ý hiện rõ, không bấm trùng,
+                # trạng thái lưu trong thread). replace_original thay nguyên tin — các nút/mục khác giữ nguyên.
+                new_blocks = _mark_button_agreed(msg.get("blocks") or [], action.get("block_id", ""))
+                if new_blocks is not None:
+                    return {"replace_original": True, "blocks": new_blocks}
                 return {"ok": True}
 
             if aid == "redline_dl":                # nút 📄 Bản đối chiếu → dựng .docx + upload vào thread

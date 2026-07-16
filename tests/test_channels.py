@@ -193,6 +193,22 @@ def test_case_roundtrips_drafting_issues():
     assert got is not None and got.drafting_issues == [{"location": "Đ.1", "issue": "x", "fix_vi": "y", "fix_en": ""}]
 
 
+def test_mark_button_agreed_swaps_only_clicked():
+    # Bấm 'Đồng ý sửa' → actions block ĐÃ BẤM thành context '*Đã đồng ý sửa*'; nút khác giữ nguyên; không icon.
+    from legalguard.adapters.inbound.channels import _mark_button_agreed
+    blocks = [
+        {"type": "section", "block_id": "lg_amend_1", "text": {"type": "mrkdwn", "text": "(1)"}},
+        {"type": "actions", "block_id": "lg_amend_1_act", "elements": [{"type": "button", "action_id": "amend_ok"}]},
+        {"type": "actions", "block_id": "lg_amend_2_act", "elements": [{"type": "button", "action_id": "amend_ok"}]},
+    ]
+    out = _mark_button_agreed(blocks, "lg_amend_1_act")
+    assert out[1]["type"] == "context" and "Đã đồng ý sửa" in out[1]["elements"][0]["text"]
+    assert "**" not in out[1]["elements"][0]["text"]      # icon-free + không rò markdown
+    assert out[2]["type"] == "actions"                    # nút mục khác GIỮ nguyên
+    assert _mark_button_agreed(blocks, "nope") is None    # không khớp → None (caller giữ tin)
+    assert _mark_button_agreed(blocks, "") is None
+
+
 def test_confirm_drafting_fix_records_without_llm():
     from legalguard.adapters.inbound.channels import _confirm_drafting_fix
 
@@ -1358,9 +1374,28 @@ def test_slack_interaction_amend_ok_spawns_run():
     c = _client(slack="sek", slack_sender=sender)
     r = _slack_interaction(c, "sek", "amend_ok", json.dumps({"c": "nocase", "i": 0}),
                            extra={"container": {"thread_ts": "th9"}, "message": {"ts": "m1"}})
-    assert r.status_code == 200 and r.json() == {"ok": True}   # ack rỗng, giữ nút cho rủi ro khác
+    assert r.status_code == 200 and r.json() == {"ok": True}   # không có blocks/block_id → giữ nguyên tin
     # background _run_amend chạy: case không tồn tại (stub) → báo vào ĐÚNG thread th9
     assert sender.sent and sender.threads[-1] == "th9"
+
+
+def test_slack_interaction_amend_ok_marks_button_agreed_in_place():
+    # Bấm 'Đồng ý sửa' → tin gốc cập nhật: nút biến thành '*Đã đồng ý sửa*' TẠI CHỖ (replace_original).
+    sender = _FakeSender()
+    c = _client(slack="sek", slack_sender=sender)
+    blocks = [
+        {"type": "section", "block_id": "lg_amend_1", "text": {"type": "mrkdwn", "text": "(1) rủi ro"}},
+        {"type": "actions", "block_id": "lg_amend_1_act",
+         "elements": [{"type": "button", "action_id": "amend_ok", "value": "{}"}]},
+    ]
+    val = json.dumps({"c": "nocase", "i": 0, "confirm": 1})
+    r = _slack_interaction(c, "sek", "amend_ok", val, extra={
+        "container": {"thread_ts": "th9"}, "message": {"ts": "m1", "blocks": blocks},
+        "actions": [{"action_id": "amend_ok", "block_id": "lg_amend_1_act", "value": val}]})
+    body = r.json()
+    assert body.get("replace_original") is True
+    assert body["blocks"][1]["type"] == "context"                      # actions → context (nút biến mất)
+    assert "Đã đồng ý sửa" in body["blocks"][1]["elements"][0]["text"]
 
 
 def test_reply_ex_marks_lookup_and_analysis_kind():
