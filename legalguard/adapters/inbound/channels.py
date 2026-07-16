@@ -133,6 +133,11 @@ def _wants_file_export(text: str) -> bool:
     return bool(text and _FILE_EXPORT_RE.search(text))
 
 
+# Trích tham chiếu điều khoản ("Điều 5", "Điều 2.1.e") từ yêu cầu 'Sửa lại' TỰ DO → khóa clause cho nhật ký
+# quyết định (dedup + khớp 'chưa xử lý'). Không có → dùng đầu câu làm nhãn.
+_CLAUSE_REF_RE = re.compile(r"Điều\s+[\w.]+", re.IGNORECASE)
+
+
 def _previous_review(conv) -> str:
     """Nội dung tư vấn GẦN NHẤT (tin assistant cuối) trong hội thoại — để trình bày lại. Rỗng nếu chưa có."""
     for m in reversed(conv.history or []):
@@ -669,7 +674,11 @@ class ChatHandler:
             if case is None or getattr(case, "org_id", None) != org.id:
                 return ChatReply("Không tìm thấy hồ sơ rà soát để sửa (có thể đã hết hạn). "
                                  "Vui lòng gửi lại hợp đồng để rà soát.")
-            return ChatReply(_with_ai_disclosure(self.service.revise_clause(case, text or "", lang)))
+            revised = self.service.revise_clause(case, text or "", lang)
+            m = _CLAUSE_REF_RE.search(text or "")           # nhật ký quyết định 'revised' → tổng hợp Chốt
+            clause_key = m.group(0) if m else (text or "").strip()[:50]
+            conv.decisions = _decisions_append(conv.decisions, clause_key, "revised", revised)
+            return ChatReply(_with_ai_disclosure(revised))
         # Bảng help CHỈ khi CHƯA vào deal/thread. Đang rà soát (đã analyze → conv.context) hoặc giữa thread
         # thì "help me…"/"giúp…" là HỎI TIẾP, KHÔNG phải xin hướng dẫn dùng bot (user báo: upload file →
         # hỏi → hỏi lại thì bot trả HELP thay vì trả lời tiếp).
@@ -732,6 +741,7 @@ class ChatHandler:
             conv.context = _context_from_result(result)    # nhớ deal đang bàn
             conv.last_case_id = result.case_id or ""        # → xuất file (comment/redline) theo lệnh chat sau này
             conv.pending_edit = ""                           # rà soát mới → hủy cờ 'chờ sửa' cũ (nếu có)
+            conv.decisions = ""                              # rà soát mới → reset nhật ký quyết định (tổng hợp mới)
             # Seed red-line đàm phán = các rủi ro must_fix (điểm sống còn KHÔNG nhượng) → vòng đàm phán sau
             # có bộ nhớ cấu trúc + guardrail walk-away tất định.
             red = [r["clause"] for r in result.risks if r.get("priority") == "must_fix" and r.get("clause")]
@@ -1228,6 +1238,59 @@ def _format_amend(clause: str, original: str, cc: dict) -> str:
     return _with_ai_disclosure("\n".join(parts))
 
 
+def _decisions_append(current: str, clause: str, action: str, text: str = "") -> str:
+    """Nhật ký quyết định (JSON): thêm {clause, action, text}, DEDUP theo clause (mới nhất thắng). THUẦN."""
+    try:
+        items = json.loads(current or "[]")
+        if not isinstance(items, list):
+            items = []
+    except (json.JSONDecodeError, TypeError):
+        items = []
+    items = [d for d in items if d.get("clause") != clause]
+    items.append({"clause": clause, "action": action, "text": (text or "").strip()})
+    return json.dumps(items, ensure_ascii=False)
+
+
+def _add_decision(store, conv_key: str, clause: str, action: str, text: str = "") -> None:
+    """Ghi quyết định vào conv.decisions (qua store) → nguồn TỔNG HỢP khi Chốt. No-op nếu thiếu store/key/
+    clause. Best-effort (nhật ký là phụ, lỗi nuốt)."""
+    if not (store and conv_key and clause):
+        return
+    try:
+        conv = store.get(conv_key) or Conversation(id=conv_key)
+        conv.decisions = _decisions_append(conv.decisions, clause, action, text)
+        store.save(conv)
+    except Exception:  # noqa: BLE001 — nhật ký quyết định là phụ, không làm hỏng luồng chính
+        _log.exception("Không ghi được decision (%s)", conv_key)
+
+
+def _summary_from_decisions(case, decisions: list[dict]) -> str:
+    """BẢN TỔNG HỢP CHỐT (thuần): A. đã đồng ý · B. đã sửa theo ý · C. chưa xử lý (clause case − đã quyết).
+    Rỗng quyết định → nhắc user. Khớp 'chưa xử lý' bằng substring 2 chiều (best-effort với clause revise tự do)."""
+    agreed = [d for d in decisions if d.get("action") == "agreed"]
+    revised = [d for d in decisions if d.get("action") == "revised"]
+    decided = [(d.get("clause") or "").lower() for d in decisions if d.get("clause")]
+    all_cl = [r.get("clause", "") for r in (case.risks or []) if r.get("clause")]
+    all_cl += [(it.get("location") or "") for it in (getattr(case, "drafting_issues", None) or [])
+               if it.get("location")]
+    untouched = [c for c in all_cl
+                 if not any(k and (k in c.lower() or c.lower() in k) for k in decided)]
+    if not (agreed or revised):
+        return ("Chưa có điều khoản nào được đồng ý hoặc sửa. Bạn có thể bấm “Đồng ý sửa” ở từng điều "
+                "hoặc “Sửa lại” để chỉnh, rồi bấm “Chốt” lại.")
+    out = ["*TỔNG HỢP CHỐT*"]
+    if agreed:
+        out.append(f"*A. Đã đồng ý sửa ({len(agreed)}):*")
+        out += [f"• {d.get('clause', '')}" + (f" — {d['text']}" if d.get("text") else "") for d in agreed]
+    if revised:
+        out.append(f"*B. Đã sửa theo ý ({len(revised)}):*")
+        out += [f"• {(d.get('text') or d.get('clause') or '').strip()}" for d in revised]
+    if untouched:
+        out.append(f"*C. Chưa xử lý ({len(untouched)}):* " + "; ".join(untouched))
+    out.append("Cần file: bấm “Bản đối chiếu” để tải .docx.")
+    return "\n".join(out)
+
+
 def _record_agreed_fix(service: AnalysisService, org_id: str, case_id: str, clause: str) -> None:
     """Ghi EVENT 'đã đồng ý sửa' (audit + tín hiệu risk-hợp-lệ). result='agreed_fix' — KHÔNG lọt win-rate
     (win_rates chỉ tính accepted/partial/rejected) nên không pha loãng flywheel. Lỗi ghi → bỏ qua (phụ)."""
@@ -1241,11 +1304,13 @@ def _record_agreed_fix(service: AnalysisService, org_id: str, case_id: str, clau
 
 
 def _confirm_drafting_fix(service: AnalysisService, sender: ChatSenderPort, org_id: str, case_id: str,
-                          clause: str, send_to: str, thread_ts: str | None) -> None:
-    """Nút 'Đồng ý sửa' cho LỖI SOẠN THẢO (đề xuất fix ĐÃ hiển thị inline) → chỉ ghi event agreed_fix +
-    báo nhận. KHÔNG gọi LLM, KHÔNG cần nạp case (clause mang trong value nút; outcome cô lập theo org đã auth)."""
+                          clause: str, send_to: str, thread_ts: str | None,
+                          store=None, conv_key: str = "") -> None:
+    """Nút 'Đồng ý sửa' cho LỖI SOẠN THẢO (đề xuất fix ĐÃ hiển thị inline) → ghi event agreed_fix + nhật ký
+    quyết định (cho tổng hợp Chốt) + báo nhận. KHÔNG gọi LLM (clause mang trong value nút; cô lập org đã auth)."""
     try:
         _record_agreed_fix(service, org_id, case_id, clause)
+        _add_decision(store, conv_key, clause, "agreed")     # tổng hợp Chốt (fix soạn thảo đã hiển thị inline)
         _safe_send(sender, send_to, f"Đã ghi nhận đồng ý sửa lỗi soạn thảo: {clause} "
                    "(đề xuất đã nêu ở phần rà soát trên).", thread_ts)
     except Exception:  # noqa: BLE001 — task nền: lỗi không được làm sập
@@ -1254,9 +1319,10 @@ def _confirm_drafting_fix(service: AnalysisService, sender: ChatSenderPort, org_
 
 
 def _confirm_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, case_id: str,
-                   idx: int, send_to: str, thread_ts: str | None) -> None:
-    """Nút 'Xác nhận áp dụng' — cho rủi ro ĐÃ có điều khoản mới INLINE trong reply. Chỉ GHI event
-    agreed_fix (audit/flywheel) + báo nhận; KHÔNG gọi LLM soạn lại (điều khoản mới đã hiển thị sẵn)."""
+                   idx: int, send_to: str, thread_ts: str | None,
+                   store=None, conv_key: str = "") -> None:
+    """Nút 'Xác nhận áp dụng' — cho rủi ro ĐÃ có điều khoản mới INLINE trong reply. Ghi event agreed_fix +
+    nhật ký quyết định (cho tổng hợp Chốt) + báo nhận; KHÔNG gọi LLM (điều khoản mới đã hiển thị sẵn)."""
     try:
         case = service.get_case(case_id)
         if case is None or getattr(case, "org_id", None) != org_id or idx is None or idx < 0:
@@ -1268,6 +1334,8 @@ def _confirm_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str
             return
         clause = risks[idx].get("clause", "")
         _record_agreed_fix(service, org_id, case_id, clause)
+        _add_decision(store, conv_key, clause, "agreed",     # điều khoản mới song ngữ (inline) → tổng hợp
+                      (risks[idx].get("counter_clause") or {}).get("vi", ""))
         _safe_send(sender, send_to, f"Đã ghi nhận đồng ý sửa điều khoản: {clause} "
                    "(điều khoản đề xuất đã nêu trong phần rà soát ở trên).", thread_ts)
     except Exception:  # noqa: BLE001 — task nền: lỗi không được làm sập
@@ -1276,7 +1344,8 @@ def _confirm_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str
 
 
 def _run_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, case_id: str,
-               idx: int, send_to: str, thread_ts: str | None) -> None:
+               idx: int, send_to: str, thread_ts: str | None,
+               store=None, conv_key: str = "") -> None:
     """Chạy nền: nạp case (cô lập org) → soạn điều khoản sửa cho rủi ro thứ `idx` → gửi vào thread.
     Tách khỏi handler interactions (phải ack <3s); draft_counter_clause gọi LLM nên chậm.
     Dùng NGUYÊN VĂN `evidence` (đoạn trích HĐ) làm điều khoản gốc → LLM viết lại CHÍNH đoạn đó (cũ→mới
@@ -1299,6 +1368,7 @@ def _run_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, ca
         cc = service.draft_counter_clause(
             clause=original, risk=r.get("risk", ""), suggestion=fb.get("suggestion", ""),
             legal_basis=fb.get("legal_basis") or r.get("legal_basis", ""))
+        _add_decision(store, conv_key, clause, "agreed", cc.get("vi", ""))   # điều khoản vừa soạn → tổng hợp
         _safe_send(sender, send_to, _md_to_slack(_format_amend(clause, original, cc)), thread_ts)
     except Exception:  # noqa: BLE001 — task nền: lỗi soạn không được làm sập, báo khách nhẹ nhàng
         _log.exception("Không soạn được điều khoản sửa (%s)", case_id)
@@ -1698,14 +1768,17 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 resp = ({"ok": True} if new_blocks is None else
                         await _slack_update_msg(payload, {"text": "Đã đồng ý sửa", "blocks": new_blocks}))
                 # Việc chậm (ghi DB / soạn điều khoản LLM) chạy SAU cập nhật nút.
+                conv_key = f"slack:{send_to}:{thread_ts}"   # ghi nhật ký quyết định (cho tổng hợp Chốt)
                 if ctx.get("dc"):                  # LỖI SOẠN THẢO (fix inline) → chỉ GHI NHẬN (clause trong value)
                     background.add_task(_confirm_drafting_fix, handler.service, slack_sender, org.id,
-                                        ctx.get("c", ""), ctx.get("dc", ""), send_to, thread_ts)
+                                        ctx.get("c", ""), ctx.get("dc", ""), send_to, thread_ts,
+                                        handler.store, conv_key)
                 else:
                     # confirm=1: rủi ro ĐÃ có điều khoản mới inline → chỉ ghi event (nhanh); else → soạn (LLM).
                     task = _confirm_amend if ctx.get("confirm") else _run_amend
                     background.add_task(task, handler.service, slack_sender, org.id,
-                                        ctx.get("c", ""), ctx.get("i", -1), send_to, thread_ts)
+                                        ctx.get("c", ""), ctx.get("i", -1), send_to, thread_ts,
+                                        handler.store, conv_key)
                 return resp
 
             if aid == "redline_dl":                # nút 📄 Bản đối chiếu → dựng .docx + upload vào thread
@@ -1746,9 +1819,9 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                     thread_ts)
                 return {"ok": True}
 
-            if aid in _RV_ACTION:                  # 'Chốt' → chấp nhận + ghi win-rate + feedback helpful
+            if aid in _RV_ACTION:                  # 'Chốt' → chấp nhận + win-rate + feedback + TỔNG HỢP
                 result, rating = _RV_ACTION[aid]
-                n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), result)  # win-rate
+                _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), result)  # win-rate
                 try:                               # + feedback golden-set (lỗi DB KHÔNG được làm 500)
                     handler.service.record_feedback(Feedback(
                         id=uuid.uuid4().hex, org_id=org.id, kind=ctx.get("k", "analysis"),
@@ -1756,8 +1829,24 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                         created_at=datetime.now(timezone.utc).isoformat()))
                 except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
                     _log.exception("Không ghi được feedback từ Slack")
-                return await _slack_update_msg(payload,
-                                               {"text": f"Đã chốt — ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."})
+                if not (slack_sender and slack_sender.available):
+                    return {"ok": True}
+                # BẢN TỔNG HỢP (đồng ý + đã sửa + chưa xử lý) → đăng TIN MỚI, GIỮ bài phân tích + GIỮ nút
+                # (để còn tải 'Bản đối chiếu'). Nguồn = conv.decisions của thread.
+                container = payload.get("container") or {}
+                msg = payload.get("message") or {}
+                send_to = (payload.get("channel") or {}).get("id", "")
+                thread_ts = container.get("thread_ts") or msg.get("thread_ts") or msg.get("ts")
+                conv = handler.store.get(f"slack:{send_to}:{thread_ts}")
+                try:
+                    decisions = json.loads(conv.decisions or "[]") if conv else []
+                except (json.JSONDecodeError, TypeError):
+                    decisions = []
+                case = handler.service.get_case(ctx.get("c", ""))
+                summary = (_summary_from_decisions(case, decisions) if case
+                           else "Đã chốt — ghi nhận. Cảm ơn bạn.")
+                background.add_task(_safe_send, slack_sender, send_to, _md_to_slack(summary), thread_ts)
+                return {"ok": True}
 
             if aid in _OC_RESULT:                  # (tương thích ngược) nút kết quả đàm phán tin CŨ → flywheel
                 n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), _OC_RESULT[aid])

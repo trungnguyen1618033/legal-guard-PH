@@ -1117,12 +1117,14 @@ def test_send_redline_wrong_org_or_missing():
     assert "không tìm thấy" in sender.sent[-1][1].lower()
 
 
-def test_slack_interaction_rv_close_records_accepted_and_helpful():
-    c = _client(slack="sek")
-    r = _slack_interaction(c, "sek", "rv_close",
-                           json.dumps({"k": "analysis", "r": "case-xyz", "c": "case-xyz"}))
-    assert r.status_code == 200 and r.json().get("replace_original") is True
-    assert "chốt" in r.json()["text"].lower()
+def test_slack_interaction_rv_close_posts_summary():
+    # 'Chốt' → GIỮ bài (KHÔNG replace_original) + đăng TỔNG HỢP (tin mới). Case không có (stub) → fallback.
+    sender = _FakeSender()
+    c = _client(slack="sek", slack_sender=sender)
+    r = _slack_interaction(c, "sek", "rv_close", json.dumps({"k": "analysis", "r": "cX", "c": "cX"}),
+                           extra={"container": {"thread_ts": "T1"}, "message": {"ts": "m1"}})
+    assert r.json() == {"ok": True}                                  # KHÔNG replace_original → giữ bài
+    assert any("chốt" in t.lower() for _, t in sender.sent)         # tổng hợp/ xác nhận đăng vào thread
 
 
 def test_slack_interaction_rv_revise_asks_and_keeps_analysis():
@@ -1240,23 +1242,76 @@ def test_revise_clause_offline_safe():
     assert "chưa soạn được" in out.lower()             # khung an toàn
 
 
-def test_slack_interaction_rv_close_updates_via_response_url(monkeypatch):
-    # CÓ response_url → cập nhật tin QUA response_url (HTTP response trực tiếp bị Slack bỏ qua trên WS này).
-    import httpx
-    captured = {}
+def test_full_flow_agree_then_chot_e2e():
+    # E2E TOÀN FLOW: bấm 'Đồng ý sửa' (interaction) → task ghi decision agreed → bấm 'Chốt' → tổng hợp có
+    # điều đã đồng ý (Điều 5) + điều chưa xử lý (Điều 3).
+    import json as _j
 
-    def _fake_post(url, json=None, timeout=None):
-        captured["url"], captured["body"] = url, json
-        class _R:
-            status_code = 200
-        return _R()
-    monkeypatch.setattr(httpx, "post", _fake_post)
-    c = _client(slack="sek")
-    r = _slack_interaction(c, "sek", "rv_close", json.dumps({"k": "analysis", "r": "cx", "c": "cx"}),
-                           extra={"response_url": "https://hooks.slack.test/rv", "message": {"ts": "m1"}})
-    assert r.json() == {"ok": True}                                    # HTTP chỉ ack
-    assert captured["url"] == "https://hooks.slack.test/rv"            # cập nhật đi qua response_url
-    assert captured["body"]["replace_original"] is True and "chốt" in captured["body"]["text"].lower()
+    from legalguard.domain.models import AnalysisCase
+    from legalguard.domain.tenants import default_org
+    handler = ChatHandler(build_service(), build_parser(), InMemoryConversationStore(), "VN")
+    org = default_org("VN")
+    handler.service.cases.save(AnalysisCase(
+        id="cF", org_id=org.id, tenant="VN", created_at="t", lang="vi", contract_excerpt="", summary="",
+        needs_human_review=False,
+        risks=[{"clause": "Điều 5", "counter_clause": {"vi": "tối đa 8%"}}, {"clause": "Điều 3"}],
+        fallbacks=[], trace=[]))
+    sender = _FakeSender()
+    app = FastAPI()
+    app.include_router(build_channels_router(handler, slack_signing_secret="s", slack_sender=sender))
+    client = TestClient(app)
+    # 1) Đồng ý sửa Điều 5 (confirm inline) → background _confirm_amend ghi decision agreed vào conv
+    _slack_interaction(client, "s", "amend_ok", _j.dumps({"c": "cF", "i": 0, "confirm": 1}),
+                       extra={"container": {"thread_ts": "T1"}, "message": {"ts": "m1"}})
+    conv = handler.store.get("slack:C1:T1")
+    assert conv and '"agreed"' in conv.decisions and "Điều 5" in conv.decisions
+    # 2) Chốt → tổng hợp
+    _slack_interaction(client, "s", "rv_close", _j.dumps({"k": "analysis", "r": "cF", "c": "cF"}),
+                       extra={"container": {"thread_ts": "T1"}, "message": {"ts": "m2"}})
+    joined = " ".join(t for _, t in sender.sent)
+    assert "Đã đồng ý sửa (1)" in joined and "Điều 5" in joined       # đã đồng ý
+    assert "Chưa xử lý" in joined and "Điều 3" in joined              # còn sót
+
+
+def test_summary_from_decisions_three_groups():
+    # BẢN TỔNG HỢP thuần: A đã đồng ý · B đã sửa · C chưa xử lý (clause case − đã quyết).
+    from types import SimpleNamespace
+
+    from legalguard.adapters.inbound.channels import _summary_from_decisions
+    case = SimpleNamespace(risks=[{"clause": "Điều 5"}, {"clause": "Điều 2.1"}, {"clause": "Điều 3"}])
+    decisions = [{"clause": "Điều 5", "action": "agreed", "text": "tối đa 8%"},
+                 {"clause": "Điều 2.1", "action": "revised", "text": "SỬA Điều 2.1: hai chiều"}]
+    s = _summary_from_decisions(case, decisions)
+    assert "Đã đồng ý sửa (1)" in s and "Điều 5" in s and "8%" in s
+    assert "Đã sửa theo ý (1)" in s and "hai chiều" in s
+    assert "Chưa xử lý (1)" in s and "Điều 3" in s                   # Điều 3 chưa quyết
+    # rỗng quyết định → nhắc user
+    assert "chưa có điều khoản nào" in _summary_from_decisions(case, []).lower()
+
+
+def test_rv_close_posts_three_group_summary_e2e():
+    # E2E: seed case + decisions → bấm 'Chốt' → tổng hợp 3 nhóm đăng vào thread (giữ bài).
+    import json as _j
+
+    from legalguard.domain.models import AnalysisCase, Conversation
+    from legalguard.domain.tenants import default_org
+    handler = ChatHandler(build_service(), build_parser(), InMemoryConversationStore(), "VN")
+    org = default_org("VN")
+    handler.service.cases.save(AnalysisCase(
+        id="cS", org_id=org.id, tenant="VN", created_at="t", lang="vi", contract_excerpt="", summary="",
+        needs_human_review=False,
+        risks=[{"clause": "Điều 5"}, {"clause": "Điều 2.1"}, {"clause": "Điều 3"}], fallbacks=[], trace=[]))
+    handler.store.save(Conversation(id="slack:C1:T1", decisions=_j.dumps(
+        [{"clause": "Điều 5", "action": "agreed", "text": "8%"},
+         {"clause": "Điều 2.1", "action": "revised", "text": "SỬA Điều 2.1: hai chiều"}], ensure_ascii=False)))
+    sender = _FakeSender()
+    app = FastAPI()
+    app.include_router(build_channels_router(handler, slack_signing_secret="s", slack_sender=sender))
+    client = TestClient(app)
+    _slack_interaction(client, "s", "rv_close", _j.dumps({"k": "analysis", "r": "cS", "c": "cS"}),
+                       extra={"container": {"thread_ts": "T1"}, "message": {"ts": "m1"}})
+    joined = " ".join(t for _, t in sender.sent)
+    assert "Đã đồng ý sửa (1)" in joined and "Đã sửa theo ý (1)" in joined and "Chưa xử lý (1)" in joined
 
 
 def test_slack_interaction_bad_signature_401():

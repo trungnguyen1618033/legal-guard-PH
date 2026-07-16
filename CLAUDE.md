@@ -156,8 +156,14 @@ outcome=accepted + feedback=helpful (`_RV_ACTION`; map `_OC_RESULT` giữ cho ti
 replace_original → GIỮ bài) + feedback 'incomplete' (KHÔNG outcome=rejected — không phải từ chối cả deal);
 tin KẾ của user = yêu cầu sửa → `_handle` route `AnalysisService.revise_clause` (LLM soạn lại RIÊNG điều đó
 theo ý, song ngữ, không rà lại) → one-shot xoá cờ; rà soát mới cũng xoá cờ. State `Conversation.pending_edit`
-(cột SQL + migration 0015; interaction ghi store → tin-kế cùng store đọc). Web/app.html + Next.js dùng
-structured DTO (RiskItem 4 phần) + nút Chốt/Sửa lại (`ReviewDecision`).
+(cột SQL + migration 0015; interaction ghi store → tin-kế cùng store đọc). **MENTION-GATE ngoại lệ**: tin reply
+trong thread ĐANG CHỜ pending_edit → cho qua gate dù không @bot (nếu không luồng revise treo — bug e2e; chatter
+top-level không @bot VẪN im lặng). **Chốt = TỔNG HỢP (giữ bài)**: bấm 'Chốt' → đăng BẢN TỔNG HỢP tin mới
+(`_summary_from_decisions`: A đã đồng ý · B đã sửa theo ý · C chưa xử lý = clause case − đã quyết) + ghi
+win-rate/feedback, GIỮ bài + GIỮ nút (còn tải redline). Nguồn = `Conversation.decisions` (JSON, migration 0016;
+ghi khi Đồng ý qua `_confirm_amend`/`_run_amend`/`_confirm_drafting_fix` + khi revise; dedup theo clause qua
+`_decisions_append`; reset khi rà soát mới). Web/app.html + Next.js dùng structured DTO (RiskItem 4 phần) +
+nút Chốt/Sửa lại (`ReviewDecision`) — CHƯA đồng bộ luồng Sửa-lại-hỏi-ý/tổng-hợp của Slack (Slack-only hiện tại).
 **BIẾN THỂ GIỌNG (D, `_reformat`)**: trong deal + yêu cầu đổi định dạng ("bản email"/"rút gọn"/"trang trọng
 hơn", `_is_reformat_request`) → 'email' = `to_email_wrap` TẤT ĐỊNH (giữ 100% substance, không LLM); giọng
 khác = model nhanh viết lại, prompt CẤM đổi số liệu/điều luật/đề xuất, offline→trả nguyên bản.
