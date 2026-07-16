@@ -1128,16 +1128,17 @@ def _block_to_slack(b: Block) -> list[dict]:
 
 
 def _mark_button_agreed(blocks: list, clicked_block_id: str) -> list | None:
-    """Sau khi bấm 'Đồng ý sửa': thay actions block ĐÃ BẤM (khớp block_id) bằng context '*Đã đồng ý sửa*'
-    → user thấy NGAY mục nào đã đồng ý, nút biến mất (không bấm trùng), trạng thái lưu trong tin. Không icon
-    (theo yêu cầu). THUẦN. Trả blocks mới; None nếu không tìm thấy (không thay → caller giữ nguyên tin)."""
+    """Sau khi bấm 'Đồng ý sửa': thay actions block ĐÃ BẤM (khớp block_id) bằng SECTION nổi bật
+    '✅ *Đã đồng ý sửa*' → user thấy RÕ mục nào đã đồng ý (✅ xanh, cỡ thường — không mờ như context),
+    nút biến mất (không bấm trùng), trạng thái lưu trong tin. ✅ = icon-TRẠNG-THÁI (ngoại lệ có chủ đích cho
+    quy tắc bỏ icon nội dung). THUẦN. Trả blocks mới; None nếu không khớp (caller giữ nguyên tin)."""
     if not clicked_block_id:
         return None
     out, hit = [], False
     for b in blocks or []:
         if b.get("type") == "actions" and b.get("block_id") == clicked_block_id:
-            out.append({"type": "context", "block_id": clicked_block_id,
-                        "elements": [{"type": "mrkdwn", "text": "*Đã đồng ý sửa* — đã ghi nhận."}]})
+            out.append({"type": "section", "block_id": clicked_block_id,
+                        "text": {"type": "mrkdwn", "text": "✅ *Đã đồng ý sửa*"}})
             hit = True
         else:
             out.append(b)

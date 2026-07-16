@@ -202,8 +202,8 @@ def test_mark_button_agreed_swaps_only_clicked():
         {"type": "actions", "block_id": "lg_amend_2_act", "elements": [{"type": "button", "action_id": "amend_ok"}]},
     ]
     out = _mark_button_agreed(blocks, "lg_amend_1_act")
-    assert out[1]["type"] == "context" and "Đã đồng ý sửa" in out[1]["elements"][0]["text"]
-    assert "**" not in out[1]["elements"][0]["text"]      # icon-free + không rò markdown
+    assert out[1]["type"] == "section" and "Đã đồng ý sửa" in out[1]["text"]["text"]   # section nổi bật
+    assert "✅" in out[1]["text"]["text"] and "**" not in out[1]["text"]["text"]        # ✅ xanh, không rò `**`
     assert out[2]["type"] == "actions"                    # nút mục khác GIỮ nguyên
     assert _mark_button_agreed(blocks, "nope") is None    # không khớp → None (caller giữ tin)
     assert _mark_button_agreed(blocks, "") is None
@@ -1394,8 +1394,8 @@ def test_slack_interaction_amend_ok_marks_button_agreed_in_place():
         "actions": [{"action_id": "amend_ok", "block_id": "lg_amend_1_act", "value": val}]})
     body = r.json()
     assert body.get("replace_original") is True
-    assert body["blocks"][1]["type"] == "context"                      # actions → context (nút biến mất)
-    assert "Đã đồng ý sửa" in body["blocks"][1]["elements"][0]["text"]
+    assert body["blocks"][1]["type"] == "section"                      # actions → section nổi bật (nút biến mất)
+    assert "Đã đồng ý sửa" in body["blocks"][1]["text"]["text"] and "✅" in body["blocks"][1]["text"]["text"]
 
 
 def test_reply_ex_marks_lookup_and_analysis_kind():
