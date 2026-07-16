@@ -660,6 +660,16 @@ class ChatHandler:
                 thread_context: str = "", in_thread: bool = False,
                 on_progress: "Callable[[dict], None] | None" = None) -> ChatReply:
         org = default_org(self.default_tenant)
+        # 'SỬA LẠI' đang chờ: user vừa bấm 'Sửa lại' → bot hỏi 'muốn sửa gì'; tin NÀY là YÊU CẦU SỬA →
+        # soạn lại RIÊNG điều khoản theo ý, GIỮ NGUYÊN bài phân tích (KHÔNG rà lại). One-shot: xong xoá cờ.
+        # Kèm file → là HĐ mới, bỏ chờ + rà soát bình thường (rơi xuống dưới).
+        if attachment is None and conv.pending_edit and (text or "").strip():
+            case_id, conv.pending_edit = conv.pending_edit, ""
+            case = self.service.get_case(case_id)
+            if case is None or getattr(case, "org_id", None) != org.id:
+                return ChatReply("Không tìm thấy hồ sơ rà soát để sửa (có thể đã hết hạn). "
+                                 "Vui lòng gửi lại hợp đồng để rà soát.")
+            return ChatReply(_with_ai_disclosure(self.service.revise_clause(case, text or "", lang)))
         # Bảng help CHỈ khi CHƯA vào deal/thread. Đang rà soát (đã analyze → conv.context) hoặc giữa thread
         # thì "help me…"/"giúp…" là HỎI TIẾP, KHÔNG phải xin hướng dẫn dùng bot (user báo: upload file →
         # hỏi → hỏi lại thì bot trả HELP thay vì trả lời tiếp).
@@ -721,6 +731,7 @@ class ChatHandler:
                 return ChatReply(f"Xin lỗi, chưa xử lý được: {exc}")
             conv.context = _context_from_result(result)    # nhớ deal đang bàn
             conv.last_case_id = result.case_id or ""        # → xuất file (comment/redline) theo lệnh chat sau này
+            conv.pending_edit = ""                           # rà soát mới → hủy cờ 'chờ sửa' cũ (nếu có)
             # Seed red-line đàm phán = các rủi ro must_fix (điểm sống còn KHÔNG nhượng) → vòng đàm phán sau
             # có bộ nhớ cấu trúc + guardrail walk-away tất định.
             red = [r["clause"] for r in result.risks if r.get("priority") == "must_fix" and r.get("clause")]
@@ -966,7 +977,7 @@ _OC_RESULT = {"oc_accepted": "accepted", "oc_partial": "partial", "oc_rejected":
 #   Chốt  → outcome=accepted + feedback=helpful  (đồng ý, chốt deal)
 #   Sửa lại → outcome=rejected + feedback=wrong  (cần chỉnh, chưa ổn)
 # value mang cả {k: kind, r: ref-feedback, c: case_id} (với reply phân tích, ref == case_id).
-_RV_ACTION = {"rv_close": ("accepted", "helpful"), "rv_revise": ("rejected", "wrong")}
+_RV_ACTION = {"rv_close": ("accepted", "helpful")}   # 'Chốt' → chấp nhận; 'Sửa lại' xử lý RIÊNG (luồng hỏi-ý, giữ bài)
 
 
 def _review_action_blocks(kind: str, ref: str) -> list[dict]:
@@ -1702,7 +1713,34 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                     ctx.get("c", ""), send_to, thread_ts)
                 return {"ok": True}
 
-            if aid in _RV_ACTION:                  # nút QUYẾT ĐỊNH gộp: Chốt / Sửa lại
+            if aid == "rv_revise":                 # 'Sửa lại' = TINH CHỈNH (KHÔNG xoá bài): hỏi muốn sửa gì →
+                # tin kế của user = yêu cầu sửa → soạn lại RIÊNG điều đó, GIỮ NGUYÊN bài phân tích ở trên.
+                if not (slack_sender and slack_sender.available):
+                    return {"ok": True}
+                container = payload.get("container") or {}
+                msg = payload.get("message") or {}
+                send_to = (payload.get("channel") or {}).get("id", "")
+                thread_ts = container.get("thread_ts") or msg.get("thread_ts") or msg.get("ts")
+                # Nhớ 'đang chờ yêu cầu sửa cho case này' trên conversation của thread (tin kế định tuyến vào revise).
+                conv_key = f"slack:{send_to}:{thread_ts}"
+                conv = handler.store.get(conv_key) or Conversation(id=conv_key)
+                conv.pending_edit = ctx.get("c", "")
+                handler.store.save(conv)
+                try:                               # tín hiệu golden-set NHẸ (analysis cần chỉnh) — KHÔNG
+                    handler.service.record_feedback(Feedback(   # outcome=rejected (không phải từ chối cả deal)
+                        id=uuid.uuid4().hex, org_id=org.id, kind=ctx.get("k", "analysis"),
+                        ref=ctx.get("r", ""), rating="incomplete", note=f"slack:{user}",
+                        created_at=datetime.now(timezone.utc).isoformat()))
+                except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
+                    _log.exception("Không ghi được feedback (sửa lại)")
+                # Hỏi ý — KHÔNG replace_original (GIỮ bài phân tích, đây là điểm chính user yêu cầu).
+                background.add_task(_safe_send, slack_sender, send_to,
+                                    "Bạn muốn sửa điều khoản/ý nào, và sửa thế nào? Trả lời tin này — ví dụ: "
+                                    "“Điều 5: đổi thời hạn còn 15 ngày”. Bài rà soát ở trên được giữ nguyên.",
+                                    thread_ts)
+                return {"ok": True}
+
+            if aid in _RV_ACTION:                  # 'Chốt' → chấp nhận + ghi win-rate + feedback helpful
                 result, rating = _RV_ACTION[aid]
                 n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), result)  # win-rate
                 try:                               # + feedback golden-set (lỗi DB KHÔNG được làm 500)
@@ -1712,10 +1750,8 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                         created_at=datetime.now(timezone.utc).isoformat()))
                 except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
                     _log.exception("Không ghi được feedback từ Slack")
-                msg = (f"Đã chốt — ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."
-                       if aid == "rv_close" else
-                       "Đã ghi nhận: cần sửa lại. Cảm ơn phản hồi của bạn.")
-                return await _slack_update_msg(payload, {"text": msg})
+                return await _slack_update_msg(payload,
+                                               {"text": f"Đã chốt — ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."})
 
             if aid in _OC_RESULT:                  # (tương thích ngược) nút kết quả đàm phán tin CŨ → flywheel
                 n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), _OC_RESULT[aid])

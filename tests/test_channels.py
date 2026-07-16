@@ -1125,12 +1125,71 @@ def test_slack_interaction_rv_close_records_accepted_and_helpful():
     assert "chốt" in r.json()["text"].lower()
 
 
-def test_slack_interaction_rv_revise_records_rejected_and_wrong():
-    c = _client(slack="sek")
-    r = _slack_interaction(c, "sek", "rv_revise",
-                           json.dumps({"k": "analysis", "r": "case-xyz", "c": "case-xyz"}))
-    assert r.status_code == 200 and r.json().get("replace_original") is True
-    assert "sửa lại" in r.json()["text"].lower()
+def test_slack_interaction_rv_revise_asks_and_keeps_analysis():
+    # 'Sửa lại' MỚI = hỏi 'muốn sửa gì' + GIỮ bài (KHÔNG replace_original) + đặt pending_edit cho thread.
+    sender = _FakeSender()
+    c = _client(slack="sek", slack_sender=sender)
+    r = _slack_interaction(c, "sek", "rv_revise", json.dumps({"k": "analysis", "r": "cX", "c": "cX"}),
+                           extra={"container": {"thread_ts": "T1"}, "message": {"ts": "m1"}})
+    assert r.json() == {"ok": True}                                  # KHÔNG replace_original → giữ bài phân tích
+    assert any("muốn sửa" in t.lower() for _, t in sender.sent)      # bot hỏi muốn sửa gì
+    assert sender.threads[-1] == "T1"                                # hỏi trong đúng thread
+
+
+def test_rv_revise_interaction_writes_pending_edit_to_store():
+    # Mắt xích end-to-end: bấm 'Sửa lại' (interaction) → ghi pending_edit vào CÙNG store mà tin kế của user đọc.
+    handler = ChatHandler(build_service(), build_parser(), InMemoryConversationStore(), "VN")
+    app = FastAPI()
+    app.include_router(build_channels_router(handler, slack_signing_secret="sek", slack_sender=_FakeSender()))
+    client = TestClient(app)
+    _slack_interaction(client, "sek", "rv_revise", json.dumps({"k": "analysis", "r": "cX", "c": "cX"}),
+                       extra={"container": {"thread_ts": "T1"}, "message": {"ts": "m1"}})
+    conv = handler.store.get("slack:C1:T1")               # channel C1 (payload) + thread T1 → conv_key
+    assert conv is not None and conv.pending_edit == "cX"   # tin kế trong thread sẽ route revise
+
+
+def test_pending_edit_routes_to_revise_and_clears():
+    # Đang chờ 'Sửa lại' (pending_edit) → tin kế = yêu cầu sửa → soạn lại (KHÔNG rà soát lại) + xóa cờ.
+    from legalguard.domain.models import AnalysisCase, Conversation
+    from legalguard.domain.tenants import default_org
+    h = _handler()
+    org = default_org("VN")
+    h.service.cases.save(AnalysisCase(
+        id="cE", org_id=org.id, tenant="VN", created_at="t", lang="vi", contract_excerpt="",
+        summary="", needs_human_review=False,
+        risks=[{"clause": "Điều 5", "risk": "phạt 15%"}], fallbacks=[], trace=[]))
+
+    class _R:
+        available = True
+
+        def complete(self, prompt, *, system=None):
+            return "SỬA Điều 5: thời hạn 15 ngày"     # bản sửa (chứng: đã route revise, không rà lại)
+
+    h.service.reasoner = _R()
+    h.store.save(Conversation(id="kEdit", context="deal đang bàn", pending_edit="cE"))
+    r = h.reply_ex("kEdit", text="Điều 5 đổi thời hạn còn 15 ngày")
+    assert "SỬA Điều 5" in r.text                       # đã soạn lại theo ý (không phải reply rà soát/lookup)
+    assert h.store.get("kEdit").pending_edit == ""      # one-shot: cờ đã xóa
+
+
+def test_revise_clause_offline_safe():
+    # revise_clause bám yêu cầu; lỗi LLM → khung an toàn, KHÔNG bịa.
+    from legalguard.domain.models import AnalysisCase
+    h = _handler()
+    case = AnalysisCase(id="c", org_id="o", tenant="VN", created_at="t", lang="vi", contract_excerpt="",
+                        summary="", needs_human_review=False,
+                        risks=[{"clause": "Điều 5", "risk": "phạt 15%"}], fallbacks=[], trace=[])
+
+    class _Err:
+        available = True
+
+        def complete(self, prompt, *, system=None):
+            from legalguard.domain.ports import LLMError
+            raise LLMError("qwen", "down")
+
+    h.service.reasoner = _Err()
+    out = h.service.revise_clause(case, "Điều 5 đổi 15 ngày", "vi")
+    assert "chưa soạn được" in out.lower()             # khung an toàn
 
 
 def test_slack_interaction_rv_close_updates_via_response_url(monkeypatch):

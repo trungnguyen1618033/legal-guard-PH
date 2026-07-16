@@ -513,6 +513,27 @@ class AnalysisService:
             self.observer.event("counter_clause", {"clause": clause, "grounded": cc.grounded})
         return asdict(cc)
 
+    def revise_clause(self, case: "AnalysisCase", instruction: str, lang: str = "vi") -> str:
+        """'Sửa lại' theo YÊU CẦU TỰ DO của khách (sau khi nhận bản rà soát): dựa trên các điều khoản đã rà
+        soát (case) + yêu cầu → soạn lại ĐÚNG điều khoản khách nhắc, song ngữ. GIỮ bài phân tích (chỉ trả phần
+        sửa — caller không rà lại). Bám yêu cầu + bối cảnh, KHÔNG bịa luật. Offline/lỗi → khung an toàn."""
+        clauses = "\n".join(f"- {r.get('clause', '')}: {(r.get('risk') or '')[:160]}"
+                            for r in (case.risks or [])[:20]) or "(không liệt kê được điều khoản)"
+        tail = " Viết bằng tiếng Việt." if lang == "vi" else " Write in English."
+        prompt = (
+            "Khách đã nhận bản rà soát hợp đồng và muốn CHỈNH SỬA theo yêu cầu dưới đây. GIỮ NGUYÊN các nội "
+            "dung khác; chỉ soạn lại điều khoản khách nhắc tới.\n"
+            f"Các điều khoản đã rà soát (tham chiếu):\n{clauses}\n\n"
+            f"Yêu cầu chỉnh sửa của khách: {instruction}\n\n"
+            "Trả lời gồm: (1) nêu rõ SỬA ĐIỀU KHOẢN NÀO; (2) *Tiếng Việt:* điều khoản mới; (3) *Tiếng Anh:* "
+            "bản dịch; (4) *Căn cứ:* ghi chú ngắn nếu có. Bám yêu cầu + bối cảnh, KHÔNG bịa quy định pháp "
+            "luật." + tail)
+        try:
+            out = (self.reasoner.complete(prompt) or "").strip()
+        except LLMError as exc:
+            return f"Xin lỗi, chưa soạn được nội dung sửa: {exc}"
+        return out or "Chưa rõ yêu cầu — vui lòng nêu ĐIỀU KHOẢN cần sửa + thay đổi mong muốn (vd 'Điều 5: rút thời hạn còn 15 ngày')."
+
     def negotiate_round(self, deal_context: str, partner_message: str,
                         position: NegotiationPosition | None = None,
                         state: "NegotiationState | None" = None, lang: str = "vi",

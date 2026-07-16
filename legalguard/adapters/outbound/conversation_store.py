@@ -35,6 +35,7 @@ class ConversationRow(Base):
     context: Mapped[str] = mapped_column(String, default="")
     nego_state: Mapped[str] = mapped_column(String, default="")
     last_case_id: Mapped[str] = mapped_column(String, default="")
+    pending_edit: Mapped[str] = mapped_column(String, default="")
     updated_at: Mapped[str] = mapped_column(String, default="")
 
 
@@ -51,6 +52,7 @@ class SqlAlchemyConversationStore:
             return Conversation(id=row.id, history=row.history or [],
                                 context=row.context or "", nego_state=row.nego_state or "",
                                 last_case_id=row.last_case_id or "",
+                                pending_edit=row.pending_edit or "",
                                 updated_at=row.updated_at or "")
 
     def save(self, conversation: Conversation) -> None:
@@ -58,6 +60,7 @@ class SqlAlchemyConversationStore:
             s.merge(ConversationRow(id=conversation.id, history=conversation.history,
                                     context=conversation.context, nego_state=conversation.nego_state,
                                     last_case_id=conversation.last_case_id,
+                                    pending_edit=conversation.pending_edit,
                                     updated_at=conversation.updated_at))
             s.commit()
 
