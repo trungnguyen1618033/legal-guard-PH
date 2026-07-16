@@ -1132,6 +1132,25 @@ def test_slack_interaction_rv_revise_records_rejected_and_wrong():
     assert "sửa lại" in r.json()["text"].lower()
 
 
+def test_slack_interaction_rv_close_updates_via_response_url(monkeypatch):
+    # CÓ response_url → cập nhật tin QUA response_url (HTTP response trực tiếp bị Slack bỏ qua trên WS này).
+    import httpx
+    captured = {}
+
+    def _fake_post(url, json=None, timeout=None):
+        captured["url"], captured["body"] = url, json
+        class _R:
+            status_code = 200
+        return _R()
+    monkeypatch.setattr(httpx, "post", _fake_post)
+    c = _client(slack="sek")
+    r = _slack_interaction(c, "sek", "rv_close", json.dumps({"k": "analysis", "r": "cx", "c": "cx"}),
+                           extra={"response_url": "https://hooks.slack.test/rv", "message": {"ts": "m1"}})
+    assert r.json() == {"ok": True}                                    # HTTP chỉ ack
+    assert captured["url"] == "https://hooks.slack.test/rv"            # cập nhật đi qua response_url
+    assert captured["body"]["replace_original"] is True and "chốt" in captured["body"]["text"].lower()
+
+
 def test_slack_interaction_bad_signature_401():
     c = _client(slack="sek")
     r = c.post("/channels/slack/interactions", content=b"payload=%7B%7D",

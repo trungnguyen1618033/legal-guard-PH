@@ -1139,6 +1139,18 @@ def _post_response_url(response_url: str, body: dict) -> None:
         _log.exception("POST response_url lỗi")
 
 
+def _slack_update_msg(payload: dict, background, body: dict) -> dict:
+    """Response cập nhật TIN GỐC của interaction. Trả `replace_original` TRỰC TIẾP trong HTTP response hay
+    bị Slack BỎ QUA (đo thực tế trên workspace này — cả text lẫn blocks) → POST qua `response_url` (cách
+    tin cậy). Thiếu response_url → fallback trả trực tiếp. `body` = phần nội dung (text/blocks…)."""
+    upd = {"replace_original": True, **body}
+    resp_url = payload.get("response_url", "")
+    if resp_url:
+        background.add_task(_post_response_url, resp_url, upd)
+        return {"ok": True}
+    return upd
+
+
 def _mark_button_agreed(blocks: list, clicked_block_id: str) -> list | None:
     """Sau khi bấm 'Đồng ý sửa': thay actions block ĐÃ BẤM (khớp block_id) bằng SECTION nổi bật
     '✅ *Đã đồng ý sửa*' → user thấy RÕ mục nào đã đồng ý (✅ xanh, cỡ thường — không mờ như context),
@@ -1631,12 +1643,13 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             if aid == "retry_run":                 # nút 🔁 THỬ LẠI sau lỗi → chạy lại payload đã lưu
                 payload_r = _retry_store.pop(ctx.get("k", ""))   # pop = one-shot (double-click lần 2 → hết hạn)
                 if payload_r is None or not (slack_sender and slack_sender.available):
-                    return {"replace_original": True,
-                            "text": "Phiên thử lại đã hết hạn — vui lòng gửi lại tin nhắn."}
+                    return _slack_update_msg(payload, background,
+                                             {"text": "Phiên thử lại đã hết hạn — vui lòng gửi lại tin nhắn."})
                 conv_key, send_to, r_text, r_url, r_fn, r_thread = payload_r   # conv_key riêng với retry_id
                 background.add_task(_process, handler, slack_sender, conv_key, send_to,
                                     r_text, r_url, r_fn, r_thread, max_upload_bytes, True)
-                return {"replace_original": True, "text": "Đang thử lại — kết quả sẽ được gửi vào thread…"}
+                return _slack_update_msg(payload, background,
+                                         {"text": "Đang thử lại — kết quả sẽ được gửi vào thread…"})
 
             if aid == "amend_ok":                  # nút per-risk: soạn điều khoản sửa HOẶC xác nhận áp dụng
                 if not (slack_sender and slack_sender.available):
@@ -1658,12 +1671,8 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 # trả trực tiếp trong HTTP response); thiếu response_url → fallback trả trực tiếp.
                 new_blocks = _mark_button_agreed(msg.get("blocks") or [], action.get("block_id", ""))
                 if new_blocks is not None:
-                    upd = {"replace_original": True, "text": "Đã đồng ý sửa", "blocks": new_blocks}
-                    resp_url = payload.get("response_url", "")
-                    if resp_url:
-                        background.add_task(_post_response_url, resp_url, upd)
-                        return {"ok": True}
-                    return upd
+                    return _slack_update_msg(payload, background,
+                                             {"text": "Đã đồng ý sửa", "blocks": new_blocks})
                 return {"ok": True}
 
             if aid == "redline_dl":                # nút 📄 Bản đối chiếu → dựng .docx + upload vào thread
@@ -1690,12 +1699,12 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 msg = (f"Đã chốt — ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."
                        if aid == "rv_close" else
                        "Đã ghi nhận: cần sửa lại. Cảm ơn phản hồi của bạn.")
-                return {"replace_original": True, "text": msg}
+                return _slack_update_msg(payload, background, {"text": msg})
 
             if aid in _OC_RESULT:                  # (tương thích ngược) nút kết quả đàm phán tin CŨ → flywheel
                 n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), _OC_RESULT[aid])
-                return {"replace_original": True,
-                        "text": f"Đã ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."}
+                return _slack_update_msg(payload, background,
+                                         {"text": f"Đã ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."})
 
             rating = _FB_RATING.get(aid)
             if not rating:
@@ -1707,8 +1716,9 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                     created_at=datetime.now(timezone.utc).isoformat()))
             except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
                 _log.exception("Không ghi được feedback từ Slack")
-            # Thay tin gốc bằng xác nhận (replace_original) — ack <3s, không hammer LLM.
-            return {"replace_original": True, "text": "Đã ghi nhận phản hồi của bạn. Cảm ơn bạn."}
+            # Thay tin gốc bằng xác nhận (qua response_url — trực tiếp bị Slack bỏ qua) — ack <3s, không hammer LLM.
+            return _slack_update_msg(payload, background,
+                                     {"text": "Đã ghi nhận phản hồi của bạn. Cảm ơn bạn."})
 
     if zalo_oa_secret:
         @router.post("/channels/zalo/webhook")
