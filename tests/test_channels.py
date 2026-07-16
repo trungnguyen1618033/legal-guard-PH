@@ -1148,6 +1148,54 @@ def test_rv_revise_interaction_writes_pending_edit_to_store():
     assert conv is not None and conv.pending_edit == "cX"   # tin kế trong thread sẽ route revise
 
 
+def test_revise_reply_passes_mention_gate_when_pending_edit():
+    # BUG e2e (mention-only ON): user trả lời yêu cầu 'Sửa lại' KHÔNG @bot → TRƯỚC đây bị gate im lặng →
+    # luồng revise treo. Fix: thread đang chờ pending_edit → cho qua gate + route revise.
+    from legalguard.domain.models import AnalysisCase, Conversation
+    from legalguard.domain.tenants import default_org
+    handler = ChatHandler(build_service(), build_parser(), InMemoryConversationStore(), "VN")
+    org = default_org("VN")
+    handler.service.cases.save(AnalysisCase(
+        id="cR", org_id=org.id, tenant="VN", created_at="t", lang="vi", contract_excerpt="",
+        summary="", needs_human_review=False,
+        risks=[{"clause": "Điều 5", "risk": "phạt 15%"}], fallbacks=[], trace=[]))
+
+    class _R:
+        available = True
+
+        def complete(self, prompt, *, system=None):
+            return "SỬA Điều 5: 15 ngày"
+
+    handler.service.reasoner = _R()
+    handler.store.save(Conversation(id="slack:C1:T1", context="deal", pending_edit="cR"))
+    sender = _FakeSender()
+    app = FastAPI()
+    app.include_router(build_channels_router(handler, slack_signing_secret="s",
+                                             slack_sender=sender, mention_only=True))
+    client = TestClient(app)
+    r = _slack_post(client, "s", {"authorizations": [{"user_id": "UBOT"}], "event": {
+        "type": "message", "channel": "C1", "user": "U1",
+        "text": "Điều 5 đổi thời hạn 15 ngày", "ts": "111.9", "thread_ts": "T1"}})   # KHÔNG @bot
+    assert r.status_code == 200
+    joined = " ".join(t for _, t in sender.sent)
+    assert "SỬA Điều 5" in joined                                   # qua gate + route revise (không im lặng)
+    assert handler.store.get("slack:C1:T1").pending_edit == ""      # đã xử lý → xóa cờ
+
+
+def test_non_mention_chatter_still_silent_without_pending_edit():
+    # Không có pending_edit → tin thread không @bot VẪN im lặng (giữ mention-gate cho chatter thường).
+    handler = ChatHandler(build_service(), build_parser(), InMemoryConversationStore(), "VN")
+    sender = _FakeSender()
+    app = FastAPI()
+    app.include_router(build_channels_router(handler, slack_signing_secret="s",
+                                             slack_sender=sender, mention_only=True))
+    client = TestClient(app)
+    r = _slack_post(client, "s", {"authorizations": [{"user_id": "UBOT"}], "event": {
+        "type": "message", "channel": "C1", "user": "U1", "text": "anh em ăn trưa chưa",
+        "ts": "222.1", "thread_ts": "T9"}})
+    assert r.status_code == 200 and r.json() == {"ok": True} and not sender.sent   # im lặng
+
+
 def test_pending_edit_routes_to_revise_and_clears():
     # Đang chờ 'Sửa lại' (pending_edit) → tin kế = yêu cầu sửa → soạn lại (KHÔNG rà soát lại) + xóa cờ.
     from legalguard.domain.models import AnalysisCase, Conversation

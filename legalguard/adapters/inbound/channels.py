@@ -1593,7 +1593,13 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             is_dm = event.get("channel_type") == "im"
             mentioned = etype == "app_mention" or _mentions(text, bot_uid)
             if mention_only and not (is_dm or mentioned):
-                return {"ok": True}
+                # NGOẠI LỆ: tin REPLY trong thread ĐANG CHỜ 'Sửa lại' (pending_edit) → tin NÀY là yêu cầu sửa
+                # của user (không @bot vẫn phải xử lý, nếu không luồng revise treo). Chỉ load conv cho
+                # reply-trong-thread bị gate (event.thread_ts có) → ít overhead + giữ im lặng chatter top-level.
+                _root = event.get("thread_ts")
+                _pc = handler.store.get(f"slack:{channel}:{_root}") if _root else None
+                if not (_pc and _pc.pending_edit):
+                    return {"ok": True}
             # Dedup theo (channel, ts) — KHÔNG dedup theo loại event: event `message` chắc chắn
             # mang `files`, còn `app_mention` không đảm bảo → event nào tới trước thì xử lý.
             ts = event.get("ts") or event.get("event_ts") or ""
