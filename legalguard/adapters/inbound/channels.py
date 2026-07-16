@@ -1015,6 +1015,7 @@ def _send_redline(service: AnalysisService, sender: ChatSenderPort, org_id: str,
     """Chạy nền (nút 📄): nạp case (cô lập org) → dựng bản ĐỐI CHIẾU .docx → upload vào thread. Lỗi/không
     hỗ trợ → báo text (bản đối chiếu vẫn tải được trên web /app)."""
     try:
+        _safe_send(sender, send_to, "Đang tạo bản đối chiếu (.docx), chờ giây lát…", thread_ts)  # phản hồi tức thì khi bấm
         case = service.get_case(case_id)
         if case is None or getattr(case, "org_id", None) != org_id:
             _safe_send(sender, send_to, "Không tìm thấy hồ sơ rà soát để tạo bản đối chiếu "

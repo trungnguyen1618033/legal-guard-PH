@@ -1101,6 +1101,7 @@ def test_send_redline_uploads_docx():
     up = getattr(sender, "uploaded", [])
     assert len(up) == 1 and up[0][1] == "ban-doi-chieu-sua-doi.docx" and up[0][3] == "th1"
     assert up[0][2] > 500                            # docx bytes
+    assert any("đang tạo bản đối chiếu" in t.lower() for _, t in sender.sent)   # phản hồi tức thì khi bấm
 
 
 def test_send_redline_wrong_org_or_missing():
