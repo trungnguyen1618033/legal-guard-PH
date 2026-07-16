@@ -94,6 +94,24 @@ def test_analyze_mode_fast_long_map_reduce():
     assert len(clauses) == len(set(clauses)), f"clause trùng: {clauses}"
 
 
+def test_fast_llm_error_surfaces_failed_window():
+    """FIX B: LLM lỗi ở fast → KHÔNG nuốt âm thầm; post-agent gắn note 'phân đoạn lỗi — chưa rà hết' + human-review."""
+    from legalguard.config.container import build_service
+    from legalguard.domain.ports import LLMError
+
+    class _Boom(_FakeReasoner):
+        def complete(self, prompt, *, system=None):
+            raise LLMError("qwen", "rate limit")       # mô phỏng 429 hết retry
+
+    svc = build_service()
+    svc.reasoner = svc.fast_review_llm = _Boom()
+    svc.legal_basis_grounding = svc.illegal_detection = svc.nli_verification = False
+    svc.auto_counter_on_analyze = False
+    res = svc.analyze("Bên B phạt 30%.", Organization(id="default", country="VN"), lang="vi", mode="fast")
+    assert res.needs_human_review is True
+    assert any("phân đoạn lỗi" in n.lower() or "chưa rà" in n.lower() for n in res.notes), res.notes
+
+
 def test_dedupe_clause_keeps_most_severe():
     """FIX A: _dedupe_clause gộp cùng clause, giữ mục nặng nhất (severity→priority), giữ thứ tự."""
     from legalguard.domain.analysis import _dedupe_clause

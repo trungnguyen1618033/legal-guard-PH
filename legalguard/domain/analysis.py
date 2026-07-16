@@ -790,13 +790,17 @@ class AnalysisService:
             trace, truncated, failed_windows = [], False, 0
             if text_chars <= _FAST_MAX:               # HĐ ngắn/vừa → 1 call
                 windows, route = [contract_text], {"label": "nhanh (1-call)", "max_iters": 1}
-                strategy = fast_review(self.fast_review_llm, contract_text, jurisdiction.country, lang,
-                                       position, ctx, on_progress=on_progress)
+                try:
+                    strategy = fast_review(self.fast_review_llm, contract_text, jurisdiction.country, lang,
+                                           position, ctx, on_progress=on_progress)
+                except LLMError as exc:               # LLM lỗi → 1 cửa sổ lỗi (post-agent gắn note 'chưa rà hết')
+                    _log.warning("fast-path lỗi LLM: %s", exc)
+                    strategy, failed_windows = "", 1
             else:                                     # HĐ DÀI → MAP-REDUCE: fast_review/chunk, concurrency
                 windows = _fast_windows(contract_text)   # chunk lớn (_FAST_MAX) → ít call, còn trong vùng attention
                 route = {"label": f"nhanh (map {len(windows)} cửa sổ)", "max_iters": 1}
-                strategy = self._fast_map_reduce(windows, ctx, jurisdiction.country, lang, position,
-                                                 on_progress)
+                strategy, failed_windows = self._fast_map_reduce(windows, ctx, jurisdiction.country, lang,
+                                                                 position, on_progress)
             ctx.needs_human_review = True             # màn sàng lọc nhanh → luôn cần người duyệt
             # Fast: dedup theo CLAUSE (gộp overlap cửa sổ + LLM lặp cùng điều khoản) — 1 mục/điều khoản.
             ctx.risks, ctx.fallbacks = _dedupe_clause(ctx.risks), _dedupe_clause(ctx.fallbacks)
@@ -877,10 +881,11 @@ class AnalysisService:
             redacted_n=redacted_n, text_chars=text_chars, route=route, windows=windows, t0=t0)
 
     def _fast_map_reduce(self, windows: list, ctx: AgentContext, country: str, lang: str,
-                         position: NegotiationPosition | None, on_progress) -> str:
+                         position: NegotiationPosition | None, on_progress) -> tuple[str, int]:
         """MAP-REDUCE fast cho HĐ DÀI: fast_review 1 call/cửa sổ, SONG SONG có TRẦN (_FAST_CONCURRENCY) chống
         burst rate-limit (nút thắt 15'), backoff 429 ở _http. Merge risks/fallbacks vào `ctx` (dedupe ở caller).
-        Trả chiến lược không-rỗng đầu tiên (fast = sàng lọc, không cần chiến lược hợp nhất hoàn hảo)."""
+        Trả (chiến lược không-rỗng đầu tiên, SỐ CỬA SỔ LỖI) — cửa sổ lỗi LLM KHÔNG nuốt âm thầm (post-agent
+        gắn note 'N phân đoạn lỗi — chưa rà hết')."""
         from legalguard.domain.fast_review import fast_review
         subctxs = [AgentContext(retriever=ctx.retriever) for _ in windows]
         prog, lock = [0] * len(windows), threading.Lock()
@@ -896,17 +901,24 @@ class AnalysisService:
             except Exception:  # noqa: BLE001 — progress phụ
                 pass
 
-        def _one(i: int) -> str:
+        def _one(i: int) -> str | None:
+            # Lỗi LLM 1 cửa sổ KHÔNG xóa cửa sổ khác → trả None (đếm lỗi), gom risk các cửa sổ còn lại.
             cb = (lambda ev, _i=i: _emit(_i, ev)) if on_progress else None
-            return fast_review(self.fast_review_llm, windows[i], country, lang, position, subctxs[i],
-                               on_progress=cb)
+            try:
+                return fast_review(self.fast_review_llm, windows[i], country, lang, position, subctxs[i],
+                                   on_progress=cb)
+            except LLMError as exc:
+                _log.warning("fast map-reduce cửa sổ %d lỗi LLM: %s", i, exc)
+                return None
 
         with ThreadPoolExecutor(max_workers=min(_FAST_CONCURRENCY, len(windows))) as pool:
             strategies = list(pool.map(_one, range(len(windows))))
         for sc in subctxs:                            # REDUCE: gộp (dedupe ở caller)
             ctx.risks += sc.risks
             ctx.fallbacks += sc.fallbacks
-        return next((s for s in strategies if s and s.strip()), "")
+        failed = sum(1 for s in strategies if s is None)
+        strategy = next((s for s in strategies if s and s.strip()), "")
+        return strategy, failed
 
     def _finish_analyze(self, *, ctx: AgentContext, org: Organization, jurisdiction,
                         contract_text: str, retriever, lang: str,

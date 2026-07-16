@@ -76,17 +76,16 @@ def _parse(raw: str) -> dict:
 def fast_review(reasoner: LLMPort, contract_text: str, country: str, lang: str,
                 position: NegotiationPosition | None, ctx: AgentContext,
                 on_progress: "Callable[[dict], None] | None" = None) -> str:
-    """1 call flagship → trích rủi ro/fallback vào `ctx` (qua execute_tool) → trả strategy. Lỗi/parse hỏng →
-    ctx rỗng + strategy rỗng (không bịa; caller đánh dấu cần người duyệt). KHÔNG bail khi !available — để
-    `complete` xử lý (stub JSON offline, như deep dùng chat-stub → fast chạy được trong test/demo)."""
+    """1 call flagship → trích rủi ro/fallback vào `ctx` (qua execute_tool) → trả strategy. Parse hỏng → ctx
+    rỗng (không bịa). LLM LỖI (LLMError) → NỔI LÊN cho caller đếm cửa sổ lỗi (không nuốt → không mất đoạn âm
+    thầm). KHÔNG bail khi !available — `complete` xử lý (stub JSON offline, như deep dùng chat-stub → test/demo)."""
     pos = position or NegotiationPosition()
     protected = pos.protected_party.strip() or f"the SME client in {country}"
     prompt = (f"BÊN ĐƯỢC BẢO VỆ: {protected}. Vị thế: leverage={pos.leverage}, urgency={pos.urgency}, "
               f"BATNA={pos.alternatives}.\n\n<<<HỢP ĐỒNG>>>\n{contract_text}\n<<<HẾT>>>")
-    try:
-        parsed = _parse(reasoner.complete(prompt, system=_SYSTEM.replace("__COUNTRY__", country)))
-    except Exception:  # noqa: BLE001 — LLM lỗi → rỗng an toàn (caller vẫn trả result + cần người duyệt)
-        return ""
+    # LLM lỗi (rate-limit hết retry…) → ĐỂ NỔI LÊN cho caller ĐẾM cửa sổ lỗi (map-reduce) / đánh dấu (single)
+    # → post-agent gắn note "N phân đoạn lỗi — chưa rà hết". KHÔNG nuốt (chống mất cả đoạn ÂM THẦM).
+    parsed = _parse(reasoner.complete(prompt, system=_SYSTEM.replace("__COUNTRY__", country)))
     for r in (parsed.get("risks") or [])[:30]:        # trần chống output rác phình
         if isinstance(r, dict):
             execute_tool("flag_risk", r, ctx)         # dùng CHUNG QA (ép enum) + shape Risk với agent
