@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from starlette.concurrency import run_in_threadpool
 
 from legalguard.domain.analysis import AnalysisService
 from legalguard.domain.models import (
@@ -1140,14 +1141,15 @@ def _post_response_url(response_url: str, body: dict) -> None:
         _log.exception("POST response_url lỗi")
 
 
-def _slack_update_msg(payload: dict, background, body: dict) -> dict:
-    """Response cập nhật TIN GỐC của interaction. Trả `replace_original` TRỰC TIẾP trong HTTP response hay
-    bị Slack BỎ QUA (đo thực tế trên workspace này — cả text lẫn blocks) → POST qua `response_url` (cách
-    tin cậy). Thiếu response_url → fallback trả trực tiếp. `body` = phần nội dung (text/blocks…)."""
+async def _slack_update_msg(payload: dict, body: dict) -> dict:
+    """Cập nhật TIN GỐC của interaction. Trả `replace_original` TRỰC TIẾP trong HTTP response hay bị Slack
+    BỎ QUA (đo thực tế workspace này — cả text lẫn blocks) → POST qua `response_url`. AWAIT NGAY trong request
+    (run_in_threadpool — POST sync chạy off-event-loop) để Slack nhận lệnh đổi ~cùng lúc ack, KHÔNG đợi bg
+    lên lịch sau response (bớt độ trễ). Thiếu response_url → fallback trả trực tiếp. `body` = text/blocks…"""
     upd = {"replace_original": True, **body}
     resp_url = payload.get("response_url", "")
     if resp_url:
-        background.add_task(_post_response_url, resp_url, upd)
+        await run_in_threadpool(_post_response_url, resp_url, upd)
         return {"ok": True}
     return upd
 
@@ -1644,12 +1646,12 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             if aid == "retry_run":                 # nút 🔁 THỬ LẠI sau lỗi → chạy lại payload đã lưu
                 payload_r = _retry_store.pop(ctx.get("k", ""))   # pop = one-shot (double-click lần 2 → hết hạn)
                 if payload_r is None or not (slack_sender and slack_sender.available):
-                    return _slack_update_msg(payload, background,
+                    return await _slack_update_msg(payload,
                                              {"text": "Phiên thử lại đã hết hạn — vui lòng gửi lại tin nhắn."})
                 conv_key, send_to, r_text, r_url, r_fn, r_thread = payload_r   # conv_key riêng với retry_id
                 background.add_task(_process, handler, slack_sender, conv_key, send_to,
                                     r_text, r_url, r_fn, r_thread, max_upload_bytes, True)
-                return _slack_update_msg(payload, background,
+                return await _slack_update_msg(payload,
                                          {"text": "Đang thử lại — kết quả sẽ được gửi vào thread…"})
 
             if aid == "amend_ok":                  # nút per-risk: soạn điều khoản sửa HOẶC xác nhận áp dụng
@@ -1659,12 +1661,12 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 msg = payload.get("message") or {}
                 send_to = (payload.get("channel") or {}).get("id", "")
                 thread_ts = container.get("thread_ts") or msg.get("thread_ts") or msg.get("ts")
-                # Đổi nút '✅ Đã đồng ý sửa' NGAY (spawn cập nhật response_url TRƯỚC việc chậm → FastAPI chạy
-                # background TUẦN TỰ, nếu spawn sau _run_amend[LLM] thì nút phải đợi cả LLM mới đổi → user thấy
-                # trễ). Cập nhật qua response_url (Slack bỏ qua `blocks` ở HTTP response trực tiếp).
+                # Đổi nút '✅ Đã đồng ý sửa' NGAY: AWAIT cập nhật response_url TRONG request (immediate),
+                # RỒI mới spawn việc chậm (soạn LLM/ghi DB) vào bg → nút đổi trước, không đợi LLM. Cập nhật qua
+                # response_url (Slack bỏ qua `blocks` ở HTTP response trực tiếp trên workspace này).
                 new_blocks = _mark_button_agreed(msg.get("blocks") or [], action.get("block_id", ""))
                 resp = ({"ok": True} if new_blocks is None else
-                        _slack_update_msg(payload, background, {"text": "Đã đồng ý sửa", "blocks": new_blocks}))
+                        await _slack_update_msg(payload, {"text": "Đã đồng ý sửa", "blocks": new_blocks}))
                 # Việc chậm (ghi DB / soạn điều khoản LLM) chạy SAU cập nhật nút.
                 if ctx.get("dc"):                  # LỖI SOẠN THẢO (fix inline) → chỉ GHI NHẬN (clause trong value)
                     background.add_task(_confirm_drafting_fix, handler.service, slack_sender, org.id,
@@ -1700,11 +1702,11 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 msg = (f"Đã chốt — ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."
                        if aid == "rv_close" else
                        "Đã ghi nhận: cần sửa lại. Cảm ơn phản hồi của bạn.")
-                return _slack_update_msg(payload, background, {"text": msg})
+                return await _slack_update_msg(payload, {"text": msg})
 
             if aid in _OC_RESULT:                  # (tương thích ngược) nút kết quả đàm phán tin CŨ → flywheel
                 n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), _OC_RESULT[aid])
-                return _slack_update_msg(payload, background,
+                return await _slack_update_msg(payload,
                                          {"text": f"Đã ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."})
 
             rating = _FB_RATING.get(aid)
@@ -1718,7 +1720,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
                 _log.exception("Không ghi được feedback từ Slack")
             # Thay tin gốc bằng xác nhận (qua response_url — trực tiếp bị Slack bỏ qua) — ack <3s, không hammer LLM.
-            return _slack_update_msg(payload, background,
+            return await _slack_update_msg(payload,
                                      {"text": "Đã ghi nhận phản hồi của bạn. Cảm ơn bạn."})
 
     if zalo_oa_secret:
