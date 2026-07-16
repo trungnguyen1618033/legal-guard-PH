@@ -54,7 +54,7 @@ class _FakeService:
     def __init__(self):
         self.reasoner = _FakeReasoner()
 
-    def analyze(self, text, org, lang="vi", position=None, source=None, on_progress=None):
+    def analyze(self, text, org, lang="vi", position=None, source=None, on_progress=None, mode="deep"):
         return AnalysisResult(tenant="VN", risks=[{"clause": "X", "risk": "r", "severity": "high",
                               "priority": "must_fix"}], fallbacks=[], needs_human_review=False,
                               review_reasons=[], summary="s", trace=[], strategy="giữ X")

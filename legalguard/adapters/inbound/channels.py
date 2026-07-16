@@ -176,6 +176,16 @@ def _wants_whole_contract_review(text: str) -> bool:
     return bool(text and _REVIEW_REQ_RE.search(text))
 
 
+_DEEP_REVIEW_RE = re.compile(
+    r"(rà\s*(soát\s*)?kỹ|kỹ\s*(càng|lưỡng)|(phân tích|rà)\s*sâu|chuyên\s*sâu|chi\s*tiết|thật\s*kỹ"
+    r"|\bdeep\b|\bthorough)", re.IGNORECASE)
+
+
+def _wants_deep_review(text: str) -> bool:
+    """User yêu cầu RÀ KỸ → deep (chấp nhận chờ ~2-15'); mặc định fast (nhanh, map-reduce cho HĐ dài)."""
+    return bool(text and _DEEP_REVIEW_RE.search(text))
+
+
 def _mentions(text: str, uid: str) -> bool:
     """text có mention user `uid` không — chịu cả 2 dạng Slack: `<@Uxxx>` và `<@Uxxx|tên hiển thị>`.
     Dùng cho MENTION GATE (dạng có `|tên` mà chỉ so substring `<@Uxxx>` sẽ TRƯỢT → bot im lặng oan)."""
@@ -701,9 +711,12 @@ class ChatHandler:
             hint = _extract_protected_hint(text or "") if (attachment is not None
                                                            or len(text or "") < 300) else ""
             position = NegotiationPosition(protected_party=hint) if hint else None
+            # Slack MẶC ĐỊNH fast (~7-30s kể cả HĐ dài nhờ map-reduce) — deep ~2-15' quá lâu cho chat.
+            # Opt-in deep khi user yêu cầu rõ ("rà kỹ"/"sâu"/"deep"/"chi tiết") → chấp nhận chờ.
+            a_mode = "deep" if _wants_deep_review(text or "") else "fast"
             try:
                 result = self.service.analyze(contract, org, lang=lang, position=position,
-                                              source=source, on_progress=on_progress)
+                                              source=source, on_progress=on_progress, mode=a_mode)
             except (ValueError, LLMError) as exc:
                 return ChatReply(f"Xin lỗi, chưa xử lý được: {exc}")
             conv.context = _context_from_result(result)    # nhớ deal đang bàn

@@ -76,10 +76,9 @@ def _parse(raw: str) -> dict:
 def fast_review(reasoner: LLMPort, contract_text: str, country: str, lang: str,
                 position: NegotiationPosition | None, ctx: AgentContext,
                 on_progress: "Callable[[dict], None] | None" = None) -> str:
-    """1 call flagship → trích rủi ro/fallback vào `ctx` (qua execute_tool) → trả strategy. Offline/lỗi/parse
-    hỏng → ctx rỗng + strategy rỗng (không bịa; caller đánh dấu cần người duyệt)."""
-    if not reasoner.available:
-        return ""
+    """1 call flagship → trích rủi ro/fallback vào `ctx` (qua execute_tool) → trả strategy. Lỗi/parse hỏng →
+    ctx rỗng + strategy rỗng (không bịa; caller đánh dấu cần người duyệt). KHÔNG bail khi !available — để
+    `complete` xử lý (stub JSON offline, như deep dùng chat-stub → fast chạy được trong test/demo)."""
     pos = position or NegotiationPosition()
     protected = pos.protected_party.strip() or f"the SME client in {country}"
     prompt = (f"BÊN ĐƯỢC BẢO VỆ: {protected}. Vị thế: leverage={pos.leverage}, urgency={pos.urgency}, "

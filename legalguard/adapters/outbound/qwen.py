@@ -60,6 +60,26 @@ _HR_REASON = {"en": "High-severity clause requires expert review",
               "vi": "Có điều khoản rủi ro cao cần chuyên gia duyệt"}
 
 
+def _stub_complete(prompt: str, system: str | None) -> str:
+    """STUB `complete` (không key). Nếu là fast_review (system chứa 'RÀ SOÁT NHANH') → trả JSON
+    {risks,fallbacks,strategy} dựng từ _STUB_PATTERNS khớp HĐ (để fast chạy trong test như deep-stub).
+    Các complete khác (classify/summary/counter) → text stub thường."""
+    if "RÀ SOÁT NHANH" in (system or ""):
+        low = (prompt or "").lower()
+        risks, fbs = [], []
+        for p in _STUB_PATTERNS:
+            if re.search(p["pat"], low):
+                risks.append({"clause": p["clause"]["vi"], "risk": p["risk"]["vi"],
+                              "evidence": p["clause"]["vi"], "severity": p["severity"],
+                              "priority": p["priority"], "legal_status": p.get("legal_status", "unfavorable"),
+                              "violated_law": p.get("violated_law", "")})
+                fbs.append({"clause": p["clause"]["vi"], "suggestion": p["suggestion"]["vi"],
+                            "english_reply": p["english_reply"]})
+        return json.dumps({"risks": risks, "fallbacks": fbs,
+                           "strategy": "[QWEN_STUB] Giữ điểm must_fix, nhượng điểm phụ."}, ensure_ascii=False)
+    return f"[QWEN_STUB] {prompt[:120]}…"
+
+
 class QwenAdapter(LLMPort):
     name = "qwen"
 
@@ -78,7 +98,7 @@ class QwenAdapter(LLMPort):
 
     def complete(self, prompt: str, *, system: str | None = None) -> str:
         if not self.available:
-            return f"[QWEN_STUB] {prompt[:120]}…"
+            return _stub_complete(prompt, system)
         messages = ([{"role": "system", "content": system}] if system else []) + \
                    [{"role": "user", "content": prompt}]
         data = self._post_chat({"model": self.model, "messages": messages,

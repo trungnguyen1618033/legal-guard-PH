@@ -41,14 +41,15 @@ def test_fast_review_populates_ctx_via_execute_tool():
     assert len(ctx.fallbacks) == 1 and ctx.fallbacks[0].suggestion == "rút 30 ngày"
 
 
-def test_fast_review_offline_returns_empty():
-    class _Off(_FakeReasoner):
-        @property
-        def available(self):
-            return False
+def test_fast_review_garbage_returns_empty():
+    """complete trả RÁC (không JSON) → fast an toàn rỗng, KHÔNG bịa. (Offline giờ chạy qua complete-stub như
+    deep dùng chat-stub — không còn bail sớm ở !available.)"""
+    class _Garbage(_FakeReasoner):
+        def complete(self, prompt, *, system=None):
+            return "xin lỗi tôi không thể phân tích"    # không phải JSON
 
     ctx = AgentContext(retriever=None)
-    assert fast_review(_Off(), "HĐ", "VN", "vi", None, ctx) == "" and ctx.risks == []
+    assert fast_review(_Garbage(), "HĐ", "VN", "vi", None, ctx) == "" and ctx.risks == []
 
 
 def test_analyze_mode_fast_end_to_end():
@@ -73,3 +74,19 @@ def test_analyze_mode_fast_end_to_end():
     assert "RÀ NHANH" in format_chat_reply(res, lang="vi")
     # fast BỎ auto-counter (fast_auto_counter=False) → không risk nào có counter_clause inline (soạn on-demand)
     assert all(not r.get("counter_clause") for r in res.risks)
+
+
+def test_analyze_mode_fast_long_map_reduce():
+    """HĐ DÀI (>_FAST_MAX) + mode=fast → MAP-REDUCE nhiều cửa sổ (chống 15' deep), KHÔNG rơi về deep."""
+    from legalguard.config.container import build_service
+    from legalguard.domain import analysis as A
+    svc = build_service()
+    svc.reasoner = svc.fast_review_llm = _FakeReasoner()
+    svc.auto_counter_on_analyze = False
+    svc.legal_basis_grounding = svc.illegal_detection = svc.nli_verification = False
+    long_contract = "Điều 5. Phạt vi phạm 30%. " + ("x" * 30000)   # > _FAST_MAX (12000) → nhiều cửa sổ
+    assert len(A._fast_windows(long_contract)) >= 3                 # thực sự chia map
+    res = svc.analyze(long_contract, Organization(id="default", country="VN"), lang="vi", mode="fast")
+    assert res.needs_human_review is True
+    assert any("map" in n.lower() for n in res.notes)              # route note = 'nhanh (map N cửa sổ)'
+    assert len(res.risks) >= 1                                     # gộp + dedupe từ các cửa sổ

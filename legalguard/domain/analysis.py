@@ -57,7 +57,8 @@ _log = logging.getLogger(__name__)
 _CHUNK = 6000        # ký tự / cửa sổ cho hợp đồng dài
 _OVERLAP = 400       # chồng lấn để không cắt mất điều khoản ở biên
 _SIMPLE_MAX = 1500   # ngưỡng "đơn giản" cho adaptive routing
-_FAST_MAX = 12000    # trần ký tự cho fast-path (1 call, không cửa sổ) — HĐ dài hơn nên dùng deep
+_FAST_MAX = 12000    # ký tự/cửa sổ fast: ≤ → 1 call; > → MAP-REDUCE chunk _FAST_MAX (fast_review/chunk)
+_FAST_CONCURRENCY = 4  # trần call flash SONG SONG khi map HĐ dài (chống burst rate-limit — nút thắt 15')
 # Câu hỏi point-in-time (có năm 19xx/20xx hoặc ngày d/m/y) cần suy luận thời điểm → dùng flagship,
 # không dùng model nhanh (qwen-plus yếu hơn ở reasoning thời điểm — đã đo). Hybrid lookup.
 _PIT_RE = re.compile(r"\b(?:19|20)\d{2}\b|\b\d{1,2}/\d{1,2}/\d{2,4}\b")
@@ -179,6 +180,18 @@ def _windows(text: str) -> list[str]:
     while i < len(text):
         out.append(text[i:i + _CHUNK])
         i += _CHUNK - _OVERLAP
+    return out
+
+
+def _fast_windows(text: str) -> list[str]:
+    """Chunk cho MAP-REDUCE fast: cửa sổ _FAST_MAX ký tự (lớn hơn deep → ÍT call hơn, vẫn trong vùng attention
+    an toàn ~4k token nên KHÔNG lost-in-middle). Overlap để không cắt mất điều khoản ở biên."""
+    if len(text) <= _FAST_MAX:
+        return [text]
+    out, i = [], 0
+    while i < len(text):
+        out.append(text[i:i + _FAST_MAX])
+        i += _FAST_MAX - _OVERLAP
     return out
 
 
@@ -729,15 +742,21 @@ class AnalysisService:
         # ĐỘ CHÍNH XÁC: fast NÔNG hơn deep (1-call, KHÔNG tra KB/rủi ro) — model nhanh bỏ sót ~12.5% trái luật
         # → LUÔN needs_human_review; deep vẫn mặc định. _detect_illegal chỉ NÂNG under-flag (hướng bỏ sót có thể
         # được cứu 1 phần nếu grounding tìm ra điều luật), KHÔNG hạ over-flag; lưới an toàn = bắt buộc người duyệt.
-        if mode == "fast" and text_chars <= _FAST_MAX:
+        if mode == "fast":
             from legalguard.domain.fast_review import fast_review
-            windows, route = [contract_text], {"label": "nhanh (1-call)", "max_iters": 1}
             trace, truncated, failed_windows = [], False, 0
-            strategy = fast_review(self.fast_review_llm, contract_text, jurisdiction.country, lang,
-                                   position, ctx, on_progress=on_progress)
+            if text_chars <= _FAST_MAX:               # HĐ ngắn/vừa → 1 call
+                windows, route = [contract_text], {"label": "nhanh (1-call)", "max_iters": 1}
+                strategy = fast_review(self.fast_review_llm, contract_text, jurisdiction.country, lang,
+                                       position, ctx, on_progress=on_progress)
+            else:                                     # HĐ DÀI → MAP-REDUCE: fast_review/chunk, concurrency
+                windows = _fast_windows(contract_text)   # chunk lớn (_FAST_MAX) → ít call, còn trong vùng attention
+                route = {"label": f"nhanh (map {len(windows)} cửa sổ)", "max_iters": 1}
+                strategy = self._fast_map_reduce(windows, ctx, jurisdiction.country, lang, position,
+                                                 on_progress)
             ctx.needs_human_review = True             # màn sàng lọc nhanh → luôn cần người duyệt
             ctx.risks, ctx.fallbacks = _dedupe(ctx.risks), _dedupe(ctx.fallbacks)
-            _log.info("fast-path (1 call) %dms", round((time.monotonic() - t0) * 1000))
+            _log.info("fast-path (%d cửa sổ) %dms", len(windows), round((time.monotonic() - t0) * 1000))
             return self._finish_analyze(
                 ctx=ctx, org=org, jurisdiction=jurisdiction, contract_text=contract_text,
                 retriever=retriever, lang=lang, position=position, source=source, case_id=case_id,
@@ -812,6 +831,38 @@ class AnalysisService:
             retriever=retriever, lang=lang, position=position, source=source, case_id=case_id,
             strategy=strategy, trace=trace, truncated=truncated, failed_windows=failed_windows,
             redacted_n=redacted_n, text_chars=text_chars, route=route, windows=windows, t0=t0)
+
+    def _fast_map_reduce(self, windows: list, ctx: AgentContext, country: str, lang: str,
+                         position: NegotiationPosition | None, on_progress) -> str:
+        """MAP-REDUCE fast cho HĐ DÀI: fast_review 1 call/cửa sổ, SONG SONG có TRẦN (_FAST_CONCURRENCY) chống
+        burst rate-limit (nút thắt 15'), backoff 429 ở _http. Merge risks/fallbacks vào `ctx` (dedupe ở caller).
+        Trả chiến lược không-rỗng đầu tiên (fast = sàng lọc, không cần chiến lược hợp nhất hoàn hảo)."""
+        from legalguard.domain.fast_review import fast_review
+        subctxs = [AgentContext(retriever=ctx.retriever) for _ in windows]
+        prog, lock = [0] * len(windows), threading.Lock()
+
+        def _emit(i: int, ev: dict):
+            if on_progress is None:
+                return
+            with lock:
+                prog[i] = ev.get("risks", 0)
+                total = sum(prog)
+            try:
+                on_progress({"risks": total, "windows": len(windows)})
+            except Exception:  # noqa: BLE001 — progress phụ
+                pass
+
+        def _one(i: int) -> str:
+            cb = (lambda ev, _i=i: _emit(_i, ev)) if on_progress else None
+            return fast_review(self.fast_review_llm, windows[i], country, lang, position, subctxs[i],
+                               on_progress=cb)
+
+        with ThreadPoolExecutor(max_workers=min(_FAST_CONCURRENCY, len(windows))) as pool:
+            strategies = list(pool.map(_one, range(len(windows))))
+        for sc in subctxs:                            # REDUCE: gộp (dedupe ở caller)
+            ctx.risks += sc.risks
+            ctx.fallbacks += sc.fallbacks
+        return next((s for s in strategies if s and s.strip()), "")
 
     def _finish_analyze(self, *, ctx: AgentContext, org: Organization, jurisdiction,
                         contract_text: str, retriever, lang: str,
