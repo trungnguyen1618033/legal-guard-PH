@@ -1208,6 +1208,8 @@ def test_revise_reply_passes_mention_gate_when_pending_edit():
     joined = " ".join(t for _, t in sender.sent)
     assert "SỬA Điều 5" in joined                                   # qua gate + route revise (không im lặng)
     assert handler.store.get("slack:C1:T1").pending_edit == ""      # đã xử lý → xóa cờ
+    aids = {e["action_id"] for b in (sender.blocks or []) if b.get("type") == "actions" for e in b["elements"]}
+    assert {"rv_revise", "rv_close"} <= aids                        # nhắc: [Sửa điều khác][Chốt] ngay dưới bản sửa
 
 
 def test_non_mention_chatter_still_silent_without_pending_edit():
@@ -1245,6 +1247,7 @@ def test_pending_edit_routes_to_revise_and_clears():
     h.store.save(Conversation(id="kEdit", context="deal đang bàn", pending_edit="cE"))
     r = h.reply_ex("kEdit", text="Điều 5 đổi thời hạn còn 15 ngày")
     assert "SỬA Điều 5" in r.text                       # đã soạn lại theo ý (không phải reply rà soát/lookup)
+    assert r.kind == "revised" and r.ref == "cE"        # → _process gắn nút [Sửa điều khác][Chốt]
     assert h.store.get("kEdit").pending_edit == ""      # one-shot: cờ đã xóa
 
 

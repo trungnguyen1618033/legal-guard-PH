@@ -690,7 +690,8 @@ class ChatHandler:
             m = _CLAUSE_REF_RE.search(text or "")           # nhật ký quyết định 'revised' → tổng hợp Chốt
             clause_key = m.group(0) if m else (text or "").strip()[:50]
             conv.decisions = _decisions_append(conv.decisions, clause_key, "revised", revised)
-            return ChatReply(_with_ai_disclosure(revised))
+            # kind='revised' → _process gắn nút [Sửa điều khác][Chốt] ngay dưới (nhắc tiếp, khỏi cuộn lên)
+            return ChatReply(_with_ai_disclosure(revised), "revised", case_id)
         # Bảng help CHỈ khi CHƯA vào deal/thread. Đang rà soát (đã analyze → conv.context) hoặc giữa thread
         # thì "help me…"/"giúp…" là HỎI TIẾP, KHÔNG phải xin hướng dẫn dùng bot (user báo: upload file →
         # hỏi → hỏi lại thì bot trả HELP thay vì trả lời tiếp).
@@ -1014,6 +1015,20 @@ def _review_action_blocks(kind: str, ref: str) -> list[dict]:
     if ref:                                    # có case_id → nút tải BẢN ĐỐI CHIẾU .docx (redline)
         els.append(btn("📄 Bản đối chiếu", "redline_dl"))
     return [{"type": "actions", "block_id": "lg_review", "elements": els}]
+
+
+def _revise_next_blocks(ref: str) -> list[dict]:
+    """Sau bản 'Sửa lại': nhắc + nút [Sửa điều khác] / [Chốt] NGAY tại chỗ (khỏi cuộn lên tin gốc; bấm nút =
+    interaction nên KHÔNG cần @bot). Tái dùng action_id rv_revise/rv_close."""
+    val = json.dumps({"k": "analysis", "r": ref[:300], "c": ref[:120]}, ensure_ascii=False)
+    return [
+        {"type": "context", "elements": [{"type": "mrkdwn", "text": "Đã ghi nhận sửa điều này — sẽ vào bản "
+                                          "tổng hợp. Sửa tiếp điều khác, hoặc bấm Chốt để xem tổng hợp:"}]},
+        {"type": "actions", "block_id": "lg_revise_next", "elements": [
+            {"type": "button", "text": {"type": "plain_text", "text": "Sửa điều khác", "emoji": True},
+             "action_id": "rv_revise", "value": val},
+            {"type": "button", "text": {"type": "plain_text", "text": "Chốt", "emoji": True},
+             "action_id": "rv_close", "style": "primary", "value": val}]}]
 
 
 def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, result: str) -> int:
@@ -1573,6 +1588,8 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
                 # 2 nút quyết định Chốt / Sửa lại (gộp kết quả đàm phán + feedback). prefix vd "🔄" khi chạy lại.
                 blocks = _analysis_blocks(res.result, res.ref, reply_prefix)
                 blocks += _review_action_blocks(res.kind, res.ref)
+            elif res.kind == "revised":            # bản 'Sửa lại' → nhắc + nút [Sửa điều khác][Chốt] tại chỗ
+                blocks = [*_mrkdwn_blocks(reply), *_revise_next_blocks(res.ref)]
             else:
                 # Chia reply thành nhiều block (không cụt ở 2900) rồi mới tới nút feedback.
                 blocks = [*_mrkdwn_blocks(reply), *_feedback_blocks(res.kind, res.ref)]
