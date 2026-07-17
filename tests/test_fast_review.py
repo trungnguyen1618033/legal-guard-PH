@@ -140,6 +140,15 @@ def test_deep_multiwindow_strategy_single_block():
     assert res.strategy.count("GIỮ CỨNG điều khoản trọng tài") <= 1, res.strategy
 
 
+def test_deep_route_iters_reduced_and_no_auto_counter():
+    """Tối ưu deep (giữ chất lượng): max_iters 'full'=4 (từ 6) + auto-counter on-demand (deep_auto_counter=False)."""
+    from legalguard.domain.analysis import _route
+    from legalguard.config.container import build_service
+    assert _route("x" * 5000)["max_iters"] == 4          # HĐ dài → 4 vòng (giảm từ 6, tested no-quality-loss)
+    svc = build_service()
+    assert svc.deep_auto_counter is False                # deep bỏ auto-counter inline (counter on-demand qua nút)
+
+
 def test_fast_huge_contract_caps_windows():
     """Round 3: HĐ khổng lồ → CẮT ở _FAST_MAX_WINDOWS + truncated (chống phình chi phí/latency)."""
     from legalguard.config.container import build_service

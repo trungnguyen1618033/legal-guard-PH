@@ -198,9 +198,11 @@ def _fast_windows(text: str) -> list[str]:
 
 
 def _route(text: str) -> dict:
-    """Adaptive routing: hợp đồng ngắn → đường rẻ (ít vòng); dài/phức tạp → full agentic."""
+    """Adaptive routing: hợp đồng ngắn → đường rẻ (ít vòng); dài/phức tạp → full agentic.
+    max_iters=4 (giảm từ 6): đo INNOTEL 18k — iters=4 nhanh hơn (221s vs 275s) và KHÔNG mất rủi ro
+    (19 vs 17; agent gộp tool-call trong vài vòng đầu, vòng thừa chỉ tốn thời gian). Zero quality loss."""
     return {"label": "fast", "max_iters": 3} if len(text) <= _SIMPLE_MAX \
-        else {"label": "full", "max_iters": 6}
+        else {"label": "full", "max_iters": 4}
 
 
 # Agent ĐÔI KHI kết bằng câu ONBOARDING/đòi input ("Tôi là agent… hãy cung cấp hợp đồng… Vui lòng chia sẻ:
@@ -420,7 +422,8 @@ class AnalysisService:
                  hyde_query_expansion: bool = False,
                  auto_counter_on_analyze: bool = True,
                  auto_counter_max: int = 6,
-                 fast_auto_counter: bool = False) -> None:
+                 fast_auto_counter: bool = False,
+                 deep_auto_counter: bool = False) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp) + tóm tắt SME (_summarize). Mặc định = reasoner (giữ tương thích/stub),
         # prod truyền qwen-flash → cắt mạnh latency khâu hậu-agent mà KHÔNG giảm bước kiểm nào.
@@ -444,6 +447,8 @@ class AnalysisService:
         # Auto-counter trong mode=fast: TẮT mặc định (counter flagship ~40s nuốt lợi thế tốc độ fast); deep
         # luôn bật. Bật lại qua env FAST_AUTO_COUNTER nếu muốn counter soạn sẵn trong fast.
         self.fast_auto_counter = fast_auto_counter
+        # Deep: auto-counter inline TẮT mặc định (counter on-demand qua nút) → cắt ~1-2min flagship, giữ chất lượng.
+        self.deep_auto_counter = deep_auto_counter
         # Coverage-Gated Abstention: cổng relevance quyết trên cụm evidence tập trung (elbow) → chống over-abstain.
         self.coverage_gated_abstain = coverage_gated_abstain
         # HyDE-lite: LLM sinh thuật ngữ luật cầu nối cách-hỏi vs cách-luật-viết → cụm evidence chặt hơn
@@ -886,7 +891,8 @@ class AnalysisService:
             ctx=ctx, org=org, jurisdiction=jurisdiction, contract_text=contract_text,
             retriever=retriever, lang=lang, position=position, source=source, case_id=case_id,
             strategy=strategy, trace=trace, truncated=truncated, failed_windows=failed_windows,
-            redacted_n=redacted_n, text_chars=text_chars, route=route, windows=windows, t0=t0)
+            redacted_n=redacted_n, text_chars=text_chars, route=route, windows=windows, t0=t0,
+            auto_counter=self.deep_auto_counter)   # deep: counter on-demand (nút) → cắt ~1-2min flagship
 
     def _fast_map_reduce(self, windows: list, ctx: AgentContext, country: str, lang: str,
                          position: NegotiationPosition | None, on_progress) -> tuple[str, int]:

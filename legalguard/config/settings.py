@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # ~15-18s; người dùng vẫn soạn on-demand qua nút "Đồng ý sửa". Bật lại (FAST_AUTO_COUNTER=1) nếu muốn
     # counter soạn sẵn trong fast (chấp nhận chậm). KHÔNG ảnh hưởng deep (deep luôn auto-counter).
     fast_auto_counter: bool = False
+    # Auto-counter INLINE cho DEEP: mặc định TẮT (soạn ~6 counter flagship ~1-2min). Counter vẫn soạn on-demand
+    # qua nút 'Đồng ý sửa' → cắt latency giữ chất lượng RỦI RO. Bật lại DEEP_AUTO_COUNTER=1 nếu muốn inline.
+    deep_auto_counter: bool = False
     qwen_vl_model: str = "qwen3.7-plus"   # multimodal — OCR HĐ scan/ảnh (thay Qwen-VL, chính xác hơn)
     qwen_rerank_model: str = "qwen3-rerank"  # cross-encoder rerank (Model Studio: Qwen-Rerank, 100+ ngôn ngữ)
     llm_temperature: float = 0.1          # thấp = nhất quán/ổn định (legal cần xác định)
