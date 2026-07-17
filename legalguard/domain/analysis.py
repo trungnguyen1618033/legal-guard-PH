@@ -877,7 +877,9 @@ class AnalysisService:
             ctx.fallbacks += wctx.fallbacks
             ctx.needs_human_review = ctx.needs_human_review or wctx.needs_human_review
             ctx.review_reasons += wctx.review_reasons
-        strategy = "\n\n".join(strategies)
+        # 1 KHỐI chiến lược (cửa sổ đầu — đại diện, thường chứa điều khoản lõi). KHÔNG nối MỌI cửa sổ: HĐ nhiều
+        # cửa sổ → nối = khối TRÙNG LẶP + cửa sổ sau có thể phân loại lệch (vd sai loại HĐ). Risks list vẫn đủ.
+        strategy = strategies[0] if strategies else ""
         ctx.risks = _dedupe(ctx.risks)
         ctx.fallbacks = _dedupe(ctx.fallbacks)
         return self._finish_analyze(

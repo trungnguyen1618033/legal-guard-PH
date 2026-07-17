@@ -24,7 +24,8 @@ _SYSTEM = (
     'từ hợp đồng>","severity":"low|medium|high","priority":"must_fix|negotiate|acceptable","legal_status":'
     '"illegal|unfavorable","violated_law":"<điều luật nếu illegal, vd Điều 301>"}],'
     '"fallbacks":[{"clause":"<khớp clause ở trên>","suggestion":"<hướng sửa cụ thể>","english_reply":'
-    '"<câu gửi đối tác, tiếng Anh>"}],"strategy":"<chiến lược đàm phán: giữ gì/nhượng gì/điểm rút>"}\n'
+    '"<câu gửi đối tác, tiếng Anh>"}],"strategy":"PHẢI GIỮ: <điểm buộc giữ>. CÓ THỂ NHƯỢNG: <điểm nhượng '
+    'để chốt>. ĐIỂM RÚT (walk-away): <khi nào nên rút, theo BATNA>"}\n'
     "legal_status=illegal CHỈ khi vi phạm rõ quy định bắt buộc (vd phạt > trần 8% Điều 301); nghi ngờ → "
     "unfavorable (bảo thủ). CHỈ dùng thuật ngữ pháp lý VN chuẩn; KHÔNG bịa. Đây là RÀ SOÁT NHANH.\n"
     "CHỌN LỌC (giảm báo dư): CHỈ nêu điều khoản THỰC SỰ rủi ro/bất lợi cho BÊN ĐƯỢC BẢO VỆ hoặc trái luật. "

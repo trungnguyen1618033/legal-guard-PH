@@ -125,6 +125,21 @@ def test_analyze_mode_deep_only_from_short_instruction():
     assert _analyze_mode("rà kỹ", has_attachment=True) == "deep"         # caption file ngắn → deep OK
 
 
+def test_deep_multiwindow_strategy_single_block():
+    """Fix (3): deep HĐ nhiều cửa sổ → 1 KHỐI chiến lược (không nối trùng mọi cửa sổ). Dùng stub agent."""
+    from legalguard.config.container import build_service
+    from legalguard.domain import analysis as A
+    svc = build_service()   # stub LLM (no key) → _stub_chat trả strategy/cửa sổ
+    svc.legal_basis_grounding = svc.illegal_detection = svc.nli_verification = False
+    svc.auto_counter_on_analyze = False
+    # >_CHUNK → ≥2 cửa sổ; 'trọng tài' rải để mỗi cửa sổ sinh strategy giống nhau
+    contract = ("Điều khoản trọng tài tại Bắc Kinh. " * 40 + "x" * (A._CHUNK)) + " trọng tài Bắc Kinh."
+    assert len(A._windows(contract)) >= 2
+    res = svc.analyze(contract, Organization(id="default", country="VN"), lang="vi", mode="deep")
+    # chiến lược stub xuất hiện ĐÚNG 1 lần (trước fix: nối 2 cửa sổ → 2 lần)
+    assert res.strategy.count("GIỮ CỨNG điều khoản trọng tài") <= 1, res.strategy
+
+
 def test_fast_huge_contract_caps_windows():
     """Round 3: HĐ khổng lồ → CẮT ở _FAST_MAX_WINDOWS + truncated (chống phình chi phí/latency)."""
     from legalguard.config.container import build_service
