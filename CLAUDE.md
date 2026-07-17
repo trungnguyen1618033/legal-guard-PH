@@ -160,7 +160,9 @@ theo ý, song ngữ, không rà lại) → one-shot xoá cờ; rà soát mới c
 trong thread ĐANG CHỜ pending_edit → cho qua gate dù không @bot (nếu không luồng revise treo — bug e2e; chatter
 top-level không @bot VẪN im lặng). **Chốt = TỔNG HỢP (giữ bài)**: bấm 'Chốt' → đăng BẢN TỔNG HỢP tin mới
 (`_summary_from_decisions`: A đã đồng ý · B đã sửa theo ý · C chưa xử lý = clause case − đã quyết) + ghi
-win-rate/feedback, GIỮ bài + GIỮ nút (còn tải redline). Nguồn = `Conversation.decisions` (JSON, migration 0016;
+win-rate/feedback, GIỮ bài + GIỮ nút (còn tải redline). **Chốt khi CHƯA quyết gì → HỎI LẠI** 2 nút
+[Đồng ý TẤT CẢ đề xuất `rv_agree_all` → `_all_agreed_decisions` mọi clause=agreed] / [Để tôi chọn từng điều
+`rv_pick` → hướng dẫn] (không chốt vội). Nguồn = `Conversation.decisions` (JSON, migration 0016;
 ghi khi Đồng ý qua `_confirm_amend`/`_run_amend`/`_confirm_drafting_fix` + khi revise; dedup theo clause qua
 `_decisions_append`; reset khi rà soát mới). Web/app.html + Next.js dùng structured DTO (RiskItem 4 phần) +
 nút Chốt/Sửa lại (`ReviewDecision`) — CHƯA đồng bộ luồng Sửa-lại-hỏi-ý/tổng-hợp của Slack (Slack-only hiện tại).

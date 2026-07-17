@@ -998,7 +998,6 @@ _OC_RESULT = {"oc_accepted": "accepted", "oc_partial": "partial", "oc_rejected":
 #   Chốt  → outcome=accepted + feedback=helpful  (đồng ý, chốt deal)
 #   Sửa lại → outcome=rejected + feedback=wrong  (cần chỉnh, chưa ổn)
 # value mang cả {k: kind, r: ref-feedback, c: case_id} (với reply phân tích, ref == case_id).
-_RV_ACTION = {"rv_close": ("accepted", "helpful")}   # 'Chốt' → chấp nhận; 'Sửa lại' xử lý RIÊNG (luồng hỏi-ý, giữ bài)
 
 
 def _review_action_blocks(kind: str, ref: str) -> list[dict]:
@@ -1281,6 +1280,33 @@ def _clause_key(s: str) -> str:
     (substring cũ sai: 'điều 3' in 'điều 3.2')."""
     m = _CLAUSE_REF_RE.search(s or "")
     return (m.group(0) if m else (s or "")).strip().lower()
+
+
+def _all_agreed_decisions(case) -> list[dict]:
+    """Mọi điều khoản của case → decision 'agreed' (cho 'Đồng ý TẤT CẢ' khi Chốt-trống). Text = đề xuất sẵn
+    có (counter_clause.vi / suggestion / drafting fix_vi). THUẦN."""
+    sugg = {f.get("clause", ""): (f.get("suggestion") or "") for f in (case.fallbacks or [])}
+    out = []
+    for r in (case.risks or []):
+        cl = (r.get("clause") or "").strip()
+        if cl:
+            cc = r.get("counter_clause") or {}
+            out.append({"clause": cl, "action": "agreed", "text": (cc.get("vi") or sugg.get(cl, "")).strip()})
+    for it in (getattr(case, "drafting_issues", None) or []):
+        loc = (it.get("location") or "").strip()
+        if loc:
+            out.append({"clause": loc, "action": "agreed", "text": (it.get("fix_vi") or "").strip()})
+    return out
+
+
+def _chot_ask_blocks(case_id: str) -> list[dict]:
+    """Blocks HỎI LẠI khi bấm 'Chốt' mà CHƯA Đồng ý/Sửa gì: 2 nút [Đồng ý TẤT CẢ] / [Để tôi chọn từng điều]."""
+    val = json.dumps({"c": case_id[:120]}, ensure_ascii=False)
+    return [{"type": "actions", "block_id": "lg_chot_ask", "elements": [
+        {"type": "button", "text": {"type": "plain_text", "text": "Đồng ý TẤT CẢ đề xuất", "emoji": True},
+         "action_id": "rv_agree_all", "style": "primary", "value": val},
+        {"type": "button", "text": {"type": "plain_text", "text": "Để tôi chọn từng điều", "emoji": True},
+         "action_id": "rv_pick", "value": val}]}]
 
 
 def _summary_from_decisions(case, decisions: list[dict]) -> str:
@@ -1837,20 +1863,9 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                     thread_ts)
                 return {"ok": True}
 
-            if aid in _RV_ACTION:                  # 'Chốt' → chấp nhận + win-rate + feedback + TỔNG HỢP
-                result, rating = _RV_ACTION[aid]
-                _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), result)  # win-rate
-                try:                               # + feedback golden-set (lỗi DB KHÔNG được làm 500)
-                    handler.service.record_feedback(Feedback(
-                        id=uuid.uuid4().hex, org_id=org.id, kind=ctx.get("k", "analysis"),
-                        ref=ctx.get("r", ""), rating=rating, note=f"slack:{user}",
-                        created_at=datetime.now(timezone.utc).isoformat()))
-                except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
-                    _log.exception("Không ghi được feedback từ Slack")
+            if aid == "rv_close":                  # 'Chốt' → TỔNG HỢP (giữ bài + nút). Chưa quyết gì → HỎI LẠI.
                 if not (slack_sender and slack_sender.available):
                     return {"ok": True}
-                # BẢN TỔNG HỢP (đồng ý + đã sửa + chưa xử lý) → đăng TIN MỚI, GIỮ bài phân tích + GIỮ nút
-                # (để còn tải 'Bản đối chiếu'). Nguồn = conv.decisions của thread.
                 container = payload.get("container") or {}
                 msg = payload.get("message") or {}
                 send_to = (payload.get("channel") or {}).get("id", "")
@@ -1860,11 +1875,50 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                     decisions = json.loads(conv.decisions or "[]") if conv else []
                 except (json.JSONDecodeError, TypeError):
                     decisions = []
+                if not decisions:                  # chưa Đồng ý/Sửa gì → HỎI LẠI 2 lựa chọn (không chốt vội)
+                    background.add_task(_safe_send, slack_sender, send_to,
+                                        "Bạn chưa Đồng ý/Sửa điều khoản nào. Bạn muốn:", thread_ts,
+                                        _chot_ask_blocks(ctx.get("c", "")))
+                    return {"ok": True}
+                # Đã có quyết định → ghi win-rate/feedback + đăng TỔNG HỢP (GIỮ bài + nút để tải redline).
+                _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), "accepted")
+                try:
+                    handler.service.record_feedback(Feedback(
+                        id=uuid.uuid4().hex, org_id=org.id, kind=ctx.get("k", "analysis"),
+                        ref=ctx.get("r", ""), rating="helpful", note=f"slack:{user}",
+                        created_at=datetime.now(timezone.utc).isoformat()))
+                except Exception:  # noqa: BLE001 — feedback là phụ; vẫn ack để Slack không retry
+                    _log.exception("Không ghi được feedback từ Slack")
                 case = handler.service.get_case(ctx.get("c", ""))
                 summary = (_summary_from_decisions(case, decisions) if case
                            else "Đã chốt — ghi nhận. Cảm ơn bạn.")
                 background.add_task(_safe_send, slack_sender, send_to, _md_to_slack(summary), thread_ts)
                 return {"ok": True}
+
+            if aid == "rv_agree_all":              # 'Đồng ý TẤT CẢ đề xuất' (sau khi Chốt-trống) → agree-all
+                if not (slack_sender and slack_sender.available):
+                    return {"ok": True}
+                container = payload.get("container") or {}
+                msg = payload.get("message") or {}
+                send_to = (payload.get("channel") or {}).get("id", "")
+                thread_ts = container.get("thread_ts") or msg.get("thread_ts") or msg.get("ts")
+                case = handler.service.get_case(ctx.get("c", ""))
+                if case is None or getattr(case, "org_id", None) != org.id:
+                    return await _slack_update_msg(payload, {"text": "Không tìm thấy hồ sơ rà soát "
+                                                             "(có thể đã hết hạn). Vui lòng gửi lại hợp đồng."})
+                decisions = _all_agreed_decisions(case)          # mọi điều khoản → agreed (đề xuất của bot)
+                conv_key = f"slack:{send_to}:{thread_ts}"
+                conv = handler.store.get(conv_key) or Conversation(id=conv_key)
+                conv.decisions = json.dumps(decisions, ensure_ascii=False)
+                handler.store.save(conv)
+                _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), "accepted")
+                background.add_task(_safe_send, slack_sender, send_to,
+                                    _md_to_slack(_summary_from_decisions(case, decisions)), thread_ts)
+                return await _slack_update_msg(payload, {"text": "Đã đồng ý tất cả — xem tổng hợp bên dưới."})
+
+            if aid == "rv_pick":                   # 'Để tôi chọn từng điều' (sau Chốt-trống) → hướng dẫn
+                return await _slack_update_msg(payload, {"text": "OK — bạn bấm “Đồng ý sửa” ở từng điều "
+                                               "(hoặc “Sửa lại” để chỉnh), rồi bấm “Chốt” lại."})
 
             if aid in _OC_RESULT:                  # (tương thích ngược) nút kết quả đàm phán tin CŨ → flywheel
                 n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), _OC_RESULT[aid])

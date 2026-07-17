@@ -1117,14 +1117,40 @@ def test_send_redline_wrong_org_or_missing():
     assert "không tìm thấy" in sender.sent[-1][1].lower()
 
 
-def test_slack_interaction_rv_close_posts_summary():
-    # 'Chốt' → GIỮ bài (KHÔNG replace_original) + đăng TỔNG HỢP (tin mới). Case không có (stub) → fallback.
+def test_slack_interaction_rv_close_empty_asks_back():
+    # 'Chốt' khi CHƯA đồng ý/sửa gì → HỎI LẠI 2 nút (Đồng ý tất cả / chọn từng điều), KHÔNG chốt vội, GIỮ bài.
     sender = _FakeSender()
     c = _client(slack="sek", slack_sender=sender)
     r = _slack_interaction(c, "sek", "rv_close", json.dumps({"k": "analysis", "r": "cX", "c": "cX"}),
                            extra={"container": {"thread_ts": "T1"}, "message": {"ts": "m1"}})
-    assert r.json() == {"ok": True}                                  # KHÔNG replace_original → giữ bài
-    assert any("chốt" in t.lower() for _, t in sender.sent)         # tổng hợp/ xác nhận đăng vào thread
+    assert r.json() == {"ok": True}
+    assert any("chưa đồng ý" in t.lower() for _, t in sender.sent)   # hỏi lại
+    aids = {e["action_id"] for b in (sender.blocks or []) if b.get("type") == "actions" for e in b["elements"]}
+    assert {"rv_agree_all", "rv_pick"} <= aids                       # 2 nút lựa chọn
+
+
+def test_rv_agree_all_marks_all_agreed():
+    # 'Đồng ý TẤT CẢ' (sau Chốt-trống) → mọi điều khoản → agreed; tổng hợp không còn 'chưa xử lý'.
+    import json as _j
+
+    from legalguard.domain.models import AnalysisCase
+    from legalguard.domain.tenants import default_org
+    handler = ChatHandler(build_service(), build_parser(), InMemoryConversationStore(), "VN")
+    org = default_org("VN")
+    handler.service.cases.save(AnalysisCase(
+        id="cA", org_id=org.id, tenant="VN", created_at="t", lang="vi", contract_excerpt="", summary="",
+        needs_human_review=False,
+        risks=[{"clause": "Điều 5", "counter_clause": {"vi": "8%"}}, {"clause": "Điều 3"}],
+        fallbacks=[], trace=[]))
+    sender = _FakeSender()
+    app = FastAPI()
+    app.include_router(build_channels_router(handler, slack_signing_secret="s", slack_sender=sender))
+    client = TestClient(app)
+    _slack_interaction(client, "s", "rv_agree_all", _j.dumps({"c": "cA"}),
+                       extra={"container": {"thread_ts": "T1"}, "message": {"ts": "m1"}})
+    joined = " ".join(t for _, t in sender.sent)
+    assert "Đã đồng ý sửa (2)" in joined and "Điều 5" in joined and "Điều 3" in joined
+    assert "Chưa xử lý" not in joined                                # tất cả agreed → không còn sót
 
 
 def test_slack_interaction_rv_revise_asks_and_keeps_analysis():
