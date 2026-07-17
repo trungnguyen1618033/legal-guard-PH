@@ -1318,6 +1318,17 @@ def test_summary_from_decisions_three_groups():
     assert "chưa có điều khoản nào" in _summary_from_decisions(case, []).lower()
 
 
+def test_decisions_dedup_agree_then_revise_same_clause():
+    # Đồng ý 'Điều 5 - Phạt' (tên đầy đủ) RỒI Sửa 'Điều 5' (ref ngắn) → CÙNG điều → chỉ còn 1 (bản mới nhất).
+    import json as _j
+
+    from legalguard.adapters.inbound.channels import _decisions_append
+    d = _decisions_append("", "Điều 5 - Phạt vi phạm", "agreed", "8%")
+    d = _decisions_append(d, "Điều 5", "revised", "SỬA Điều 5: hai chiều")
+    items = _j.loads(d)
+    assert len(items) == 1 and items[0]["action"] == "revised"   # dedup theo token → không trùng A+B
+
+
 def test_summary_untouched_no_false_prefix_match():
     # Khớp theo token số-điều: đồng ý 'Điều 3' KHÔNG được nuốt nhầm 'Điều 3.2' khỏi 'chưa xử lý'.
     from types import SimpleNamespace

@@ -1264,14 +1264,17 @@ def _format_amend(clause: str, original: str, cc: dict) -> str:
 
 
 def _decisions_append(current: str, clause: str, action: str, text: str = "") -> str:
-    """Nhật ký quyết định (JSON): thêm {clause, action, text}, DEDUP theo clause (mới nhất thắng). THUẦN."""
+    """Nhật ký quyết định (JSON): thêm {clause, action, text}, DEDUP theo TOKEN số-điều (mới nhất thắng).
+    Dùng _clause_key để 'Điều 5 - Phạt' (agreed, tên đầy đủ) và 'Điều 5' (revise, ref ngắn) coi là CÙNG điều
+    → đồng-ý-rồi-sửa cùng điều KHÔNG bị liệt kê trùng ở cả A lẫn B. THUẦN."""
     try:
         items = json.loads(current or "[]")
         if not isinstance(items, list):
             items = []
     except (json.JSONDecodeError, TypeError):
         items = []
-    items = [d for d in items if d.get("clause") != clause]
+    key = _clause_key(clause)
+    items = [d for d in items if _clause_key(d.get("clause", "")) != key]
     items.append({"clause": clause, "action": action, "text": (text or "").strip()})
     return json.dumps(items, ensure_ascii=False)
 
