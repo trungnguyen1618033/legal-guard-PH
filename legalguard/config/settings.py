@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # Auto-counter INLINE cho DEEP: mặc định TẮT (soạn ~6 counter flagship ~1-2min). Counter vẫn soạn on-demand
     # qua nút 'Đồng ý sửa' → cắt latency giữ chất lượng RỦI RO. Bật lại DEEP_AUTO_COUNTER=1 nếu muốn inline.
     deep_auto_counter: bool = False
+    # Trần call FLAGSHIP song song toàn tiến trình (threading.Semaphore chung) → chống burst 429 khi NHIỀU
+    # user/cửa sổ (nút thắt 15' khi tải). 0 = không giới hạn. Chỉ áp flagship (reasoner + lookup point-in-time);
+    # flash/plus không giới hạn. 1 instance ECS đủ; đa-instance cần Redis (docs scale-concurrency).
+    max_flagship_concurrency: int = 6
     qwen_vl_model: str = "qwen3.7-plus"   # multimodal — OCR HĐ scan/ảnh (thay Qwen-VL, chính xác hơn)
     qwen_rerank_model: str = "qwen3-rerank"  # cross-encoder rerank (Model Studio: Qwen-Rerank, 100+ ngôn ngữ)
     llm_temperature: float = 0.1          # thấp = nhất quán/ổn định (legal cần xác định)

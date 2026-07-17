@@ -46,9 +46,14 @@ def _parse_orgs(raw: str) -> dict[str, Organization]:
 
 
 def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> AnalysisService:
+    # Semaphore CHUNG giới hạn call FLAGSHIP song song (chống burst 429 khi tải nhiều user/cửa sổ). Dùng CHUNG
+    # cho mọi adapter flagship (reasoner + lookup_pit) → đúng trần toàn tiến trình. 0 = không giới hạn.
+    import threading
+    flagship_sem = (threading.Semaphore(cfg.max_flagship_concurrency)
+                    if cfg.max_flagship_concurrency > 0 else None)
     reasoner = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_model,
                            embed_model=cfg.qwen_embed_model, temperature=cfg.llm_temperature,
-                           rerank_model=cfg.qwen_rerank_model)
+                           rerank_model=cfg.qwen_rerank_model, sem=flagship_sem)
     # Judge NHANH (qwen-flash) cho việc phụ yes/no (NLI, verify, cổng relevance — DÙNG CẢ /analyze lẫn /lookup)
     # — ~0.5s/call thay vì ~40s flagship, cắt mạnh latency hậu-agent mà không bỏ bước kiểm. judge_temperature=0:
     # yes/no cần TẤT ĐỊNH (abstain/verify không dao động → eval ổn định). Tách khỏi lookup_temperature để chỉnh
@@ -61,7 +66,7 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                               temperature=cfg.lookup_temperature) if cfg.qwen_lookup_model else None)
     # Point-in-time lookup dùng flagship (suy luận thời điểm) nhưng cũng temp 0 → tất định.
     lookup_pit_llm = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_model,
-                                 temperature=cfg.lookup_temperature)
+                                 temperature=cfg.lookup_temperature, sem=flagship_sem)
     # Rà soát NHANH (mode=fast): model right-sized qua env (A/B: flash mặc định; flagship khi cần 0-miss).
     fast_review_llm = (QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_fast_review_model,
                                    temperature=cfg.judge_temperature) if cfg.qwen_fast_review_model else None)

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import re
+import threading
+from contextlib import nullcontext
 
 from legalguard.adapters.outbound._http import post_json
 from legalguard.domain.models import ChatTurn, ToolCall
@@ -84,13 +86,18 @@ class QwenAdapter(LLMPort):
     name = "qwen"
 
     def __init__(self, api_key: str, base_url: str, model: str, embed_model: str = "text-embedding-v4",
-                 temperature: float = 0.1, rerank_model: str = "qwen3-rerank") -> None:
+                 temperature: float = 0.1, rerank_model: str = "qwen3-rerank",
+                 sem: "threading.Semaphore | None" = None) -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.embed_model = embed_model
         self.temperature = temperature
         self.rerank_model = rerank_model
+        # Semaphore CHUNG (tùy chọn) giới hạn call flagship SONG SONG toàn tiến trình → chống burst 429 khi
+        # NHIỀU user/cửa sổ cùng lúc (nút thắt 15' khi tải). Chỉ gắn cho model flagship (đắt/bị rate-limit);
+        # None = không giới hạn (flash/plus). threading (không async): khớp ThreadPoolExecutor sẵn có.
+        self._sem = sem
 
     @property
     def available(self) -> bool:
@@ -164,9 +171,10 @@ class QwenAdapter(LLMPort):
             raise LLMError(self.name, "phản hồi rerank không hợp lệ") from None
 
     def _post_chat(self, payload: dict) -> dict:
-        return post_json(f"{self.base_url}/chat/completions", provider=self.name,
-                         headers={"Authorization": f"Bearer {self.api_key}"},
-                         json=payload, timeout=90)
+        with self._sem or nullcontext():   # cap concurrency flagship (nếu có sem) → chống burst 429 khi tải
+            return post_json(f"{self.base_url}/chat/completions", provider=self.name,
+                             headers={"Authorization": f"Bearer {self.api_key}"},
+                             json=payload, timeout=90)
 
     def _stub_chat(self, messages: list[dict]) -> ChatTurn:
         system = next((m["content"] for m in messages if m.get("role") == "system"), "")
