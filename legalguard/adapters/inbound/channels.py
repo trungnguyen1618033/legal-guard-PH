@@ -703,8 +703,10 @@ class ChatHandler:
             return ChatReply(format_trust_text())
         # XUẤT FILE theo LỆNH CHAT (Word có comment): user muốn nhận KẾT QUẢ dạng file, KHÔNG phải rà soát lại
         # (phản ánh thật: "thêm comment vào tệp này" → bot rà soát lại). Có case rà soát gần nhất → trả file;
-        # chưa có → hướng dẫn. Gate attachment None (kèm file = rà soát mới) + không phải câu hỏi.
-        if attachment is None and _wants_file_export(text or "") and not _is_question(text or ""):
+        # chưa có → hướng dẫn. Gate: attachment None + không phải câu hỏi + tin NGẮN (<200) — lệnh export ngắn,
+        # tránh HĐ DÁN dài chứa từ khóa 'file/văn bản' bị route nhầm sang export thay vì rà soát.
+        if attachment is None and len((text or "").strip()) < 200 \
+                and _wants_file_export(text or "") and not _is_question(text or ""):
             if conv.last_case_id:
                 return ChatReply("Đang tạo file Word có nhận xét (comment) cho bản rà soát gần nhất — "
                                  "sẽ gửi vào đây trong giây lát…", "export_doc", conv.last_case_id)
