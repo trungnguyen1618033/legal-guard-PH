@@ -67,6 +67,10 @@ db.sqlite3-journal
 *.db
 *.db-journal
 
+# Hợp đồng/tài liệu KHÁCH tải lên để test — KHÔNG commit (chống rò dữ liệu khách, bài học internal.zip)
+*.docx
+*.pdf
+
 # Flask stuff:
 instance/
 .webassets-cache
