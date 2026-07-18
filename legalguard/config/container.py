@@ -46,30 +46,37 @@ def _parse_orgs(raw: str) -> dict[str, Organization]:
 
 
 def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> AnalysisService:
-    # Semaphore CHUNG giới hạn call FLAGSHIP song song (chống burst 429 khi tải nhiều user/cửa sổ). Dùng CHUNG
-    # cho mọi adapter flagship (reasoner + lookup_pit) → đúng trần toàn tiến trình. 0 = không giới hạn.
+    # Semaphore CHUNG giới hạn call FLAGSHIP song song (chống burst 429 khi tải nhiều user/cửa sổ). Cap theo
+    # MODEL (không theo role): CHỈ adapter dùng model flagship (qwen_model) mới bị cap — bất kể vai trò
+    # (reasoner / lookup_pit / fast_review nếu env đặt flagship). flash/plus → None (không giới hạn). 0 = tắt.
     import threading
     flagship_sem = (threading.Semaphore(cfg.max_flagship_concurrency)
                     if cfg.max_flagship_concurrency > 0 else None)
+
+    def _fsem(model: str):   # sem CHỈ cho model flagship (chống flash/plus bị cap oan; bắt fast-review-nếu-flagship)
+        return flagship_sem if model == cfg.qwen_model else None
+
     reasoner = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_model,
                            embed_model=cfg.qwen_embed_model, temperature=cfg.llm_temperature,
-                           rerank_model=cfg.qwen_rerank_model, sem=flagship_sem)
+                           rerank_model=cfg.qwen_rerank_model, sem=_fsem(cfg.qwen_model))
     # Judge NHANH (qwen-flash) cho việc phụ yes/no (NLI, verify, cổng relevance — DÙNG CẢ /analyze lẫn /lookup)
     # — ~0.5s/call thay vì ~40s flagship, cắt mạnh latency hậu-agent mà không bỏ bước kiểm. judge_temperature=0:
     # yes/no cần TẤT ĐỊNH (abstain/verify không dao động → eval ổn định). Tách khỏi lookup_temperature để chỉnh
     # nhiệt /lookup KHÔNG vô tình đổi hành vi NLI/verify của /analyze. Cùng key/endpoint.
     judge = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_fast_model,
-                        temperature=cfg.judge_temperature)
+                        temperature=cfg.judge_temperature, sem=_fsem(cfg.qwen_fast_model))
     # Model tra cứu (tùy chọn): rỗng = dùng flagship reasoner; đặt qwen-plus để nhanh hơn.
     # temperature=lookup_temperature (0) → câu trả lời tra cứu TẤT ĐỊNH (hết flaky must_say do sampling).
     lookup_llm = (QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_lookup_model,
-                              temperature=cfg.lookup_temperature) if cfg.qwen_lookup_model else None)
+                              temperature=cfg.lookup_temperature,
+                              sem=_fsem(cfg.qwen_lookup_model)) if cfg.qwen_lookup_model else None)
     # Point-in-time lookup dùng flagship (suy luận thời điểm) nhưng cũng temp 0 → tất định.
     lookup_pit_llm = QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_model,
-                                 temperature=cfg.lookup_temperature, sem=flagship_sem)
+                                 temperature=cfg.lookup_temperature, sem=_fsem(cfg.qwen_model))
     # Rà soát NHANH (mode=fast): model right-sized qua env (A/B: flash mặc định; flagship khi cần 0-miss).
     fast_review_llm = (QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_fast_review_model,
-                                   temperature=cfg.judge_temperature) if cfg.qwen_fast_review_model else None)
+                                   temperature=cfg.judge_temperature,
+                                   sem=_fsem(cfg.qwen_fast_review_model)) if cfg.qwen_fast_review_model else None)
     embed_fn = reasoner.embed if reasoner.available else None
     reranker = reasoner if cfg.rerank_enabled else None
     # Cross-encoder rerank: RERANK_URL (self-host TEI, vd AITeamVN) ưu tiên hơn qwen3-rerank API khi được đặt.
