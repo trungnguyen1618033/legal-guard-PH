@@ -20,6 +20,16 @@ def test_win_rates_weighted(tmp_path):
     assert stats["Trọng tài"]["rate"] == 0.5               # (1+0.5+0)/3
 
 
+def test_win_rates_ignores_agreed_fix(tmp_path):
+    # 'agreed_fix' = event audit (nút "Đồng ý sửa") — KHÔNG được tính vào win-rate (không kéo tỉ lệ xuống).
+    repo = SqlAlchemyOutcomeRepository(f"sqlite:///{tmp_path / 'o.db'}")
+    repo.record(_outcome("Điều 5", "accepted", "1"))
+    repo.record(_outcome("Điều 5", "agreed_fix", "2"))
+    stats = repo.win_rates()
+    assert stats["Điều 5"]["total"] == 1        # agreed_fix bị loại, chỉ đếm accepted
+    assert stats["Điều 5"]["rate"] == 1.0
+
+
 def test_win_rates_scoped_by_org(tmp_path):
     repo = SqlAlchemyOutcomeRepository(f"sqlite:///{tmp_path / 'o.db'}")
     repo.record(_outcome("Trọng tài", "accepted", "1"))

@@ -147,7 +147,7 @@ class Outcome:
     case_id: str
     clause: str
     tactic: str
-    result: str                # accepted | partial | rejected | pending
+    result: str                # accepted | partial | rejected | pending | agreed_fix (audit, không tính win-rate)
     created_at: str
 
 

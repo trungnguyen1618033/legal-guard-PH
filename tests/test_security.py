@@ -147,6 +147,19 @@ def test_delete_case_cascades_outcomes_and_feedback(tmp_path):
     assert svc.get_case("c1") is None
 
 
+def test_outcome_endpoint_accepts_agreed_fix(tmp_path):
+    # Nút "Đồng ý sửa" (web /app + Slack) ghi result='agreed_fix' (audit) — endpoint PHẢI nhận, KHÔNG 400.
+    # (Regression: trước đây validation chỉ cho accepted/partial/rejected/pending → nút web bị HTTP 400.)
+    c = _client(tmp_path)
+    cid = c.post("/analyze", data={"text": "Arbitration in Beijing."},
+                 headers={"x-tenant-id": "VN"}).json()["case_id"]
+    r = c.post(f"/cases/{cid}/outcome",
+               json={"clause": "Điều 5", "tactic": "agreed_amendment", "result": "agreed_fix"})
+    assert r.status_code == 200, r.text
+    assert c.post(f"/cases/{cid}/outcome",           # result rác vẫn bị chặn 400 (validation còn chặt)
+                  json={"clause": "Điều 5", "result": "bogus"}).status_code == 400
+
+
 # ---- Rate limiting ----
 def test_rate_limit_returns_429(tmp_path):
     c = _client(tmp_path, rate_limit_per_min=2)

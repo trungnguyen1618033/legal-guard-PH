@@ -97,7 +97,7 @@ class RevenueIn(BaseModel):
 class OutcomeIn(BaseModel):
     clause: str
     tactic: str = ""
-    result: str = "pending"     # accepted | partial | rejected | pending
+    result: str = "pending"     # accepted | partial | rejected | pending | agreed_fix (audit, không tính win-rate)
 
 
 class CompileIn(BaseModel):
@@ -504,7 +504,9 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
     def record_outcome(case_id: str, body: OutcomeIn,
                        org: Organization = Depends(require_auth)) -> dict:
         # Flywheel: ghi kết quả đàm phán thực tế (dữ liệu tích lũy riêng org).
-        if body.result not in ("accepted", "partial", "rejected", "pending"):
+        # 'agreed_fix' = event audit "đã đồng ý sửa" từ nút web/Slack (đồng bộ channels._record_agreed_fix);
+        # KHÔNG tính win-rate (win_rates chỉ đếm accepted/partial/rejected). Thiếu nó → nút "Đồng ý sửa" web bị 400.
+        if body.result not in ("accepted", "partial", "rejected", "pending", "agreed_fix"):
             raise HTTPException(status_code=400, detail="result không hợp lệ.")
         case = service.get_case(case_id)
         if case is None or case.org_id != org.id:
