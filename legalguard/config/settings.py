@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     org_playbook: bool = False          # PLAYBOOK: đối chiếu HĐ với chính sách công ty khi analyze (vi phạm chuẩn nội bộ, tách khỏi trái-luật). Flag OFF; ISOLATED (accuracy KHÔNG đổi)
     lookup_cache_size: int = 256        # cache câu trả lời tra cứu (hỏi lặp → trả tức thì + tiết kiệm token); 0 = tắt
     slack_mention_only: bool = True     # Slack: CHỈ trả lời khi được mention (@bot) hoặc DM — không mention = user đang nói với người khác, bot im lặng; =0 khôi phục hành vi cũ (trả lời mọi tin)
+    slack_default_deep: bool = True      # Slack rà soát MẶC ĐỊNH DEEP (legal = chất lượng/an toàn trước — deep bắt đủ, không banner "có thể BỎ SÓT"); fast chỉ khi user xin 'nhanh'/'sơ bộ'. =0 → hành vi cũ (fast mặc định, deep opt-in 'rà kỹ')
     slack_resolve_names: bool = True    # Slack: resolve TÊN THẬT người nói trong thread (users.info, scope users:read) cho attribution ai-nói-gì; =0 → nhãn ẩn danh Người A/B/C (thân tin vẫn redact PII như cũ)
 
     # Chat session store: sql (persist + đa instance) | memory (dev) | redis

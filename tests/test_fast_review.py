@@ -115,14 +115,23 @@ def test_fast_llm_error_surfaces_failed_window():
     assert "chưa rà" in format_chat_reply(res, lang="vi").lower()
 
 
-def test_analyze_mode_deep_only_from_short_instruction():
-    """FIX F: 'chi tiết/sâu' trong CHỈ-DẪN ngắn → deep; nhưng trong THÂN HĐ DÁN dài → KHÔNG deep oan (15')."""
+def test_analyze_mode_default_deep_slack():
+    """Cách B: Slack MẶC ĐỊNH DEEP (legal = chất lượng trước); fast CHỈ khi user chủ động xin nhanh/sơ bộ."""
     from legalguard.adapters.inbound.channels import _analyze_mode
-    assert _analyze_mode("rà kỹ giúp tôi", has_attachment=False) == "deep"
-    assert _analyze_mode("rà giúp", has_attachment=False) == "fast"
-    long_paste = "HỢP ĐỒNG. Điều 1. Bên A kiểm tra chi tiết, phân tích sâu hàng hóa. " + ("x" * 400)
-    assert _analyze_mode(long_paste, has_attachment=False) == "fast"     # thân HĐ chứa 'chi tiết/sâu' KHÔNG deep
-    assert _analyze_mode("rà kỹ", has_attachment=True) == "deep"         # caption file ngắn → deep OK
+    # default_deep=True (mặc định mới)
+    assert _analyze_mode("review this contract", has_attachment=True) == "deep"   # mặc định deep
+    assert _analyze_mode("rà nhanh giúp", has_attachment=True) == "fast"          # xin nhanh (chỉ dẫn) → fast
+    assert _analyze_mode("quick review", has_attachment=True) == "fast"
+    long_paste = "HỢP ĐỒNG. Điều 1. Rà nhanh hàng hóa. " + ("x" * 400)           # 'nhanh' trong THÂN HĐ dài
+    assert _analyze_mode(long_paste, has_attachment=False) == "deep"              # guard len<300 → KHÔNG fast oan
+
+
+def test_analyze_mode_legacy_default_fast():
+    """default_deep=False = hành vi cũ: fast mặc định, deep opt-in bằng 'rà kỹ'/'deep'."""
+    from legalguard.adapters.inbound.channels import _analyze_mode
+    assert _analyze_mode("rà kỹ giúp tôi", has_attachment=False, default_deep=False) == "deep"
+    assert _analyze_mode("rà giúp", has_attachment=False, default_deep=False) == "fast"
+    assert _analyze_mode("rà kỹ", has_attachment=True, default_deep=False) == "deep"
 
 
 def test_deep_multiwindow_strategy_single_block():

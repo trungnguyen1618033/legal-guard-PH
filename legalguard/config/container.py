@@ -178,7 +178,8 @@ def build_app(cfg: Settings = settings) -> FastAPI:
     # rank_fn = cross-encoder qwen3-rerank dùng chung với KB retrieval (semantic scoring cho việc
     # CHỌN TIN LIÊN QUAN trong thread nhiều người — M4b); None → builder fallback lexical/recency.
     handler = ChatHandler(service, parser, build_conversation_store(cfg), cfg.default_tenant,
-                          rank_fn=getattr(service.kb, "rerank_fn", None))
+                          rank_fn=getattr(service.kb, "rerank_fn", None),
+                          default_deep=cfg.slack_default_deep)
     app.include_router(build_channels_router(
         handler, slack_signing_secret=cfg.slack_signing_secret,
         zalo_oa_secret=cfg.zalo_oa_secret, zalo_app_id=cfg.zalo_app_id,

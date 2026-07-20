@@ -184,17 +184,29 @@ def _wants_whole_contract_review(text: str) -> bool:
 _DEEP_REVIEW_RE = re.compile(
     r"(rà\s*(soát\s*)?kỹ|kỹ\s*(càng|lưỡng)|(phân tích|rà)\s*sâu|chuyên\s*sâu|chi\s*tiết|thật\s*kỹ"
     r"|\bdeep\b|\bthorough)", re.IGNORECASE)
+# Xin RÀ NHANH (chỉ áp khi mặc định DEEP) — user chủ động chấp nhận rà nông để nhanh.
+_FAST_REVIEW_RE = re.compile(
+    r"(rà\s*nhanh|\bnhanh\b|sơ\s*bộ|lướt\s*qua|\bquick\b|\bfast\b)", re.IGNORECASE)
 
 
 def _wants_deep_review(text: str) -> bool:
-    """User yêu cầu RÀ KỸ → deep (chấp nhận chờ ~2-15'); mặc định fast (nhanh, map-reduce cho HĐ dài)."""
+    """User yêu cầu RÀ KỸ → deep."""
     return bool(text and _DEEP_REVIEW_RE.search(text))
 
 
-def _analyze_mode(text: str, has_attachment: bool) -> str:
-    """Chọn deep/fast. Slack mặc định FAST. Opt-in deep CHỈ từ CHỈ-DẪN ngắn / caption file — KHÔNG quét thân
-    HĐ DÁN dài (HĐ chứa 'chi tiết/sâu/kỹ' sẽ deep OAN → 15'). Guard len<300 như `_extract_protected_hint`."""
+def _wants_fast_review(text: str) -> bool:
+    """User CHỦ ĐỘNG xin rà nhanh/sơ bộ → fast (dùng khi mặc định deep)."""
+    return bool(text and _FAST_REVIEW_RE.search(text))
+
+
+def _analyze_mode(text: str, has_attachment: bool, default_deep: bool = True) -> str:
+    """Chọn deep/fast. **`default_deep=True`** (khuyến nghị cho legal — chất lượng/an toàn trước): MẶC ĐỊNH
+    **DEEP**, chỉ FAST khi user CHỦ ĐỘNG xin nhanh ('nhanh'/'sơ bộ'/'quick') trong CHỈ-DẪN ngắn/caption file.
+    `default_deep=False`: hành vi cũ (fast mặc định, deep opt-in bằng 'rà kỹ'/'deep'). Guard len<300 để 'nhanh'/
+    'kỹ' nằm trong THÂN HĐ DÁN dài KHÔNG đổi mode oan (như `_extract_protected_hint`)."""
     is_instruction = has_attachment or len((text or "").strip()) < 300
+    if default_deep:
+        return "fast" if (is_instruction and _wants_fast_review(text or "")) else "deep"
     return "deep" if (is_instruction and _wants_deep_review(text or "")) else "fast"
 
 
@@ -600,11 +612,13 @@ class ChatHandler:
 
     def __init__(self, service: AnalysisService, parser: DocumentParserPort,
                  store: ConversationStorePort, default_tenant: str = "VN",
-                 rank_fn=None) -> None:
+                 rank_fn=None, default_deep: bool = True) -> None:
         self.service = service
         self.parser = parser
         self.store = store
         self.default_tenant = default_tenant
+        # Slack rà soát: MẶC ĐỊNH DEEP (legal = chất lượng trước); fast chỉ khi user xin 'nhanh'. Tắt = False.
+        self._default_deep = default_deep
         # rank_fn (cross-encoder, dùng chung với KB retrieval): chấm điểm LIÊN QUAN tin-thread vs câu
         # hỏi khi pack ngữ cảnh thread nhiều người (M4b). None → fallback lexical/recency trong builder.
         self.rank_fn = rank_fn
@@ -745,8 +759,8 @@ class ChatHandler:
             hint = _extract_protected_hint(text or "") if (attachment is not None
                                                            or len(text or "") < 300) else ""
             position = NegotiationPosition(protected_party=hint) if hint else None
-            # Slack MẶC ĐỊNH fast (~7-30s kể cả HĐ dài nhờ map-reduce); deep opt-in từ chỉ-dẫn ngắn (xem helper).
-            a_mode = _analyze_mode(text or "", attachment is not None)
+            # Slack MẶC ĐỊNH DEEP (Cách B — legal chất lượng trước); fast chỉ khi user xin 'nhanh'/'sơ bộ' (helper).
+            a_mode = _analyze_mode(text or "", attachment is not None, self._default_deep)
             try:
                 result = self.service.analyze(contract, org, lang=lang, position=position,
                                               source=source, on_progress=on_progress, mode=a_mode)
