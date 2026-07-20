@@ -417,6 +417,7 @@ class AnalysisService:
                  lookup_llm: LLMPort | None = None,
                  lookup_pit_llm: LLMPort | None = None,
                  fast_review_llm: LLMPort | None = None,
+                 counter_llm: LLMPort | None = None,
                  illegal_detection: bool = True,
                  coverage_gated_abstain: bool = True,
                  hyde_query_expansion: bool = False,
@@ -467,6 +468,11 @@ class AnalysisService:
         # nhất + illegal_recall = plus + 0 over-flag); đổi flagship khi ưu tiên 0 bỏ sót trái luật. Mặc
         # định = judge (flash) → cùng model nhanh; rỗng/stub → reasoner (giữ tương thích).
         self.fast_review_llm = fast_review_llm or self.judge
+        # Model SOẠN điều khoản phản-đề ON-DEMAND (nút 'Đồng ý sửa' + /counter). Đây là 1 lời gọi output-bound;
+        # flagship ~40-90s/lần → chạm timeout 90s → retry 2 lần → có thể ~3-4 phút khi API tải nặng. Soạn lại
+        # 1 điều khoản là việc bounded → dùng model NHANH (mặc định = lookup_llm = qwen-plus, ~4-6s). KHÔNG
+        # đụng bước PHÁT HIỆN rủi ro (vẫn flagship) → accuracy phân tích không đổi. Rỗng → lookup_llm → reasoner.
+        self.counter_llm = counter_llm or self.lookup_llm
 
     def record_outcome(self, outcome: Outcome) -> str | None:
         return self.outcomes.record(outcome) if self.outcomes else None
@@ -536,7 +542,7 @@ class AnalysisService:
         """Soạn điều khoản phản-đề song ngữ (dán vào HĐ) cho 1 điều khoản rủi ro. Bám căn cứ + vị thế."""
         from legalguard.domain.counter_clause import draft_counter_clause as _draft
 
-        cc = _draft(self.reasoner, clause=clause, risk=risk, suggestion=suggestion,
+        cc = _draft(self.counter_llm, clause=clause, risk=risk, suggestion=suggestion,
                     legal_basis=legal_basis, leverage=leverage)
         if self.observer:
             self.observer.event("counter_clause", {"clause": clause, "grounded": cc.grounded})

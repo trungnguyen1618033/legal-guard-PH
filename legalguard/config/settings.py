@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     # flagship=72s + 0 bỏ sót (an toàn nhất). Mặc định flash (nhanh nhất, accuracy = plus). Đổi qwen3.7-max
     # nếu ưu tiên 0 bỏ sót trái luật hơn tốc độ. Rỗng = flash. Fast LUÔN cần người duyệt (bù ~12.5% miss).
     qwen_fast_review_model: str = "qwen-flash"
+    # Model SOẠN điều khoản phản-đề on-demand (nút 'Đồng ý sửa' + /counter). Việc soạn lại 1 điều khoản đã
+    # có căn cứ luật = bounded rewrite → qwen-plus ~7s giữ NGUYÊN chất lượng (đo: đúng trần 8%/VIAC, grounded)
+    # trong khi flagship ~40-90s → chạm timeout 90s + retry → có thể ~3 phút. KHÔNG đụng bước PHÁT HIỆN rủi ro
+    # (vẫn flagship). Rỗng = kế thừa qwen_lookup_model. Đổi qwen3.7-max nếu muốn ưu tiên chất lượng tối đa.
+    qwen_counter_model: str = "qwen-plus"
     qwen_embed_model: str = "text-embedding-v4"  # Qwen3-Embedding: đa ngữ 100+, #1 MTEB
     # Auto-counter (soạn điều khoản sửa INLINE) trong mode=fast. MẶC ĐỊNH TẮT: đo prod fast=58s vì
     # _attach_counter_clauses dùng flagship cho illegal/must_fix (~40s) → nuốt lợi thế tốc độ. Tắt → fast

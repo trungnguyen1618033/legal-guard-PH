@@ -793,10 +793,10 @@ class ChatHandler:
         if conv.context and not _is_legal_lookup(text or ""):
             return ChatReply(self._followup(conv, text or "", lang, thread_context))
         if text and _looks_like_question(text):            # → TRA CỨU LUẬT có grounding (template + nguồn)
-            answer, snippets = self.service.lookup(text, org, lang=lang)
-            if snippets:                                   # hiện nguồn (dẫn điều/khoản) gọn dưới câu trả lời
-                srcs = " · ".join(s.source for s in snippets[:3])
-                answer = f"{answer}\n\nNguồn tham khảo: {srcs}"
+            # "Căn cứ: Điều … Luật …" trong answer ĐÃ là dẫn nguồn đọc-được cho người dùng → KHÔNG chèn thêm
+            # dòng "Nguồn tham khảo" lộ tên file .md nội bộ (thừa + trông thiếu chuyên nghiệp; web /lookup vẫn
+            # có citations có cấu trúc từ parse_lookup cho ai cần provenance).
+            answer, _ = self.service.lookup(text, org, lang=lang)
             return ChatReply(_with_ai_disclosure(answer), "lookup", text)   # công bố AI văn phong pháp lý (không icon)
         if conv.context:                                   # có deal, không phải câu hỏi → follow-up
             return ChatReply(self._followup(conv, text or "", lang))
@@ -1457,6 +1457,8 @@ def _run_amend(service: AnalysisService, sender: ChatSenderPort, org_id: str, ca
         clause = r.get("clause", "")
         original = (r.get("evidence") or "").strip() or clause      # nguyên văn từ HĐ; thiếu → nhãn
         _record_agreed_fix(service, org_id, case_id, clause)         # audit + tín hiệu risk-hợp-lệ
+        # Ack tạm: soạn điều khoản là 1 lời gọi LLM (vài giây) → báo ngay để người dùng không tưởng treo.
+        _safe_send(sender, send_to, f"⏳ Đang soạn điều khoản sửa cho {clause}…", thread_ts)
         fb = next((f for f in (case.fallbacks or []) if f.get("clause") == clause), {})
         cc = service.draft_counter_clause(
             clause=original, risk=r.get("risk", ""), suggestion=fb.get("suggestion", ""),

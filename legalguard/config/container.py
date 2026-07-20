@@ -77,6 +77,10 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     fast_review_llm = (QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_fast_review_model,
                                    temperature=cfg.judge_temperature,
                                    sem=_fsem(cfg.qwen_fast_review_model)) if cfg.qwen_fast_review_model else None)
+    # Model soạn điều khoản phản-đề on-demand (nút 'Đồng ý sửa' + /counter): qwen-plus ~7s, giữ chất lượng
+    # (bounded rewrite bám căn cứ luật) thay vì flagship ~40-90s. Rỗng → kế thừa lookup_llm → reasoner.
+    counter_llm = (QwenAdapter(cfg.qwen_api_key, cfg.qwen_base_url, cfg.qwen_counter_model,
+                               sem=_fsem(cfg.qwen_counter_model)) if cfg.qwen_counter_model else None)
     embed_fn = reasoner.embed if reasoner.available else None
     reranker = reasoner if cfg.rerank_enabled else None
     # Cross-encoder rerank: RERANK_URL (self-host TEI, vd AITeamVN) ưu tiên hơn qwen3-rerank API khi được đặt.
@@ -112,6 +116,7 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
                            nli_verification=cfg.nli_verification, judge=judge,
                            lookup_cache_size=cfg.lookup_cache_size, lookup_llm=lookup_llm,
                            lookup_pit_llm=lookup_pit_llm, fast_review_llm=fast_review_llm,
+                           counter_llm=counter_llm,
                            illegal_detection=cfg.illegal_detection,
                            coverage_gated_abstain=cfg.coverage_gated_abstain,
                            hyde_query_expansion=cfg.hyde_query_expansion,
