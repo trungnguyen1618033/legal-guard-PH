@@ -82,6 +82,7 @@ _LOOKUP = Path("web/lookup.html")
 _DASHBOARD = Path("web/dashboard.html")
 _TRUST = Path("web/trust.html")
 _DOCS = Path("web/docs.html")
+_SLIDES = Path("web/slide.html")
 _DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
@@ -263,6 +264,13 @@ def build_api(service: AnalysisService, parser: DocumentParserPort, evidence: Ev
         if _TRUST.exists():
             return FileResponse(_TRUST)
         return HTMLResponse("<h1>Legal Guard</h1><p>Độ tin cậy: /trust.json</p>")
+
+    @app.get("/slides", response_class=HTMLResponse)
+    def slides_page():
+        # Slide giới thiệu hệ thống (deck bấm-để-qua, song ngữ VI/EN) — cho demo/pitch.
+        if _SLIDES.exists():
+            return FileResponse(_SLIDES)
+        raise HTTPException(status_code=404, detail="Chưa có slide.")
 
     @app.get("/tai-lieu", response_class=HTMLResponse)
     def docs_page():

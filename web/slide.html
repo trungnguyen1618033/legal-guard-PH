@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="vi" data-lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legal Guard — AI Legal Agent trên Slack & Web</title>
+<style>
+  :root{
+    --ground:#f3efe6; --panel:#faf7f0; --panel-2:#efe9dc;
+    --ink:#1a1c22; --ink-soft:#5b574d; --ink-faint:#8a8477;
+    --line:#ddd4c2; --line-soft:#e7dfcf;
+    --brass:#9c6f27; --brass-bright:#b98a37; --risk:#a83426; --secure:#2f7d57;
+    --shadow:0 1px 0 rgba(0,0,0,.04), 0 18px 40px -28px rgba(40,30,10,.5);
+    --serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,"Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Code","Roboto Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --ground:#101319; --panel:#171b23; --panel-2:#1e2330;
+      --ink:#ece7d8; --ink-soft:#a49e90; --ink-faint:#726c60;
+      --line:#2a2f3b; --line-soft:#232833;
+      --brass:#c99f52; --brass-bright:#e4bd70; --risk:#e26a5c; --secure:#57bd8b;
+      --shadow:0 1px 0 rgba(255,255,255,.02), 0 24px 50px -30px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="light"]{
+    --ground:#f3efe6; --panel:#faf7f0; --panel-2:#efe9dc;
+    --ink:#1a1c22; --ink-soft:#5b574d; --ink-faint:#8a8477;
+    --line:#ddd4c2; --line-soft:#e7dfcf;
+    --brass:#9c6f27; --brass-bright:#b98a37; --risk:#a83426; --secure:#2f7d57;
+    --shadow:0 1px 0 rgba(0,0,0,.04), 0 18px 40px -28px rgba(40,30,10,.5);
+  }
+  :root[data-theme="dark"]{
+    --ground:#101319; --panel:#171b23; --panel-2:#1e2330;
+    --ink:#ece7d8; --ink-soft:#a49e90; --ink-faint:#726c60;
+    --line:#2a2f3b; --line-soft:#232833;
+    --brass:#c99f52; --brass-bright:#e4bd70; --risk:#e26a5c; --secure:#57bd8b;
+    --shadow:0 1px 0 rgba(255,255,255,.02), 0 24px 50px -30px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0; height:100vh; overflow:hidden; background:var(--ground); color:var(--ink);
+    font-family:var(--sans); line-height:1.5; -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility; overflow-wrap:break-word; word-break:normal}
+
+  .deck{position:fixed; inset:0; cursor:pointer}
+  .slide{position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center;
+    padding:clamp(40px,5.5vh,64px) clamp(22px,5.5vw,88px) clamp(64px,7vh,84px);
+    opacity:0; transform:translateY(14px); pointer-events:none;
+    transition:opacity .5s ease, transform .5s ease; overflow-y:auto}
+  .slide.active{opacity:1; transform:none; pointer-events:auto}
+  @media (prefers-reduced-motion:reduce){.slide{transition:none}}
+  .wrap{width:100%; max-width:76rem; margin:auto}
+
+  .eyebrow{font-family:var(--mono); font-size:clamp(.64rem,1vw,.74rem); letter-spacing:.18em;
+    text-transform:uppercase; color:var(--brass); display:flex; align-items:center; gap:14px; margin-bottom:.85rem}
+  .eyebrow::before{content:attr(data-sec); color:var(--ink-faint); font-weight:600}
+  .eyebrow .bar{height:1px; flex:1; max-width:64px; background:var(--brass); opacity:.5}
+
+  h2{font-family:var(--serif); font-weight:600; line-height:1.12; letter-spacing:-.012em;
+    font-size:clamp(1.35rem,calc(1.4vw + 1vh),2.2rem); margin:0 0 .85rem; text-wrap:balance; max-width:32ch}
+  strong{color:var(--ink); font-weight:600}
+  .accent{color:var(--brass)}
+
+  .grid{display:grid; gap:14px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:860px){.g2,.g3{grid-template-columns:1fr}}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:13px; padding:16px 17px;
+    box-shadow:var(--shadow)}
+  .card .n{font-family:var(--mono); font-size:.68rem; letter-spacing:.11em; color:var(--brass); text-transform:uppercase}
+  .card h3{font-family:var(--serif); font-size:clamp(1.04rem,1.55vw,1.2rem); font-weight:600; margin:.22em 0 .38em; letter-spacing:-.01em; line-height:1.2}
+  .card p{font-size:clamp(.85rem,1.15vw,.95rem); color:var(--ink-soft); margin:0; line-height:1.46}
+  .card p b{color:var(--ink); font-weight:600}
+
+  /* reasons — enumerated core list */
+  ol.reasons{list-style:none; counter-reset:r; padding:0; margin:.9rem 0 0;
+    display:grid; grid-template-columns:1fr 1fr; gap:clamp(8px,1.4vh,14px) 26px}
+  @media(max-width:900px){ol.reasons{grid-template-columns:1fr}}
+  ol.reasons li{counter-increment:r; position:relative; padding-left:2.4em}
+  ol.reasons li::before{content:counter(r,decimal-leading-zero); position:absolute; left:0; top:.1em;
+    font-family:var(--mono); font-size:.72rem; color:var(--brass); font-weight:600;
+    border:1px solid color-mix(in srgb,var(--brass) 45%,var(--line)); border-radius:6px; padding:1px 5px}
+  ol.reasons h3{font-family:var(--serif); font-size:clamp(.92rem,calc(.5vw + .8vh),1.08rem); font-weight:600;
+    margin:0 0 .18em; letter-spacing:-.01em; line-height:1.2}
+  ol.reasons p{margin:0; font-size:clamp(.78rem,calc(.4vw + .65vh),.9rem); color:var(--ink-soft); line-height:1.4}
+  ol.reasons p b{color:var(--ink); font-weight:600}
+
+  /* features — giữ đúng danh sách chức năng gốc Phần 3 */
+  ol.features{list-style:none; counter-reset:f; padding:0; margin:.85rem 0 0;
+    display:grid; grid-template-columns:1fr 1fr; gap:clamp(6px,1.1vh,11px) 28px}
+  @media(max-width:900px){ol.features{grid-template-columns:1fr}}
+  ol.features li{counter-increment:f; position:relative; padding-left:2.4em;
+    font-size:clamp(.76rem,calc(.35vw + .65vh),.9rem); line-height:1.38; color:var(--ink-soft)}
+  ol.features li::before{content:counter(f,decimal-leading-zero); position:absolute; left:0; top:.05em;
+    font-family:var(--mono); font-size:.68rem; color:var(--brass); font-weight:600;
+    border:1px solid color-mix(in srgb,var(--brass) 45%,var(--line)); border-radius:6px; padding:1px 5px}
+  ol.features li b{color:var(--ink); font-weight:600; font-family:var(--serif); font-size:1.04em; letter-spacing:-.01em}
+
+  .chips{display:flex; flex-wrap:wrap; gap:9px; margin-top:1.4rem}
+  .chip{font-family:var(--mono); font-size:clamp(.68rem,1vw,.75rem); letter-spacing:.02em; padding:6px 12px;
+    border-radius:999px; border:1px solid var(--line); color:var(--ink-soft); background:var(--panel)}
+  .chip.br{border-color:color-mix(in srgb,var(--brass) 55%,var(--line)); color:var(--brass)}
+
+  .strip{margin-top:1.4rem; border:1px solid color-mix(in srgb,var(--brass) 40%,var(--line)); border-radius:11px;
+    padding:14px 18px; background:color-mix(in srgb,var(--brass) 7%,var(--panel))}
+  .strip .h{font-family:var(--mono); font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; color:var(--brass)}
+  .strip p{margin:.35em 0 0; color:var(--ink); font-size:clamp(.9rem,1.2vw,1rem); line-height:1.5}
+  .strip p b{color:var(--brass)}
+
+  .close{margin-top:clamp(.8rem,1.6vh,1.3rem); font-family:var(--mono); color:var(--ink-soft); font-size:clamp(.76rem,calc(.4vw + .55vh),.9rem); line-height:1.55; max-width:96ch}
+  .close .accent{color:var(--brass)}
+
+  /* chrome */
+  .rail{position:fixed; top:0; left:0; height:3px; z-index:40;
+    background:linear-gradient(90deg,var(--brass),var(--brass-bright)); width:0; transition:width .45s ease}
+  .brand{position:fixed; top:16px; left:22px; z-index:30; display:flex; gap:9px; align-items:center;
+    font-family:var(--mono); font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft)}
+  .brand .seal{width:15px;height:15px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,var(--brass-bright),var(--brass) 70%);
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--brass) 22%,transparent)}
+  .topright{position:fixed; top:12px; right:16px; z-index:31; display:flex; gap:8px}
+  .tg{font-family:var(--mono); font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft);
+    background:var(--panel); border:1px solid var(--line); padding:6px 11px; border-radius:999px; cursor:pointer}
+  .tg:hover{color:var(--ink); border-color:var(--brass)}
+  .tg:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+  #lang{color:var(--brass); border-color:color-mix(in srgb,var(--brass) 50%,var(--line)); font-weight:600}
+
+  .nav{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:31; display:flex;
+    align-items:center; gap:14px; background:var(--panel); border:1px solid var(--line); border-radius:999px;
+    padding:7px 12px; box-shadow:var(--shadow)}
+  .nav button{background:none; border:0; color:var(--ink-soft); font-size:1rem; cursor:pointer; padding:3px 6px;
+    border-radius:8px; line-height:1}
+  .nav button:hover{color:var(--brass)} .nav button:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+  .dots{display:flex; gap:8px}
+  .dot{width:9px; height:9px; border-radius:50%; border:1px solid var(--brass); background:transparent; cursor:pointer; padding:0}
+  .dot.on{background:var(--brass)}
+  .count{font-family:var(--mono); font-size:.72rem; color:var(--ink-faint); font-variant-numeric:tabular-nums; min-width:34px; text-align:center}
+  .tip{position:fixed; bottom:22px; right:20px; z-index:30; font-family:var(--mono); font-size:.64rem;
+    letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint)}
+</style>
+</head>
+<body>
+
+<div class="rail" id="rail"></div>
+<div class="brand"><span class="seal"></span> Legal Guard</div>
+<div class="topright">
+  <button class="tg" id="lang" aria-label="Switch language">EN</button>
+  <button class="tg tr" id="toggle" data-en="Light · Dark" aria-label="Đổi giao diện sáng/tối">Sáng · Tối</button>
+</div>
+
+<div class="deck" id="deck">
+
+  <!-- SLIDE 1 · PHẦN 1 -->
+  <section class="slide active">
+    <div class="wrap">
+      <div class="eyebrow" data-sec="§01"><span class="tr" data-en="Part 1 · Why we built Legal Guard">Phần 1 · Vì sao xây dựng Legal Guard</span><span class="bar"></span></div>
+      <h2 class="tr" data-en="Six core reasons a business needs an AI Legal Agent — not just ChatGPT.">Sáu lý do cốt lõi — vì sao doanh nghiệp cần một AI Legal Agent, không chỉ ChatGPT.</h2>
+      <ol class="reasons">
+        <li>
+          <h3 class="tr" data-en="Vietnamese law keeps changing; the in-force version is hard to pin down">Pháp luật Việt Nam liên tục thay đổi, khó xác định bản đang hiệu lực</h3>
+          <p class="tr" data-en="A provision may be amended by <b>Decree A</b>, A replaced by <b>Decree B</b>, then guided by <b>Circular C</b> — no AI today applies the correct consolidated text automatically.">Một điều luật có thể bị <b>Nghị định A</b> sửa, A bị <b>Nghị định B</b> thay thế, rồi <b>Thông tư C</b> hướng dẫn — chưa AI nào tự áp dụng đúng văn bản hợp nhất mới nhất.</p>
+        </li>
+        <li>
+          <h3 class="tr" data-en="ChatGPT is a general AI, not tuned for Vietnamese legal work">ChatGPT là AI tổng quát, chưa tối ưu cho nghiệp vụ pháp lý Việt Nam</h3>
+          <p class="tr" data-en="Broad knowledge, but it cannot identify the consolidated text or the in-force version, and does not follow lawyer and legal-team workflow.">Kho dữ liệu rộng nhưng không xác định đúng văn bản hợp nhất và phiên bản đang hiệu lực, chưa bám nghiệp vụ của luật sư và pháp chế doanh nghiệp.</p>
+        </li>
+        <li>
+          <h3 class="tr" data-en="Every contract type and company position is different">Mỗi loại hợp đồng và vị thế doanh nghiệp đều khác nhau</h3>
+          <p class="tr" data-en="A clause that favours the buyer may hurt the seller — the AI must understand the company role and interests in each deal, not apply one generic checklist.">Điều khoản có lợi cho bên mua chưa chắc có lợi cho bên bán — AI phải hiểu vai trò và lợi ích của doanh nghiệp trong từng giao dịch, không áp một bộ tiêu chí chung.</p>
+        </li>
+        <li>
+          <h3 class="tr" data-en="Protect the rights that matter — not add clauses mechanically">Bảo vệ những quyền lợi cần thiết — không thêm điều khoản máy móc</h3>
+          <p class="tr" data-en="Only the changes truly needed to protect core interests, keeping the contract practical and still negotiable.">Chỉ đề xuất những sửa đổi thật sự cần thiết để bảo vệ quyền lợi cơ bản, giữ hợp đồng vẫn thực tiễn và còn khả năng đàm phán.</p>
+        </li>
+        <li>
+          <h3 class="tr" data-en="Built for small companies">Thiết kế riêng cho doanh nghiệp nhỏ</h3>
+          <p class="tr" data-en="Compare the before and after, explain the reason for each proposal, and let the user accept or reject each item — saving real review time.">So sánh bản trước và sau khi sửa, giải thích lý do của từng đề xuất, cho phép người dùng chấp nhận hoặc từ chối từng nội dung — tiết kiệm đáng kể thời gian rà soát.</p>
+        </li>
+        <li>
+          <h3 class="tr" data-en="Fits Vietnamese contract-negotiation practice">Phù hợp thông lệ đàm phán hợp đồng tại Việt Nam</h3>
+          <p class="tr" data-en="Presentation, explanation and proposals follow local custom, so businesses, lawyers and partners can read, discuss and apply them easily.">Cách trình bày, giải thích và đề xuất bám tập quán đàm phán hợp đồng tại Việt Nam, giúp doanh nghiệp, luật sư và đối tác dễ đọc, dễ trao đổi, dễ áp dụng.</p>
+        </li>
+      </ol>
+      <div class="close tr" data-en="In short: ChatGPT answers <span class='accent'>general knowledge</span> — Legal Guard solves a specific problem: reviewing contracts on <span class='accent'>Slack & web</span>, under Vietnamese law, on the <span class='accent'>in-force version</span>, from the <span class='accent'>company position</span>, following legal-team workflow.">Tóm lại: ChatGPT trả lời <span class="accent">kiến thức tổng quát</span> — Legal Guard giải một bài toán cụ thể: rà soát hợp đồng trên <span class="accent">Slack và web</span>, theo pháp luật Việt Nam, đúng <span class="accent">phiên bản hiệu lực</span>, đúng <span class="accent">vị thế</span> doanh nghiệp, theo đúng quy trình pháp chế.</div>
+    </div>
+  </section>
+
+  <!-- SLIDE 2 · PHẦN 2 -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow" data-sec="§02"><span class="tr" data-en="Part 2 · Target customers">Phần 2 · Khách hàng mục tiêu</span><span class="bar"></span></div>
+      <h2 class="tr" data-en="Who we sell to: the two groups with the clearest need and highest ability to pay.">Bán cho ai: hai nhóm có nhu cầu rõ nhất và khả năng chi trả cao nhất.</h2>
+      <div class="grid g2">
+        <div class="card">
+          <div class="n tr" data-en="Segment 1">Nhóm 1</div>
+          <h3 class="tr" data-en="Small company with no legal team">Công ty nhỏ chưa có bộ phận legal</h3>
+          <p class="tr" data-en="Needs a first legal check before signing — which clause is unfavourable, which must be fixed, how to fix it, and whether it is safe to sign. Fewer contracts sent to outside counsel, more consistent quality.">Cần một lớp kiểm tra pháp lý ban đầu trước khi ký — điều khoản nào bất lợi, buộc phải sửa, sửa thế nào, đã ký được chưa. Giảm số hợp đồng gửi ra ngoài, chuẩn hóa chất lượng.</p>
+        </div>
+        <div class="card">
+          <div class="n tr" data-en="Segment 2">Nhóm 2</div>
+          <h3 class="tr" data-en="Overloaded in-house legal team">Pháp chế nội bộ đang quá tải</h3>
+          <p class="tr" data-en="Automates the repetitive review steps so one specialist can handle more contracts and focus on high-value decisions.">Tự động hóa các bước rà soát lặp lại để một chuyên viên xử lý được nhiều hợp đồng hơn và tập trung vào những quyết định giá trị cao.</p>
+        </div>
+      </div>
+      <div class="strip">
+        <div class="h tr" data-en="Best first customers">Khách hàng nên ưu tiên đầu tiên</div>
+        <p class="tr" data-en="<b>20–300 employees</b> · signs contracts frequently · already on <b>Slack</b> · only <b>0–5</b> legal staff — prioritise technology, marketing, trade, logistics and professional services."><b>20–300 nhân sự</b> · ký hợp đồng thường xuyên · đang dùng <b>Slack</b> · chỉ có <b>0–5</b> nhân sự pháp lý — ưu tiên công nghệ, marketing, thương mại, logistics và dịch vụ chuyên môn.</p>
+      </div>
+      <div class="chips">
+        <span class="chip tr" data-en="Owner → cost &amp; risk">Chủ doanh nghiệp → chi phí và rủi ro</span>
+        <span class="chip tr" data-en="Head of legal → productivity &amp; control">Trưởng pháp chế → năng suất và kiểm soát</span>
+        <span class="chip tr" data-en="End user → simplicity &amp; time saved">Người dùng → đơn giản và tiết kiệm thời gian</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3 · PHẦN 3 -->
+  <section class="slide">
+    <div class="wrap">
+      <div class="eyebrow" data-sec="§03"><span class="tr" data-en="Part 3 · Core features">Phần 3 · Chức năng chính</span><span class="bar"></span></div>
+      <h2 class="tr" data-en="A complete contract-handling workflow — right inside Slack and on the web.">Một quy trình xử lý hợp đồng hoàn chỉnh — ngay trên Slack và web.</h2>
+      <ol class="features">
+        <li class="tr" data-en="<b>Review by the company position</b> — three levels, illegal vs unfavourable, with a legal basis."><b>Rà soát hợp đồng theo đúng vị thế doanh nghiệp</b> — ba mức, tách trái luật với bất lợi, kèm căn cứ.</li>
+        <li class="tr" data-en="<b>Propose fixes and replacement clauses</b> — ready to paste straight into the contract."><b>Đề xuất phương án xử lý và điều khoản thay thế</b> — dán thẳng được vào hợp đồng.</li>
+        <li class="tr" data-en="<b>Detect drafting errors</b> — wrong names or signers, wrong figures, empty references, mis-numbering."><b>Phát hiện lỗi soạn thảo</b> — sai tên hoặc người ký, sai số liệu, tham chiếu để trống, đánh số lệch.</li>
+        <li class="tr" data-en="<b>Multi-round negotiation support</b> — remembers what is settled or conceded, warns at the walk-away point."><b>Hỗ trợ đàm phán hợp đồng qua nhiều vòng</b> — nhớ đã chốt / đã nhượng, cảnh báo điểm dừng.</li>
+        <li class="tr" data-en="<b>Amendment memo and comparison</b> — Word memo, redline old→new, and a file with comments."><b>Tạo bản ghi nhớ sửa đổi và bản đối chiếu</b> — bản Word, redline cũ→mới, file có comment.</li>
+        <li class="tr" data-en="<b>Trained to navigate Vietnam's specialised legal-document system</b> — cites the right document, article, clause and in-force status."><b>Được train cách tra cứu hệ thống văn bản pháp luật đặc thù tại Việt Nam</b> — dẫn đúng văn bản, điều, khoản và tình trạng hiệu lực.</li>
+        <li class="tr" data-en="<b>In-force check and change tracking</b> — Autopilot scans new laws and alerts into Slack."><b>Kiểm tra hiệu lực và theo dõi thay đổi pháp luật</b> — Autopilot tự quét luật mới, cảnh báo vào Slack.</li>
+        <li class="tr" data-en="<b>Transparent confidence</b> — High / Medium / Low label; declines when evidence is thin instead of fabricating."><b>Minh bạch về độ tin cậy</b> — nhãn Cao / Trung bình / Thấp; thiếu căn cứ thì từ chối thay vì bịa.</li>
+        <li class="tr" data-en="<b>Human approval</b> — high-risk items need Approve / Reject / Escalate to an expert."><b>Cơ chế phê duyệt của con người</b> — rủi ro cao phải Duyệt / Từ chối / Chuyển chuyên gia.</li>
+        <li class="tr" data-en="<b>Outcome logging — more use, more accuracy</b> — a private record that sharpens future advice."><b>Ghi nhận kết quả — càng dùng càng chính xác</b> — hồ sơ riêng của doanh nghiệp, tư vấn tốt dần.</li>
+        <li class="tr" data-en="<b>Slack &amp; web integration</b> — takes files, images and scans; fast and deep review modes."><b>Tích hợp trực tiếp trên Slack và web</b> — nhận file, ảnh và bản scan; hai chế độ rà nhanh và sâu.</li>
+      </ol>
+      <div class="close tr" data-en="The AI does the <span class='accent'>heavy, repetitive</span> work · the business or lawyer keeps the <span class='accent'>high-risk decisions</span>.">AI làm phần <span class="accent">nặng và lặp lại</span> · doanh nghiệp hoặc luật sư giữ <span class="accent">quyết định rủi ro cao</span>.</div>
+    </div>
+  </section>
+
+</div>
+
+<div class="nav" id="nav">
+  <button id="prev" aria-label="Previous slide">‹</button>
+  <div class="dots" id="dots"></div>
+  <span class="count" id="count">1 / 3</span>
+  <button id="next" aria-label="Next slide">›</button>
+</div>
+<div class="tip tr" data-en="Click to advance · ← →">Bấm để qua · ← →</div>
+
+<script>
+(function(){
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  var rail=document.getElementById('rail'), count=document.getElementById('count'), dotsBox=document.getElementById('dots');
+  var i=0, N=slides.length;
+
+  slides.forEach(function(_,k){
+    var d=document.createElement('button'); d.className='dot'+(k===0?' on':''); d.setAttribute('aria-label','Slide '+(k+1));
+    d.addEventListener('click',function(e){e.stopPropagation(); go(k);}); dotsBox.appendChild(d);
+  });
+  var dots=[].slice.call(dotsBox.children);
+
+  function go(n){
+    i=(n+N)%N;
+    slides.forEach(function(s,k){ s.classList.toggle('active',k===i); });
+    dots.forEach(function(d,k){ d.classList.toggle('on',k===i); });
+    count.textContent=(i+1)+' / '+N;
+    rail.style.width=((i+1)/N*100)+'%';
+  }
+  function next(){go(i+1);} function prev(){go(i-1);}
+  go(0);
+
+  document.getElementById('next').addEventListener('click',function(e){e.stopPropagation(); next();});
+  document.getElementById('prev').addEventListener('click',function(e){e.stopPropagation(); prev();});
+  document.getElementById('deck').addEventListener('click',function(e){
+    if(e.target.closest('button')) return; next();
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' '||e.key==='PageDown'){e.preventDefault(); next();}
+    else if(e.key==='ArrowLeft'||e.key==='ArrowUp'||e.key==='PageUp'){e.preventDefault(); prev();}
+    else if(e.key==='Home'){e.preventDefault(); go(0);} else if(e.key==='End'){e.preventDefault(); go(N-1);}
+  });
+
+  var root=document.documentElement;
+  // theme
+  document.getElementById('toggle').addEventListener('click',function(e){
+    e.stopPropagation();
+    var t=root.getAttribute('data-theme');
+    if(!t){t=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+    root.setAttribute('data-theme', t==='dark'?'light':'dark');
+  });
+
+  // language toggle (VI <-> EN)
+  var langBtn=document.getElementById('lang'), lang='vi';
+  var els=[].slice.call(document.querySelectorAll('.tr'));
+  els.forEach(function(el){ el.dataset.vi=el.innerHTML; });  // store original Vietnamese HTML once
+  langBtn.addEventListener('click',function(e){
+    e.stopPropagation();
+    lang=(lang==='vi')?'en':'vi';
+    els.forEach(function(el){ el.innerHTML = (lang==='en') ? el.dataset.en : el.dataset.vi; });
+    root.setAttribute('lang', lang); root.setAttribute('data-lang', lang);
+    langBtn.textContent = (lang==='en') ? 'VI' : 'EN';   // shows the language you can switch TO
+  });
+})();
+</script>
+</body>
+</html>
