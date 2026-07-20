@@ -48,11 +48,15 @@ def _sample_result() -> AnalysisResult:
              "priority": "negotiate"},
         ],
         fallbacks=[{"clause": "Điều 8 — Thanh toán", "suggestion": "rút thời hạn về 30–45 ngày"}],
-        drafting_notes=[
-            "Tại Điều 1.2 bản tiếng Anh, tên người thừa kế ghi nhầm \"LIN YUAN\"; đề xuất sửa thành: LIN HSUAN",
-            "Tại phần địa chỉ ông LIN HSUAN, thiếu quốc gia; đề xuất sửa như sau:\n"
-            "Tiếng Việt: Số 275 đường Tam Thố, ..., thành phố Đài Trung, Đài Loan\n"
-            "Tiếng Anh: No. 275, Sancuo Street, ..., Taichung City, Taiwan",
+        drafting_issues=[   # CÓ CẤU TRÚC → render in đậm + nút "Đồng ý sửa" (như rủi ro), khớp demo THẬT
+            {"location": "Điều 1.2 (bản tiếng Anh)",
+             "issue": "tên người thừa kế ghi nhầm \"LIN YUAN\", lệch với bản tiếng Việt",
+             "fix_vi": "Sửa tên thành LIN HSUAN cho khớp bản tiếng Việt.",
+             "fix_en": "Correct the beneficiary name to LIN HSUAN to match the Vietnamese version."},
+            {"location": "Phần địa chỉ ông LIN HSUAN",
+             "issue": "địa chỉ thiếu quốc gia",
+             "fix_vi": "Số 275 đường Tam Thố, ..., thành phố Đài Trung, Đài Loan.",
+             "fix_en": "No. 275, Sancuo Street, ..., Taichung City, Taiwan."},
         ],
         needs_human_review=True, review_reasons=[], summary="", trace=[],
         strategy="Giữ trần phạt 8% (must_fix); có thể nhượng thời hạn thanh toán để chốt.",
