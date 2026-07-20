@@ -163,3 +163,12 @@ def test_negotiate_round_injects_tactics_context_into_prompt():
     negotiate_round(llm, deal_context="d", partner_message="m",
                     tactics_context="WIN-RATE LỊCH SỬ: 'phạt' đạt 80% (5 vụ)")
     assert "WIN-RATE LỊCH SỬ" in llm.last_prompt and "'phạt' đạt 80%" in llm.last_prompt
+
+
+def test_negotiate_prompt_treats_legal_cap_as_hard_red_line():
+    # Regression: prompt phải CẤM nhượng TRÊN trần luật (12% vẫn > 8% Đ.301 → vô hiệu), kể cả HAI CHIỀU.
+    from legalguard.domain.negotiation import _SYSTEM
+    low = _SYSTEM.lower()
+    assert "trần luật" in low                    # có khái niệm trần luật
+    assert "hai chiều" in low                    # nêu rõ hai chiều KHÔNG cứu phần vượt
+    assert "8%" in _SYSTEM and "301" in _SYSTEM  # ví dụ cụ thể trần 8% / Điều 301
