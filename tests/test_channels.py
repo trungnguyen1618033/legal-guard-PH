@@ -1339,6 +1339,20 @@ def test_summary_untouched_no_false_prefix_match():
     assert "Chưa xử lý (1)" in s and "Điều 3.2" in s     # Điều 3.2 VẪN chưa xử lý (không bị nuốt)
 
 
+def test_summary_untouched_dedup_and_newlines():
+    # C. Chưa xử lý: cùng 1 Điều ở CẢ risk lẫn drafting → gộp 1 dòng; mỗi mục XUỐNG DÒNG (không viết liền "; ").
+    from types import SimpleNamespace
+
+    from legalguard.adapters.inbound.channels import _summary_from_decisions
+    case = SimpleNamespace(
+        risks=[{"clause": "Điều 9 — Phạt 15%"}, {"clause": "Điều 3 — Sai lệch giá"}],
+        drafting_issues=[{"location": "Điều 3. Giá và Điều kiện"}])   # cùng Điều 3 (risk + drafting) → dedup
+    s = _summary_from_decisions(case, [{"clause": "Điều 9 — Phạt 15%", "action": "agreed", "text": "8%"}])
+    assert "Chưa xử lý (1)" in s          # Điều 3 gộp còn 1 (risk + drafting cùng số điều)
+    assert "; " not in s                  # KHÔNG viết liền — mỗi mục 1 dòng
+    assert s.count("Điều 3") == 1         # chỉ 1 dòng Điều 3
+
+
 def test_rv_close_posts_three_group_summary_e2e():
     # E2E: seed case + decisions → bấm 'Chốt' → tổng hợp 3 nhóm đăng vào thread (giữ bài).
     import json as _j

@@ -1358,14 +1358,29 @@ def _summary_from_decisions(case, decisions: list[dict]) -> str:
                 "hoặc “Sửa lại” để chỉnh, rồi bấm “Chốt” lại.")
     out = ["*TỔNG HỢP CHỐT*"]
     if agreed:
+        out.append("")
         out.append(f"*A. Đã đồng ý sửa ({len(agreed)}):*")
-        out += [f"• {d.get('clause', '')}" + (f" — {d['text']}" if d.get("text") else "") for d in agreed]
+        for d in agreed:                                   # tên điều 1 dòng, nội dung sửa xuống dòng (dễ đọc)
+            out.append(f"• *{d.get('clause', '')}*")
+            if d.get("text"):
+                out.append(d["text"].strip())
     if revised:
+        out.append("")
         out.append(f"*B. Đã sửa theo ý ({len(revised)}):*")
         out += [f"• {(d.get('text') or d.get('clause') or '').strip()}" for d in revised]
     if untouched:
-        out.append(f"*C. Chưa xử lý ({len(untouched)}):* " + "; ".join(untouched))
-    out.append("Cần file: bấm “Bản đối chiếu” để tải .docx.")
+        seen, uniq = set(), []                             # dedup theo số Điều (cùng Điều ở risk + lỗi soạn thảo → 1 dòng)
+        for c in untouched:
+            k = _clause_key(c).rstrip(".").strip()          # bỏ dấu chấm cuối: 'điều 3.' == 'điều 3' (KHÔNG nuốt 'điều 3.2')
+            if k and k in seen:
+                continue
+            seen.add(k)
+            uniq.append(c)
+        out.append("")
+        out.append(f"*C. Chưa xử lý ({len(uniq)}):*")       # MỖI mục 1 dòng (không viết liền)
+        out += [f"• {c}" for c in uniq]
+    out.append("")
+    out.append("_Cần file: bấm “Bản đối chiếu” để tải .docx._")
     return "\n".join(out)
 
 
