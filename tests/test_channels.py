@@ -395,6 +395,33 @@ def test_process_reuses_contract_file_from_thread():
     assert "ĐÍNH KÈM" not in joined                         # KHÔNG hỏi đính kèm nữa (đã dùng file thread)
 
 
+def test_process_counter_offer_in_deal_acks_negotiation_not_contract():
+    # BUG (user báo): counter-offer trong DEAL (@mention) → bot ack SAI "Đã nhận hợp đồng…".
+    # FIX: đang trong deal (conv.context) + counter-offer, KHÔNG file → ack ĐÀM PHÁN (không phải "nhận HĐ").
+    from legalguard.adapters.inbound.channels import _process
+    from legalguard.domain.models import Conversation
+    h = _handler()
+    h.store.save(Conversation(id="slack:C1:9", context="CHIẾN LƯỢC: … RỦI RO: Điều 9 phạt 15%"))
+    s = _FakeSender()
+    _process(h, s, "slack:C1:9", "C1",
+             "We'll only drop the penalty to 12% and keep the 90-day payment.",
+             None, None, "9", supports_buttons=True)
+    joined = " ".join(t for _, t in s.sent)
+    assert "Đã nhận hợp đồng" not in joined                  # KHÔNG ack như HĐ mới
+    assert "đàm phán" in joined.lower()                      # ack đàm phán
+
+
+def test_process_fresh_contract_still_acks_received():
+    # KHÔNG phá analyze: không trong deal + tin có tín hiệu HĐ → VẪN ack "Đã nhận hợp đồng".
+    from legalguard.adapters.inbound.channels import _process
+    h = _handler()
+    s = _FakeSender()
+    _process(h, s, "slack:C1:new", "C1",
+             "Điều 5 phạt vi phạm 15% tổng giá trị hợp đồng; thanh toán T/T 90 ngày sau giao hàng.",
+             None, None, "new", supports_buttons=True)
+    assert any("Đã nhận hợp đồng" in t for _, t in s.sent)   # HĐ mới → ack nhận HĐ (giữ nguyên)
+
+
 def test_md_to_slack_converts_bold_and_headers():
     # Slack dùng 1 dấu * cho đậm; **x** không render. Chuyển **x**→*x*, tiêu đề #→*…*.
     from legalguard.adapters.inbound.channels import _md_to_slack

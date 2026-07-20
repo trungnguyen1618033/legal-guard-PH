@@ -1571,10 +1571,18 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
             file_url, filename = turl, tfn
     # Ack ngay khi sắp PHÂN TÍCH HĐ (lâu ~vài phút). Câu hỏi tra cứu (lookup) nhanh → KHÔNG ack. Yêu cầu
     # rà soát mà KHÔNG có file (trực tiếp/thread) → sẽ hướng dẫn đính kèm → KHÔNG ack (tránh 'Đã nhận HĐ' sai).
-    will_analyze = bool(file_url) or (
+    # ĐANG TRONG DEAL (đã analyze → conv.context) + tin PHẢN HỒI đối tác (counter-offer) hoặc tin NGẮN, KHÔNG
+    # kèm file mới → đây là VÒNG ĐÀM PHÁN/follow-up, KHÔNG phải HĐ mới → KHÔNG ack "Đã nhận hợp đồng" (khớp
+    # routing _handle: analyze bị skip khi conv.context + counter/ngắn). Peek conv (1 store.get, phụ).
+    _store = getattr(handler, "store", None)
+    _existing = _store.get(key) if (_store is not None and not file_url) else None
+    _deal_followup = bool(_existing and getattr(_existing, "context", "") and text and not file_url
+                          and not _is_question(text)
+                          and (_is_counter_offer(text) or len(text.strip()) < 220))
+    will_analyze = (not _deal_followup) and (bool(file_url) or (
         bool(text) and not _is_question(text) and any(s in text.lower() for s in _SIGNALS)
         # chỉ BỎ ack cho yêu cầu rà soát NGẮN không file (→ hướng dẫn đính kèm); HĐ DÁN dài vẫn ack + analyze.
-        and not (len((text or "").strip()) < 200 and _wants_whole_contract_review(text or "")))
+        and not (len((text or "").strip()) < 200 and _wants_whole_contract_review(text or ""))))
     on_progress = None
     if will_analyze:
         ack_ts = _safe_send(sender, send_to, _ACK, thread_ts)
@@ -1582,6 +1590,8 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         # sender hỗ trợ update (Slack) + có ts ack. Callback optional → default None = 0 đổi hành vi/accuracy.
         if ack_ts and hasattr(sender, "update"):
             on_progress = _make_progress_cb(sender, send_to, ack_ts)
+    elif _deal_followup and _is_counter_offer(text):    # counter-offer trong deal → ack ĐÀM PHÁN (không phải "nhận HĐ")
+        _safe_send(sender, send_to, "Đang phân tích phản hồi & tính nước đàm phán, vui lòng chờ…", thread_ts)
     elif text and _looks_like_question(text) and not (_wants_file_export(text) and not _is_question(text)):
         # lookup/follow-up cũng chậm (~30s) → ack để không "chờ im". BỎ ack CHỈ khi tin thật sự route sang
         # XUẤT FILE (điều kiện Y HỆT _handle: _wants_file_export AND not _is_question) — khi ấy đã có ack
