@@ -13,6 +13,7 @@ from legalguard.domain.models import (
     ChatTurn,
     Conversation,
     Feedback,
+    MemoryEpisode,
     Obligation,
     OrgPolicy,
     Outcome,
@@ -191,6 +192,21 @@ class FeedbackRepositoryPort(Protocol):
     def list_by_org(self, org_id: str, limit: int = 100) -> list[Feedback]: ...
 
     def delete_by_ref(self, ref: str) -> int: ...   # cascade erasure (xóa feedback của case bị xóa)
+
+
+@runtime_checkable
+class MemoryPort(Protocol):
+    """Bộ nhớ agent theo ĐỐI TÁC (agentic memory — anchor CockroachDB). `remember` ghi tình tiết (gọi ASYNC
+    ngoài hot-path để +0 latency phản hồi); `recall` truy hồi tình tiết liên quan để INJECT vào prompt
+    analyze/negotiate (như tactics_context → KHÔNG đổi generation → accuracy giữ). Cô lập org + cascade
+    erasure theo case. Adapter: InMemory (offline/test) → SQL+vector (pgvector giờ, CockroachDB sau)."""
+
+    def remember(self, episode: MemoryEpisode) -> str: ...
+
+    # Truy hồi tình tiết liên quan `query`, ưu tiên cùng `counterparty` nếu có. Cô lập theo org_id.
+    def recall(self, org_id: str, query: str, counterparty: str = "", k: int = 5) -> list[MemoryEpisode]: ...
+
+    def delete_by_case(self, case_id: str) -> int: ...   # cascade right-to-erasure (xóa case → xóa memory)
 
 
 @runtime_checkable

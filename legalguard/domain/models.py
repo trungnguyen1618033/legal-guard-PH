@@ -164,6 +164,21 @@ class Feedback:
 
 
 @dataclass
+class MemoryEpisode:
+    """Một TÌNH TIẾT bộ nhớ agent theo ĐỐI TÁC (agentic memory) — điều đã rà/nhượng/chốt với một
+    counterparty, để RECALL khi rà soát/đàm phán deal SAU (moat system-of-record). Nội dung đã redact PII
+    trước khi lưu. Cô lập org; cascade erasure theo case_id. `counterparty` = trục gom xuyên deal."""
+    id: str
+    org_id: str
+    counterparty: str          # bên đối tác (chuẩn hóa lower khi so) — trục gom bộ nhớ xuyên deal
+    kind: str                  # risk | decision | outcome | note
+    clause: str
+    content: str               # nội dung tình tiết (ĐÃ redact PII)
+    created_at: str
+    case_id: str = ""          # deal nguồn (truy vết + cascade erasure)
+
+
+@dataclass
 class TraceStep:
     step: int
     tool: str
