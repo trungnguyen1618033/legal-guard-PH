@@ -25,8 +25,9 @@ from legalguard.domain.ports import KnowledgeBasePort
 # text đã NFC+lower). Domain khớp = có ≥1 keyword; lấy top-2 theo SỐ keyword khớp (câu đa-lĩnh-vực
 # vd "phạt vi phạm" chạm cả thương mại lẫn dân sự → giữ cả hai).
 DOMAIN_KEYWORDS: dict[str, list[str]] = {
-    "thuong_mai": ["phạt vi phạm", "chế tài", "thương mại", "buộc thực hiện", "tạm ngừng thực hiện",
-                   "đình chỉ thực hiện", "hủy bỏ hợp đồng", "miễn trách nhiệm", "chậm thanh toán"],
+    "thuong_mai": ["phạt vi phạm", "chế tài", "thương mại", "mua bán", "buộc thực hiện",
+                   "tạm ngừng thực hiện", "đình chỉ thực hiện", "hủy bỏ hợp đồng", "miễn trách nhiệm",
+                   "chậm thanh toán"],
     "dan_su": ["dân sự", "đặt cọc", "lãi suất", "vay", "phạt vi phạm", "bồi thường", "vô hiệu",
                "nghĩa vụ trả", "chậm trả", "hợp đồng"],
     "hoa_don": ["hóa đơn", "chứng từ", "xuất hóa đơn"],
