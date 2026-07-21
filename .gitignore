@@ -269,3 +269,12 @@ evaluation/rerank_ab_report.json
 # Moat/private — KHÔNG commit (bổ sung: bắt cả file .zip, không chỉ thư mục docs/internal/)
 docs/internal.zip
 docs/*.zip
+
+# --- File làm việc / nguồn cục bộ (không thuộc deliverable open-core; giữ trên đĩa, khỏi lộ git status) ---
+# bản trùng của web/slide.html (bản served); nguồn markdown deck; ghi chú làm việc;
+# HĐ demo (.md/.txt — .docx đã ignore); output benchmark (sinh lại được)
+/slide.html
+/trinh-bay-he-thong.md
+/docs/checklist-ly-do-su-dung.md
+/examples/demo_contract_phuquoc.*
+/scripts/fast_bench_deep_baseline.json
