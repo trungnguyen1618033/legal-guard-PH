@@ -5,43 +5,73 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Độ tin cậy — Legal Guard</title>
 <style>
-  :root { --b:#0d6efd; --mut:#667; --line:#e3e6ea; }
+  :root {
+    --ink:#16202e; --muted:#647089; --faint:#8a94a6;
+    --brand:#2563eb; --brand-d:#1d4ed8;
+    --bg:#f5f7fb; --surface:#ffffff; --line:#e5eaf1; --line-2:#eef2f7;
+    --shadow:0 1px 2px rgba(16,32,58,.05), 0 6px 22px rgba(16,32,58,.06);
+    --radius:12px;
+  }
   * { box-sizing:border-box; }
-  body { font-family:-apple-system,Segoe UI,Roboto,sans-serif; max-width:760px; margin:0 auto;
-         padding:24px 16px; color:#1a1d21; line-height:1.6; }
-  h1 { font-size:23px; margin:0 0 4px; }
-  .muted { color:var(--mut); }
-  a { color:var(--b); }
-  .card { border:1px solid var(--line); border-radius:10px; padding:16px; margin-top:16px; }
-  .metric { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+         color:var(--ink); background:var(--bg); line-height:1.6; -webkit-font-smoothing:antialiased; }
+  a { color:var(--brand); text-decoration:none; }
+  .wrap { max-width:760px; margin:0 auto; padding:0 18px; }
+
+  header { background:var(--surface); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:20; }
+  header .wrap { display:flex; align-items:center; height:56px; gap:10px; }
+  .brand { font-weight:800; font-size:1.05rem; letter-spacing:-.01em; display:flex; align-items:center; gap:9px; margin-right:auto; }
+  .brand .dot { width:22px; height:22px; border-radius:6px; background:linear-gradient(135deg,#2563eb,#0891b2); }
+  nav a { color:var(--muted); font-size:.86rem; font-weight:500; margin-left:16px; }
+  nav a:hover { color:var(--brand); }
+  @media (max-width:600px){ nav { display:none; } }
+
+  h1 { font-size:1.5rem; letter-spacing:-.01em; margin:24px 0 4px; }
+  .lead { color:var(--muted); font-size:.92rem; margin:0 0 4px; }
+  .muted { color:var(--muted); }
+  #err { color:#dc2626; font-weight:600; }
+
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-top:16px; box-shadow:var(--shadow); }
+  .card h2 { margin:0 0 12px; font-size:1.02rem; font-weight:700; }
+  .metric { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid var(--line-2); }
   .metric:last-child { border-bottom:0; }
-  .metric .v { font-weight:700; color:var(--b); white-space:nowrap; }
+  .metric .v { font-weight:800; color:var(--brand); white-space:nowrap; font-size:1.05rem; }
   .metric .n { font-size:13px; }
-  .layer { padding:7px 0; border-bottom:1px solid var(--line); font-size:14.5px; }
+  .layer { padding:9px 0; border-bottom:1px solid var(--line-2); font-size:.93rem; }
   .layer:last-child { border-bottom:0; }
-  .layer b { color:#14223a; }
-  .warn { background:#fff8e6; border:1px solid #f0d68a; border-radius:8px; padding:10px 12px;
-          font-size:13.5px; margin-top:16px; }
-  #err { color:#c0392b; }
+  .layer b { color:#0f1b2e; }
+  .warn { background:#fffaf1; border:1px solid #f3e2bf; border-radius:9px; padding:11px 14px; font-size:13.5px; margin-top:18px; color:#7a5b16; }
 </style>
 </head>
 <body>
-  <h1>Độ tin cậy của Legal Guard</h1>
-  <p class="muted">Cách chúng tôi đảm bảo trả lời <b>có căn cứ, không bịa</b> — và số đo thực tế.
-    <a href="/app">Rà soát HĐ</a> · <a href="/lookup">Tra cứu luật</a></p>
-  <p id="err"></p>
+  <header><div class="wrap">
+    <span class="brand"><span class="dot"></span>Legal Guard</span>
+    <nav>
+      <a href="/">Giới thiệu</a>
+      <a href="/app">Rà soát</a>
+      <a href="/lookup">Tra cứu</a>
+      <a href="/help">Hướng dẫn</a>
+    </nav>
+  </div></header>
 
-  <div class="card">
-    <h2 style="margin-top:0;font-size:17px">Phương pháp đảm bảo</h2>
-    <div id="methodology"></div>
+  <div class="wrap">
+    <h1>Độ tin cậy của Legal Guard</h1>
+    <p class="lead">Cách chúng tôi đảm bảo trả lời <b>có căn cứ, không bịa</b> — và số đo thực tế trên bộ kiểm thử nội bộ.</p>
+    <p id="err"></p>
+
+    <div class="card">
+      <h2>Phương pháp đảm bảo</h2>
+      <div id="methodology"></div>
+    </div>
+
+    <div class="card">
+      <h2>Số đo (golden set nội bộ)</h2>
+      <div id="metrics"></div>
+    </div>
+
+    <div class="warn" id="disclaimer"></div>
+    <div style="height:32px"></div>
   </div>
-
-  <div class="card">
-    <h2 style="margin-top:0;font-size:17px">Số đo (golden set nội bộ)</h2>
-    <div id="metrics"></div>
-  </div>
-
-  <div class="warn" id="disclaimer"></div>
 
 <script>
 const $ = id => document.getElementById(id);

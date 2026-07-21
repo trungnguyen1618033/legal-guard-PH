@@ -5,70 +5,107 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bảng điều khiển — Legal Guard</title>
 <style>
-  :root { --b:#0d6efd; --mut:#667; --line:#e3e6ea; }
+  :root {
+    --ink:#16202e; --muted:#647089; --faint:#8a94a6;
+    --brand:#2563eb; --brand-d:#1d4ed8;
+    --bg:#f5f7fb; --surface:#ffffff; --line:#e5eaf1; --line-2:#eef2f7;
+    --ok:#16a34a; --high:#dc2626;
+    --shadow:0 1px 2px rgba(16,32,58,.05), 0 6px 22px rgba(16,32,58,.06);
+    --radius:12px;
+  }
   * { box-sizing:border-box; }
-  body { font-family:-apple-system,Segoe UI,Roboto,sans-serif; max-width:860px; margin:0 auto;
-         padding:24px 16px; color:#1a1d21; line-height:1.55; }
-  h1 { font-size:22px; margin:0 0 4px; }
-  h2 { font-size:16px; margin:0 0 10px; }
-  .muted { color:var(--mut); }
-  input { padding:10px; border:1px solid var(--line); border-radius:8px; font-size:15px; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+         color:var(--ink); background:var(--bg); line-height:1.55; -webkit-font-smoothing:antialiased; }
+  a { color:var(--brand); text-decoration:none; }
+  .wrap { max-width:900px; margin:0 auto; padding:0 18px; }
+
+  header { background:var(--surface); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:20; }
+  header .wrap { display:flex; align-items:center; height:56px; gap:10px; }
+  .brand { font-weight:800; font-size:1.05rem; letter-spacing:-.01em; display:flex; align-items:center; gap:9px; margin-right:auto; }
+  .brand .dot { width:22px; height:22px; border-radius:6px; background:linear-gradient(135deg,#2563eb,#0891b2); }
+  nav a { color:var(--muted); font-size:.86rem; font-weight:500; margin-left:16px; }
+  nav a:hover { color:var(--brand); }
+  @media (max-width:600px){ nav { display:none; } }
+
+  h1 { font-size:1.5rem; letter-spacing:-.01em; margin:24px 0 4px; }
+  h2 { font-size:1rem; font-weight:700; margin:0 0 12px; }
+  .lead { color:var(--muted); font-size:.92rem; margin:0 0 16px; }
+  .muted { color:var(--muted); }
+  #err { color:var(--high); font-weight:600; }
+
+  input { padding:10px 12px; border:1px solid var(--line); border-radius:9px; font-size:15px; font-family:inherit;
+          background:var(--surface); color:var(--ink); transition:border-color .15s, box-shadow .15s; }
+  input:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
   .row { display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap; }
-  button { background:var(--b); color:#fff; border:0; border-radius:8px; padding:10px 18px;
-           font-size:15px; cursor:pointer; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:18px; }
-  .stat { border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
-  .stat .n { font-size:28px; font-weight:700; }
-  .stat .l { font-size:13px; color:var(--mut); }
-  .card { border:1px solid var(--line); border-radius:10px; padding:16px; margin-top:18px; }
-  .bar { display:flex; align-items:center; gap:8px; margin:5px 0; font-size:14px; }
-  .bar .fill { height:14px; border-radius:4px; background:var(--b); }
+  button { background:var(--brand); color:#fff; border:0; border-radius:9px; padding:10px 18px;
+           font-size:15px; font-weight:600; cursor:pointer; transition:background .15s, transform .04s; }
+  button:hover { filter:brightness(1.05); } button:active { transform:translateY(1px); }
+  button:disabled { opacity:.5; cursor:default; }
+
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-top:18px; }
+  .stat { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; box-shadow:var(--shadow); }
+  .stat .n { font-size:30px; font-weight:800; letter-spacing:-.02em; color:var(--brand); }
+  .stat .l { font-size:13px; color:var(--muted); margin-top:2px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-top:16px; box-shadow:var(--shadow); }
+  .bar { display:flex; align-items:center; gap:8px; margin:6px 0; font-size:14px; }
+  .bar .fill { height:14px; border-radius:5px; background:var(--brand); }
   table { width:100%; border-collapse:collapse; font-size:14px; }
-  td,th { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
-  .pill { display:inline-block; padding:1px 8px; border-radius:20px; font-size:12px; }
-  .high { background:#ffd9d9; } .medium { background:#fff0c2; } .low { background:#d7f5dd; }
-  #err { color:#c0392b; }
-  a { color:var(--b); }
+  td,th { text-align:left; padding:8px; border-bottom:1px solid var(--line-2); }
+  th { color:var(--muted); font-weight:600; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:20px; font-size:12px; font-weight:600; }
+  .high { background:#fdecec; color:#a12; } .medium { background:#fff3d6; color:#8a5a00; } .low { background:#e6f7ec; color:#15703a; }
 </style>
 </head>
 <body>
-  <h1>Bảng điều khiển công ty</h1>
-  <p class="muted">Tổng hợp hoạt động pháp lý của công ty bạn — bằng chứng "hệ thống ghi nhận" (càng dùng càng giá trị).
-    <a href="/app">Rà soát HĐ</a> · <a href="/lookup">Tra cứu luật</a>.</p>
-  <div class="row">
-    <input id="apikey" placeholder="API key (nếu có)" style="flex:1">
-    <button id="go">Tải số liệu</button>
-    <span id="spin" style="display:none">Đang tải…</span>
-  </div>
-  <p id="err"></p>
+  <header><div class="wrap">
+    <span class="brand"><span class="dot"></span>Legal Guard</span>
+    <nav>
+      <a href="/">Giới thiệu</a>
+      <a href="/app">Rà soát</a>
+      <a href="/lookup">Tra cứu</a>
+      <a href="/trust">Độ tin cậy</a>
+    </nav>
+  </div></header>
 
-  <div id="dash" style="display:none">
-    <div class="grid">
-      <div class="stat"><div class="n" id="s-cases">0</div><div class="l">Hợp đồng đã rà soát</div></div>
-      <div class="stat"><div class="n" id="s-review">0</div><div class="l">Cần chuyên gia duyệt</div></div>
-      <div class="stat"><div class="n" id="s-risks">0</div><div class="l">Tổng rủi ro phát hiện</div></div>
-      <div class="stat"><div class="n" id="s-gaps">0</div><div class="l">Lỗ hổng KB (feedback)</div></div>
+  <div class="wrap">
+    <h1>Bảng điều khiển công ty</h1>
+    <p class="lead">Tổng hợp hoạt động pháp lý của công ty bạn — bằng chứng "hệ thống ghi nhận" (càng dùng càng giá trị).</p>
+    <div class="row">
+      <input id="apikey" placeholder="API key (nếu có)" style="flex:1;min-width:180px">
+      <button id="go">Tải số liệu</button>
+      <span id="spin" class="muted" style="display:none">Đang tải…</span>
     </div>
+    <p id="err"></p>
 
-    <div class="card"><h2>Phân bố mức độ rủi ro</h2><div id="sev"></div></div>
-    <div class="card"><h2>Điều khoản rủi ro hay gặp nhất</h2><table id="clauses"><tbody></tbody></table></div>
-    <div class="card"><h2>Tín hiệu phản hồi</h2><div id="fb"></div></div>
-    <div class="card"><h2>Chiến thuật thắng nhiều nhất (win-rate)</h2><table id="tactics"><tbody></tbody></table></div>
+    <div id="dash" style="display:none">
+      <div class="grid">
+        <div class="stat"><div class="n" id="s-cases">0</div><div class="l">Hợp đồng đã rà soát</div></div>
+        <div class="stat"><div class="n" id="s-review">0</div><div class="l">Cần chuyên gia duyệt</div></div>
+        <div class="stat"><div class="n" id="s-risks">0</div><div class="l">Tổng rủi ro phát hiện</div></div>
+        <div class="stat"><div class="n" id="s-gaps">0</div><div class="l">Lỗ hổng KB (feedback)</div></div>
+      </div>
 
-    <div class="card"><h2>Danh mục hợp đồng — ưu tiên xử lý</h2>
-      <p class="muted" style="margin-top:0">Mỗi HĐ: rủi ro bắt-buộc-sửa · điều khoản trái luật · cần duyệt · hạn gần nhất → xếp theo mức khẩn.</p>
-      <table id="portfolio"><thead><tr><th>Hợp đồng</th><th>Bắt buộc sửa</th><th>Trái luật</th><th>Hạn gần nhất</th></tr></thead><tbody></tbody></table></div>
+      <div class="card"><h2>Phân bố mức độ rủi ro</h2><div id="sev"></div></div>
+      <div class="card"><h2>Điều khoản rủi ro hay gặp nhất</h2><table id="clauses"><tbody></tbody></table></div>
+      <div class="card"><h2>Tín hiệu phản hồi</h2><div id="fb"></div></div>
+      <div class="card"><h2>Chiến thuật thắng nhiều nhất (win-rate)</h2><table id="tactics"><tbody></tbody></table></div>
 
-    <div class="card"><h2>Nghĩa vụ &amp; hạn chót sắp tới (30 ngày)</h2>
-      <p class="muted" style="margin-top:0">Autopilot sau-ký: nhắc thanh toán / gia hạn / báo chấm dứt trước khi lỡ. (Cần bật trích nghĩa vụ khi rà soát.)</p>
-      <div id="obligations"></div></div>
+      <div class="card"><h2>Danh mục hợp đồng — ưu tiên xử lý</h2>
+        <p class="muted" style="margin-top:0">Mỗi HĐ: rủi ro bắt-buộc-sửa · điều khoản trái luật · cần duyệt · hạn gần nhất → xếp theo mức khẩn.</p>
+        <table id="portfolio"><thead><tr><th>Hợp đồng</th><th>Bắt buộc sửa</th><th>Trái luật</th><th>Hạn gần nhất</th></tr></thead><tbody></tbody></table></div>
 
-    <div class="card"><h2>Chính sách công ty (playbook)</h2>
-      <p class="muted" style="margin-top:0">Khai "luật chơi" của công ty một lần → mọi HĐ tự đối chiếu (vd "Phạt vi phạm không quá 8%", "Trọng tài phải VIAC").</p>
-      <div class="row"><input id="pol-text" placeholder="Nội dung chính sách…" style="flex:1"><button id="pol-add">Thêm</button>
-        <button id="pol-suggest" style="background:#5a6577">Gợi ý từ lịch sử</button></div>
-      <div id="pol-suggestions" style="margin-top:8px"></div>
-      <div id="policies" style="margin-top:10px"></div></div>
+      <div class="card"><h2>Nghĩa vụ &amp; hạn chót sắp tới (30 ngày)</h2>
+        <p class="muted" style="margin-top:0">Autopilot sau-ký: nhắc thanh toán / gia hạn / báo chấm dứt trước khi lỡ. (Cần bật trích nghĩa vụ khi rà soát.)</p>
+        <div id="obligations"></div></div>
+
+      <div class="card"><h2>Chính sách công ty (playbook)</h2>
+        <p class="muted" style="margin-top:0">Khai "luật chơi" của công ty một lần → mọi HĐ tự đối chiếu (vd "Phạt vi phạm không quá 8%", "Trọng tài phải VIAC").</p>
+        <div class="row"><input id="pol-text" placeholder="Nội dung chính sách…" style="flex:1"><button id="pol-add">Thêm</button>
+          <button id="pol-suggest" style="background:#5a6577">Gợi ý từ lịch sử</button></div>
+        <div id="pol-suggestions" style="margin-top:8px"></div>
+        <div id="policies" style="margin-top:10px"></div></div>
+    </div>
+    <div style="height:32px"></div>
   </div>
 
 <script>
