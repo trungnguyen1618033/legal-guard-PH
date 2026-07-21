@@ -178,73 +178,37 @@ function addUser(text){
   el.innerHTML = `<div class="bubble">${esc(text)}</div>`;
   $('messages').appendChild(el); scrollDown();
 }
-window._results = {};   // ref(case_id) → AnalysisResult (dựng nút tải bản đối chiếu / ghi nhớ / kiểm chứng)
 function addBot(text, meta){
   const el = document.createElement('div'); el.className='msg bot';
   let actions = '';
   if (meta && meta.kind === 'analysis' && meta.ref) {
-    if (meta.result) window._results[meta.ref] = meta.result;
-    const hasResult = !!(meta.result && (meta.result.risks||[]).length);
-    const tools = hasResult
-      ? `<div class="actions-row">
-           <button class="chip-btn" onclick="dlRedline('${meta.ref}',this)">📄 Bản đối chiếu (.docx)</button>
-           <button class="chip-btn" onclick="dlMemo('${meta.ref}',this)">📋 Bản ghi nhớ (.docx)</button>
-           <button class="chip-btn" onclick="dlAudit('${meta.ref}',this)">🔎 Hồ sơ kiểm chứng (.md)</button>
-         </div>` : '';
     actions =
       `<div class="actions-row">
          <button class="chip-btn ok" onclick="feedback('${meta.ref}','helpful',this)">✅ Chốt — hài lòng</button>
          <button class="chip-btn" onclick="feedback('${meta.ref}','wrong',this)">✏️ Chưa ổn</button>
-       </div>${tools}<div class="fb-note">Muốn sửa điều nào cứ nhắn tiếp — vd “sửa điều 2 về mức 8%”. Dán phản hồi đối tác để đàm phán.</div>`;
+       </div>
+       <div class="actions-row">
+         <button class="chip-btn" onclick="dlFile('/chat/redline/${meta.ref}','ban-doi-chieu-sua-doi.docx',this)">📄 Bản đối chiếu (.docx)</button>
+         <button class="chip-btn" onclick="dlFile('/chat/memo/${meta.ref}','ban-ghi-nho-sua-doi.docx',this)">📋 Bản ghi nhớ (.docx)</button>
+         <button class="chip-btn" onclick="dlFile('/chat/audit/${meta.ref}','ho-so-kiem-chung.md',this)">🔎 Hồ sơ kiểm chứng (.md)</button>
+       </div>
+       <div class="fb-note">Muốn sửa điều nào cứ nhắn tiếp — vd “sửa điều 2 về mức 8%”. Dán phản hồi đối tác để đàm phán.</div>`;
   }
   el.innerHTML = `<div class="bubble"><div class="md">${mdLite(text)}</div>${actions}</div>`;
   $('messages').appendChild(el); scrollDown();
 }
 
-// ---- Tải tài liệu từ bài rà soát (đồng nhất form cũ + Slack): dựng items từ result đã lưu theo case_id.
-function _redlineItems(res){
-  const fb = res.fallbacks || [];
-  return (res.risks || []).map(r => {
-    const cc = r.counter_clause || {}, f = fb.find(x => x.clause === r.clause) || {};
-    return { clause: r.clause, evidence: r.evidence || '', vi: cc.vi || f.suggestion || '',
-             en: cc.en || '', rationale: cc.rationale || r.legal_basis || '',
-             legal_status: r.legal_status, violated_law: r.violated_law || '' };
-  });
-}
-function _memoItems(res){
-  const fb = res.fallbacks || [];
-  return (res.risks || []).map(r => {
-    const f = fb.find(x => x.clause === r.clause) || {};
-    return { clause: r.clause, issue: r.risk, legal_status: r.legal_status,
-             violated_law: r.violated_law || '', legal_basis: r.legal_basis || '',
-             suggestion: f.suggestion || '', priority: r.priority || '' };
-  });
-}
-async function _downloadDocx(url, items, protected_party, filename, btn){
-  if (!items.length) { toast('Chưa có điều khoản để xuất.'); return; }
+// ---- Tải tài liệu (KEYLESS): server dựng file từ case theo case_id → không cần API key.
+async function dlFile(url, filename, btn){
   const old = btn.textContent; btn.disabled = true; btn.textContent = '⏳ đang tạo…';
   try {
-    const r = await fetch(url, { method:'POST',
-      headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ items, protected_party }) });
+    const r = await fetch(url, { headers: authHeaders() });
     if (r.status === 501) { toast('Xuất Word chưa bật trên server (cần group export).'); return; }
+    if (r.status === 400) { toast('Không có điều khoản để xuất.'); return; }
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const blob = await r.blob(), u = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = u; a.download = filename; a.click(); URL.revokeObjectURL(u);
   } catch (e) { toast('Lỗi tải: ' + e.message); }
-  finally { btn.disabled = false; btn.textContent = old; }
-}
-function dlRedline(ref, btn){ const res = window._results[ref]; if (res) _downloadDocx('/amendments/redline.docx', _redlineItems(res), res.protected_party||'', 'ban-doi-chieu-sua-doi.docx', btn); }
-function dlMemo(ref, btn){ const res = window._results[ref]; if (res) _downloadDocx('/amendments/compile.docx', _memoItems(res), res.protected_party||'', 'ban-ghi-nho-sua-doi.docx', btn); }
-async function dlAudit(ref, btn){
-  const old = btn.textContent; btn.disabled = true; btn.textContent = '⏳ đang tạo…';
-  try {
-    const r = await fetch(`/cases/${encodeURIComponent(ref)}/audit`, { headers: authHeaders() });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const md = await r.text();
-    const blob = new Blob([md], { type:'text/markdown' }), u = URL.createObjectURL(blob), a = document.createElement('a');
-    a.href = u; a.download = `ho-so-kiem-chung-${ref.slice(0,8)}.md`; a.click(); URL.revokeObjectURL(u);
-  } catch (e) { toast('Lỗi tải hồ sơ: ' + e.message); }
   finally { btn.disabled = false; btn.textContent = old; }
 }
 function addTyping(){

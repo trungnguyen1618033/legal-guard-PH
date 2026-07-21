@@ -2078,10 +2078,8 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
         def _bg() -> None:
             try:
                 res = handler.reply_ex(conv_key, message or None, data, fname, lang, on_progress=_cb)
-                out = {"text": res.text, "kind": res.kind, "ref": res.ref}
-                if res.result is not None:                # analysis → kèm cấu trúc để web dựng nút
-                    out["result"] = res.result.__dict__   # tải bản đối chiếu / bản ghi nhớ / hồ sơ kiểm chứng
-                _web_put(jid, {"reply": out})
+                # kind=analysis + ref(case_id) → web dựng nút tải; file build server-side keyless (dưới).
+                _web_put(jid, {"reply": {"text": res.text, "kind": res.kind, "ref": res.ref}})
             except Exception as exc:  # noqa: BLE001 — lỗi nền: lưu để client poll thấy, vẫn log
                 _web_put(jid, {"error": str(exc)})
                 _log.exception("Web chat lỗi (job=%s)", jid)
@@ -2102,5 +2100,58 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             raise HTTPException(status_code=502, detail=f"Chat lỗi: {j['error']}")
         response.status_code = 202
         return {"status": "processing", "progress": j.get("progress", {})}
+
+    # ---- TẢI TÀI LIỆU cho web chat — KEYLESS (org mặc định như /chat & Slack) → giám khảo bấm nút
+    # KHÔNG cần API key. Server tự dựng file từ case đã lưu (bằng CHÍNH builder Slack dùng). Cô lập org.
+    _DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    def _chat_case(case_id: str):
+        org = default_org(handler.default_tenant)
+        case = handler.service.get_case(case_id)
+        if case is None or getattr(case, "org_id", None) != org.id:
+            raise HTTPException(status_code=404, detail="Không tìm thấy hồ sơ rà soát (có thể đã hết hạn).")
+        return case
+
+    @router.get("/chat/redline/{case_id}")
+    def chat_redline(case_id: str):
+        case = _chat_case(case_id)
+        items = _redline_items_from_case(case)
+        if not items:
+            raise HTTPException(status_code=400, detail="Không có điều khoản để tạo bản đối chiếu.")
+        from legalguard.adapters.outbound.docx_export import DocxUnavailable, redline_to_docx
+        rl = handler.service.compile_redline(items, protected_party=getattr(case, "protected_party", "") or "")
+        try:
+            payload = redline_to_docx(rl)
+        except DocxUnavailable as exc:
+            raise HTTPException(status_code=501, detail=str(exc)) from exc
+        return Response(content=payload, media_type=_DOCX_MIME,
+                        headers={"Content-Disposition": 'attachment; filename="ban-doi-chieu-sua-doi.docx"'})
+
+    @router.get("/chat/memo/{case_id}")
+    def chat_memo(case_id: str):
+        case = _chat_case(case_id)
+        sugg = {f.get("clause", ""): (f.get("suggestion") or "") for f in (case.fallbacks or [])}
+        items = [{"clause": r.get("clause", ""), "issue": r.get("risk", ""),
+                  "legal_status": r.get("legal_status", ""), "violated_law": r.get("violated_law", ""),
+                  "legal_basis": r.get("legal_basis", ""), "suggestion": sugg.get(r.get("clause", ""), ""),
+                  "priority": r.get("priority", "")} for r in (case.risks or [])]
+        if not items:
+            raise HTTPException(status_code=400, detail="Không có điều khoản để tạo bản ghi nhớ.")
+        from legalguard.adapters.outbound.docx_export import DocxUnavailable, memo_to_docx
+        memo = handler.service.compile_memo(items, protected_party=getattr(case, "protected_party", "") or "")
+        try:
+            payload = memo_to_docx(memo)
+        except DocxUnavailable as exc:
+            raise HTTPException(status_code=501, detail=str(exc)) from exc
+        return Response(content=payload, media_type=_DOCX_MIME,
+                        headers={"Content-Disposition": 'attachment; filename="ban-ghi-nho-sua-doi.docx"'})
+
+    @router.get("/chat/audit/{case_id}")
+    def chat_audit(case_id: str):
+        from dataclasses import asdict
+        from legalguard.domain.audit import compile_audit_trail
+        case = _chat_case(case_id)
+        md = compile_audit_trail(asdict(case))
+        return Response(content=md, media_type="text/markdown; charset=utf-8")
 
     return router
