@@ -110,8 +110,15 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     org_policies = SqlAlchemyOrgPolicyRepository(cfg.database_url)
     observer = (LangfuseObserver(cfg.langfuse_public_key, cfg.langfuse_secret_key, cfg.langfuse_host)
                 if cfg.langfuse_secret_key else NoOpObserver())
+    # Bộ nhớ agent theo đối tác (anchor CockroachDB) — opt-in AGENTIC_MEMORY. SqlMemory bền (embed nếu có
+    # key → recall semantic, offline → lexical). Flag OFF → None → ghi/đọc bộ nhớ tắt hẳn (accuracy KHÔNG đổi).
+    memory = None
+    if cfg.agentic_memory:
+        from legalguard.adapters.outbound.sql_memory_store import SqlMemory
+        memory = SqlMemory(cfg.database_url, embed_fn=embed_fn)
     return AnalysisService(reasoner=reasoner, kb=kb,
                            cases=cases, outcomes=outcomes, observer=observer,
+                           memory=memory, agentic_memory=cfg.agentic_memory,
                            legal_basis_grounding=cfg.legal_basis_grounding, feedback=feedback,
                            nli_verification=cfg.nli_verification, judge=judge,
                            lookup_cache_size=cfg.lookup_cache_size, lookup_llm=lookup_llm,

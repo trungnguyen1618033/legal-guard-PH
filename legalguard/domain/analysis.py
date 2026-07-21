@@ -24,6 +24,7 @@ from legalguard.domain.models import (
     AnalysisCase,
     AnalysisResult,
     Feedback,
+    MemoryEpisode,
     NegotiationPosition,
     Obligation,
     OrgPolicy,
@@ -36,6 +37,7 @@ from legalguard.domain.ports import (
     KnowledgeBaseProvider,
     LLMError,
     LLMPort,
+    MemoryPort,
     ObligationRepositoryPort,
     ObservabilityPort,
     OrgPolicyRepositoryPort,
@@ -424,7 +426,9 @@ class AnalysisService:
                  auto_counter_on_analyze: bool = True,
                  auto_counter_max: int = 6,
                  fast_auto_counter: bool = False,
-                 deep_auto_counter: bool = False) -> None:
+                 deep_auto_counter: bool = False,
+                 memory: MemoryPort | None = None,
+                 agentic_memory: bool = False) -> None:
         self.reasoner = reasoner      # Qwen flagship: agent phân tích chính (việc KHÓ)
         # Model NHANH cho việc phụ yes/no (NLI, verify gộp) + tóm tắt SME (_summarize). Mặc định = reasoner (giữ tương thích/stub),
         # prod truyền qwen-flash → cắt mạnh latency khâu hậu-agent mà KHÔNG giảm bước kiểm nào.
@@ -439,6 +443,8 @@ class AnalysisService:
         self.obligation_tracking = obligation_tracking   # flag OFF: trích nghĩa vụ khi analyze
         self.org_policies = org_policies   # playbook công ty (chính sách bền cấp org)
         self.org_playbook = org_playbook   # flag OFF: đối chiếu HĐ với chính sách khi analyze
+        self.memory = memory               # bộ nhớ agent theo đối tác (tùy chọn)
+        self.agentic_memory = agentic_memory   # flag OFF: ghi/đọc bộ nhớ agent
         self.nli_verification = nli_verification  # kiểm entailment (nguồn có hậu thuẫn claim) — chống hallucinate
         # Phase B: lớp NLI-mâu-thuẫn nâng unfavorable→illegal khi điều khoản TRÁI điều luật đã grounding.
         self.illegal_detection = illegal_detection
@@ -475,7 +481,32 @@ class AnalysisService:
         self.counter_llm = counter_llm or self.lookup_llm
 
     def record_outcome(self, outcome: Outcome) -> str | None:
-        return self.outcomes.record(outcome) if self.outcomes else None
+        rid = self.outcomes.record(outcome) if self.outcomes else None
+        self._remember_outcome(outcome)   # bộ nhớ agent (failure-safe, guarded) — ngoài win-rate flywheel
+        return rid
+
+    def _remember_outcome(self, outcome: Outcome, counterparty: str = "") -> None:
+        """Ghi 1 tình tiết bộ nhớ khi có kết quả deal (đã chốt/sửa) — moat theo-đối-tác. Guarded bởi flag +
+        port; FAILURE-SAFE (không bao giờ làm hỏng record_outcome). Gọi ở call-site nền → ngoài hot-path."""
+        if not (self.agentic_memory and self.memory):
+            return
+        try:
+            self.memory.remember(MemoryEpisode(
+                id="", org_id=outcome.org_id, counterparty=counterparty, kind="outcome",
+                clause=outcome.clause, content=f"{outcome.tactic} → {outcome.result}".strip(" →"),
+                created_at=outcome.created_at, case_id=outcome.case_id))
+        except Exception as exc:  # noqa: BLE001 — bộ nhớ là phụ, KHÔNG được chặn ghi outcome
+            _log.warning("remember outcome lỗi (bỏ qua): %s", exc)
+
+    def recall_memory(self, org_id: str, query: str, counterparty: str = "", k: int = 5) -> list:
+        """Truy hồi tình tiết liên quan (cho recall-inject + MCP tool). [] nếu flag OFF/không có port/lỗi."""
+        if not (self.agentic_memory and self.memory):
+            return []
+        try:
+            return self.memory.recall(org_id, query, counterparty=counterparty, k=k)
+        except Exception as exc:  # noqa: BLE001
+            _log.warning("recall memory lỗi (bỏ qua): %s", exc)
+            return []
 
     def tactic_stats(self, org_id: str) -> dict:
         return self.outcomes.win_rates(org_id) if self.outcomes else {}
@@ -625,6 +656,8 @@ class AnalysisService:
                 self.feedback.delete_by_ref(case_id)   # feedback analysis: ref = case_id
             if self.obligations is not None:
                 self.obligations.delete_by_case(case_id)
+            if self.memory is not None:
+                self.memory.delete_by_case(case_id)   # cascade: xóa tình tiết bộ nhớ của case
         return deleted
 
     # ── Nghĩa vụ & hạn chót (SAU KÝ) — API dùng chung cho MỌI kênh (HTTP/Slack/Zalo/MCP) ──

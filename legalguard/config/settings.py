@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     auto_counter_max: int = 6           # TRẦN số điều khoản auto-sinh/lần rà (ưu tiên illegal trước must_fix) — chặn spike quota flagship trên HĐ dài nhiều điều khoản; phần dôi rơi về nút "Đồng ý sửa"; 0 = không trần
     obligation_tracking: bool = False   # SAU KÝ: trích nghĩa vụ & hạn chót khi analyze → nhắc hạn (autopilot sau-ký). Flag OFF tới khi qua eval; ISOLATED khỏi vòng agent (accuracy KHÔNG đổi)
     org_playbook: bool = False          # PLAYBOOK: đối chiếu HĐ với chính sách công ty khi analyze (vi phạm chuẩn nội bộ, tách khỏi trái-luật). Flag OFF; ISOLATED (accuracy KHÔNG đổi)
+    agentic_memory: bool = False        # BỘ NHỚ AGENT theo đối tác (anchor CockroachDB): ghi tình tiết khi record_outcome (async, ngoài hot-path), recall inject sau. Flag OFF tới khi wire+gate; GHI không đụng accuracy (chưa đọc vào prompt)
     lookup_cache_size: int = 256        # cache câu trả lời tra cứu (hỏi lặp → trả tức thì + tiết kiệm token); 0 = tắt
     slack_mention_only: bool = True     # Slack: CHỈ trả lời khi được mention (@bot) hoặc DM — không mention = user đang nói với người khác, bot im lặng; =0 khôi phục hành vi cũ (trả lời mọi tin)
     slack_default_deep: bool = True      # Slack rà soát MẶC ĐỊNH DEEP (legal = chất lượng/an toàn trước — deep bắt đủ, không banner "có thể BỎ SÓT"); fast chỉ khi user xin 'nhanh'/'sơ bộ'. =0 → hành vi cũ (fast mặc định, deep opt-in 'rà kỹ')
