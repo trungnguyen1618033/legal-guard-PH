@@ -3,618 +3,293 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Legal Guard — Rà soát hợp đồng</title>
+  <title>Legal Guard — Trợ lý pháp lý</title>
   <style>
-    :root { --ink:#1a2233; --muted:#5b6677; --brand:#0d6efd; --bg:#f7f9fc; --line:#e3e8ef;
-            --high:#dc3545; --medium:#fd7e14; --low:#6c757d; --ok:#198754; }
+    :root {
+      --ink:#16202e; --muted:#647089; --faint:#8a94a6;
+      --brand:#2563eb; --brand-d:#1d4ed8;
+      --bg:#f5f7fb; --surface:#ffffff; --line:#e5eaf1; --line-2:#eef2f7;
+      --user:#2563eb; --bot:#ffffff;
+      --high:#dc2626; --ok:#16a34a;
+      --shadow:0 1px 2px rgba(16,32,58,.05), 0 6px 22px rgba(16,32,58,.06);
+      --radius:16px;
+    }
     * { box-sizing:border-box; }
-    body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-           color:var(--ink); background:var(--bg); line-height:1.55; }
-    .wrap { max-width:960px; margin:0 auto; padding:0 20px 64px; }
-    header { background:linear-gradient(135deg,#0d6efd,#0aa6b8); color:#fff; padding:22px 0; }
-    header .wrap { padding-bottom:0; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
-    header h1 { font-size:1.3rem; margin:0; }
-    header a { color:#fff; opacity:.85; font-size:.9rem; }
-    .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:18px; margin-top:18px; }
-    h2 { font-size:1.05rem; margin:0 0 10px; }
-    label { display:block; font-size:.85rem; color:var(--muted); margin:10px 0 4px; }
-    textarea, input[type=text], input[type=password], select {
-      width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px;
-      font:inherit; background:#fff; }
-    textarea { min-height:170px; resize:vertical; }
-    .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
-    .btn { display:inline-block; background:var(--brand); color:#fff; font-weight:700; border:0;
-           padding:11px 22px; border-radius:8px; cursor:pointer; font-size:1rem; }
-    .btn:disabled { opacity:.55; cursor:wait; }
-    .btn.ghost { background:#fff; color:var(--brand); border:1px solid var(--brand); }
-    .btn.ok { background:var(--ok); }
-    .btn.danger { background:var(--high); }
-    .muted { color:var(--muted); font-size:.88rem; }
-    .badge { display:inline-block; padding:2px 9px; border-radius:99px; color:#fff; font-size:.75rem; font-weight:700; }
-    .b-high{background:var(--high);} .b-medium{background:var(--medium);} .b-low{background:var(--low);}
-    .b-must_fix{background:var(--high);} .b-negotiate{background:var(--medium);} .b-acceptable{background:var(--ok);}
-    table { width:100%; border-collapse:collapse; }
-    th,td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; font-size:.9rem; }
-    th { background:#eef3fb; white-space:nowrap; }
-    .banner { border-left:5px solid var(--medium); background:#fff8ed; padding:14px 16px; border-radius:8px; margin-top:18px; }
-    .banner.approved { border-color:var(--ok); background:#edf9f1; }
-    .banner.rejected { border-color:var(--high); background:#fdf0f1; }
-    .reply { background:#f2f6fd; border:1px dashed var(--brand); border-radius:8px; padding:10px 12px;
-             font-size:.9rem; margin-top:8px; position:relative; }
-    .locked .reply { filter:blur(4px); user-select:none; pointer-events:none; }
-    .locknote { display:none; }
-    .locked .locknote { display:block; }
-    details { margin-top:14px; }
-    summary { cursor:pointer; color:var(--brand); font-weight:600; }
-    .trace-step { font-size:.85rem; border-left:3px solid var(--line); padding:4px 10px; margin:6px 0; }
-    .trace-step code { background:#eef3fb; padding:1px 6px; border-radius:5px; }
-    .err { color:var(--high); font-weight:600; margin-top:12px; }
-    pre { white-space:pre-wrap; font:inherit; margin:0; }
-    .md { line-height:1.6; } .md ul { margin:6px 0; padding-left:22px; } .md li { margin:2px 0; }
-    .md strong { color:#14223a; }
-    .md .mdh { font-weight:700; color:#14223a; margin:10px 0 4px; font-size:1.02em; }
-    .md hr { border:0; border-top:1px solid var(--line); margin:10px 0; }
-    .note { font-size:.88rem; margin:3px 0; }
-    #spinner { display:none; margin-top:12px; color:var(--brand); font-weight:600; }
-    #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#14223a;
-      color:#fff; padding:10px 18px; border-radius:8px; font-size:.9rem; opacity:0;
-      pointer-events:none; transition:opacity .25s; z-index:99; max-width:90vw; }
-    #toast.show { opacity:.95; }
+    html, body { height:100%; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+           color:var(--ink); background:var(--bg); line-height:1.6; -webkit-font-smoothing:antialiased;
+           display:flex; flex-direction:column; }
+
+    /* Header */
+    header { background:var(--surface); border-bottom:1px solid var(--line); flex:0 0 auto; }
+    .hwrap { max-width:820px; margin:0 auto; padding:0 18px; display:flex; align-items:center; height:56px; gap:10px; }
+    .brand { font-weight:800; font-size:1.05rem; letter-spacing:-.01em; display:flex; align-items:center; gap:9px; margin-right:auto; }
+    .brand .dot { width:22px; height:22px; border-radius:6px; background:linear-gradient(135deg,#2563eb,#0891b2); }
+    nav a, .iconbtn { color:var(--muted); text-decoration:none; font-size:.86rem; font-weight:500; }
+    nav a { margin-left:16px; }
+    nav a:hover { color:var(--brand); }
+    .iconbtn { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:6px 11px;
+               cursor:pointer; font-weight:600; }
+    .iconbtn:hover { border-color:var(--brand); color:var(--brand); }
+    @media (max-width:640px){ nav { display:none; } }
+
+    /* Settings drawer (API key) */
+    #settings { display:none; border-bottom:1px solid var(--line); background:#fbfcfe; }
+    #settings .hwrap { height:auto; padding:12px 18px; gap:10px; flex-wrap:wrap; }
+    #settings input { flex:1; min-width:200px; padding:8px 11px; border:1px solid var(--line); border-radius:8px; font:inherit; }
+
+    /* Chat area */
+    .chat { flex:1 1 auto; overflow-y:auto; }
+    .cwrap { max-width:820px; margin:0 auto; padding:22px 18px 8px; display:flex; flex-direction:column; gap:14px; }
+    .msg { display:flex; }
+    .msg.user { justify-content:flex-end; }
+    .bubble { max-width:86%; padding:12px 15px; border-radius:var(--radius); font-size:.94rem; box-shadow:var(--shadow); word-wrap:break-word; }
+    .msg.user .bubble { background:var(--user); color:#fff; border-bottom-right-radius:5px; }
+    .msg.bot .bubble { background:var(--bot); border:1px solid var(--line); border-bottom-left-radius:5px; }
+    .bubble .md { line-height:1.62; }
+    .bubble .md strong { color:inherit; font-weight:700; }
+    .msg.bot .bubble .md strong { color:#0f1b2e; }
+    .bubble .md ul { margin:6px 0; padding-left:20px; } .bubble .md li { margin:2px 0; }
+    .bubble .md .mdh { font-weight:700; margin:9px 0 3px; }
+    .bubble .md hr { border:0; border-top:1px solid var(--line); margin:9px 0; }
+    .actions-row { display:flex; gap:8px; margin-top:9px; flex-wrap:wrap; }
+    .chip-btn { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:6px 12px;
+                font-size:.83rem; font-weight:600; cursor:pointer; color:var(--ink); }
+    .chip-btn:hover { border-color:var(--brand); color:var(--brand); }
+    .chip-btn.ok:hover { border-color:var(--ok); color:var(--ok); }
+    .fb-note { font-size:.8rem; color:var(--muted); margin-top:6px; }
+
+    /* Typing indicator */
+    .typing .bubble { color:var(--muted); font-size:.9rem; display:flex; align-items:center; gap:8px; }
+    .dots { display:inline-flex; gap:3px; }
+    .dots span { width:6px; height:6px; border-radius:50%; background:var(--faint); animation:blink 1.2s infinite both; }
+    .dots span:nth-child(2){ animation-delay:.2s; } .dots span:nth-child(3){ animation-delay:.4s; }
+    @keyframes blink { 0%,80%,100%{opacity:.25;} 40%{opacity:1;} }
+
+    /* Welcome / empty state */
+    .welcome { text-align:center; color:var(--muted); padding:26px 8px 6px; }
+    .welcome h1 { font-size:1.4rem; color:var(--ink); margin:0 0 6px; letter-spacing:-.02em; }
+    .welcome p { margin:0 auto 18px; max-width:520px; font-size:.92rem; }
+    .quick { display:flex; flex-wrap:wrap; gap:9px; justify-content:center; }
+    .quick button { background:var(--surface); border:1px solid var(--line); border-radius:99px; padding:9px 15px;
+                    font-size:.86rem; font-weight:600; cursor:pointer; color:var(--ink); box-shadow:var(--shadow); }
+    .quick button:hover { border-color:var(--brand); color:var(--brand); }
+
+    /* Composer */
+    .composer { flex:0 0 auto; background:var(--surface); border-top:1px solid var(--line); }
+    .comp-wrap { max-width:820px; margin:0 auto; padding:12px 18px 16px; }
+    .filechip { display:none; align-items:center; gap:8px; background:#eef4ff; border:1px solid #dbe6ff;
+                border-radius:8px; padding:6px 10px; font-size:.85rem; margin-bottom:9px; width:fit-content; }
+    .filechip b { font-weight:600; } .filechip .x { cursor:pointer; color:var(--muted); font-weight:700; }
+    .inputbar { display:flex; align-items:flex-end; gap:8px; border:1px solid var(--line); border-radius:14px;
+                padding:8px 8px 8px 14px; background:var(--surface); transition:border-color .15s, box-shadow .15s; }
+    .inputbar:focus-within { border-color:var(--brand); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+    #input { flex:1; border:0; outline:0; resize:none; font:inherit; background:transparent; color:var(--ink);
+             max-height:160px; min-height:24px; line-height:1.5; padding:4px 0; }
+    .attach { background:none; border:0; cursor:pointer; font-size:1.15rem; color:var(--muted); padding:6px; border-radius:8px; }
+    .attach:hover { color:var(--brand); background:var(--line-2); }
+    .send { background:var(--brand); color:#fff; border:0; border-radius:10px; width:38px; height:38px; cursor:pointer;
+            font-size:1.1rem; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+    .send:hover { background:var(--brand-d); } .send:disabled { opacity:.5; cursor:default; }
+    .disclaimer { text-align:center; font-size:.76rem; color:var(--faint); margin-top:9px; }
+    #toast { position:fixed; bottom:88px; left:50%; transform:translateX(-50%); background:#14223a; color:#fff;
+      padding:10px 18px; border-radius:8px; font-size:.9rem; opacity:0; pointer-events:none; transition:opacity .25s; z-index:99; }
+    #toast.show { opacity:.96; }
   </style>
 </head>
 <body>
-<header><div class="wrap">
-  <h1>Legal Guard — Rà soát hợp đồng</h1>
-  <a href="/">← trang giới thiệu</a> <a href="/lookup">Tra cứu pháp luật</a> <a href="/dashboard">Bảng điều khiển</a> <a href="/trust">Độ tin cậy</a> <a href="/help">Hướng dẫn</a> <a href="/docs">API docs</a>
-  <p class="muted" style="margin-top:8px">Bạn đang tương tác với <b>hệ thống AI</b>. Đây là <b>công cụ phân tích &amp; thông tin pháp luật có trích nguồn</b>, có chuyên gia duyệt — <b>không phải dịch vụ tư vấn pháp luật</b> và không thay thế ý kiến luật sư.</p>
+<header><div class="hwrap">
+  <span class="brand"><span class="dot"></span>Legal Guard</span>
+  <nav>
+    <a href="/">Giới thiệu</a>
+    <a href="/lookup">Tra cứu</a>
+    <a href="/trust">Độ tin cậy</a>
+    <a href="/help">Hướng dẫn</a>
+  </nav>
+  <button class="iconbtn" id="new-chat" title="Bắt đầu hội thoại mới">＋ Mới</button>
+  <button class="iconbtn" id="gear" title="Cài đặt API key">⚙</button>
 </div></header>
 
-<div class="wrap">
-  <div class="card">
-    <h2>1 · Hợp đồng</h2>
-    <label>Dán nội dung hợp đồng</label>
-    <textarea id="text" placeholder="Dán điều khoản hợp đồng (EN/VI)…"></textarea>
-    <label>… hoặc tải file (PDF / DOCX / TXT / ảnh scan)</label>
-    <input type="file" id="file" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg" />
+<div id="settings"><div class="hwrap">
+  <input type="password" id="apikey" placeholder="X-API-Key (bỏ trống nếu chạy dev)" />
+  <button class="iconbtn" id="save-key">Lưu</button>
+</div></div>
 
-    <h2 style="margin-top:20px">2 · Vị thế đàm phán của bạn</h2>
-    <div class="row">
-      <div><label>Lợi thế (leverage)</label>
-        <select id="leverage"><option value="balanced">Cân bằng</option>
-          <option value="weak">Yếu thế</option><option value="strong">Mạnh</option></select></div>
-      <div><label>Mức gấp (urgency)</label>
-        <select id="urgency"><option value="low">Không gấp</option><option value="high">Cần chốt gấp</option></select></div>
-      <div><label>Quan hệ đối tác</label>
-        <select id="relationship"><option value="new">Lần đầu</option><option value="repeat">Đã làm nhiều lần</option></select></div>
-      <div><label>Có phương án thay thế (BATNA)?</label>
-        <select id="alternatives"><option value="false">Không</option><option value="true">Có</option></select></div>
-      <div><label>Bên mình bảo vệ</label>
-        <input id="protected_party" placeholder="vd: Bên Vay / Bên B / Buyer (trống = mặc định SME)"></div>
-      <div><label>Ngôn ngữ báo cáo</label>
-        <select id="lang"><option value="vi">Tiếng Việt</option><option value="en">English</option></select></div>
-      <div><label>Chế độ rà soát</label>
-        <select id="mode"><option value="deep">Sâu (agent đầy đủ, ~1-3 phút)</option><option value="fast">Nhanh (1-call, ~15s — cần luật sư duyệt)</option></select></div>
-      <div><label>API key (bỏ trống nếu dev)</label>
-        <input type="password" id="apikey" placeholder="X-API-Key" /></div>
-    </div>
-
-    <p style="margin-top:18px">
-      <button class="btn" id="go">Phân tích hợp đồng</button>
-      <button type="button" class="btn" id="sample" style="background:#fff;color:var(--brand);border:1px solid var(--brand)">Dùng hợp đồng mẫu</button>
-      <span id="spinner"><span id="spin-msg">Đang khởi động agent…</span> <span id="spin-time" class="muted"></span></span>
-    </p>
-    <p class="err" id="err"></p>
-  </div>
-
-  <div id="result" style="display:none">
-    <div class="banner" id="review-banner"></div>
-
-    <div class="card"><h2>Tóm tắt cho chủ doanh nghiệp</h2><div id="summary" class="md"></div>
-      <div id="notes" style="margin-top:10px"></div>
-      <div id="feedback" style="margin-top:12px;font-size:14px">
-        <span class="muted">Quyết định:</span>
-        <button type="button" class="btn ok" onclick="reviewDecision('close')">Chốt</button>
-        <button type="button" class="btn danger ghost" onclick="reviewDecision('revise')">Sửa lại</button>
-        <span id="fb-thanks" class="muted"></span>
-      </div></div>
-
-    <div class="card"><h2>Rủi ro & đề xuất sửa đổi</h2>
-      <p id="review-lead" class="md"></p>
-      <div id="risks"></div>
-      <div id="drafting"></div></div>
-
-    <div class="card" id="fallbacks-card"><h2>Câu gửi đối tác & kết quả thực tế</h2>
-      <p class="locknote muted">Câu gửi đối tác sẽ hiện sau khi chuyên gia duyệt.</p>
-      <div id="fallbacks"></div></div>
-
-    <div class="card"><h2>Chiến lược đàm phán (giữ / nhượng / walk-away)</h2><div id="strategy" class="md"></div></div>
-
-    <div class="card">
-      <h2>Bản ghi nhớ sửa đổi (cho luật sư)</h2>
-      <p class="muted">Gộp các điều khoản (TRÁI LUẬT lên đầu) thành bản ghi nhớ: Điều · Vấn đề · Căn cứ · Đề xuất · Ưu tiên — dán/gửi được.</p>
-      <p><button type="button" class="btn" id="memo-go">Gộp bản ghi nhớ</button>
-        <button type="button" class="ghost" id="memo-docx" style="display:none">Tải Word (.docx)</button>
-        <button type="button" class="ghost" id="redline-docx">📄 Tải bản đối chiếu sửa đổi (.docx)</button></p>
-      <div id="memo" class="md"></div>
-    </div>
-
-    <div class="card">
-      <h2>Hồ sơ kiểm chứng AI (cho luật sư)</h2>
-      <p class="muted">Bằng chứng luật sư đã đối chiếu output AI: vân tay tài liệu (SHA-256) · phát hiện + căn cứ ·
-        dấu vết agent · ô ký kiểm chứng. Đính kèm hồ sơ vụ việc (chuẩn ABA 512 / MinLaw Singapore).</p>
-      <p><button type="button" class="ghost" id="audit-go">Tải hồ sơ kiểm chứng (.md)</button>
-        <span id="audit-msg" class="muted"></span></p>
-    </div>
-
-    <div class="card"><details><summary>Trace — agent đã làm gì (tool calls)</summary>
-      <div id="trace"></div></details></div>
-
-    <div class="card" id="nego-card">
-      <h2>Đàm phán đa phiên — đối tác phản hồi thì sao?</h2>
-      <p class="muted">Dán <b>tin nhắn/counter-offer của đối tác</b> → agent đánh giá họ nhượng/giữ gì,
-        cập nhật chiến lược vòng tới + soạn câu trả lời. Mỗi vòng nối tiếp (agent dẫn đàm phán).</p>
-      <textarea id="partner-msg" placeholder="Vd: Chúng tôi đồng ý giảm phạt còn 10%, nhưng giữ trọng tài tại Bắc Kinh và thanh toán T/T 45 ngày." style="min-height:70px"></textarea>
-      <p><button type="button" class="btn" id="nego-go">↪Phân tích phản hồi & đàm phán tiếp</button>
-        <span id="nego-spin" style="display:none">Agent đang đàm phán…</span></p>
-      <div id="nego-result"></div>
+<div class="chat" id="chat"><div class="cwrap" id="messages">
+  <div class="welcome" id="welcome">
+    <h1>Trợ lý pháp lý của bạn</h1>
+    <p>Thả hợp đồng vào đây để rà soát rủi ro &amp; đề xuất sửa, hoặc hỏi một câu luật. Cứ nhắn tiếp để đàm phán — tôi nhớ ngữ cảnh cả cuộc trò chuyện.</p>
+    <div class="quick">
+      <button data-sample="1">📄 Dùng hợp đồng mẫu</button>
+      <button data-ask="Trần lãi suất cho vay theo Bộ luật Dân sự là bao nhiêu?">❓ Trần lãi suất cho vay?</button>
+      <button data-ask="Nghị định 13/2023/NĐ-CP còn hiệu lực không?">📊 Nghị định 13/2023 còn hiệu lực?</button>
     </div>
   </div>
+</div></div>
 
-  <footer class="muted" style="margin:32px 0 16px;border-top:1px solid var(--line);padding-top:14px;font-size:.85rem">
-    Kết quả do <b>hệ thống AI</b> tạo, có trích nguồn văn bản pháp luật còn hiệu lực + chuyên gia duyệt (human-in-the-loop).
-    Legal Guard là <b>công cụ hỗ trợ phân tích</b>, <b>không thay thế tư vấn pháp luật chính thức</b> — hãy đối chiếu bản gốc & hỏi luật sư trước khi quyết định.
-    Dữ liệu cá nhân trong hợp đồng được che (redact) trước khi gửi mô hình.
-  </footer>
-</div>
+<div class="composer"><div class="comp-wrap">
+  <div class="filechip" id="filechip"><span>📎 <b id="filename"></b></span><span class="x" id="filex">✕</span></div>
+  <div class="inputbar">
+    <textarea id="input" rows="1" placeholder="Nhắn tin, dán điều khoản, hoặc đính kèm hợp đồng…"></textarea>
+    <input type="file" id="file" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg" style="display:none" />
+    <button class="attach" id="attach" title="Đính kèm file">📎</button>
+    <button class="send" id="send" title="Gửi">➤</button>
+  </div>
+  <p class="disclaimer">Hệ thống <b>AI</b> có trích nguồn luật + chuyên gia duyệt — <b>không thay thế tư vấn của luật sư</b>. Dữ liệu cá nhân được che trước khi gửi mô hình.</p>
+</div></div>
 
 <script>
 const $ = id => document.getElementById(id);
+const CONV_KEY = 'lg_conv_id';
+let convId = localStorage.getItem(CONV_KEY) || (crypto.randomUUID ? crypto.randomUUID() : Date.now()+''+Math.random());
+localStorage.setItem(CONV_KEY, convId);
 $('apikey').value = localStorage.getItem('lg_apikey') || '';
+let pendingFile = null;
 
 function esc(s){ const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
 function authHeaders(){ const k=$('apikey').value.trim(); return k?{'X-API-Key':k}:{}; }
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
 let _toastT;
-function toast(msg){
-  let t = $('toast');
-  if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(_toastT); _toastT = setTimeout(() => t.classList.remove('show'), 3500);
-}
-// Markdown tối giản (an toàn: esc trước rồi mới thêm thẻ): **đậm**, - gạch đầu dòng, xuống dòng.
+function toast(msg){ const t=$('toast')||Object.assign(document.createElement('div'),{id:'toast'});
+  if(!t.parentNode) document.body.appendChild(t); t.textContent=msg; t.classList.add('show');
+  clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('show'),3200); }
+
+// Markdown tối giản (an toàn: esc trước rồi thêm thẻ): **đậm**, - gạch đầu dòng, ## tiêu đề, --- kẻ ngang.
 function mdLite(s){
   let h = esc(s||'');
   h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   const lines = h.split('\n').map(l => {
-    if (/^\s*-{3,}\s*$/.test(l)) return '<hr>';                          // '---' → kẻ ngang
-    const hd = l.match(/^\s*(#{1,6})\s+(.+)$/);                          // '## tiêu đề' → tiêu đề đậm
+    if (/^\s*-{3,}\s*$/.test(l)) return '<hr>';
+    const hd = l.match(/^\s*(#{1,6})\s+(.+)$/);
     if (hd) return `<div class="mdh">${hd[2]}</div>`;
     if (/^\s*[-*]\s+/.test(l)) return '<li>'+l.replace(/^\s*[-*]\s+/,'')+'</li>';
     return l;
   });
   h = lines.join('\n').replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => '<ul>'+m.replace(/\n/g,'')+'</ul>');
-  return h.replace(/\n/g, '<br>').replace(/(<hr>|<\/ul>|<\/div>)<br>/g, '$1');  // bỏ <br> thừa sau block
+  return h.replace(/\n/g, '<br>').replace(/(<hr>|<\/ul>|<\/div>)<br>/g, '$1');
 }
 
+function scrollDown(){ const c=$('chat'); c.scrollTop = c.scrollHeight; }
+function hideWelcome(){ const w=$('welcome'); if (w) w.remove(); }
+
+function addUser(text){
+  hideWelcome();
+  const el = document.createElement('div'); el.className='msg user';
+  el.innerHTML = `<div class="bubble">${esc(text)}</div>`;
+  $('messages').appendChild(el); scrollDown();
+}
+function addBot(text, meta){
+  const el = document.createElement('div'); el.className='msg bot';
+  let actions = '';
+  if (meta && meta.kind === 'analysis' && meta.ref) actions =
+    `<div class="actions-row">
+       <button class="chip-btn ok" onclick="feedback('${meta.ref}','helpful',this)">✅ Chốt — hài lòng</button>
+       <button class="chip-btn" onclick="feedback('${meta.ref}','wrong',this)">✏️ Chưa ổn</button>
+     </div><div class="fb-note">Muốn sửa điều nào cứ nhắn tiếp — vd “sửa điều 2 về mức 8%”. Dán phản hồi đối tác để đàm phán.</div>`;
+  el.innerHTML = `<div class="bubble"><div class="md">${mdLite(text)}</div>${actions}</div>`;
+  $('messages').appendChild(el); scrollDown();
+}
+function addTyping(){
+  hideWelcome();
+  const el = document.createElement('div'); el.className='msg bot typing';
+  el.innerHTML = `<div class="bubble"><span class="lbl">Đang xử lý</span><span class="dots"><span></span><span></span><span></span></span></div>`;
+  $('messages').appendChild(el); scrollDown(); return el;
+}
+function setTyping(el, label){ const l=el.querySelector('.lbl'); if(l) l.textContent=label; }
+
+async function feedback(ref, rating, btn){
+  try {
+    await fetch('/feedback', { method:'POST',
+      headers:{'Content-Type':'application/json', ...authHeaders()},
+      body: JSON.stringify({ kind:'analysis', ref, rating }) });
+    const row = btn.closest('.actions-row');
+    if (row) row.innerHTML = `<span class="fb-note">${rating==='helpful'?'✅ Đã ghi nhận — cảm ơn!':'✏️ Đã ghi nhận. Cứ nhắn điều bạn muốn sửa nhé.'}</span>`;
+  } catch { toast('Ghi phản hồi lỗi, thử lại sau.'); }
+}
+
+// ---- Gửi 1 lượt chat: POST /chat (nền) → poll /chat/result tới khi xong. Heartbeat #rủi ro khi rà soát.
+let _busy = false;
+async function send(){
+  if (_busy) return;
+  const text = $('input').value.trim();
+  const file = pendingFile;
+  if (!text && !file) return;
+  _busy = true; $('send').disabled = true;
+  addUser(text || `📎 ${file.name}`);
+  $('input').value=''; autoGrow(); clearFile();
+  const typing = addTyping();
+  try {
+    const fd = new FormData();
+    fd.append('message', text);
+    fd.append('conversation_id', convId);
+    fd.append('lang', 'vi');
+    if (file) fd.append('file', file);
+    const r = await fetch('/chat', { method:'POST', body:fd, headers: authHeaders() });
+    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
+    const { job_id } = await r.json();
+    let d = null;
+    for (let i=0; i<200; i++){                 // tối đa ~8 phút (2.5s × 200) — đủ cho rà soát sâu
+      await sleep(2500);
+      const p = await fetch('/chat/result/' + encodeURIComponent(job_id), { headers: authHeaders() });
+      if (p.status === 200) { d = await p.json(); break; }
+      if (p.status === 502) throw new Error((await p.json().catch(()=>({}))).detail || 'Xử lý lỗi');
+      if (p.status === 202) {
+        const n = ((await p.json().catch(()=>({}))).progress || {}).risks || 0;
+        if (n > 0) setTyping(typing, `Đang rà soát… đã tìm ${n} rủi ro`);
+      }
+    }
+    typing.remove();
+    if (!d) throw new Error('Quá thời gian chờ — thử lại.');
+    addBot(d.text, d);
+  } catch (e) {
+    typing.remove();
+    addBot('⚠️ ' + e.message + ' — thử lại (mô hình có thể quá tải tạm thời).');
+  } finally { _busy = false; $('send').disabled = false; $('input').focus(); }
+}
+
+// ---- Composer UX
+function autoGrow(){ const t=$('input'); t.style.height='auto'; t.style.height=Math.min(t.scrollHeight,160)+'px'; }
+$('input').addEventListener('input', autoGrow);
+$('input').addEventListener('keydown', e => {           // Enter gửi, Shift+Enter xuống dòng
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+$('send').onclick = send;
+$('attach').onclick = () => $('file').click();
+$('file').onchange = () => { const f=$('file').files[0]; if (f) setFile(f); };
+function setFile(f){ pendingFile=f; $('filename').textContent=f.name; $('filechip').style.display='flex'; $('input').focus(); }
+function clearFile(){ pendingFile=null; $('file').value=''; $('filechip').style.display='none'; }
+$('filex').onclick = clearFile;
+
+// Kéo-thả file vào cửa sổ
+document.addEventListener('dragover', e => { e.preventDefault(); });
+document.addEventListener('drop', e => { e.preventDefault(); const f=e.dataTransfer.files[0]; if (f) setFile(f); });
+
+// Quick actions (welcome)
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-ask],[data-sample]'); if (!b) return;
+  if (b.dataset.sample) { $('input').value = SAMPLE; autoGrow(); send(); }
+  else { $('input').value = b.dataset.ask; autoGrow(); send(); }
+});
+
+// Hội thoại mới
+$('new-chat').onclick = () => {
+  convId = crypto.randomUUID ? crypto.randomUUID() : Date.now()+''+Math.random();
+  localStorage.setItem(CONV_KEY, convId);
+  $('messages').innerHTML = '';
+  location.reload();
+};
+// Settings (API key)
+$('gear').onclick = () => { const s=$('settings'); s.style.display = s.style.display==='block'?'none':'block'; };
+$('save-key').onclick = () => { localStorage.setItem('lg_apikey', $('apikey').value.trim()); $('settings').style.display='none'; toast('Đã lưu API key.'); };
+
 // HĐ mẫu: 1 điều TRÁI LUẬT (phạt 15% > trần 8% Đ.301) + nhiều điều BẤT LỢI → khoe illegal vs unfavorable.
-const SAMPLE = `HỢP ĐỒNG MUA BÁN HÀNG HÓA QUỐC TẾ
-Điều 1. Bên Bán (đối tác nước ngoài) giao hàng theo đơn đặt hàng của Bên Mua (doanh nghiệp Việt Nam).
+const SAMPLE = `HỢP ĐỒNG MUA BÁN HÀNG HÓA QUỐC TẾ — bên tôi là Bên Mua (doanh nghiệp Việt Nam)
+Điều 1. Bên Bán (đối tác nước ngoài) giao hàng theo đơn đặt hàng của Bên Mua.
 Điều 2. Phạt vi phạm: Bên vi phạm phải chịu phạt 15% tổng giá trị hợp đồng cho mỗi lần vi phạm.
 Điều 3. Thanh toán: Bên Mua thanh toán T/T 100% trong vòng 60 ngày TRƯỚC khi nhận hàng.
 Điều 4. Bồi thường: Bên vi phạm bồi thường toàn bộ thiệt hại, bao gồm cả thiệt hại gián tiếp.
 Điều 5. Trọng tài: Mọi tranh chấp giải quyết bằng trọng tài tại Bắc Kinh theo luật Trung Quốc.
 Điều 6. Bên Bán có quyền đơn phương chấm dứt hợp đồng và yêu cầu thanh toán toàn bộ trong 7 ngày.`;
-
-$('sample').onclick = () => {
-  $('text').value = SAMPLE; $('file').value = '';
-  $('leverage').value = 'weak'; $('urgency').value = 'high'; $('alternatives').value = 'false';
-  $('protected_party').value = 'Bên Mua';
-  $('err').textContent = ''; $('text').scrollIntoView({behavior:'smooth', block:'center'});
-};
-
-const _STEPS = ['Đọc & tách điều khoản…', 'Tra cứu KB luật (grounding)…', 'Gắn cờ rủi ro (trái luật / bất lợi)…',
-  'Đối chiếu NLI điều luật…', 'Soạn chiến thuật fallback theo vị thế…', 'Tổng hợp chiến lược đàm phán…'];
-let _timer = null;
-let _hbActive = false;    // heartbeat thật (đã tìm N rủi ro) tiếp quản → ngừng cycle thông báo chung
-function startProgress(){
-  let t = 0, i = 0; _hbActive = false;
-  $('spin-msg').textContent = _STEPS[0];
-  _timer = setInterval(() => {
-    t += 1;
-    if (!_hbActive && t % 12 === 0 && i < _STEPS.length - 1) $('spin-msg').textContent = _STEPS[++i];
-    $('spin-time').textContent = `(${t}s — thường 1–3 phút, đừng đóng tab)`;
-  }, 1000);
-}
-function stopProgress(){ if (_timer) { clearInterval(_timer); _timer = null; } }
-
-$('go').onclick = async () => {
-  const text = $('text').value.trim(), file = $('file').files[0];
-  $('err').textContent = '';
-  if (!text && !file) { $('err').textContent = 'Dán nội dung hoặc chọn file hợp đồng trước đã.'; return; }
-  const fd = new FormData();
-  if (file) fd.append('file', file); else fd.append('text', text);
-  for (const k of ['lang','leverage','urgency','relationship','alternatives','protected_party','mode']) fd.append(k, $(k).value);
-  fd.append('async_mode', 'true');   // HĐ dài → chạy nền + poll, không vỡ ở trình duyệt/proxy timeout
-  const headers = {};
-  const key = $('apikey').value.trim();
-  if (key) { headers['X-API-Key'] = key; localStorage.setItem('lg_apikey', key); }
-
-  $('go').disabled = true; $('spinner').style.display = 'inline'; $('result').style.display = 'none'; startProgress();
-  try {
-    const r = await fetch('/analyze', { method:'POST', body:fd, headers });
-    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
-    const job = await r.json();
-    // Phân tích nền: poll kết quả tới khi xong (HĐ dài có thể ~vài phút, không bị timeout kết nối).
-    let res = null;
-    for (let i = 0; i < 150; i++) {                       // tối đa ~12 phút (5s × 150)
-      await new Promise(s => setTimeout(s, 5000));
-      const p = await fetch('/analyze/result/' + encodeURIComponent(job.case_id), { headers });
-      if (p.status === 200) { res = await p.json(); break; }
-      if (p.status === 502) throw new Error((await p.json().catch(()=>({}))).detail || 'Phân tích lỗi');
-      if (p.status === 202) {                             // heartbeat: hiện #rủi ro đã tìm được
-        const n = ((await p.json().catch(()=>({}))).progress || {}).risks || 0;
-        if (n > 0) { _hbActive = true; $('spin-msg').textContent = `Đang phân tích… đã tìm ${n} rủi ro`; }
-      }
-      // 404 = đang xử lý (chưa có heartbeat) → chờ tiếp
-    }
-    if (!res) throw new Error('Quá thời gian chờ phân tích — thử lại.');
-    render(res);
-  } catch (e) { $('err').textContent = '' + e.message + ' — thử lại (LLM có thể quá tải tạm thời).'; }
-  finally { $('go').disabled = false; $('spinner').style.display = 'none'; stopProgress(); }
-};
-
-let _caseId = null;
-let _deal = '';
-let _negoState = null;   // sổ nhượng-bộ đàm phán — thread qua các vòng (agent nhớ đã nhượng/chốt gì)
-// Quyết định rà soát (đồng bộ Slack): Chốt = accepted + helpful; Sửa lại = rejected + wrong.
-// Ghi CẢ feedback (golden-set) lẫn outcome cho mọi điều khoản (win-rate flywheel) — case-level.
-async function reviewDecision(kind) {
-  const closed = kind === 'close';
-  const rating = closed ? 'helpful' : 'wrong';
-  const result = closed ? 'accepted' : 'rejected';
-  $('fb-thanks').textContent = ' đang ghi…';
-  try {
-    await fetch('/feedback', { method:'POST',
-      headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ kind:'analysis', ref:_caseId||'', rating }) });
-    if (_caseId) {   // outcome cho MỌI điều khoản (risk ∪ fallback) → nuôi win-rate như Slack
-      const clauses = [...new Set([...(window._risks||[]).map(r=>r.clause),
-                                   ...(window._fb||[]).map(f=>f.clause)].filter(Boolean))];
-      for (const clause of clauses) {
-        const f = (window._fb||[]).find(x => x.clause === clause) || {};
-        await fetch(`/cases/${_caseId}/outcome`, { method:'POST',
-          headers: { 'Content-Type':'application/json', ...authHeaders() },
-          body: JSON.stringify({ clause, tactic: f.suggestion||'', result }) });
-      }
-    }
-    $('fb-thanks').textContent = closed ? ' — đã chốt, cảm ơn!' : ' — đã ghi: cần sửa lại, cảm ơn!';
-  } catch { $('fb-thanks').textContent = ' — gửi lỗi, thử lại sau.'; }
-}
-
-function render(d) {
-  $('result').style.display = 'block';
-  _caseId = d.case_id || null;
-  $('fb-thanks').textContent = '';
-  // Bối cảnh deal cho đàm phán đa phiên: chiến lược + danh sách rủi ro (clause/priority/status).
-  _deal = 'CHIẾN LƯỢC:\n' + (d.strategy || '') + '\n\nRỦI RO:\n' +
-    (d.risks||[]).map(r => `- ${r.clause} [${r.priority||''}/${r.legal_status||''}]: ${r.risk}`).join('\n');
-  // Seed red-line = rủi ro must_fix (điểm sống còn KHÔNG nhượng) → guardrail walk-away + bộ nhớ đàm phán.
-  _negoState = { red_lines: (d.risks||[]).filter(r => r.priority==='must_fix').map(r => r.clause),
-                 secured: [], conceded: [], open_items: [] };
-  $('nego-result').innerHTML = '';
-  $('partner-msg').value = '';
-  $('summary').innerHTML = mdLite(d.summary || '(không có)');
-  $('strategy').innerHTML = mdLite(d.strategy || '(không có)');
-  // Vi phạm CHÍNH SÁCH CÔNG TY (playbook org) — tách khỏi trái-luật-VN. Rỗng khi flag OFF/không vi phạm.
-  if ((d.policy_violations||[]).length)
-    $('strategy').innerHTML += '<div style="margin-top:12px"><b>Vi phạm chính sách công ty:</b><ul>'
-      + d.policy_violations.map(v => `<li>${v.clause?esc(v.clause)+': ':''}trái chính sách "${esc(v.rule_text||'')}"</li>`).join('')
-      + '</ul></div>';
-  // Tách note: cảnh báo cho người dùng (hiện) vs kỹ thuật/audit (gấp lại, đỡ rối demo).
-  const _tech = n => /^(🧭|🔐|📎)/.test(n);
-  const notes = d.notes || [];
-  const userN = notes.filter(n => !_tech(n)), techN = notes.filter(_tech);
-  $('notes').innerHTML =
-    userN.map(n => `<p class="note muted">${esc(n)}</p>`).join('') +
-    (techN.length ? `<details style="margin-top:6px"><summary class="muted" style="font-size:13px">chi tiết kỹ thuật / audit</summary>` +
-      techN.map(n => `<p class="note muted">${esc(n)}</p>`).join('') + `</details>` : '');
-
-  window._fb = d.fallbacks || [];
-  window._risks = d.risks || [];
-  window._draftingIssues = d.drafting_issues || [];
-
-  // Dòng ĐẦU: loại HĐ + TÊN ĐẦY ĐỦ khách hàng bảo vệ (văn phong luật sư) — đồng bộ với reply Slack.
-  const _fbByClause = {};
-  (d.fallbacks||[]).forEach(f => { if (f.clause) _fbByClause[f.clause] = f; });
-  let lead = 'Sau đây là các rủi ro và đề xuất sửa đổi';
-  if (d.protected_party) lead += ' có lợi cho khách hàng là ' + esc(d.protected_party);
-  lead = (d.contract_type ? 'Đây là ' + esc(d.contract_type) + '. ' : '') + lead + ':';
-  $('review-lead').innerHTML = '<strong>' + lead + '</strong>';
-
-  // Rủi ro: đánh số (1)(2)(3), văn phong pháp lý — KHÔNG icon màu/nhãn ưu tiên; gộp đề xuất sửa +
-  // nút "Đồng ý sửa" (chỉ khi có đề xuất) → soạn điều khoản cũ→mới. TRÁI LUẬT diễn đạt pháp lý.
-  // KHỐI 4 phần (core / điều khoản cũ / điều khoản mới / lý do). Rủi ro illegal/must_fix có counter_clause
-  // inline (auto); rủi ro nhẹ → nút "Đồng ý sửa". Đồng bộ _risk_segments (Slack/Zalo).
-  $('risks').innerHTML = (d.risks||[]).map((r,i) => {
-    const f = _fbByClause[r.clause] || {};
-    const sugg = (f.suggestion||'').replace(/^\s*đề xuất\s*:?\s*/i,'').trim();
-    const illegal = r.legal_status==='illegal'
-      ? ` Điều khoản này có dấu hiệu trái quy định${r.violated_law?(' tại '+esc(r.violated_law)):' của pháp luật'}; phần vi phạm có thể bị tuyên vô hiệu.` : '';
-    const cc = r.counter_clause || {};
-    const hasInline = !!(cc.vi && cc.vi.trim());
-    const reason = ((cc.rationale||'').trim() || (r.legal_basis||r.source||'')).slice(0,300);
-    // Nút "Đồng ý sửa" cho MỌI rủi ro (nhất quán với Slack): đã có điều khoản inline → GHI NHẬN đồng ý
-    // (không soạn lại); chưa có → soạn điều khoản cũ→mới.
-    const newClause = hasInline
-      ? `<div style="margin-top:4px"><b>Đề xuất điều khoản mới:</b> ${esc(cc.vi)}`
-          + (cc.en?`<div class="muted" style="margin-top:2px">(EN: ${esc(cc.en)})</div>`:'') + `</div>`
-          + `<button class="ghost" style="margin-top:6px" onclick="agreeRisk(${i},this)">Đồng ý sửa</button>`
-          + `<span id="ag-${i}" class="muted"></span>`
-      : (sugg?`<div style="margin-top:4px"><b>Đề xuất sửa đổi:</b> ${esc(sugg)}.</div>`:'')
-          + `<button class="ghost" style="margin-top:6px" onclick="amendRisk(${i})">Đồng ý sửa → soạn điều khoản mới</button>`
-          + `<div id="am-${i}" class="rl" style="margin-top:6px"></div>`;
-    return `<div class="risk-item" style="margin-bottom:16px">
-      <div>(${i+1}) <strong>${esc(r.clause)}</strong>: ${esc(r.risk)}.${illegal}${r.verified===false?' <span class="muted">(chưa đối chiếu tự động — luật sư kiểm)</span>':''}</div>
-      ${r.evidence?`<div class="muted" style="margin-top:2px"><b>Điều khoản cũ (trích HĐ):</b> ${esc(r.evidence.slice(0,400))}</div>`:''}
-      ${newClause}
-      ${reason?`<div class="muted" style="margin-top:2px"><b>Lý do:</b> ${esc(reason)}</div>`:''}
-    </div>`;
-  }).join('') || '<p class="muted">Không phát hiện điều khoản rủi ro rõ ràng </p>';
-
-  // Mục cuối: lỗi soạn thảo / chính tả. CÓ CẤU TRÚC (drafting_issues) → THẺ đánh số tiếp + nút "Đồng ý sửa"
-  // (đồng nhất với rủi ro); fallback drafting_notes (chuỗi cũ) → danh sách text (không nút).
-  const risksN = (d.risks||[]).length;
-  const di = d.drafting_issues || [];
-  const dn = d.drafting_notes || [];
-  if (di.length) {
-    $('drafting').innerHTML = `<div style="margin-top:14px"><b>Lỗi soạn thảo / khác biệt VN–EN:</b></div>`
-      + di.map((it,j) => {
-        const num = risksN + j + 1;
-        const loc = (it.location||'').trim(), fv = (it.fix_vi||'').trim(), fe = (it.fix_en||'').trim();
-        const fix = (fv||fe)
-          ? `<div style="margin-top:4px"><b>Đề xuất sửa đổi:</b> ${esc(fv)}`
-              + (fe?`<div class="muted" style="margin-top:2px">(EN: ${esc(fe)})</div>`:'') + `</div>`
-              + `<button class="ghost" style="margin-top:6px" onclick="agreeDrafting(${j},this)">Đồng ý sửa</button>`
-              + `<span id="dg-${j}" class="muted"></span>`
-          : '';
-        return `<div class="risk-item" style="margin-bottom:16px">
-          <div>(${num}) <strong>Lỗi soạn thảo${loc?(' tại “'+esc(loc)+'”'):''}</strong>: ${esc(it.issue||'')}.</div>
-          ${fix}
-        </div>`;
-      }).join('');
-  } else if (dn.length) {   // \n (đề xuất song ngữ VN/EN) → <br> để hiện đúng dòng
-    $('drafting').innerHTML = `<div style="margin-top:14px"><b>Lỗi soạn thảo / khác biệt VN–EN cần sửa:</b><ul>`
-      + dn.map(n => `<li style="margin-bottom:6px">${esc(n).replace(/\n/g,'<br>')}</li>`).join('') + `</ul></div>`;
-  } else {
-    $('drafting').innerHTML = '';
-  }
-
-  $('memo').innerHTML = ''; $('memo-docx').style.display = 'none';
-  $('fallbacks').innerHTML = (d.fallbacks||[]).map((f,i) => `<div style="margin-bottom:14px">
-    <strong>${esc(f.clause)}</strong>${f.win_rate!=null?` <span class="badge b-acceptable">win ${(f.win_rate*100).toFixed(0)}%</span>`:''}
-    ${f.english_reply?`<div class="reply">${esc(f.english_reply)}</div>`:'<div class="muted">(không có câu gửi đối tác)</div>'}
-    ${f.legal_basis?`<div class="muted">căn cứ: ${esc(f.legal_basis.slice(0,140))}</div>`:''}
-    ${f.source?`<div class="muted">nguồn: ${esc(f.source.slice(0,100))}</div>`:''}
-    </div>`).join('')
-    || '<p class="muted">(không có)</p>';
-
-  $('trace').innerHTML = (d.trace||[]).map(s => `<div class="trace-step">
-    <code>${esc(s.tool)}</code> ${esc(JSON.stringify(s.arguments).slice(0,140))}<br>
-    <span class="muted">→ ${esc((s.observation||'').slice(0,180))}</span></div>`).join('');
-
-  // Human checkpoint: khóa english_reply tới khi duyệt.
-  // Banner được DỰNG LẠI mỗi lần render — phân tích lần 2 sau khi đã duyệt vẫn hoạt động.
-  const reasons = d.needs_human_review
-    ? (d.review_reasons||[]).join(' · ') || 'Có rủi ro cao — cần chuyên gia pháp lý duyệt.'
-    : 'Không có rủi ro cao, nhưng vẫn cần một người xác nhận trước khi gửi đối tác.';
-  const banner = $('review-banner');
-  banner.className = 'banner';
-  banner.innerHTML = `<strong>Human checkpoint:</strong> ${esc(reasons)}
-    <p class="muted" style="margin:6px 0 10px">Câu đàm phán gửi đối tác bị khóa cho tới khi chuyên gia duyệt.
-      AI làm phần nặng — quyết định cuối thuộc về con người.</p>
-    <button class="btn ok" id="approve">Duyệt khuyến nghị</button>
-    <button class="btn danger ghost" id="reject" style="margin-left:8px">Từ chối — chuyển chuyên gia</button>`;
-  $('fallbacks-card').classList.add('locked');
-  $('approve').onclick = () => {
-    $('fallbacks-card').classList.remove('locked');
-    banner.className = 'banner approved';
-    banner.innerHTML = '<strong>Đã duyệt</strong> — câu đàm phán gửi đối tác đã được mở khóa bên dưới.';
-  };
-  $('reject').onclick = async () => {
-    banner.className = 'banner rejected';
-    banner.innerHTML = '<strong>Đã từ chối</strong> — đang chuyển case cho chuyên gia pháp lý…';
-    let note = 'Khuyến nghị AI <em>không</em> được gửi cho đối tác.';
-    try {   // escalation THẬT: gửi case cho luật sư qua kênh chuyên gia (nếu cấu hình)
-      const r = await fetch('/escalate', { method:'POST',
-        headers: { 'Content-Type':'application/json', ...authHeaders() },
-        body: JSON.stringify({ case_id:_caseId||'', reason:'Reviewer từ chối khuyến nghị AI' }) });
-      const d = await r.json().catch(()=>({}));
-      note += d.sent ? ' Đã thông báo kênh chuyên gia.' : ' (chưa cấu hình kênh chuyên gia — đã đánh dấu.)';
-    } catch { note += ' (không gửi được thông báo.)'; }
-    banner.innerHTML = '<strong>Đã từ chối</strong> — case chuyển cho chuyên gia pháp lý. ' + note;
-  };
-}
-
-function _memoItems() {
-  // Mỗi rủi ro + đề xuất fallback cùng điều khoản → 1 mục memo.
-  const fb = window._fb || [];
-  return (window._risks || []).map(r => {
-    const f = fb.find(x => x.clause === r.clause) || {};
-    return { clause: r.clause, issue: r.risk, legal_status: r.legal_status,
-             violated_law: r.violated_law || '', legal_basis: r.legal_basis || '',
-             suggestion: f.suggestion || '', priority: r.priority || '' };
-  });
-}
-$('memo-go').onclick = async () => {
-  const items = _memoItems();
-  if (!items.length) { $('memo').textContent = 'Chưa có điều khoản để gộp.'; return; }
-  $('memo').textContent = 'Đang gộp…';
-  try {
-    const r = await fetch('/amendments/compile', { method:'POST',
-      headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ items, protected_party: $('protected_party').value }) });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const d = await r.json();
-    $('memo').innerHTML = mdLite(d.markdown);
-    $('memo-docx').style.display = 'inline';
-  } catch (e) { $('memo').textContent = 'Lỗi: ' + e.message; }
-};
-$('memo-docx').onclick = async () => {
-  try {
-    const r = await fetch('/amendments/compile.docx', { method:'POST',
-      headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ items: _memoItems(), protected_party: $('protected_party').value }) });
-    if (r.status === 501) { toast('Word export chưa bật trên server (cần group export). Dùng bản ghi nhớ ở trên.'); return; }
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const blob = await r.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
-    a.href = url; a.download = 'ban-ghi-nho-sua-doi.docx'; a.click(); URL.revokeObjectURL(url);
-  } catch (e) { toast('Lỗi tải Word: ' + e.message); }
-};
-// Bản ĐỐI CHIẾU sửa đổi (cũ→mới): điều khoản cũ (đỏ/gạch) → điều khoản mới song ngữ (xanh/highlight).
-function _redlineItems() {
-  const fb = window._fb || [];
-  return (window._risks || []).map(r => {
-    const cc = r.counter_clause || {}, f = fb.find(x => x.clause === r.clause) || {};
-    return { clause: r.clause, evidence: r.evidence || '', vi: cc.vi || f.suggestion || '',
-             en: cc.en || '', rationale: cc.rationale || r.legal_basis || '',
-             legal_status: r.legal_status, violated_law: r.violated_law || '' };
-  });
-}
-$('redline-docx').onclick = async () => {
-  const items = _redlineItems();
-  if (!items.length) { toast('Chưa có điều khoản để đối chiếu — chạy rà soát trước.'); return; }
-  try {
-    const r = await fetch('/amendments/redline.docx', { method:'POST',
-      headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ items, protected_party: $('protected_party').value }) });
-    if (r.status === 501) { toast('Word export chưa bật trên server (cần group export).'); return; }
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const blob = await r.blob(), url = URL.createObjectURL(blob), a = document.createElement('a');
-    a.href = url; a.download = 'ban-doi-chieu-sua-doi.docx'; a.click(); URL.revokeObjectURL(url);
-  } catch (e) { toast('Lỗi tải bản đối chiếu: ' + e.message); }
-};
-
-$('audit-go').onclick = async () => {
-  if (!_caseId) { $('audit-msg').textContent = ' — cần chạy phân tích THẬT (có case) trước.'; return; }
-  $('audit-msg').textContent = ' đang tạo…';
-  try {
-    const r = await fetch(`/cases/${_caseId}/audit`, { headers: { ...authHeaders() } });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const md = await r.text();
-    const blob = new Blob([md], { type:'text/markdown' }), url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `ho-so-kiem-chung-${_caseId.slice(0,8)}.md`; a.click(); URL.revokeObjectURL(url);
-    $('audit-msg').textContent = ' đã tải.';
-  } catch (e) { $('audit-msg').textContent = ' — lỗi: ' + e.message; }
-};
-
-// Rủi ro ĐÃ có điều khoản mới inline → "Đồng ý sửa" = GHI NHẬN đồng ý áp dụng (agreed_fix), KHÔNG soạn lại
-// (điều khoản đề xuất đã hiển thị). Đồng bộ Slack (_confirm_amend). Ghi audit — không tính win-rate.
-async function agreeRisk(i, btn) {
-  const r = (window._risks || [])[i]; if (!r) return;
-  if (!_caseId) { $('ag-'+i).textContent = ' — cần lưu case trước (chạy phân tích thật).'; return; }
-  if (btn) btn.disabled = true;
-  $('ag-'+i).textContent = ' đang ghi…';
-  try {
-    const res = await fetch(`/cases/${_caseId}/outcome`, { method:'POST',
-      headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ clause: r.clause, tactic:'agreed_amendment', result:'agreed_fix' }) });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    $('ag-'+i).textContent = ' — đã ghi nhận đồng ý áp dụng điều khoản đề xuất.';
-  } catch (e) { $('ag-'+i).textContent = ' — lỗi: ' + e.message; if (btn) btn.disabled = false; }
-}
-
-// Nút "Đồng ý sửa" per-risk → soạn điều khoản cũ→mới (đồng bộ với nút Slack). Map rủi ro→fallback theo
-// clause để lấy suggestion/legal_basis; không có fallback vẫn soạn được từ chính rủi ro.
-async function amendRisk(i) {
-  const r = (window._risks || [])[i]; if (!r) return;
-  const f = (window._fb || []).find(x => x.clause === r.clause) || {};
-  // Dùng NGUYÊN VĂN điều khoản gốc (evidence, trích HĐ) làm "cũ" → LLM viết lại CHÍNH đoạn đó; thiếu → nhãn.
-  const original = (r.evidence || '').trim() || r.clause;
-  const box = $('am-' + i);
-  box.textContent = 'Đang soạn điều khoản sửa…';
-  try {
-    const res = await fetch('/counter', { method:'POST',
-      headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ clause: original, risk: r.risk || '', suggestion: f.suggestion || '',
-        legal_basis: f.legal_basis || r.legal_basis || '', leverage: $('leverage').value }) });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const d = await res.json();
-    box.innerHTML =
-      (d.grounded ? '' : '<div class="muted">Bản khung sơ bộ — cần luật sư hoàn thiện.</div>') +
-      `<div><b>Đề xuất sửa đổi:</b> ${esc(r.clause)}</div>` +
-      (original !== r.clause ? `<div style="margin-top:4px"><b>Điều khoản hiện tại (trích HĐ):</b> ${esc(original)}</div>` : '') +
-      `<div style="margin-top:4px"><b>Điều khoản đề xuất (Tiếng Việt):</b> ${esc(d.vi)}</div>` +
-      (d.en ? `<div style="margin-top:4px"><b>Suggested clause (English):</b> ${esc(d.en)}</div>` : '') +
-      (d.rationale ? `<div class="muted" style="margin-top:4px">Lý do: ${esc(d.rationale)}</div>` : '');
-    _recordAgreedFix(r.clause);              // parity Slack _run_amend: ghi event 'đồng ý sửa' (audit)
-  } catch (e) { box.textContent = 'Lỗi: ' + e.message; }
-}
-
-// Ghi event agreed_fix (audit, không tính win-rate) — dùng cho cả nút soạn (amendRisk) lẫn xác nhận
-// (agreeRisk), đồng bộ Slack. Fire-and-forget: lỗi ghi KHÔNG chặn UX (event là phụ).
-async function agreeDrafting(j, btn) {
-  // Nút "Đồng ý sửa" cho LỖI SOẠN THẢO (fix đã hiển thị inline) → GHI NHẬN agreed_fix (parity Slack _confirm_drafting_fix).
-  const it = (window._draftingIssues || [])[j]; if (!it) return;
-  const clause = (it.location||'').trim() || (it.issue||'').slice(0,80);
-  if (!_caseId) { $('dg-'+j).textContent = ' — cần lưu case trước (chạy phân tích thật).'; return; }
-  if (btn) btn.disabled = true;
-  $('dg-'+j).textContent = ' đang ghi…';
-  try {
-    const res = await fetch(`/cases/${_caseId}/outcome`, { method:'POST',
-      headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ clause, tactic:'agreed_amendment', result:'agreed_fix' }) });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    $('dg-'+j).textContent = ' — đã ghi nhận đồng ý sửa.';
-  } catch (e) { $('dg-'+j).textContent = ' — lỗi: ' + e.message; if (btn) btn.disabled = false; }
-}
-async function _recordAgreedFix(clause) {
-  if (!_caseId) return;
-  try {
-    await fetch(`/cases/${_caseId}/outcome`, { method:'POST',
-      headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ clause, tactic:'agreed_amendment', result:'agreed_fix' }) });
-  } catch { /* audit phụ — nuốt lỗi */ }
-}
-
-const _NEGO_STATUS = {
-  continue: ['Tiếp tục đàm phán', '#eef3fb'], close: ['Nên CHỐT deal', '#e6f7ec'],
-  walk_away: ['Nên RÚT (walk-away)', '#fdecea'] };
-$('nego-go').onclick = async () => {
-  const msg = $('partner-msg').value.trim();
-  if (!msg) { $('nego-result').innerHTML = '<p class="err">Dán phản hồi của đối tác trước đã.</p>'; return; }
-  $('nego-go').disabled = true; $('nego-spin').style.display = 'inline'; $('nego-result').innerHTML = '';
-  try {
-    const r = await fetch('/negotiate', { method:'POST',
-      headers: { 'Content-Type':'application/json', ...authHeaders() },
-      body: JSON.stringify({ deal_context:_deal, partner_message:msg, lang:$('lang').value,
-        leverage:$('leverage').value, urgency:$('urgency').value, relationship:$('relationship').value,
-        alternatives:$('alternatives').value==='true', protected_party:$('protected_party').value,
-        state:_negoState }) });
-    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || `HTTP ${r.status}`);
-    const d = await r.json();
-    if (d.state) _negoState = d.state;   // thread sổ nhượng-bộ sang vòng sau (nhớ đã chốt/nhượng gì)
-    const [label, bg] = _NEGO_STATUS[d.status] || _NEGO_STATUS.continue;
-    const st = d.state || {};
-    const ledger =
-      ((st.secured||[]).length ? `<div style="margin-top:8px"><b>Đã chốt:</b> ${st.secured.join('; ')}</div>` : '') +
-      ((st.conceded||[]).length ? `<div style="margin-top:4px"><b>↩Ta đã nhượng:</b> ${st.conceded.join('; ')}</div>` : '') +
-      (d.walk_away_recommended ? `<div class="banner" style="background:var(--high);margin-top:8px"><strong>Red-line bị chặn + ta có BATNA → cân nhắc RÚT.</strong></div>` : '') +
-      ((d.next_moves||[]).length ? `<div style="margin-top:8px"><b>Nước đi đề xuất (thang nhượng-bộ):</b><ul style="margin:4px 0 0 18px">` +
-        d.next_moves.map(m => `<li>Nhượng: ${m.offer||''}${m.in_return_for?` → đổi lấy: ${m.in_return_for}`:''}${m.near_red_line?' <span style="color:#c00">gần red-line</span>':''}${m.why?`<br><span class="muted" style="font-size:.9em">${m.why}</span>`:''}</li>`).join('') +
-        `</ul></div>` : '');
-    $('nego-result').innerHTML =
-      `<div class="banner" style="background:${bg}"><strong>${label}</strong></div>` +
-      `<div style="margin-top:8px"><b>Đánh giá phản hồi:</b><div class="md">${mdLite(d.assessment)}</div></div>` +
-      (d.strategy ? `<div style="margin-top:8px"><b>Chiến lược vòng tới:</b><div class="md">${mdLite(d.strategy)}</div></div>` : '') +
-      ledger +
-      (d.reply_vi ? `<div style="margin-top:8px"><b>Trả lời đối tác (VN):</b><div class="md">${mdLite(d.reply_vi)}</div></div>` : '') +
-      (d.reply_en ? `<div style="margin-top:6px"><b>Reply (EN):</b><div class="md">${mdLite(d.reply_en)}</div></div>` : '') +
-      (d.grounded ? '' : '<p class="note muted">Khung sơ bộ (chưa có LLM).</p>');
-    // Nối vòng: phản hồi này thành bối cảnh cho vòng sau.
-    _deal += `\n\n--- Đối tác: ${msg}\n--- Ta: ${d.reply_vi || d.assessment}`;
-  } catch (e) { $('nego-result').innerHTML = '<p class="err">' + e.message + '</p>'; }
-  finally { $('nego-go').disabled = false; $('nego-spin').style.display = 'none'; }
-};
 </script>
 </body>
 </html>

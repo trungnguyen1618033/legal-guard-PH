@@ -20,7 +20,16 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import parse_qs
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from starlette.concurrency import run_in_threadpool
 
 from legalguard.domain.analysis import AnalysisService
@@ -2024,5 +2033,71 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                     url, fn, None, max_upload_bytes)
                 return {"ok": True}
             return {"reply": handler.reply(key, text=text)}
+
+    # ---- WEB CHAT (giống Slack): tái dùng CHÍNH ChatHandler → routing (analyze/đàm phán/tra cứu) +
+    # nhớ deal + văn xuôi pháp lý đánh số Y HỆT Slack. Mỗi trình duyệt = 1 hội thoại `web:{uuid}` (như
+    # 1 thread Slack). Analyze deep ~1–3′ → chạy NỀN + client poll (không timeout), heartbeat #rủi ro.
+    _web_jobs: dict[str, dict] = {}
+    _web_lock = threading.Lock()
+
+    def _web_put(jid: str, data: dict) -> None:
+        with _web_lock:
+            _web_jobs[jid] = data
+            if len(_web_jobs) > 500:                     # prune job cũ (bound bộ nhớ in-process)
+                for k in list(_web_jobs)[:100]:
+                    _web_jobs.pop(k, None)
+
+    def _web_get(jid: str) -> dict | None:
+        with _web_lock:
+            return _web_jobs.get(jid)
+
+    @router.post("/chat")
+    async def web_chat(background: BackgroundTasks,
+                       message: str = Form(default=""),
+                       conversation_id: str = Form(default=""),
+                       lang: str = Form(default="vi"),
+                       file: UploadFile | None = File(default=None)):
+        """1 lượt chat web → chạy ChatHandler NỀN, trả job_id; client poll GET /chat/result/{job_id}.
+        conversation_id = uuid trình duyệt (giữ ở localStorage) → hội thoại bền qua các lượt như thread."""
+        lang = lang if lang in ("en", "vi") else "vi"
+        cid = (conversation_id or uuid.uuid4().hex)[:64]
+        conv_key = "web:" + cid
+        data = await file.read() if file is not None else None
+        if data is not None and len(data) > max_upload_bytes:
+            raise HTTPException(status_code=413, detail="File quá lớn.")
+        fname = (file.filename or "") if file is not None else None
+        if not ((message or "").strip() or data):
+            raise HTTPException(status_code=400, detail="Cần nhập tin nhắn hoặc đính kèm hợp đồng.")
+        jid = uuid.uuid4().hex
+        _web_put(jid, {"progress": {}})
+
+        def _cb(ev: dict) -> None:
+            if "reply" not in (_web_get(jid) or {}):     # heartbeat: #rủi ro tăng dần khi analyze
+                _web_put(jid, {"progress": ev})
+
+        def _bg() -> None:
+            try:
+                res = handler.reply_ex(conv_key, message or None, data, fname, lang, on_progress=_cb)
+                _web_put(jid, {"reply": {"text": res.text, "kind": res.kind, "ref": res.ref}})
+            except Exception as exc:  # noqa: BLE001 — lỗi nền: lưu để client poll thấy, vẫn log
+                _web_put(jid, {"error": str(exc)})
+                _log.exception("Web chat lỗi (job=%s)", jid)
+
+        background.add_task(_bg)
+        return {"job_id": jid, "conversation_id": cid}
+
+    @router.get("/chat/result/{job_id}")
+    def web_chat_result(job_id: str, response: Response) -> dict:
+        """Poll 1 lượt chat: 202 = đang xử lý (+ heartbeat progress); 200 = xong (text/kind/ref);
+        502 = lỗi; 404 = không thấy job."""
+        j = _web_get(job_id)
+        if j is None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy job.")
+        if "reply" in j:
+            return {"status": "done", **j["reply"]}
+        if j.get("error"):
+            raise HTTPException(status_code=502, detail=f"Chat lỗi: {j['error']}")
+        response.status_code = 202
+        return {"status": "processing", "progress": j.get("progress", {})}
 
     return router

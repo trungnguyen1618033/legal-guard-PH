@@ -186,7 +186,8 @@ def test_ready_probe(client):
 def test_demo_app_page_served(client):
     r = client.get("/app")
     assert r.status_code == 200
-    assert "checkpoint" in r.text.lower()      # UI có human checkpoint (Autopilot Agent)
+    assert "/chat" in r.text                    # UI chat (giống Slack) gọi endpoint /chat
+    assert "chốt" in r.text.lower()             # human-in-the-loop: nút quyết định Chốt/Chưa ổn
 
 
 def test_lookup_ui_page_served(client):
