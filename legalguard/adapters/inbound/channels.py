@@ -2078,7 +2078,10 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
         def _bg() -> None:
             try:
                 res = handler.reply_ex(conv_key, message or None, data, fname, lang, on_progress=_cb)
-                _web_put(jid, {"reply": {"text": res.text, "kind": res.kind, "ref": res.ref}})
+                out = {"text": res.text, "kind": res.kind, "ref": res.ref}
+                if res.result is not None:                # analysis → kèm cấu trúc để web dựng nút
+                    out["result"] = res.result.__dict__   # tải bản đối chiếu / bản ghi nhớ / hồ sơ kiểm chứng
+                _web_put(jid, {"reply": out})
             except Exception as exc:  # noqa: BLE001 — lỗi nền: lưu để client poll thấy, vẫn log
                 _web_put(jid, {"error": str(exc)})
                 _log.exception("Web chat lỗi (job=%s)", jid)
