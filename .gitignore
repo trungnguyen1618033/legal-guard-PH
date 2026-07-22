@@ -161,6 +161,11 @@ activemq-data/
 .env
 .env.bak*
 .envrc
+
+# CockroachDB Agent Skills (feature #4) — cài qua `npx skills add cockroachlabs/cockroachdb-skills`
+# (Apache-2.0, bên thứ 3, tái tạo 1 lệnh) → KHÔNG vendor vào repo; xem docs/crdb-features.md.
+.agents/
+.claude/skills/
 .venv
 
 # SSH private keys — KHÔNG BAO GIỜ commit (repo sẽ public)
