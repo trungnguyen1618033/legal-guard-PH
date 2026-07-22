@@ -36,6 +36,10 @@ invokes external tools, and incorporates human-in-the-loop checkpoints.** Legal 
 - **Proactive autopilot** — `POST /monitor/run` scans newly-issued laws and tells you which of your
   past contracts are now affected — *"the agent works while you sleep"* (built for a daily cron). It
   even **self-tunes**: dismissed false alarms are suppressed next run.
+- **Agentic memory (per-counterparty)** — the agent remembers what each counterparty conceded or
+  insisted on across past deals and recalls it into the next negotiation (advisory context, strictly
+  org-isolated). Backed by a swappable `MemoryPort`; scales on **CockroachDB** distributed vector
+  indexing (C-SPANN). See the **🧠 Agentic memory** section below.
 - **Human-in-the-loop** — the message-to-counterparty stays **locked** until a reviewer approves;
   rejecting escalates the case to a real lawyer channel.
 - **AI-Native evidence** — `GET /runs` exposes a live feed of what the agent did (tool calls, risks
@@ -113,6 +117,27 @@ All LLM calls go to **Qwen models via Qwen Cloud / DashScope (Alibaba Cloud Mode
 **Deployment: Alibaba Cloud ECS** — Docker (Caddy HTTPS + FastAPI app + Postgres + Redis), `alembic
 upgrade head` on start. Embeddings persist in Postgres (`kb_vectors`). Qwen-only; the hexagonal
 `LLMPort` means swapping in a second provider (or a vector DB) is one line in `config/container.py`.
+
+## 🧠 Agentic memory — remembers each counterparty
+
+Every negotiation outcome becomes an **episode** the agent recalls in later deals with the *same
+counterparty* (*"they accepted an 8% penalty cap last time"*). It's written **async** (off the response
+hot-path) and recalled as **advisory** context injected into the negotiation prompt — never as legal
+authority, so measured accuracy is unchanged whether the flag is on or off. Strictly **org-isolated**,
+with **cascade right-to-erasure** (PDPD/GDPR) and a similarity **noise-floor** so off-topic queries
+recall nothing.
+
+Backed by a swappable **`MemoryPort`** (hexagonal): SQLite/Postgres use in-RAM cosine; **CockroachDB**
+uses native `VECTOR` columns + `CREATE VECTOR INDEX` (C-SPANN) for in-database ANN recall — the backend
+changes in one line, the domain never does. Exposed over **MCP** as `recall_memory`.
+
+```bash
+# verify a CockroachDB cluster supports vector search (v25.4+):
+CRDB_URL="postgresql://<user>:<pass>@<host>:26257/defaultdb?sslmode=verify-full" \
+  uv run python -m scripts.crdb_verify
+# enable (.env): AGENTIC_MEMORY=1 and COCKROACHDB_URL=<same connection string>
+uv run python -m evaluation.memory_eval        # recall quality: Recall@k / MRR / org-isolation / noise
+```
 
 ## Run with Docker
 
