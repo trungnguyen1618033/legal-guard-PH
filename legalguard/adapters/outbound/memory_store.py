@@ -43,8 +43,14 @@ class InMemoryMemory:
         ep = episode
         if not ep.id:
             ep = MemoryEpisode(**{**ep.__dict__, "id": uuid.uuid4().hex})
+        self._episodes = [e for e in self._episodes if e.id != ep.id]   # upsert theo id (hồ sơ profile idempotent)
         self._episodes.append(ep)
         return ep.id
+
+    def list_by_counterparty(self, org_id: str, counterparty: str, limit: int = 200) -> list[MemoryEpisode]:
+        cp = _norm(counterparty)
+        out = [e for e in self._episodes if e.org_id == org_id and _norm(e.counterparty) == cp]
+        return out[-limit:] if limit else out
 
     def recall(self, org_id: str, query: str, counterparty: str = "", k: int = 5) -> list[MemoryEpisode]:
         """Tình tiết liên quan nhất: cô lập org → điểm = overlap từ khóa(query, clause+content) + boost nếu

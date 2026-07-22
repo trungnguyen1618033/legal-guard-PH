@@ -161,6 +161,16 @@ class SqlMemory:
         scored.sort(key=lambda x: (x[0], x[1]), reverse=True)      # điểm ↓ rồi recency ↓
         return [ep for _, _, ep in scored[:max(0, k)]]
 
+    def list_by_counterparty(self, org_id: str, counterparty: str, limit: int = 200) -> list[MemoryEpisode]:
+        """Mọi tình tiết của 1 đối tác trong org (cho consolidation). Cô lập org; so counterparty
+        không-phân-biệt-hoa (khớp recall). Nạp org rồi lọc Python (bounded)."""
+        cp = counterparty.strip().lower()
+        with Session(self.engine) as s:
+            rows = list(s.scalars(select(MemoryRow).where(MemoryRow.org_id == org_id)
+                                   .order_by(MemoryRow.created_at.desc()).limit(max(1, limit) * 4)))
+        out = [_row_to_episode(r) for r in rows if (r.counterparty or "").strip().lower() == cp]
+        return out[:limit]
+
     def delete_by_case(self, case_id: str) -> int:
         if not case_id:
             return 0

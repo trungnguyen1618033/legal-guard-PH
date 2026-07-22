@@ -520,6 +520,28 @@ class AnalysisService:
             _log.warning("recall memory lỗi (bỏ qua): %s", exc)
             return []
 
+    def consolidate_memory(self, org_id: str, counterparty: str) -> str:
+        """CONSOLIDATION (nâng ①): gộp mọi tình tiết của 1 đối tác → 1 HỒ SƠ cô đọng (`kind=profile`),
+        lưu với id CỐ ĐỊNH `profile:{org}:{cp}` → UPSERT (≤1 hồ sơ/đối tác, không phình). Recall sau trả hồ
+        sơ này (cùng counterparty → boost). Guarded flag+port; TẤT ĐỊNH (không LLM); failure-safe. Trả profile text."""
+        if not (self.agentic_memory and self.memory and (counterparty or "").strip()):
+            return ""
+        try:
+            from datetime import datetime, timezone
+
+            from legalguard.domain.memory_consolidation import consolidate_counterparty
+            eps = self.memory.list_by_counterparty(org_id, counterparty)
+            profile = consolidate_counterparty(counterparty, eps)
+            if profile:
+                self.memory.remember(MemoryEpisode(
+                    id=f"profile:{org_id}:{counterparty.strip().lower()}", org_id=org_id,
+                    counterparty=counterparty, kind="profile", clause="", content=profile,
+                    created_at=datetime.now(timezone.utc).isoformat(), case_id=""))
+            return profile
+        except Exception as exc:  # noqa: BLE001 — consolidation là phụ, không được chặn luồng chính
+            _log.warning("consolidate memory lỗi (bỏ qua): %s", exc)
+            return ""
+
     def tactic_stats(self, org_id: str) -> dict:
         return self.outcomes.win_rates(org_id) if self.outcomes else {}
 
