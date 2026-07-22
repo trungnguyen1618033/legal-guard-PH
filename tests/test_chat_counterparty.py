@@ -114,6 +114,35 @@ def test_chat_set_and_clear_counterparty():
     assert h.store.get("k3").counterparty == ""
 
 
+# ---- Outcome → counterparty attribution (Option B: derive from case) ----------------------------
+def test_record_deal_outcome_attributes_counterparty_from_case():
+    from legalguard.adapters.inbound.channels import _record_deal_outcome
+    from legalguard.adapters.outbound.memory_store import InMemoryMemory
+    from legalguard.domain.analysis import AnalysisService
+    from legalguard.domain.models import AnalysisCase
+
+    case = AnalysisCase(id="c9", org_id="org1", tenant="VN", created_at="2026-07-22", lang="vi",
+                        contract_excerpt="", summary="", needs_human_review=False,
+                        risks=[{"clause": "Phạt vi phạm"}], fallbacks=[], trace=[],
+                        counterparty="ACME Corp")
+
+    class _Cases:
+        def get(self, cid):   # noqa: ANN001
+            return case if cid == "c9" else None
+
+    class _LLM:
+        available = False
+
+        def embed(self, t):   # noqa: ANN001
+            return None
+
+    mem = InMemoryMemory()
+    svc = AnalysisService(reasoner=_LLM(), kb=object(), cases=_Cases(), memory=mem, agentic_memory=True)
+    assert _record_deal_outcome(svc, "org1", "c9", "accepted") == 1
+    got = svc.recall_memory("org1", "phạt", counterparty="ACME Corp")
+    assert got and got[0].kind == "outcome" and got[0].counterparty == "ACME Corp"
+
+
 # ---- SQL store round-trips the new column -------------------------------------------------------
 def test_sql_store_roundtrips_counterparty(tmp_path):
     url = f"sqlite:///{tmp_path / 'conv.db'}"

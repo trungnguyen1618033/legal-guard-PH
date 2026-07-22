@@ -1200,6 +1200,9 @@ def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, re
     case = service.get_case(case_id)
     if case is None or getattr(case, "org_id", None) != org_id:
         return 0
+    # Trục nhớ theo-đối-tác (Option B): suy counterparty TỪ case → mỗi outcome episode gắn ĐÚNG đối tác →
+    # auto-consolidation (trong record_outcome) gộp hồ sơ đối tác GIÀU (theo điều khoản). Rỗng → hành vi cũ.
+    cp = getattr(case, "counterparty", "") or ""
     # Ghi theo clause của risks ∪ fallbacks (agent thỉnh thoảng bỏ fallback → vẫn nuôi win-rate theo risk).
     clauses = list(dict.fromkeys(
         c for c in ([r.get("clause", "") for r in (case.risks or [])]
@@ -1209,7 +1212,7 @@ def _record_deal_outcome(service: AnalysisService, org_id: str, case_id: str, re
         try:
             service.record_outcome(Outcome(
                 id=uuid.uuid4().hex, org_id=org_id, case_id=case_id, clause=cl, tactic="",
-                result=result, created_at=datetime.now(timezone.utc).isoformat()))
+                result=result, created_at=datetime.now(timezone.utc).isoformat()), counterparty=cp)
             n += 1
         except Exception:  # noqa: BLE001 — outcome là phụ; vẫn ack để Slack không retry
             _log.exception("Không ghi được outcome từ Slack")
@@ -1533,10 +1536,11 @@ def _record_agreed_fix(service: AnalysisService, org_id: str, case_id: str, clau
     """Ghi EVENT 'đã đồng ý sửa' (audit + tín hiệu risk-hợp-lệ). result='agreed_fix' — KHÔNG lọt win-rate
     (win_rates chỉ tính accepted/partial/rejected) nên không pha loãng flywheel. Lỗi ghi → bỏ qua (phụ)."""
     try:
+        cp = getattr(service.get_case(case_id), "counterparty", "") or ""   # trục nhớ theo-đối-tác
         service.record_outcome(Outcome(
             id=uuid.uuid4().hex, org_id=org_id, case_id=case_id, clause=clause,
             tactic="agreed_amendment", result="agreed_fix",
-            created_at=datetime.now(timezone.utc).isoformat()))
+            created_at=datetime.now(timezone.utc).isoformat()), counterparty=cp)
     except Exception:  # noqa: BLE001 — ghi event là phụ, không chặn luồng chính
         _log.exception("Không ghi được event 'đồng ý sửa' (%s)", case_id)
 
