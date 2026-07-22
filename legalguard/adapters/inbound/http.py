@@ -149,6 +149,7 @@ class NegotiateIn(BaseModel):
     relationship: str = "new"
     alternatives: bool = False
     protected_party: str = ""
+    counterparty: str = ""             # tên đối tác → nhớ/recall theo-đối-tác qua các vòng (agentic memory, cô lập org)
     state: NegoStateIn | None = None   # sổ nhượng-bộ vòng trước (trả lại ở response → thread vòng sau)
 
 
@@ -340,6 +341,7 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
         relationship: str = Form(default="new"),
         alternatives: bool = Form(default=False),
         protected_party: str = Form(default=""),
+        counterparty: str = Form(default=""),     # tên đối tác → trục NHỚ theo-đối-tác (agentic memory), cô lập theo org
         async_mode: bool = Form(default=False),   # HĐ dài → chạy NỀN, trả case_id ngay, client poll /cases/{id}
         mode: str = Form(default="deep"),         # deep = agent đầy đủ; fast = rà soát nhanh 1-call (~8-20s)
         background: BackgroundTasks = None,
@@ -349,7 +351,8 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
         mode = mode if mode in ("deep", "fast") else "deep"
         position = NegotiationPosition(leverage=leverage, urgency=urgency,
                                        relationship=relationship, alternatives=alternatives,
-                                       protected_party=protected_party[:120])
+                                       protected_party=protected_party[:120],
+                                       counterparty=counterparty[:120])
 
         source = None
         if file is not None:
@@ -757,7 +760,8 @@ margin-top:2rem;border-top:1px solid #eee;padding-top:1rem}}</style></head><body
             raise HTTPException(status_code=413, detail="Nội dung quá dài.")
         pos = NegotiationPosition(leverage=body.leverage, urgency=body.urgency,
                                   relationship=body.relationship, alternatives=body.alternatives,
-                                  protected_party=body.protected_party[:120])
+                                  protected_party=body.protected_party[:120],
+                                  counterparty=body.counterparty[:120])
         from legalguard.domain.negotiation import NegotiationState
         st = NegotiationState(**body.state.model_dump()) if body.state else None
         lang = body.lang if body.lang in ("en", "vi") else "vi"

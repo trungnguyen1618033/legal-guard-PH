@@ -89,6 +89,9 @@ def test_parse_set_counterparty():
     assert _parse_set_counterparty("xóa đối tác đi") == ""
     assert _parse_set_counterparty("đối tác từ chối đề nghị") is None  # counter-offer, KHÔNG phải lệnh
     assert _parse_set_counterparty("rà giúp hợp đồng này") is None
+    # KHÔNG nuốt cả 1 CÂU làm tên (chống nhiễm key nhớ)
+    assert _parse_set_counterparty("đối tác: họ muốn giảm giá 10%") is None
+    assert _parse_set_counterparty("đối tác là chúng tôi sẽ không đồng ý điều này") is None
 
 
 def test_route_set_counterparty():

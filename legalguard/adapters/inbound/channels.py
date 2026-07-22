@@ -280,6 +280,9 @@ _SET_CP_RE = re.compile(
 # Lệnh XÓA/QUÊN đối tác của phiên.
 _CLEAR_CP_RE = re.compile(
     r"\b(?:xóa|xoá|quên|bỏ|clear|reset)\b[^\n]{0,20}\b(?:đối tác|counterparty)\b", re.IGNORECASE)
+# Token báo hiệu người dùng gõ 1 CÂU (không phải tên đối tác) sau 'đối tác:' → từ chối để không nhiễm key nhớ.
+_CP_SENTENCE_TOK = {"họ", "tôi", "chúng", "muốn", "giảm", "tăng", "từ", "chối", "không", "sẽ",
+                    "đang", "đề", "nghị", "vẫn", "chưa", "đã", "phải", "cần", "nên"}
 
 
 def _parse_set_counterparty(text: str) -> str | None:
@@ -295,7 +298,13 @@ def _parse_set_counterparty(text: str) -> str | None:
     if not m:
         return None
     name = m.group("c").strip(" .,-:'\"")
-    return name if 2 <= len(name) <= 80 else None
+    words = name.split()
+    # Chống nhiễm key nhớ: tên đối tác NGẮN (≤5 từ), không phải 1 CÂU ('đối tác: họ muốn giảm giá 10%').
+    if not (2 <= len(name) <= 80) or len(words) > 5:
+        return None
+    if "%" in name or any(w.lower() in _CP_SENTENCE_TOK for w in words):
+        return None
+    return name
 _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ N lượt gần
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
