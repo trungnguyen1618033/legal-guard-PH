@@ -233,7 +233,10 @@ def test_confirm_drafting_fix_records_without_llm():
         def __init__(self):
             self.outcomes = []
 
-        def record_outcome(self, o):
+        def get_case(self, cid):   # _record_agreed_fix suy counterparty từ case (Option B)
+            return None
+
+        def record_outcome(self, o, counterparty=""):
             self.outcomes.append(o)
 
     svc, s = _Svc(), _FakeSender()
@@ -1056,7 +1059,7 @@ def test_record_deal_outcome_per_clause():
     class _Svc:
         def __init__(self): self.recorded = []
         def get_case(self, cid): return case if cid == "c1" else None
-        def record_outcome(self, o): self.recorded.append(o)
+        def record_outcome(self, o, counterparty=""): self.recorded.append(o)
 
     svc = _Svc()
     assert _record_deal_outcome(svc, "default", "c1", "accepted") == 2   # bỏ clause rỗng
@@ -1078,7 +1081,7 @@ def test_record_deal_outcome_covers_risk_clauses_when_no_fallback():
     class _Svc:
         def __init__(self): self.recorded = []
         def get_case(self, cid): return case
-        def record_outcome(self, o): self.recorded.append(o)
+        def record_outcome(self, o, counterparty=""): self.recorded.append(o)
 
     svc = _Svc()
     assert _record_deal_outcome(svc, "default", "c1", "partial") == 2   # theo risk clause khi thiếu fallback
@@ -1540,7 +1543,7 @@ def test_confirm_amend_records_event_without_llm():
         def get_case(self, cid):
             return case if cid == "c1" else None
 
-        def record_outcome(self, o):
+        def record_outcome(self, o, counterparty=""):
             self.outcomes.append(o)
 
         def draft_counter_clause(self, **kw):
@@ -1611,7 +1614,7 @@ def test_run_amend_drafts_and_posts_into_thread():
             self.called = {}
             self.outcomes = []
         def get_case(self, cid): return case if cid == "c1" else None
-        def record_outcome(self, o): self.outcomes.append(o)
+        def record_outcome(self, o, counterparty=""): self.outcomes.append(o)
         def draft_counter_clause(self, **kw):
             self.called = kw
             return {"vi": "Mức phạt tối đa 8%.", "en": "Cap penalty at 8%.", "grounded": True}
