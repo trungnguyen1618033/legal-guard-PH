@@ -94,6 +94,47 @@ def test_lookup_redacts_pii_before_llm():
     assert "[EMAIL]" in llm.last_prompt and "[SỐ]" in llm.last_prompt
 
 
+class _SemLLM(_CountLLM):
+    """Reasoner CÓ embed: vector theo TỪ KHÓA → câu diễn đạt khác nhưng cùng ý → cosine cao (semantic hit)."""
+    _KWS = ["phạt", "thương mại", "giao hàng", "lãi"]
+
+    def embed(self, texts):
+        out = []
+        for t in texts:
+            tl = t.lower()
+            out.append([1.0 if k in tl else 0.0 for k in self._KWS] or [0.0])
+        return out
+
+
+def _sem_svc(size=256):
+    llm = _SemLLM()
+    return AnalysisService(reasoner=llm, kb=_KB(), nli_verification=False, lookup_cache_size=size), llm
+
+
+def test_semantic_cache_hit_near_duplicate():
+    svc, llm = _sem_svc()
+    svc.lookup("Mức phạt vi phạm hợp đồng thương mại tối đa?", _ORG)
+    # câu diễn đạt KHÁC (khác key exact) nhưng cùng ý 'phạt/thương mại' → cosine=1.0 ≥ 0.95 → hit
+    a2, _ = svc.lookup("Phạt hợp đồng thương mại cao nhất là bao nhiêu phần trăm?", _ORG)
+    assert llm.calls == 1                 # KHÔNG gọi LLM lần 2 (semantic hit)
+    assert a2.startswith("**Trả lời:** đáp án 1")
+
+
+def test_semantic_cache_isolated_per_org():
+    svc, llm = _sem_svc()
+    svc.lookup("Mức phạt thương mại tối đa?", Organization(id="acme", country="VN"))
+    # org KHÁC, câu gần trùng → PHẢI KHÔNG hit (cô lập scope) → gọi LLM lại
+    svc.lookup("Phạt thương mại cao nhất?", Organization(id="other", country="VN"))
+    assert llm.calls == 2
+
+
+def test_semantic_cache_distinct_topics_no_hit():
+    svc, llm = _sem_svc()
+    svc.lookup("Mức phạt thương mại tối đa?", _ORG)        # vector [1,1,0,0]
+    svc.lookup("Thời hạn giao hàng bao lâu?", _ORG)        # vector [0,0,1,0] → cosine 0 → không hit
+    assert llm.calls == 2
+
+
 def test_lookup_keeps_year_for_point_in_time():
     # Năm KHÔNG bị redact → câu point-in-time vẫn giữ "2020" để LLM suy luận đúng.
     svc, llm = _svc()

@@ -56,6 +56,17 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger(__name__)
 
+# Semantic cache /lookup: câu hỏi GẦN TRÙNG (cosine ≥ ngưỡng) với câu đã cache CÙNG scope → trả cache,
+# tiết kiệm 1 call LLM. Ngưỡng CAO 0.95 → chỉ near-duplicate (rủi ro accuracy ~0). Cô lập org tuyệt đối.
+_SEM_CACHE_THRESHOLD = 0.95
+
+
+def _cos(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    na = sum(x * x for x in a) ** 0.5
+    nb = sum(y * y for y in b) ** 0.5
+    return dot / (na * nb) if na and nb else 0.0
+
 _CHUNK = 6000        # ký tự / cửa sổ cho hợp đồng dài
 _OVERLAP = 400       # chồng lấn để không cắt mất điều khoản ở biên
 _SIMPLE_MAX = 1500   # ngưỡng "đơn giản" cho adaptive routing
@@ -465,6 +476,7 @@ class AnalysisService:
         # trong 1 phiên deploy nên an toàn; redeploy = process mới = cache mới. 0 = tắt.
         self._lookup_cache_size = lookup_cache_size
         self._lookup_cache: OrderedDict[str, tuple] = OrderedDict()
+        self._lookup_vec: OrderedDict[str, list[float]] = OrderedDict()  # embedding câu hỏi → semantic cache
         # Model trả lời tra cứu: mặc định = reasoner (flagship); prod có thể dùng qwen-plus cho nhanh.
         self.lookup_llm = lookup_llm or reasoner
         # Model tra cứu point-in-time (câu có năm/ngày): flagship (suy luận thời điểm). Container dựng ở
@@ -1172,6 +1184,28 @@ class AnalysisService:
         if self._lookup_cache_size and ckey in self._lookup_cache:
             self._lookup_cache.move_to_end(ckey)        # LRU: vừa dùng → mới nhất
             return self._lookup_cache[ckey]
+        # SEMANTIC CACHE: miss exact → embed câu hỏi (rẻ), so cosine với câu đã cache CÙNG scope
+        # (country:org:lang) → ≥ ngưỡng thì trả cache, tiết kiệm 1 call LLM lookup. Cô lập org TUYỆT ĐỐI
+        # (chỉ so entry cùng scope). Offline (embed None) → bỏ qua → hành vi exact-only như cũ. qv tái dùng khi lưu.
+        qv: list[float] | None = None
+        if (self._lookup_cache_size and getattr(self.reasoner, "available", False)
+                and hasattr(self.reasoner, "embed")):
+            try:
+                emb = self.reasoner.embed([q])
+                qv = emb[0] if emb else None
+            except Exception:  # noqa: BLE001 — embed lỗi/offline → bỏ semantic (exact-only), KHÔNG phá lookup
+                qv = None
+            if qv is not None and self._lookup_cache:
+                scope = f"{org.country}:{org.id}:{lang}:"
+                best_key, best = None, 0.0
+                for k2, v2 in self._lookup_vec.items():
+                    if k2.startswith(scope) and (c := _cos(qv, v2)) > best:
+                        best, best_key = c, k2
+                if best_key is not None and best >= _SEM_CACHE_THRESHOLD and best_key in self._lookup_cache:
+                    self._lookup_cache.move_to_end(best_key)
+                    if best_key in self._lookup_vec:
+                        self._lookup_vec.move_to_end(best_key)
+                    return self._lookup_cache[best_key]
         # overlay=False: /lookup là Q&A DẪN LUẬT → dùng KB quốc gia (điều luật), KHÔNG để lớp tactics moat
         # (premium_tactics.md, phục vụ /analyze) đè điều luật ra khỏi top_k làm hỏng citation accuracy.
         # Mở rộng viết tắt (TNHH→trách nhiệm hữu hạn…) CHỈ cho query retrieval → tăng recall khi luật viết đầy đủ.
@@ -1248,6 +1282,9 @@ class AnalysisService:
         result = (answer, snippets)
         if self._lookup_cache_size:                      # chỉ cache câu trả lời THÀNH CÔNG (không cache lỗi)
             self._lookup_cache[ckey] = result
+            if qv is not None:
+                self._lookup_vec[ckey] = qv              # lưu embedding → semantic hit cho câu gần trùng sau
             if len(self._lookup_cache) > self._lookup_cache_size:
-                self._lookup_cache.popitem(last=False)   # đẩy mục cũ nhất ra (LRU evict)
+                old_key, _ = self._lookup_cache.popitem(last=False)   # LRU evict
+                self._lookup_vec.pop(old_key, None)      # đồng bộ evict vec (không rò bộ nhớ)
         return result
