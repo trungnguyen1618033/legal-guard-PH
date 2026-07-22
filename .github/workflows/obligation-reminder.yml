@@ -1,0 +1,53 @@
+name: Autopilot — obligation & deadline reminder (sau-ký)
+
+# "Autopilot SAU-KÝ": mỗi ngày quét NGHĨA VỤ & HẠN CHÓT sắp đến (thanh toán / gia hạn / báo chấm dứt…)
+# trong N ngày tới trên các hợp đồng đã rà soát → đẩy digest nhắc vào Slack. Đóng khoảng trống lớn nhất
+# (sản phẩm cũ dừng lúc KÝ; SME chảy máu tiền ở chỗ LỠ HẠN). Gọi endpoint POST /obligations/run.
+#
+# CẦN đặt GitHub secrets (Settings → Secrets → Actions) — DÙNG CHUNG với autopilot-monitor:
+#   LG_API_BASE          vd https://legalguard.duckdns.org
+#   LG_API_KEY           API key hợp lệ (X-API-Key) của org cần nhắc
+#   LG_MONITOR_CHANNEL   channel Slack nhận nhắc (vd C0XXXX)
+#
+# LƯU Ý: yêu cầu bật flag OBLIGATION_TRACKING trên deploy (mặc định OFF) để có dữ liệu nghĩa vụ.
+# Lịch `schedule` CHỈ chạy trên nhánh MẶC ĐỊNH (main) → tự động khi merge. Nhánh feature: "Run workflow".
+
+on:
+  schedule:
+    - cron: "0 2 * * *"        # 02:00 UTC mỗi ngày (sau law-monitor 01:00 để tách tải)
+  workflow_dispatch:
+    inputs:
+      within_days:
+        description: "Nhắc nghĩa vụ đến hạn trong N ngày tới"
+        default: "7"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: obligation-reminder
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan upcoming obligations → reminder digest (Slack)
+        env:
+          API_BASE: ${{ secrets.LG_API_BASE }}
+          API_KEY: ${{ secrets.LG_API_KEY }}
+          CHANNEL: ${{ secrets.LG_MONITOR_CHANNEL }}
+          WITHIN_DAYS: ${{ github.event.inputs.within_days || '7' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_BASE:-}" ] || [ -z "${API_KEY:-}" ] || [ -z "${CHANNEL:-}" ]; then
+            echo "::error::Thiếu secrets LG_API_BASE / LG_API_KEY / LG_MONITOR_CHANNEL"; exit 1
+          fi
+          echo "Autopilot sau-ký: nhắc nghĩa vụ đến hạn trong ${WITHIN_DAYS} ngày tới …"
+          code=$(curl -fsS -o resp.json -w '%{http_code}' -X POST "$API_BASE/obligations/run" \
+            -H "Content-Type: application/json" -H "X-API-Key: $API_KEY" \
+            -d "{\"within_days\":${WITHIN_DAYS},\"via\":\"slack\",\"channel\":\"$CHANNEL\"}")
+          echo "HTTP $code"; cat resp.json; echo
+          # In tóm tắt (không fail nếu 0 nghĩa vụ đến hạn — trạng thái bình thường)
+          python3 -c "import json;d=json.load(open('resp.json'));print(f\"upcoming={d.get('upcoming')} within_days={d.get('within_days')} sent={d.get('sent')}\")"
