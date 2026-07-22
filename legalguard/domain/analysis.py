@@ -607,14 +607,18 @@ class AnalysisService:
         """Một VÒNG đàm phán đa phiên: bối cảnh deal + SỔ nhượng-bộ + tin đối tác → đánh giá + chiến lược
         vòng tới + câu trả lời song ngữ + status (continue/close/walk_away) + sổ nhượng-bộ ĐÃ cập nhật.
         `state` mang qua các vòng (agent nhớ đã nhượng/chốt gì). Lõi 'Autopilot Agent' dẫn đàm phán."""
-        from legalguard.domain.negotiation import format_tactics_context
+        from legalguard.domain.negotiation import format_memory_context, format_tactics_context
         from legalguard.domain.negotiation import negotiate_round as _round
 
         # Living flywheel: nạp win-rate lịch sử (kết quả đàm phán THẬT) → agent ưu tiên nước đi từng thành công.
         # CÔ LẬP org (privacy): chỉ dùng outcome của CHÍNH công ty này, không rò từ công ty khác.
         rates = self.outcomes.win_rates(org_id) if self.outcomes else {}
+        # Bộ nhớ agent theo-đối-tác: recall tình tiết deal/vòng trước (guarded flag+org) → THAM KHẢO cho vòng
+        # này. Cô lập org; [] nếu flag OFF → memory_context="" → prompt Y HỆT cũ (không đổi hành vi mặc định).
+        mem = self.recall_memory(org_id or "", f"{partner_message}\n{deal_context}", k=5) if org_id else []
         r = _round(self.reasoner, deal_context=deal_context, partner_message=partner_message,
-                   position=position, state=state, tactics_context=format_tactics_context(rates), lang=lang)
+                   position=position, state=state, tactics_context=format_tactics_context(rates),
+                   memory_context=format_memory_context(mem), lang=lang)
         if self.observer:
             self.observer.event("negotiate_round", {"status": r.status, "grounded": r.grounded})
         return asdict(r)

@@ -124,6 +124,21 @@ def format_tactics_context(win_rates: dict, limit: int = 6) -> str:
             f"điểm đạt thấp): {body}")
 
 
+def format_memory_context(episodes: list, limit: int = 5) -> str:
+    """Tóm tắt TÌNH TIẾT bộ nhớ theo-đối-tác (deal/vòng trước) → context THAM KHẢO cho vòng đàm phán.
+    Khác win-rate (số tổng hợp): đây là tình tiết CỤ THỂ ('điều khoản X: chiến thuật Y → kết quả Z'). Rỗng
+    → "" (không thêm gì). THUẦN (test offline). Định vị THAM KHẢO, KHÔNG phải căn cứ pháp lý (tránh coi là luật)."""
+    eps = [e for e in (episodes or [])][:limit]
+    if not eps:
+        return ""
+    body = "; ".join(f"'{getattr(e, 'clause', '')}': {getattr(e, 'content', '')}".strip(" ':")
+                     for e in eps if getattr(e, "content", ""))
+    if not body:
+        return ""
+    return ("BỘ NHỚ ĐỐI TÁC (tình tiết deal/vòng TRƯỚC của ta — THAM KHẢO để nhất quán, KHÔNG phải luật): "
+            f"{body}")
+
+
 def should_walk_away(red_line_blocked: bool, has_alternatives: bool) -> bool:
     """Guardrail THUẦN: đối tác chặn một điểm red-line (must-fix) VÀ ta có BATNA (giải pháp thay thế) →
     nên RÚT. Bảo vệ vị thế tất định — không để agent nhượng tiếp/chốt khi điểm sống còn đã bị chặn.
@@ -217,7 +232,7 @@ class NegotiationRound:
 def negotiate_round(reasoner: LLMPort, *, deal_context: str, partner_message: str,
                     position: NegotiationPosition | None = None,
                     state: NegotiationState | None = None, tactics_context: str = "",
-                    lang: str = "vi") -> NegotiationRound:
+                    memory_context: str = "", lang: str = "vi") -> NegotiationRound:
     """Một VÒNG đàm phán: bối cảnh deal + SỔ nhượng-bộ + WIN-RATE lịch sử + tin đối tác → đánh giá + chiến
     lược + câu trả lời + status + sổ nhượng-bộ ĐÃ cập nhật. `state` mang qua các vòng (agent nhớ đã nhượng/
     chốt gì); `tactics_context` = win-rate lịch sử (moat flywheel) → agent ưu tiên nước đi từng thành công.
@@ -244,6 +259,7 @@ def negotiate_round(reasoner: LLMPort, *, deal_context: str, partner_message: st
         f"BỐI CẢNH DEAL (từ phân tích/các vòng trước):\n{deal_context[:4000]}\n\n"
         f"{ledger}\n"
         + (f"{tactics_context[:1000]}\n\n" if tactics_context else "")
+        + (f"{memory_context[:1000]}\n\n" if memory_context else "")
         + f"ĐỐI TÁC VỪA PHẢN HỒI:\n{partner_message[:2000]}\n\n"
         f"Đánh giá phản hồi, cập nhật sổ nhượng-bộ (các mục MỚI vòng này) + chiến lược vòng tới, soạn câu "
         f"trả lời ({'tiếng Việt + tiếng Anh' if lang == 'vi' else 'English + Vietnamese'}), đề xuất status."
