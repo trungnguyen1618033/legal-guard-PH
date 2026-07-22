@@ -1,15 +1,14 @@
 # CockroachDB tools used — Legal Guard
 
 CockroachDB × AWS "Build with Agentic Memory" requires **at least 2 of 4** CockroachDB tools.
-Legal Guard uses **3 verified live** (#1, #2, #4) + **#3 configured** — well above the minimum. Verified on a
-CockroachDB Cloud cluster (`v26.2.1`, AWS `ap-southeast-1`).
+Legal Guard uses **all 4** (verified live on a CockroachDB Cloud **Basic** cluster, `v26.2.1`, AWS `ap-southeast-1`).
 
 | # | CockroachDB tool | Status | Where |
 |---|---|---|---|
 | 1 | **Distributed Vector Indexing (C-SPANN)** | ✅ used, verified live | agent memory + KB retrieval |
 | 2 | **ccloud CLI (Agent-Ready)** | ✅ used, verified live | `scripts/crdb_ops.py` |
+| 3 | **Cloud Managed MCP Server** | ✅ connected (OAuth, Basic tier) | `.mcp.json` (Claude Code) |
 | 4 | **Agent Skills Repo** | ✅ used | `cockroachlabs/cockroachdb-skills` (34 skills) |
-| 3 | **Cloud Managed MCP Server** | ⚙️ configured (`.mcp.json.example`) | activate via Console + OAuth |
 
 ## 1. Distributed Vector Indexing (C-SPANN)
 Agent memory **and** knowledge-base embeddings are stored in CockroachDB `VECTOR` columns with
@@ -25,9 +24,11 @@ Official CLI, JSON output on every command → scriptable ops (deploy + monitori
 - Setup: `brew install cockroachdb/tap/ccloud` → `ccloud auth login`.
 - Verify: `uv run python -m scripts.crdb_ops health <cluster>` → `{"healthy": true, "version": "v26.2.1", ...}`.
 
-## 3. Cloud Managed MCP Server (configured)
+## 3. Cloud Managed MCP Server (connected — Basic tier ✅)
 Managed MCP endpoint lets the agent inspect schema / run read-only analytical queries against the cluster.
 Endpoint `https://cockroachlabs.cloud/mcp`; read-only (`mcp:read`) by default, blocks `DROP`/`TRUNCATE`.
+**Connected via OAuth on a Basic-tier cluster** — tools available to Claude Code:
+`list_databases`, `list_tables`, `get_table_schema`, `select_query`, `explain_query`, `show_running_queries`, …
 Config: **`.mcp.json.example`** (needs the `mcp-cluster-id` header).
 
 **Enable (OAuth — recommended):**
