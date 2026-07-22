@@ -138,6 +138,12 @@ authority, so measured accuracy is unchanged whether the flag is on or off. Stri
 with **cascade right-to-erasure** (PDPD/GDPR) and a similarity **noise-floor** so off-topic queries
 recall nothing.
 
+Two higher-order behaviours make it more than a log: **consolidation** collapses many episodes for a
+counterparty into one compact *profile* (distilled "who they are", not a noisy list), and **bi-temporal**
+memory means when a counterparty's stance changes the old episode is marked superseded — *kept for
+provenance, never deleted* — so recall returns the **current** position while `include_history` exposes the
+timeline (point-in-time / audit).
+
 Backed by a swappable **`MemoryPort`** (hexagonal): SQLite/Postgres use in-RAM cosine; **CockroachDB**
 uses native `VECTOR` columns + `CREATE VECTOR INDEX` (C-SPANN) for in-database ANN recall — the backend
 changes in one line, the domain never does. Exposed over **MCP** as `recall_memory`.
@@ -147,7 +153,8 @@ changes in one line, the domain never does. Exposed over **MCP** as `recall_memo
 CRDB_URL="postgresql://<user>:<pass>@<host>:26257/defaultdb?sslmode=verify-full" \
   uv run python -m scripts.crdb_verify
 # enable (.env): AGENTIC_MEMORY=1 and COCKROACHDB_URL=<same connection string>
-uv run python -m evaluation.memory_eval        # recall quality: Recall@k / MRR / org-isolation / noise
+# recall quality gate (2 backends): Recall@k / MRR / org-isolation / noise / supersede / consolidation
+uv run python -m evaluation.memory_eval
 ```
 
 ## Run with Docker
