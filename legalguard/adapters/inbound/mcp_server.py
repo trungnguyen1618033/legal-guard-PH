@@ -34,11 +34,27 @@ def analyze_contract_tool(text: str, leverage: str = "balanced", lang: str = "en
     }
 
 
+def lookup_law_tool(question: str, lang: str = "vi") -> dict:
+    """Tra cứu luật VN có GROUNDING: trả câu trả lời dẫn Điều/Khoản + nguồn KB (không bịa; ngoài KB→từ chối)."""
+    answer, snippets = _svc().lookup(question, default_org("VN"), lang=lang)
+    return {"answer": answer, "citations": [s.source for s in snippets]}
+
+
+def recall_memory_tool(query: str, counterparty: str = "", k: int = 5) -> dict:
+    """Truy hồi BỘ NHỚ agent theo ĐỐI TÁC: tình tiết deal/vòng trước liên quan (cần AGENTIC_MEMORY bật;
+    tắt → rỗng). Cô lập org. Dùng cho agent nhớ 'đối tác này lần trước ép/nhượng gì'."""
+    eps = _svc().recall_memory(default_org("VN").id, query, counterparty=counterparty, k=k)
+    return {"episodes": [{"counterparty": e.counterparty, "kind": e.kind, "clause": e.clause,
+                          "content": e.content, "created_at": e.created_at} for e in eps]}
+
+
 def build_mcp():
     from mcp.server.fastmcp import FastMCP
 
     mcp = FastMCP("legal-guard")
-    mcp.tool()(analyze_contract_tool)
+    mcp.tool()(analyze_contract_tool)        # ≥2 tool (anchor CockroachDB agentic-memory):
+    mcp.tool()(lookup_law_tool)              # tra cứu luật grounded
+    mcp.tool()(recall_memory_tool)           # bộ nhớ agent theo đối tác
     return mcp
 
 
