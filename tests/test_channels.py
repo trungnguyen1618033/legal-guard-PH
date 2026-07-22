@@ -120,6 +120,23 @@ def test_analysis_blocks_include_drafting_section():
     assert "(2) Tại Điều 7" in dump and "abc" in dump      # số tiếp sau rủi ro (1)
 
 
+def test_review_shows_counterparty_memory_section():
+    # "NHỚ đối tác": counterparty_notes (recall deal trước) → mục 'Về đối tác này' trong reply (text + Slack).
+    from legalguard.adapters.inbound.channels import _analysis_blocks
+    res = AnalysisResult(tenant="VN", risks=[], fallbacks=[], needs_human_review=False,
+                         review_reasons=[], summary="Tóm tắt.", trace=[],
+                         counterparty_notes=["[Hồ sơ] Đối tác hay ép phạt cao",
+                                             "[Kết quả] deal trước ép 15% → ta chốt 8%"])
+    out = format_chat_reply(res)
+    assert "Về đối tác này" in out and "ép phạt cao" in out and "chốt 8%" in out
+    dump = json.dumps(_analysis_blocks(res, "c1"), ensure_ascii=False)
+    assert "Về đối tác này" in dump and "chốt 8%" in dump          # Slack cũng hiện
+    # Không có counterparty_notes → KHÔNG có mục
+    res2 = AnalysisResult(tenant="VN", risks=[], fallbacks=[], needs_human_review=False,
+                          review_reasons=[], summary="Tóm tắt.", trace=[])
+    assert "Về đối tác này" not in format_chat_reply(res2)
+
+
 def test_review_head_empty_findings_no_contradiction():
     # Không có rủi ro/lỗi → KHÔNG nói 'đề xuất điều chỉnh' rồi 'không phát hiện' (mâu thuẫn).
     from legalguard.adapters.inbound.channels import _analysis_blocks

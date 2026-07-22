@@ -512,6 +512,18 @@ def _policy_lines(result: AnalysisResult) -> list[str]:
     return out
 
 
+_CP_MEMORY_HEAD = "🧠 Về đối tác này (từ deal/vòng trước — THAM KHẢO, không phải căn cứ pháp lý):"
+
+
+def _counterparty_lines(result: AnalysisResult) -> list[str]:
+    """Mục 'Về đối tác này' — bộ nhớ theo-đối-tác (agentic memory) recall khi rà HĐ mới. THAM KHẢO để nhất
+    quán qua các deal, KHÔNG phải luật. Rỗng khi flag OFF / chưa từng làm việc với đối tác này."""
+    notes = getattr(result, "counterparty_notes", None) or []
+    if not notes:
+        return []
+    return [_CP_MEMORY_HEAD, *(f"- {n}" for n in notes)]
+
+
 _HUMAN_NOTE = "Các nội dung nêu trên cần luật sư đối chiếu bản gốc trước khi áp dụng."
 _FAST_NOTE_MARK = "Bản RÀ NHANH"   # tiền tố (TEXT, không icon) note RÀ NHANH (analysis._finish_analyze) → surface đầu reply
 
@@ -553,6 +565,8 @@ def _review_doc(result: AnalysisResult, prefix: str = "", case_id: str = "") -> 
         doc.append(Block(result.strategy))
     if (pl := _policy_lines(result)):
         doc.append(Block("\n".join(pl)))
+    if (cp := _counterparty_lines(result)):
+        doc.append(Block("\n".join(cp)))
     if result.needs_human_review:
         doc.append(Block(_HUMAN_NOTE))
     return doc
