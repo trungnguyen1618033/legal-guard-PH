@@ -607,6 +607,74 @@ def format_negotiation_reply(r: dict, lang: str = "vi") -> str:
     return out if len(out) <= _MAX_REPLY else out[:_MAX_REPLY] + "…"
 
 
+# ── L3 QUERY-ROUTER (điều phối năng lực) ──────────────────────────────────────────────────────────
+# Classifier THUẦN, TẤT ĐỊNH: (text + cờ ngữ cảnh) → 1 NĂNG LỰC. Tách quyết-định-định-tuyến khỏi
+# hành-động (side-effect) trong `_handle` → 1 nơi duy nhất, test được, minh bạch (nâng L2→L3, KHÔNG dùng
+# LLM planner để giữ tốc độ + moat tất định). MIRROR CHÍNH XÁC thứ tự ưu tiên cũ của `_handle` — không
+# đổi hành vi. Bước stateful (pending_edit revise, parse file→contract) vẫn ở `_handle`; router nhận KẾT QUẢ
+# `contract_detected` (bool) làm đầu vào.
+INTENT_HELP = "help"
+INTENT_TRUST = "trust"
+INTENT_EXPORT_DOC = "export_doc"        # có case gần nhất → xuất file Word có comment
+INTENT_EXPORT_GUIDE = "export_guide"    # xin xuất file nhưng chưa có case + không kèm HĐ → hướng dẫn
+INTENT_ATTACH_PROMPT = "attach_prompt"  # xin rà soát cả HĐ nhưng không kèm file → hướng dẫn đính kèm
+INTENT_ANALYZE = "analyze"
+INTENT_REFORMAT = "reformat"
+INTENT_NEGOTIATE = "negotiate"
+INTENT_FOLLOWUP = "followup"
+INTENT_LOOKUP = "lookup"
+INTENT_INPUT = "input"                  # fallback: xin nội dung/câu hỏi
+
+
+def route_intent(text: str, *, has_attachment: bool, contract_detected: bool, has_context: bool,
+                 has_thread_context: bool, in_thread: bool, has_prev_review: bool,
+                 has_last_case: bool) -> str:
+    """Chọn NĂNG LỰC cho 1 lượt chat (thuần, không side-effect). Thứ tự = đúng ưu tiên cũ của `_handle`.
+
+    (Không xử pending_edit ở đây — đó là bước stateful one-shot, `_handle` chặn trước khi gọi router.)"""
+    t = text or ""
+    ts = t.strip()
+    # 1) HELP — chỉ khi CHƯA vào deal/thread (đang rà soát/giữa thread → "help…" là hỏi tiếp)
+    if not has_attachment and not has_context and not has_thread_context and _is_help_query(t):
+        return INTENT_HELP
+    # 2) TRUST — meta-câu-hỏi độ tin cậy
+    if not has_attachment and _is_trust_query(t):
+        return INTENT_TRUST
+    # 3) XUẤT FILE (lệnh chat ngắn, không phải câu hỏi)
+    if not has_attachment and len(ts) < 200 and _wants_file_export(t) and not _is_question(t):
+        if has_last_case:
+            return INTENT_EXPORT_DOC
+        if not (t and any(s in t.lower() for s in _SIGNALS)):
+            return INTENT_EXPORT_GUIDE
+        # else: có tín hiệu HĐ → rơi xuống (sẽ ANALYZE)
+    # 4) Xin rà soát cả HĐ nhưng KHÔNG kèm file (fresh) → hướng dẫn đính kèm
+    if (not has_attachment and not has_context and not has_thread_context
+            and len(ts) < 200 and _wants_whole_contract_review(t)):
+        return INTENT_ATTACH_PROMPT
+    # 5) RÀ SOÁT (file / text tín-hiệu-HĐ đã xác định ở _handle)
+    if contract_detected:
+        return INTENT_ANALYZE
+    # 6) TRÌNH BÀY LẠI (biến thể giọng) trong deal
+    if has_context and _is_reformat_request(t) and has_prev_review:
+        return INTENT_REFORMAT
+    # 7) ĐÀM PHÁN (counter-offer trong deal)
+    if has_context and _is_counter_offer(t):
+        return INTENT_NEGOTIATE
+    # 8) FOLLOW-UP theo ngữ cảnh thread
+    if has_thread_context or (in_thread and has_context):
+        return INTENT_FOLLOWUP
+    # 9) FOLLOW-UP theo deal — trừ câu hỏi pháp lý CHUNG
+    if has_context and not _is_legal_lookup(t):
+        return INTENT_FOLLOWUP
+    # 10) TRA CỨU LUẬT
+    if t and _looks_like_question(t):
+        return INTENT_LOOKUP
+    # 11) FOLLOW-UP deal (không phải câu hỏi) / 12) fallback
+    if has_context:
+        return INTENT_FOLLOWUP
+    return INTENT_INPUT
+
+
 @dataclass
 class ChatReply:
     """Kết quả 1 lượt chat: text + ngữ cảnh feedback (kind/ref) để gắn nút trên Slack."""
@@ -715,37 +783,8 @@ class ChatHandler:
             conv.decisions = _decisions_append(conv.decisions, clause_key, "revised", revised)
             # kind='revised' → _process gắn nút [Sửa điều khác][Chốt] ngay dưới (nhắc tiếp, khỏi cuộn lên)
             return ChatReply(_with_ai_disclosure(revised), "revised", case_id)
-        # Bảng help CHỈ khi CHƯA vào deal/thread. Đang rà soát (đã analyze → conv.context) hoặc giữa thread
-        # thì "help me…"/"giúp…" là HỎI TIẾP, KHÔNG phải xin hướng dẫn dùng bot (user báo: upload file →
-        # hỏi → hỏi lại thì bot trả HELP thay vì trả lời tiếp).
-        if attachment is None and not conv.context and not thread_context and _is_help_query(text or ""):
-            from legalguard.domain.help import format_help_text
-            return ChatReply(format_help_text("slack"))
-        if attachment is None and _is_trust_query(text or ""):     # meta-câu-hỏi về độ tin cậy → công bố
-            from legalguard.domain.trust import format_trust_text
-            return ChatReply(format_trust_text())
-        # XUẤT FILE theo LỆNH CHAT (Word có comment): user muốn nhận KẾT QUẢ dạng file, KHÔNG phải rà soát lại
-        # (phản ánh thật: "thêm comment vào tệp này" → bot rà soát lại). Có case rà soát gần nhất → trả file;
-        # chưa có → hướng dẫn. Gate: attachment None + không phải câu hỏi + tin NGẮN (<200) — lệnh export ngắn,
-        # tránh HĐ DÁN dài chứa từ khóa 'file/văn bản' bị route nhầm sang export thay vì rà soát.
-        if attachment is None and len((text or "").strip()) < 200 \
-                and _wants_file_export(text or "") and not _is_question(text or ""):
-            if conv.last_case_id:
-                return ChatReply("Đang tạo file Word có nhận xét (comment) cho bản rà soát gần nhất — "
-                                 "sẽ gửi vào đây trong giây lát…", "export_doc", conv.last_case_id)
-            if not (text and any(s in text.lower() for s in _SIGNALS)):   # không kèm HĐ để rà → hướng dẫn
-                return ChatReply("Chưa có kết quả rà soát nào trong phiên để xuất file. Vui lòng gửi/đính "
-                                 "kèm hợp đồng để tôi rà soát trước, rồi yêu cầu xuất file có nhận xét.")
-        # Yêu cầu rà soát CẢ hợp đồng nhưng KHÔNG kèm file / KHÔNG dán nội dung → hướng dẫn ĐÍNH KÈM. CHỈ khi
-        # CHƯA vào deal/thread (fresh): đang trong deal/thread → là follow-up ("re-review điều khoản X") →
-        # để nhánh followup trả lời theo ngữ cảnh, KHÔNG chặn thành prompt. (File trong thread đã được
-        # _process xử lý trước đó; tới đây nghĩa là không có file → fresh review-request mới hướng dẫn đính kèm.)
-        if attachment is None and not conv.context and not thread_context \
-                and len((text or "").strip()) < 200 and _wants_whole_contract_review(text or ""):
-            return ChatReply(
-                "Bạn muốn rà soát hợp đồng — vui lòng ĐÍNH KÈM lại file hợp đồng (.pdf/.docx/.txt/ảnh) "
-                "hoặc DÁN nội dung hợp đồng vào tin nhắn để tôi rà soát và đề xuất sửa. (Nếu đã có kết quả "
-                "rà soát trong thread, các nút 'Đồng ý sửa' ở tin đó vẫn dùng lại được.)")
+        # ── Bước STATEFUL: parse file → nội dung HĐ (audit hash), HOẶC nhận diện text tín-hiệu-HĐ. Phải làm
+        # TRƯỚC router (router cần biết `contract_detected`). Lỗi đọc file → trả luôn.
         contract, source = None, None
         if attachment is not None:
             source = SourceMeta.of(attachment, filename or "file")   # audit: hash file gốc
@@ -756,19 +795,42 @@ class ChatHandler:
         elif (text and not _is_question(text) and any(s in text.lower() for s in _SIGNALS)
               and not thread_context     # có ngữ cảnh thread → text là CHỈ DẪN về thread, KHÔNG phải HĐ mới
               and not (conv.context and (_is_counter_offer(text) or len(text.strip()) < 220))):
-            contract = text                            # tín hiệu HĐ & KHÔNG phải câu hỏi → rà soát
-            # ĐANG TRONG DEAL: phản hồi đối tác HOẶC tin NGẮN (<220 ký tự) → KHÔNG re-analyze (tin ngắn không
-            # phải HĐ mới; để rơi xuống nhánh đàm phán). Đo từ test live: tin từ chối "chúng tôi không thể đổi…"
-            # từng bị re-analyze oan vì chứa từ khóa HĐ ("trọng tài") → guardrail walk-away không chạy.
-            # CÓ thread_context (mention giữa thread/link): chỉ dẫn kiểu "nhận xét điều khoản phía trên" có
-            # từ khóa HĐ nhưng KHÔNG phải HĐ mới → để rơi xuống nhánh followup-theo-ngữ-cảnh (fix live test C).
+            # ĐANG TRONG DEAL: phản hồi đối tác HOẶC tin NGẮN (<220) → KHÔNG re-analyze (để rơi xuống đàm phán;
+            # đo live: tin từ chối chứa từ khóa HĐ từng bị re-analyze oan → guardrail walk-away không chạy).
+            # CÓ thread_context: chỉ dẫn "nhận xét điều khoản phía trên" có từ khóa HĐ nhưng KHÔNG phải HĐ mới.
+            contract = text                            # tín hiệu HĐ & KHÔNG phải câu hỏi → ứng viên rà soát
+        contract_detected = bool(contract and contract.strip())
 
-        if contract and contract.strip():                 # → RÀ SOÁT
+        # ── L3: chọn NĂNG LỰC (thuần, tất định — `route_intent`) rồi DISPATCH. Giữ NGUYÊN hành vi cũ. ──
+        intent = route_intent(
+            text or "", has_attachment=attachment is not None, contract_detected=contract_detected,
+            has_context=bool(conv.context), has_thread_context=bool(thread_context),
+            in_thread=in_thread, has_prev_review=bool(_previous_review(conv)),
+            has_last_case=bool(conv.last_case_id))
+
+        if intent == INTENT_HELP:
+            from legalguard.domain.help import format_help_text
+            return ChatReply(format_help_text("slack"))
+        if intent == INTENT_TRUST:
+            from legalguard.domain.trust import format_trust_text
+            return ChatReply(format_trust_text())
+        if intent == INTENT_EXPORT_DOC:   # có case gần nhất → xuất file Word có comment (không rà lại)
+            return ChatReply("Đang tạo file Word có nhận xét (comment) cho bản rà soát gần nhất — "
+                             "sẽ gửi vào đây trong giây lát…", "export_doc", conv.last_case_id)
+        if intent == INTENT_EXPORT_GUIDE:
+            return ChatReply("Chưa có kết quả rà soát nào trong phiên để xuất file. Vui lòng gửi/đính "
+                             "kèm hợp đồng để tôi rà soát trước, rồi yêu cầu xuất file có nhận xét.")
+        if intent == INTENT_ATTACH_PROMPT:
+            return ChatReply(
+                "Bạn muốn rà soát hợp đồng — vui lòng ĐÍNH KÈM lại file hợp đồng (.pdf/.docx/.txt/ảnh) "
+                "hoặc DÁN nội dung hợp đồng vào tin nhắn để tôi rà soát và đề xuất sửa. (Nếu đã có kết quả "
+                "rà soát trong thread, các nút 'Đồng ý sửa' ở tin đó vẫn dùng lại được.)")
+        if intent == INTENT_ANALYZE:                       # → RÀ SOÁT
             # 'Bên mình bảo vệ' từ chỉ dẫn (caption file / tin ngắn) — KHÔNG parse từ HĐ dán dài (nhiễu).
             hint = _extract_protected_hint(text or "") if (attachment is not None
                                                            or len(text or "") < 300) else ""
             position = NegotiationPosition(protected_party=hint) if hint else None
-            # Slack MẶC ĐỊNH DEEP (Cách B — legal chất lượng trước); fast chỉ khi user xin 'nhanh'/'sơ bộ' (helper).
+            # Slack MẶC ĐỊNH DEEP (Cách B); fast chỉ khi user xin 'nhanh'/'sơ bộ' (helper).
             a_mode = _analyze_mode(text or "", attachment is not None, self._default_deep)
             try:
                 result = self.service.analyze(contract, org, lang=lang, position=position,
@@ -778,37 +840,21 @@ class ChatHandler:
             conv.context = _context_from_result(result)    # nhớ deal đang bàn
             conv.last_case_id = result.case_id or ""        # → xuất file (comment/redline) theo lệnh chat sau này
             conv.pending_edit = ""                           # rà soát mới → hủy cờ 'chờ sửa' cũ (nếu có)
-            conv.decisions = ""                              # rà soát mới → reset nhật ký quyết định (tổng hợp mới)
-            # Seed red-line đàm phán = các rủi ro must_fix (điểm sống còn KHÔNG nhượng) → vòng đàm phán sau
-            # có bộ nhớ cấu trúc + guardrail walk-away tất định.
+            conv.decisions = ""                              # rà soát mới → reset nhật ký quyết định
+            # Seed red-line đàm phán = rủi ro must_fix → vòng đàm phán sau có bộ nhớ + guardrail walk-away.
             red = [r["clause"] for r in result.risks if r.get("priority") == "must_fix" and r.get("clause")]
             conv.nego_state = state_to_json(NegotiationState(red_lines=red))
             return ChatReply(format_chat_reply(result, lang), "analysis", result.case_id or "", result)
-        # TRÌNH BÀY LẠI (biến thể giọng): trong deal + yêu cầu đổi định dạng/giọng ("bản email", "rút gọn",
-        # "trang trọng hơn"…) → viết lại nội dung tư vấn GẦN NHẤT, GIỮ NGUYÊN substance. (Demo: "format lại")
-        if conv.context and _is_reformat_request(text or "") and _previous_review(conv):
+        if intent == INTENT_REFORMAT:     # biến thể giọng (bản email/rút gọn…) — giữ substance
             return ChatReply(self._reformat(conv, text or "", lang))
-        # Trong deal: tin là PHẢN HỒI/COUNTER của đối tác → VÒNG ĐÀM PHÁN có cấu trúc (không phải Q&A chung).
-        if conv.context and _is_counter_offer(text or ""):
+        if intent == INTENT_NEGOTIATE:    # counter-offer trong deal → vòng đàm phán có cấu trúc
             return ChatReply(self._negotiate(conv, text or "", lang, org.id, thread_context),
                              "negotiate", "")
-        # MENTION TRONG THREAD → LUÔN trả lời THEO NGỮ CẢNH (kể cả câu giống tra cứu luật — user đã tham
-        # chiếu nội dung cụ thể trong thread). Kích hoạt khi: có thread_context (đọc được tin trước), HOẶC
-        # đang trong thread + có deal context (thread_context có thể bị dedup rỗng khi bot đã thấy các tin
-        # đó — nhưng conv.context vẫn giữ deal → vẫn phải trả lời sát thread, không rơi xuống lookup KB chung).
-        if thread_context or (in_thread and conv.context):
+        if intent == INTENT_FOLLOWUP:     # theo ngữ cảnh thread/deal (thread_context="" khi không có)
             return ChatReply(self._followup(conv, text or "", lang, thread_context))
-        # Follow-up theo deal — TRỪ câu hỏi pháp lý CHUNG (→ ưu tiên lookup template+dẫn nguồn cho nhất quán).
-        if conv.context and not _is_legal_lookup(text or ""):
-            return ChatReply(self._followup(conv, text or "", lang, thread_context))
-        if text and _looks_like_question(text):            # → TRA CỨU LUẬT có grounding (template + nguồn)
-            # "Căn cứ: Điều … Luật …" trong answer ĐÃ là dẫn nguồn đọc-được cho người dùng → KHÔNG chèn thêm
-            # dòng "Nguồn tham khảo" lộ tên file .md nội bộ (thừa + trông thiếu chuyên nghiệp; web /lookup vẫn
-            # có citations có cấu trúc từ parse_lookup cho ai cần provenance).
+        if intent == INTENT_LOOKUP:       # → TRA CỨU LUẬT có grounding (template + nguồn)
             answer, _ = self.service.lookup(text, org, lang=lang)
-            return ChatReply(_with_ai_disclosure(answer), "lookup", text)   # công bố AI văn phong pháp lý (không icon)
-        if conv.context:                                   # có deal, không phải câu hỏi → follow-up
-            return ChatReply(self._followup(conv, text or "", lang))
+            return ChatReply(_with_ai_disclosure(answer), "lookup", text)
         return ChatReply("Gửi giúp em nội dung điều khoản / file hợp đồng để rà soát, "
                          "hoặc đặt câu hỏi pháp lý nhé.")
 
