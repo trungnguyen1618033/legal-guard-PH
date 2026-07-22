@@ -2093,7 +2093,8 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                         _chot_ask_blocks(ctx.get("c", "")))
                     return {"ok": True}
                 # Đã có quyết định → ghi win-rate/feedback + đăng TỔNG HỢP (GIỮ bài + nút để tải redline).
-                _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), "accepted")
+                # NỀN: ghi outcome kéo theo embed bộ nhớ Qwen (agentic_memory ON) → KHÔNG chặn ack Slack 3s.
+                background.add_task(_record_deal_outcome, handler.service, org.id, ctx.get("c", ""), "accepted")
                 try:
                     handler.service.record_feedback(Feedback(
                         id=uuid.uuid4().hex, org_id=org.id, kind=ctx.get("k", "analysis"),
@@ -2123,7 +2124,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 conv = handler.store.get(conv_key) or Conversation(id=conv_key)
                 conv.decisions = json.dumps(decisions, ensure_ascii=False)
                 handler.store.save(conv)
-                _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), "accepted")
+                background.add_task(_record_deal_outcome, handler.service, org.id, ctx.get("c", ""), "accepted")
                 background.add_task(_safe_send, slack_sender, send_to,
                                     _md_to_slack(_summary_from_decisions(case, decisions)), thread_ts)
                 return await _slack_update_msg(payload, {"text": "Đã đồng ý tất cả — xem tổng hợp bên dưới."})
@@ -2133,9 +2134,11 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                                "(hoặc “Sửa lại” để chỉnh), rồi bấm “Chốt” lại."})
 
             if aid in _OC_RESULT:                  # (tương thích ngược) nút kết quả đàm phán tin CŨ → flywheel
-                n = _record_deal_outcome(handler.service, org.id, ctx.get("c", ""), _OC_RESULT[aid])
+                # NỀN (embed bộ nhớ off ack-path); câu xác nhận không cần số điều khoản.
+                background.add_task(_record_deal_outcome, handler.service, org.id, ctx.get("c", ""),
+                                    _OC_RESULT[aid])
                 return await _slack_update_msg(payload,
-                                         {"text": f"Đã ghi nhận kết quả cho {n} điều khoản. Cảm ơn bạn."})
+                                         {"text": "Đã ghi nhận kết quả cho các điều khoản. Cảm ơn bạn."})
 
             rating = _FB_RATING.get(aid)
             if not rating:
