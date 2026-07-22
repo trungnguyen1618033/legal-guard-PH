@@ -69,6 +69,18 @@ class SqlMemory:
         self._embed_fn = embed_fn
         self._crdb = self.engine.dialect.name == "cockroachdb"
         self._vec_dim: int | None = None
+        if self._crdb:
+            # SELF-HEAL bi-temporal: bảng có thể đã tồn tại ở schema CŨ (bootstrap trước migration 0018 /
+            # create(checkfirst) KHÔNG thêm cột vào bảng sẵn có) → recall đọc valid_to sẽ crash. Thêm cột
+            # idempotent (giống cách xử cột vec). Migration 0018 vẫn là nguồn chuẩn; đây là lưới an toàn.
+            try:
+                with self.engine.begin() as c:
+                    c.execute(text("ALTER TABLE memory_episodes ADD COLUMN IF NOT EXISTS "
+                                   "valid_to STRING NOT NULL DEFAULT ''"))
+                    c.execute(text("ALTER TABLE memory_episodes ADD COLUMN IF NOT EXISTS "
+                                   "superseded_by STRING NOT NULL DEFAULT ''"))
+            except Exception:  # noqa: BLE001 — không quyền/đã có → bỏ qua (migration lo)
+                pass
         if self._crdb:                                    # cột vec đã tồn tại (restart) → bật ANN NGAY
             try:
                 with self.engine.connect() as c:
