@@ -18,10 +18,27 @@ import os
 import sys
 
 
+def _load_dotenv() -> None:
+    """Nạp .env (thuần, không cần python-dotenv) → cho phép để CRDB_URL trong .env (gitignored),
+    khỏi lộ secret trên dòng lệnh. Chỉ set biến CHƯA có trong môi trường."""
+    from pathlib import Path
+    p = Path(".env")
+    if not p.exists():
+        return
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
 def _conn_str() -> str:
+    _load_dotenv()
     url = os.environ.get("CRDB_URL") or os.environ.get("DATABASE_URL") or (sys.argv[1] if len(sys.argv) > 1 else "")
     if not url:
-        sys.exit("Thiếu connection string. Đặt CRDB_URL=... hoặc truyền làm tham số.")
+        sys.exit("Thiếu connection string. Đặt CRDB_URL=\"postgresql://…\" trong .env "
+                 "(hoặc export CRDB_URL, hoặc truyền làm tham số).")
     # psycopg cần scheme postgresql:// (không phải cockroachdb://)
     return url.replace("cockroachdb://", "postgresql://", 1)
 
