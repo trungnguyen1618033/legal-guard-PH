@@ -14,6 +14,12 @@ os.environ["API_KEYS"] = ""
 os.environ["REQUIRE_AUTH"] = "false"
 # DB cases ghi vào thư mục tạm → test không đụng data/ thật.
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(tempfile.mkdtemp()) / 'cases.db'}"
+# agentic_memory BẬT mặc định → memory adapter đọc COCKROADDB_URL/MEMORY_DATABASE_URL từ .env.
+# Ép memory dùng CHUNG sqlite test (offline, KHÔNG nối CRDB thật) → test nhanh + tất định.
+os.environ["MEMORY_DATABASE_URL"] = os.environ["DATABASE_URL"]
+os.environ["COCKROADDB_URL"] = os.environ["DATABASE_URL"]
+os.environ["COCKROACHDB_URL"] = os.environ["DATABASE_URL"]
+os.environ["CRDB_URL"] = os.environ["DATABASE_URL"]
 
 import pytest
 from fastapi.testclient import TestClient
