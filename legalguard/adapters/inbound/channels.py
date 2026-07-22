@@ -241,6 +241,36 @@ def _extract_protected_hint(text: str) -> str:
         return ""
     p = m.group("p").strip(" .,-'\"")
     return "" if p.lower() in _HINT_STOP or len(p) < 2 else p
+
+
+# TÊN ĐỐI TÁC (bên kia) từ CHỈ DẪN chat → trục NHỚ theo-đối-tác (agentic memory): nêu 1 lần ('với đối tác
+# ACME', 'bên bán là X', 'contract with Y') → nhớ qua các lượt; rà HĐ/đàm phán sau gắn ĐÚNG counterparty →
+# recall mục 'Về đối tác này'. Conservative + chỉ parse caption/tin NGẮN (không thân HĐ dán dài).
+# Ý TƯỞNG CHỐNG NHIỄU: TÊN đối tác (công ty/tổ chức) VIẾT HOA đầu từ; cụm ĐỘNG TỪ ('từ chối', 'về thanh
+# toán', 'muốn tăng') viết thường → chỉ nhặt CÁC TỪ VIẾT HOA LIÊN TIẾP ngay sau trigger → tách sạch 2 loại.
+_CP_TRIGGER = re.compile(
+    r"(?:hợp đồng với|contract with|deal with|với công ty|đối tác|bên bán|bên mua|bên kia|counterparty)"
+    r"\s*(?:đối tác|công ty|the|with)?\s*(?:là|tên|named|:)?\s+", re.IGNORECASE)
+_CP_STOP = {"họ", "bên kia", "đối phương", "này", "nó", "the", "this", "them", "you", "khách",
+            "chúng tôi", "công ty", "ai", "mình", "chúng ta", "n/a"}
+
+
+def _extract_counterparty(text: str) -> str:
+    """Rút TÊN đối tác (bên kia) từ chỉ dẫn chat → trục nhớ theo-đối-tác. Rỗng nếu không rõ (KHÔNG đoán bừa —
+    key nhớ sai làm phân mảnh bộ nhớ). Sau trigger ('với đối tác'/'bên bán là'/'contract with') nhặt tối đa
+    5 TỪ VIẾT-HOA-ĐẦU liên tiếp = tên riêng công ty (dừng ở từ viết thường = động từ/chức năng)."""
+    m = _CP_TRIGGER.search(text or "")
+    if not m:
+        return ""
+    name: list[str] = []
+    for tok in text[m.end():].split()[:5]:
+        core = tok.strip(".,;:()'\"")
+        if core and core[0].isupper():
+            name.append(core)
+        else:
+            break
+    c = " ".join(name).strip(" .,-:'\"")
+    return "" if len(c) < 2 or c.lower() in _CP_STOP else c
 _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ N lượt gần
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
@@ -840,10 +870,15 @@ class ChatHandler:
                 "hoặc DÁN nội dung hợp đồng vào tin nhắn để tôi rà soát và đề xuất sửa. (Nếu đã có kết quả "
                 "rà soát trong thread, các nút 'Đồng ý sửa' ở tin đó vẫn dùng lại được.)")
         if intent == INTENT_ANALYZE:                       # → RÀ SOÁT
-            # 'Bên mình bảo vệ' từ chỉ dẫn (caption file / tin ngắn) — KHÔNG parse từ HĐ dán dài (nhiễu).
-            hint = _extract_protected_hint(text or "") if (attachment is not None
-                                                           or len(text or "") < 300) else ""
-            position = NegotiationPosition(protected_party=hint) if hint else None
+            # 'Bên mình bảo vệ' + TÊN ĐỐI TÁC từ chỉ dẫn (caption/tin ngắn) — KHÔNG parse từ HĐ dán dài (nhiễu).
+            short = attachment is not None or len(text or "") < 300
+            hint = _extract_protected_hint(text or "") if short else ""
+            # Đối tác (trục nhớ): nêu ở caption/tin → nhớ qua các lượt phiên (conv.counterparty persist).
+            cp = (_extract_counterparty(text or "") if short else "") or conv.counterparty
+            conv.counterparty = cp
+            # position khi có bất kỳ tín hiệu nào → memory-aware review recall 'Về đối tác này' (nếu có cp).
+            position = (NegotiationPosition(protected_party=hint, counterparty=cp)
+                        if (hint or cp) else None)
             # Slack MẶC ĐỊNH DEEP (Cách B); fast chỉ khi user xin 'nhanh'/'sơ bộ' (helper).
             a_mode = _analyze_mode(text or "", attachment is not None, self._default_deep)
             try:
@@ -904,8 +939,11 @@ class ChatHandler:
         state = state_from_json(conv.nego_state)
         deal = conv.context + (f"\n\nDiễn biến trong thread (tham khảo):\n{thread_context}"
                                if thread_context else "")
+        # Đối tác (trục nhớ) từ phiên → vòng đàm phán gắn ĐÚNG counterparty (nhớ + recall theo đối tác;
+        # trước đây position=None → tình tiết đàm phán chat lưu counterparty='' = không quy được về ai).
+        pos = NegotiationPosition(counterparty=conv.counterparty) if conv.counterparty else None
         try:
-            r = self.service.negotiate_round(deal, partner_message, position=None,
+            r = self.service.negotiate_round(deal, partner_message, position=pos,
                                              state=state, lang=lang, org_id=org_id or None)
         except LLMError as exc:
             return f"Xin lỗi, chưa xử lý được vòng đàm phán: {exc}"

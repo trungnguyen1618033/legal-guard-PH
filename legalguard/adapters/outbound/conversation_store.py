@@ -37,6 +37,7 @@ class ConversationRow(Base):
     last_case_id: Mapped[str] = mapped_column(String, default="")
     pending_edit: Mapped[str] = mapped_column(String, default="")
     decisions: Mapped[str] = mapped_column(String, default="")
+    counterparty: Mapped[str] = mapped_column(String, default="")   # trục nhớ theo-đối-tác của phiên
     updated_at: Mapped[str] = mapped_column(String, default="")
 
 
@@ -55,6 +56,7 @@ class SqlAlchemyConversationStore:
                                 last_case_id=row.last_case_id or "",
                                 pending_edit=row.pending_edit or "",
                                 decisions=row.decisions or "",
+                                counterparty=getattr(row, "counterparty", "") or "",
                                 updated_at=row.updated_at or "")
 
     def save(self, conversation: Conversation) -> None:
@@ -64,6 +66,7 @@ class SqlAlchemyConversationStore:
                                     last_case_id=conversation.last_case_id,
                                     pending_edit=conversation.pending_edit,
                                     decisions=conversation.decisions,
+                                    counterparty=conversation.counterparty,
                                     updated_at=conversation.updated_at))
             s.commit()
 
