@@ -56,6 +56,14 @@ def build_golden() -> tuple[list[MemoryEpisode], list[dict]]:
         # Bi-temporal: DELTA "Lãi chậm trả" đổi vị thế — s_new SUPERSEDE s_old (cùng cp+clause; seed s_old TRƯỚC).
         ep("s_old", "orgA", "DELTA", "Điều khoản Lãi chậm trả", "DELTA đề xuất lãi chậm trả 25%", when="2026-07-01"),
         ep("s_new", "orgA", "DELTA", "Điều khoản Lãi chậm trả", "ta hạ lãi chậm trả về 20% → accepted", when="2026-07-20"),
+        # BOOST-ranking: cùng org+chủ đề 'thanh toán' nhưng ĐỐI TÁC KHÁC (GLOBEX) → phải xếp DƯỚI a1 (ACME)
+        # khi hỏi cp=ACME (boost cùng-đối-tác). Khác cp ⇒ KHÔNG supersede a1 dù cùng tên điều khoản.
+        ep("g_pay", "orgA", "GLOBEX", "Điều khoản Thanh toán", "GLOBEX phạt thanh toán 10%", when="2026-07-10"),
+        # RECENCY tie-break: 2 tình tiết OMEGA cùng chủ đề 'thanh toán', KHÁC điều khoản (không supersede).
+        # Nội dung CHỈ chạm chủ đề 'thanh toán' (tránh từ chủ đề khác làm lệch vector embedder giả) → điểm
+        # BẰNG nhau trên CẢ 2 backend → tie-break recency: episode MỚI HƠN (o2) phải đứng trước o1.
+        ep("o1", "orgA", "OMEGA", "Thanh toán đợt 1", "OMEGA thanh toán trước 30%", when="2026-05-01"),
+        ep("o2", "orgA", "OMEGA", "Thanh toán đợt 2", "OMEGA thanh toán nốt 70%", when="2026-06-01"),
     ]
     queries = [
         {"name": "recall-thanh-toán", "org": "orgA", "q": "phạt chậm thanh toán bao nhiêu phần trăm", "cp": "ACME", "expect": "a1"},
@@ -68,38 +76,57 @@ def build_golden() -> tuple[list[MemoryEpisode], list[dict]]:
         # Bi-temporal: recall trả vị thế HIỆN TẠI (s_new), KHÔNG trả vị thế cũ đã superseded (s_old).
         {"name": "supersede-hiện-tại", "org": "orgA", "q": "mức lãi chậm trả", "cp": "DELTA", "expect": "s_new"},
         {"name": "supersede-bỏ-cũ", "org": "orgA", "q": "mức lãi chậm trả", "cp": "DELTA", "forbid": "s_old", "metric": "supersede"},
+        # PROVENANCE: include_history=True → thấy CẢ vị thế đã superseded (s_old) LẪN hiện tại (s_new) → audit trail.
+        {"name": "provenance-lịch-sử", "org": "orgA", "q": "mức lãi chậm trả", "cp": "DELTA", "history": True,
+         "expect_all": ["s_new", "s_old"], "metric": "history"},
+        # BOOST: cùng org+chủ đề, hỏi cp=ACME → a1 (ACME) phải đứng TRƯỚC g_pay (GLOBEX) nhờ counterparty-boost.
+        {"name": "boost-đối-tác-lên-đầu", "org": "orgA", "q": "phạt thanh toán", "cp": "ACME",
+         "expect_before": ["a1", "g_pay"], "metric": "boost"},
+        # RECENCY: điểm bằng nhau (cùng cp OMEGA, cùng chủ đề) → tình tiết MỚI (o2) trước tình tiết cũ (o1).
+        {"name": "recency-mới-trước", "org": "orgA", "q": "thanh toán", "cp": "OMEGA",
+         "expect_before": ["o2", "o1"], "metric": "recency"},
     ]
     return episodes, queries
 
 
 def evaluate(memory, queries: list[dict], k: int = 3) -> dict:  # noqa: ANN001
-    """Chạy từng truy vấn qua memory.recall → tính Recall@k, MRR, cô lập, chống nhiễu. THUẦN với memory đã seed."""
+    """Chạy từng truy vấn qua memory.recall → tính Recall@k, MRR + các cổng boolean. THUẦN với memory đã seed.
+
+    Loại truy vấn: `expect` (relevance top-k) · `expect_empty` (chống nhiễu) · `forbid` (cô lập/supersede) ·
+    `expect_all` (provenance: TẤT CẢ id phải có khi include_history) · `expect_before` (thứ hạng a trước b:
+    boost cùng-đối-tác / recency). `metric` gắn kết quả vào cổng tương ứng."""
     hits, mrr_sum, rel_total = 0, 0.0, 0
-    isolation_ok = noise_ok = supersede_ok = True
+    flags = {"org_isolation": True, "noise_rejection": True, "supersede_ok": True,
+             "history_ok": True, "boost_ok": True, "recency_ok": True}
     details = []
     for qc in queries:
-        got = memory.recall(qc["org"], qc["q"], counterparty=qc.get("cp", ""), k=k)
+        got = memory.recall(qc["org"], qc["q"], counterparty=qc.get("cp", ""), k=k,
+                            include_history=qc.get("history", False))
         ids = [e.id for e in got]
         row = {"name": qc["name"], "got": ids}
+        metric = qc.get("metric")
         if qc.get("expect_empty"):
             ok = len(ids) == 0
-            noise_ok = noise_ok and ok
-            row["pass"] = ok
+            flags["noise_rejection"] &= ok
         elif "forbid" in qc:
             ok = qc["forbid"] not in ids
-            if qc.get("metric") == "supersede":              # tình tiết đã superseded KHÔNG được recall
-                supersede_ok = supersede_ok and ok
-            else:
-                isolation_ok = isolation_ok and ok
-            row["pass"] = ok
+            flags["supersede_ok" if metric == "supersede" else "org_isolation"] &= ok
+        elif "expect_all" in qc:                                # provenance: mọi id (kể cả superseded) phải có mặt
+            ok = all(x in ids for x in qc["expect_all"])
+            flags["history_ok"] &= ok
+        elif "expect_before" in qc:                             # thứ hạng: a đứng TRƯỚC b (b vắng cũng đạt)
+            a, b = qc["expect_before"]
+            ok = a in ids and (b not in ids or ids.index(a) < ids.index(b))
+            flags["boost_ok" if metric == "boost" else "recency_ok"] &= ok
         else:                                                   # relevance query
             rel_total += 1
             exp = qc["expect"]
-            if exp in ids:
+            ok = exp in ids
+            if ok:
                 hits += 1
                 mrr_sum += 1.0 / (ids.index(exp) + 1)
-            row["pass"] = exp in ids
-            row["rank"] = ids.index(exp) + 1 if exp in ids else None
+            row["rank"] = ids.index(exp) + 1 if ok else None
+        row["pass"] = ok
         details.append(row)
     # CONSOLIDATION: gộp hồ sơ DELTA → phải non-rỗng + phản ánh vị thế HIỆN TẠI (bi-temporal): chứa "20%"
     # (stance mới s_new) và KHÔNG chứa "25%" (s_old đã superseded, list_by_counterparty bỏ). Gate cả
@@ -110,10 +137,13 @@ def evaluate(memory, queries: list[dict], k: int = 3) -> dict:  # noqa: ANN001
     return {
         "recall_at_k": round(hits / rel_total, 3) if rel_total else 0.0,
         "mrr": round(mrr_sum / rel_total, 3) if rel_total else 0.0,
-        "org_isolation": isolation_ok,       # PHẢI True (không rò org khác)
-        "noise_rejection": noise_ok,         # PHẢI True (truy vấn nhảm → rỗng)
-        "supersede_ok": supersede_ok,        # PHẢI True (bi-temporal: không recall vị thế đã superseded)
-        "consolidation_ok": consolidation_ok,  # PHẢI True (hồ sơ gộp = vị thế HIỆN TẠI, bỏ superseded)
+        "org_isolation": flags["org_isolation"],   # PHẢI True (không rò org khác)
+        "noise_rejection": flags["noise_rejection"],  # PHẢI True (truy vấn nhảm → rỗng)
+        "supersede_ok": flags["supersede_ok"],      # PHẢI True (bi-temporal: không recall vị thế đã superseded)
+        "history_ok": flags["history_ok"],          # PHẢI True (provenance: include_history thấy cả đã-superseded)
+        "boost_ok": flags["boost_ok"],              # PHẢI True (episode cùng đối tác xếp trên đối tác khác)
+        "recency_ok": flags["recency_ok"],          # PHẢI True (điểm bằng → tình tiết mới xếp trước)
+        "consolidation_ok": consolidation_ok,       # PHẢI True (hồ sơ gộp = vị thế HIỆN TẠI, bỏ superseded)
         "k": k, "relevance_queries": rel_total, "details": details,
     }
 
@@ -140,9 +170,12 @@ def run(write: bool = True) -> dict:
     report = {"backends": results}
     for name, r in results.items():
         print(f"\n=== {name} ===")
+        def _m(key: str) -> str:  # noqa: ANN001
+            return "✅" if r[key] else "❌"
         print(f"  Recall@{r['k']} = {r['recall_at_k']:.0%} | MRR = {r['mrr']:.3f} | "
-              f"cô-lập-org = {'✅' if r['org_isolation'] else '❌'} | chống-nhiễu = {'✅' if r['noise_rejection'] else '❌'} | "
-              f"supersede = {'✅' if r['supersede_ok'] else '❌'} | consolidation = {'✅' if r['consolidation_ok'] else '❌'}")
+              f"cô-lập-org = {_m('org_isolation')} | chống-nhiễu = {_m('noise_rejection')} | "
+              f"supersede = {_m('supersede_ok')} | provenance = {_m('history_ok')} | "
+              f"boost = {_m('boost_ok')} | recency = {_m('recency_ok')} | consolidation = {_m('consolidation_ok')}")
         for row in r["details"]:
             tag = "✅" if row.get("pass") else "❌"
             print(f"   [{tag}] {row['name']}: {row['got']}")
