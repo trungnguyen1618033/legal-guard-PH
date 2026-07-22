@@ -26,10 +26,13 @@ _RECALL_CAP = 500          # trần tình tiết/org nạp RAM (đường brute-
 _ANN_CAP = 40              # số ứng viên ANN kéo về trước khi re-rank counterparty (đường CockroachDB)
 _CP_BOOST = 2.0            # cùng đối tác = tín hiệu mạnh → luôn nổi lên đầu
 # NGƯỠNG tương đồng TỐI THIỂU (chống nhồi nhiễu vào prompt): tình tiết dưới ngưỡng + khác đối tác → BỎ.
-# Lexical: rel = số từ trùng (nguyên) → ngưỡng 0.15 chỉ loại rel=0. Semantic: cosine ∈ [-1,1] → loại
-# tương đồng gần-0 (embedding THẬT hiếm khi =0 nên PHẢI có ngưỡng, không thì truy vấn lạc đề vẫn recall).
-# GIÁ TRỊ 0.15 = sàn BẢO THỦ; cần HIỆU CHỈNH LIVE trên embedding Qwen thật (memory_eval bắt được lỗ hổng này).
-_MIN_SIM = 0.15
+# Lexical: rel = số từ trùng (nguyên ≥1) → ngưỡng này chỉ loại rel=0 (không đổi hành vi lexical). Semantic:
+# cosine ∈ [-1,1] → embedding THẬT có cosine NỀN CAO nên PHẢI có sàn đủ cao.
+# HIỆU CHỈNH LIVE trên Qwen text-embedding-v4 1024-dim (evaluation/memory_threshold_calibrate.py): RELATED
+# mean=0.548 (min 0.282) vs UNRELATED mean=0.291 (max 0.554) → 2 cụm CHỒNG ĐUÔI (không ngưỡng nào tách hoàn
+# hảo). Chọn 0.40: trên mean nhiễu (0.291), dưới mean related (0.548) → lọc phần lớn nhiễu, giữ related
+# mạnh; precision cuối dựa THÊM top-k + counterparty-boost. (0.15 cũ QUÁ THẤP — dưới cả mean nhiễu.)
+_MIN_SIM = 0.40
 
 
 def normalize_memory_url(url: str) -> str:
