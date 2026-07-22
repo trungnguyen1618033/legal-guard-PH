@@ -60,14 +60,25 @@ agent **recalls** the relevant episodes and injects them into the negotiation pr
 context (never as legal authority — so grounded accuracy is unchanged). Writes are **async**, off the
 response hot-path.
 
-The domain depends only on a `MemoryPort` (`remember` / `recall` / `delete_by_case`). Adapters:
-`InMemoryMemory` (offline/tests, lexical) and `SqlMemory` — which auto-detects **CockroachDB** and uses a
-`vec VECTOR(1024)` column + `CREATE VECTOR INDEX` (C-SPANN) for **in-database ANN recall**
-(`ORDER BY vec <=> :q`), falling back to in-RAM cosine on SQLite/Postgres. Safety: strict **org
-isolation**, **cascade right-to-erasure** (`delete_case` wipes a case's memory), a similarity
-**noise-floor** so off-topic queries recall nothing, and PII redaction before write. Recall is also
-exposed over **MCP** (`recall_memory`). Quality is gated by `evaluation/memory_eval.py`
-(Recall@k / MRR / org-isolation / noise).
+Beyond raw episodes, memory has two higher-order behaviours:
+
+- **Consolidation** — many episodes for one counterparty collapse into a single compact *profile*
+  (`consolidate_counterparty`), upserted under a fixed id so it never proliferates. Recall then surfaces a
+  distilled "who this counterparty is" instead of a long, noisy list.
+- **Bi-temporal (invalidate-not-delete)** — when a counterparty's stance on a clause changes, the old
+  episode is marked `valid_to` / `superseded_by` (kept for provenance, not deleted). Recall returns the
+  **current** stance by default; `include_history` exposes the timeline for point-in-time / audit — mirroring
+  the legal engine's in-force / point-in-time model.
+
+The domain depends only on a `MemoryPort` (`remember` / `recall` / `list_by_counterparty` /
+`delete_by_case`). Adapters: `InMemoryMemory` (offline/tests, lexical) and `SqlMemory` — which auto-detects
+**CockroachDB** and uses a `vec VECTOR(1024)` column + `CREATE VECTOR INDEX` (C-SPANN) for **in-database ANN
+recall** (`ORDER BY vec <=> :q`), falling back to in-RAM cosine on SQLite/Postgres. Safety: strict **org
+isolation**, **cascade right-to-erasure** (`delete_case` wipes a case's memory), a **noise-floor**
+(similarity threshold calibrated on real embeddings) so off-topic queries recall nothing, and PII redaction
+before write. Recall is exposed over **MCP** (`recall_memory`). Quality is gated by
+`evaluation/memory_eval.py` across two backends — Recall@k / MRR / org-isolation / noise / **supersede** /
+**consolidation** — a harness that has caught real cross-backend bugs before release.
 
 ## 5. Human-in-the-loop
 
