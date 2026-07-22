@@ -42,9 +42,9 @@ def fake_embed(texts: list[str]) -> list[list[float]]:
 def build_golden() -> tuple[list[MemoryEpisode], list[dict]]:
     """Tình tiết (nhiều org/đối tác) + truy vấn có đáp án. `expect`: id phải nằm top-k; `expect_empty`:
     phải rỗng; `forbid`: id KHÔNG được xuất hiện (cô lập org)."""
-    def ep(eid, org, cp, clause, content):
+    def ep(eid, org, cp, clause, content, when="2026-07-22"):
         return MemoryEpisode(id=eid, org_id=org, counterparty=cp, kind="outcome", clause=clause,
-                             content=content, created_at="2026-07-22", case_id=eid)
+                             content=content, created_at=when, case_id=eid)
 
     episodes = [
         ep("a1", "orgA", "ACME", "Điều khoản Thanh toán", "ACME đòi phạt chậm thanh toán 15%, ta giữ trần 8% → accepted"),
@@ -52,6 +52,9 @@ def build_golden() -> tuple[list[MemoryEpisode], list[dict]]:
         ep("a3", "orgA", "ACME", "Điều khoản Bảo mật", "NDA đơn phương, ta đổi thành bảo mật song phương → accepted"),
         ep("a4", "orgA", "GLOBEX", "Điều khoản Trọng tài", "GLOBEX muốn trọng tài Singapore, ta chốt VIAC → accepted"),
         ep("b1", "orgB", "ACME", "Điều khoản Thanh toán", "bí mật orgB — phạt thanh toán 20%"),
+        # Bi-temporal: DELTA "Lãi chậm trả" đổi vị thế — s_new SUPERSEDE s_old (cùng cp+clause; seed s_old TRƯỚC).
+        ep("s_old", "orgA", "DELTA", "Điều khoản Lãi chậm trả", "DELTA đề xuất lãi chậm trả 25%", when="2026-07-01"),
+        ep("s_new", "orgA", "DELTA", "Điều khoản Lãi chậm trả", "ta hạ lãi chậm trả về 20% → accepted", when="2026-07-20"),
     ]
     queries = [
         {"name": "recall-thanh-toán", "org": "orgA", "q": "phạt chậm thanh toán bao nhiêu phần trăm", "cp": "ACME", "expect": "a1"},
@@ -61,6 +64,9 @@ def build_golden() -> tuple[list[MemoryEpisode], list[dict]]:
         {"name": "ưu-tiên-đối-tác", "org": "orgA", "q": "điều khoản trọng tài", "cp": "GLOBEX", "expect": "a4"},
         {"name": "cô-lập-org", "org": "orgA", "q": "phạt thanh toán 20%", "cp": "", "forbid": "b1"},
         {"name": "chống-nhiễu", "org": "orgA", "q": "thời tiết hôm nay thế nào", "cp": "", "expect_empty": True},
+        # Bi-temporal: recall trả vị thế HIỆN TẠI (s_new), KHÔNG trả vị thế cũ đã superseded (s_old).
+        {"name": "supersede-hiện-tại", "org": "orgA", "q": "mức lãi chậm trả", "cp": "DELTA", "expect": "s_new"},
+        {"name": "supersede-bỏ-cũ", "org": "orgA", "q": "mức lãi chậm trả", "cp": "DELTA", "forbid": "s_old", "metric": "supersede"},
     ]
     return episodes, queries
 
@@ -68,7 +74,7 @@ def build_golden() -> tuple[list[MemoryEpisode], list[dict]]:
 def evaluate(memory, queries: list[dict], k: int = 3) -> dict:  # noqa: ANN001
     """Chạy từng truy vấn qua memory.recall → tính Recall@k, MRR, cô lập, chống nhiễu. THUẦN với memory đã seed."""
     hits, mrr_sum, rel_total = 0, 0.0, 0
-    isolation_ok = noise_ok = True
+    isolation_ok = noise_ok = supersede_ok = True
     details = []
     for qc in queries:
         got = memory.recall(qc["org"], qc["q"], counterparty=qc.get("cp", ""), k=k)
@@ -80,7 +86,10 @@ def evaluate(memory, queries: list[dict], k: int = 3) -> dict:  # noqa: ANN001
             row["pass"] = ok
         elif "forbid" in qc:
             ok = qc["forbid"] not in ids
-            isolation_ok = isolation_ok and ok
+            if qc.get("metric") == "supersede":              # tình tiết đã superseded KHÔNG được recall
+                supersede_ok = supersede_ok and ok
+            else:
+                isolation_ok = isolation_ok and ok
             row["pass"] = ok
         else:                                                   # relevance query
             rel_total += 1
@@ -96,6 +105,7 @@ def evaluate(memory, queries: list[dict], k: int = 3) -> dict:  # noqa: ANN001
         "mrr": round(mrr_sum / rel_total, 3) if rel_total else 0.0,
         "org_isolation": isolation_ok,       # PHẢI True (không rò org khác)
         "noise_rejection": noise_ok,         # PHẢI True (truy vấn nhảm → rỗng)
+        "supersede_ok": supersede_ok,        # PHẢI True (bi-temporal: không recall vị thế đã superseded)
         "k": k, "relevance_queries": rel_total, "details": details,
     }
 
@@ -123,7 +133,8 @@ def run(write: bool = True) -> dict:
     for name, r in results.items():
         print(f"\n=== {name} ===")
         print(f"  Recall@{r['k']} = {r['recall_at_k']:.0%} | MRR = {r['mrr']:.3f} | "
-              f"cô-lập-org = {'✅' if r['org_isolation'] else '❌'} | chống-nhiễu = {'✅' if r['noise_rejection'] else '❌'}")
+              f"cô-lập-org = {'✅' if r['org_isolation'] else '❌'} | chống-nhiễu = {'✅' if r['noise_rejection'] else '❌'} | "
+              f"supersede = {'✅' if r['supersede_ok'] else '❌'}")
         for row in r["details"]:
             tag = "✅" if row.get("pass") else "❌"
             print(f"   [{tag}] {row['name']}: {row['got']}")

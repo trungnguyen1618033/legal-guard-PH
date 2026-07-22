@@ -14,7 +14,7 @@ import json
 import re
 import uuid
 
-from sqlalchemy import Index, String, Text, delete, func, select, text, update
+from sqlalchemy import Index, String, Text, delete, select, text, update
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from legalguard.adapters.outbound._crdb import cosine, vec_literal
@@ -117,14 +117,19 @@ class SqlMemory:
         """Bi-temporal: tình tiết MỚI cùng (org, counterparty, clause) → set valid_to + superseded_by cho
         tình tiết HIỆN TẠI cũ (KHÔNG xóa). Chỉ khi cp & clause đều có + không phải profile. So cp/clause
         không-phân-biệt-hoa."""
-        cp, clause = (new_ep.counterparty or "").strip(), (new_ep.clause or "").strip()
+        cp, clause = (new_ep.counterparty or "").strip().lower(), (new_ep.clause or "").strip().lower()
         if not (cp and clause) or new_ep.kind == "profile":
             return
-        s.execute(update(MemoryRow).where(
-            MemoryRow.org_id == new_ep.org_id, MemoryRow.valid_to == "", MemoryRow.kind != "profile",
-            MemoryRow.id != eid, func.lower(MemoryRow.counterparty) == cp.lower(),
-            func.lower(MemoryRow.clause) == clause.lower(),
-        ).values(valid_to=new_ep.created_at or "superseded", superseded_by=eid))
+        # So khớp cp/clause Ở PYTHON (unicode-đúng, nhất quán recall). KHÔNG dùng SQL lower(): sqlite chỉ hạ
+        # ASCII → "Điều"/"Đ" tiếng Việt lệch với Python .lower() → supersede trượt (eval bắt được).
+        rows = s.scalars(select(MemoryRow).where(
+            MemoryRow.org_id == new_ep.org_id, MemoryRow.valid_to == "", MemoryRow.kind != "profile"))
+        stale = [r.id for r in rows if r.id != eid
+                 and (r.counterparty or "").strip().lower() == cp
+                 and (r.clause or "").strip().lower() == clause]
+        if stale:
+            s.execute(update(MemoryRow).where(MemoryRow.id.in_(stale))
+                      .values(valid_to=new_ep.created_at or "superseded", superseded_by=eid))
 
     def remember(self, episode: MemoryEpisode) -> str:
         ep = episode

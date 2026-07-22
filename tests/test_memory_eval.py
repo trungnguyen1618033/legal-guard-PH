@@ -16,7 +16,7 @@ def test_memory_eval_lexical_perfect():
     eps, qs = build_golden()
     r = evaluate(_seed(InMemoryMemory(), eps), qs)
     assert r["recall_at_k"] == 1.0 and r["mrr"] == 1.0
-    assert r["org_isolation"] and r["noise_rejection"]     # KHÔNG rò org + KHÔNG nhồi nhiễu
+    assert r["org_isolation"] and r["noise_rejection"] and r["supersede_ok"]   # cô lập + chống nhiễu + bi-temporal
 
 
 def test_memory_eval_semantic_perfect(tmp_path):
@@ -24,4 +24,4 @@ def test_memory_eval_semantic_perfect(tmp_path):
     m = SqlMemory(f"sqlite:///{tmp_path / 'm.db'}", embed_fn=fake_embed)
     r = evaluate(_seed(m, eps), qs)
     assert r["recall_at_k"] == 1.0
-    assert r["org_isolation"] and r["noise_rejection"]     # ngưỡng _MIN_SIM chặn truy vấn lạc đề
+    assert r["org_isolation"] and r["noise_rejection"] and r["supersede_ok"]   # + supersede (bỏ vị thế cũ)

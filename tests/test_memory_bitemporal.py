@@ -22,8 +22,8 @@ def mem(request, tmp_path):
 
 
 def test_supersede_same_cp_clause(mem):
-    id1 = mem.remember(_ep("Thanh toán", "đối tác đòi 30 ngày", when="2026-07-01"))
-    id2 = mem.remember(_ep("Thanh toán", "đối tác chịu 45 ngày", when="2026-07-20"))
+    id1 = mem.remember(_ep("Điều khoản Thanh toán", "đối tác đòi 30 ngày", when="2026-07-01"))
+    id2 = mem.remember(_ep("Điều khoản Thanh toán", "đối tác chịu 45 ngày", when="2026-07-20"))
     cur = mem.recall("o", "thanh toán ngày", counterparty="ACME")
     assert [e.id for e in cur] == [id2]                         # chỉ HIỆN TẠI (ep2)
     hist = mem.recall("o", "thanh toán ngày", counterparty="ACME", include_history=True)
@@ -33,8 +33,8 @@ def test_supersede_same_cp_clause(mem):
 
 
 def test_different_clause_not_superseded(mem):
-    mem.remember(_ep("Thanh toán", "x", when="2026-07-01"))
-    mem.remember(_ep("Giao hàng", "y", when="2026-07-02"))      # điều khoản KHÁC → không supersede
+    mem.remember(_ep("Điều khoản Thanh toán", "x", when="2026-07-01"))
+    mem.remember(_ep("Điều khoản Giao hàng", "y", when="2026-07-02"))      # điều khoản KHÁC → không supersede
     cur = mem.recall("o", "thanh toán giao hàng", counterparty="ACME", k=10)
     assert len(cur) == 2
 
@@ -47,7 +47,7 @@ def test_empty_clause_no_supersede(mem):
 
 
 def test_list_by_counterparty_current_only(mem):
-    mem.remember(_ep("Thanh toán", "cũ", when="2026-07-01"))
-    mem.remember(_ep("Thanh toán", "mới", when="2026-07-20"))
+    mem.remember(_ep("Điều khoản Thanh toán", "cũ", when="2026-07-01"))
+    mem.remember(_ep("Điều khoản Thanh toán", "mới", when="2026-07-20"))
     assert len(mem.list_by_counterparty("o", "ACME")) == 1              # mặc định chỉ HIỆN TẠI
     assert len(mem.list_by_counterparty("o", "ACME", include_history=True)) == 2
