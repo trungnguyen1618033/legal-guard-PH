@@ -137,18 +137,24 @@ class SqlEmbeddingStore:
             return []
         ids = [_hash(t) for t in texts]
         new_pairs: list[tuple[str, list[float]]] = []          # (id, vec) chunk MỚI vừa embed
+        # (1) ĐỌC cache trong transaction NGẮN rồi ĐÓNG NGAY. QUAN TRỌNG (CRDB): KHÔNG giữ transaction mở
+        # qua `embed_fn` (gọi Qwen — MẠNG CHẬM); CockroachDB abort transaction giữ-mở-lâu =
+        # RETRY_COMMIT_DEADLINE_EXCEEDED → EmbeddingRetriever dựng lỗi → hạ xuống keyword-only (mất hybrid).
+        # Postgres/SQLite không có deadline này nhưng embed-ngoài-tx đúng cho MỌI backend (tx ngắn).
         with Session(self.engine) as s:
             cached = {r.id: json.loads(r.vector)
                       for r in s.scalars(select(KbVectorRow).where(KbVectorRow.id.in_(set(ids))))}
-            missing_idx = [i for i, h in enumerate(ids) if h not in cached]
-            if missing_idx:                                    # chỉ embed phần thiếu
-                new = embed_fn([texts[i] for i in missing_idx])
-                if new is None:
-                    return None                               # embed_fn offline → để retriever tự xử
-                for i, vec in zip(missing_idx, new):
-                    cached[ids[i]] = vec
-                    new_pairs.append((ids[i], vec))
-                    s.merge(KbVectorRow(id=ids[i], vector=json.dumps(vec)))
+        missing_idx = [i for i, h in enumerate(ids) if h not in cached]
+        if missing_idx:                                        # (2) EMBED phần thiếu — NGOÀI transaction
+            new = embed_fn([texts[i] for i in missing_idx])
+            if new is None:
+                return None                                    # embed_fn offline → để retriever tự xử
+            for i, vec in zip(missing_idx, new):
+                cached[ids[i]] = vec
+                new_pairs.append((ids[i], vec))
+            with Session(self.engine) as s:                    # (3) GHI trong transaction NGẮN
+                for id_, vec in new_pairs:
+                    s.merge(KbVectorRow(id=id_, vector=json.dumps(vec)))
                 s.commit()
         # DDL (ALTER TABLE cần ACCESS EXCLUSIVE) + ghi cột vec chạy NGOÀI Session trên — nếu còn trong
         # transaction đang SELECT kb_vectors thì ALTER sẽ deadlock chờ lock. Session đã đóng → an toàn.
