@@ -100,3 +100,32 @@ def test_negotiate_no_remember_when_flag_off():
     svc.negotiate_round("bối cảnh", "đòi phạt 15%",
                         position=NegotiationPosition(counterparty="ACME"), org_id="org1")
     assert svc.recall_memory("org1", "phạt", counterparty="ACME") == []   # flag OFF → không ghi
+
+
+def test_briefing_scopes_to_counterparty_no_cross_leak():
+    """Brief 'Về đối tác này' KHÔNG được lẫn tình tiết đối tác khác (recall boost-không-filter → lọc lại)."""
+    from legalguard.domain.analysis import _counterparty_briefing
+    from legalguard.domain.models import MemoryEpisode
+
+    def ep(cp, clause, content):
+        return MemoryEpisode(id="", org_id="o", counterparty=cp, kind="outcome", clause=clause,
+                             content=content, created_at="2026-07-01", case_id="c")
+
+    mem = InMemoryMemory()
+    mem.remember(ep("ACME", "Điều khoản Thanh toán", "ACME phạt 15%, ta giữ 8%"))
+    mem.remember(ep("GLOBEX", "Điều khoản Trọng tài", "GLOBEX muốn trọng tài Singapore, ta chốt VIAC"))
+    # HĐ với ACME có điều khoản trọng tài → recall(cp=ACME) lọt cả tình tiết GLOBEX (boost, không filter).
+    got = mem.recall("o", "điều khoản trọng tài của hợp đồng", counterparty="ACME", k=5)
+    assert any(e.counterparty == "GLOBEX" for e in got)   # recall THẬT trả lẫn (đúng bản chất boost)
+    brief = _counterparty_briefing("ACME", got)            # nhưng brief phải CÔ LẬP về ACME
+    assert brief and all("GLOBEX" not in line for line in brief)
+    assert any("ACME" in line for line in brief)
+
+
+def test_briefing_empty_when_no_episode_for_that_counterparty():
+    """Recall trả tình tiết đối tác khác nhưng KHÔNG có gì của cp hỏi → brief rỗng (không bịa)."""
+    from legalguard.domain.analysis import _counterparty_briefing
+    from legalguard.domain.models import MemoryEpisode
+    eps = [MemoryEpisode(id="g", org_id="o", counterparty="GLOBEX", kind="outcome",
+                         clause="Trọng tài", content="VIAC", created_at="2026-07-01", case_id="c")]
+    assert _counterparty_briefing("ACME", eps) == []

@@ -380,8 +380,16 @@ def _counterparty_briefing(counterparty: str, episodes: list, limit: int = 5) ->
     cp = (counterparty or "").strip()
     if not cp or not episodes:
         return []
+    # CÔ LẬP ĐÚNG đối tác: recall() dùng counterparty làm BOOST (không FILTER) → có thể trả tình tiết của
+    # đối tác KHÁC cùng org khi trùng chủ đề (vd HĐ với ACME có điều khoản trọng tài → lọt tình tiết GLOBEX).
+    # Brief 'Về đối tác này' phải CHỈ nói về đúng đối tác → lọc lại theo counterparty (NFC+lower, khớp memory).
+    cp_key = unicodedata.normalize("NFC", cp).lower()
+    own = [e for e in episodes
+           if unicodedata.normalize("NFC", (getattr(e, "counterparty", "") or "").strip()).lower() == cp_key]
+    if not own:
+        return []
     # profile trước (cô đọng nhất), còn lại theo thứ tự recall (đã xếp theo liên quan + counterparty-boost).
-    ordered = sorted(episodes, key=lambda e: 0 if getattr(e, "kind", "") == "profile" else 1)
+    ordered = sorted(own, key=lambda e: 0 if getattr(e, "kind", "") == "profile" else 1)
     out: list[str] = []
     for e in ordered:
         content = (getattr(e, "content", "") or "").strip()
