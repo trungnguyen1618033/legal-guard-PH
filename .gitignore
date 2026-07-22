@@ -284,3 +284,6 @@ docs/*.zip
 /docs/checklist-ly-do-su-dung.md
 /examples/demo_contract_phuquoc.*
 /scripts/fast_bench_deep_baseline.json
+
+# npx skills lockfile (artifact CRDB Agent Skills)
+skills-lock.json
