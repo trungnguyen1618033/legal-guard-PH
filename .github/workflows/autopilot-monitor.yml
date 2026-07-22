@@ -1,0 +1,53 @@
+name: Autopilot — daily law monitor (L4 autonomy)
+
+# "Agent làm việc khi bạn ngủ": mỗi ngày tự quét văn bản luật MỚI (hiệu lực gần đây) → hợp đồng đã rà soát
+# nào bị ảnh hưởng → đẩy digest vào Slack. Gọi endpoint POST /monitor/run trên deploy.
+#
+# CẦN đặt GitHub secrets (Settings → Secrets → Actions):
+#   LG_API_BASE          vd https://legalguard.duckdns.org
+#   LG_API_KEY           API key hợp lệ (X-API-Key) của org cần giám sát
+#   LG_MONITOR_CHANNEL   channel Slack nhận cảnh báo (vd C0XXXX)
+#
+# LƯU Ý: lịch `schedule` CHỈ chạy trên nhánh MẶC ĐỊNH của repo (GitHub) → kích hoạt tự động khi merge vào
+# main. Trên nhánh feature: dùng "Run workflow" (workflow_dispatch) để chạy tay / demo.
+
+on:
+  schedule:
+    - cron: "0 1 * * *"        # 01:00 UTC mỗi ngày
+  workflow_dispatch:
+    inputs:
+      since_days:
+        description: "Quét luật hiệu lực trong N ngày gần nhất"
+        default: "1"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: autopilot-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan new laws → alert affected contracts (Slack)
+        env:
+          API_BASE: ${{ secrets.LG_API_BASE }}
+          API_KEY: ${{ secrets.LG_API_KEY }}
+          CHANNEL: ${{ secrets.LG_MONITOR_CHANNEL }}
+          SINCE_DAYS: ${{ github.event.inputs.since_days || '1' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_BASE:-}" ] || [ -z "${API_KEY:-}" ] || [ -z "${CHANNEL:-}" ]; then
+            echo "::error::Thiếu secrets LG_API_BASE / LG_API_KEY / LG_MONITOR_CHANNEL"; exit 1
+          fi
+          SINCE=$(date -u -d "${SINCE_DAYS} day ago" +%F)
+          echo "Autopilot: quét luật hiệu lực từ $SINCE …"
+          code=$(curl -fsS -o resp.json -w '%{http_code}' -X POST "$API_BASE/monitor/run" \
+            -H "Content-Type: application/json" -H "X-API-Key: $API_KEY" \
+            -d "{\"since\":\"$SINCE\",\"via\":\"slack\",\"channel\":\"$CHANNEL\"}")
+          echo "HTTP $code"; cat resp.json; echo
+          # In tóm tắt (không fail nếu 0 ảnh hưởng — đó là trạng thái bình thường)
+          python3 -c "import json;d=json.load(open('resp.json'));print(f\"scanned={d.get('new_laws_scanned')} affected={len(d.get('affected',[]))} sent={d.get('sent')}\")"
