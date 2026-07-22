@@ -1,9 +1,10 @@
-# Legal Guard — Autopilot Agent for Cross-Border Contract Risk
+# Legal Guard — Agentic-Memory Legal Agent for Cross-Border Contracts
 
+![Agentic memory on CockroachDB](https://img.shields.io/badge/agentic_memory-CockroachDB_VECTOR_%C2%B7_C--SPANN-6933FF)
 ![Measured accuracy](https://img.shields.io/badge/measured_accuracy-~98%25_(53–54%2F54)-brightgreen)
-![Tests](https://img.shields.io/badge/tests-400%2B_passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-650%2B_passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Powered by Qwen](https://img.shields.io/badge/powered_by-Qwen_%C2%B7_Alibaba_Cloud-orange)
+![Powered by Qwen](https://img.shields.io/badge/reasoning-Qwen_models-orange)
 
 An AI agent that acts as an **outsourced legal department**: it reads an international commercial
 contract, **flags risky and illegal clauses**, and proposes **position-aware negotiation tactics** —
@@ -15,15 +16,23 @@ run-to-run (a wording match on the hosted model), so a given run reads 53 or 54 
 measured range rather than cherry-pick a flat 100%. Methodology and live numbers at [`/trust`](web/trust.html)
 (report: [`evaluation/accuracy_report.json`](evaluation/accuracy_report.json)).
 
-> 🏆 Built for the **Qwen Cloud Hackathon — Autopilot Agent track**. Powered by Qwen models on Qwen
-> Cloud, deployed on Alibaba Cloud. Proving ground: Vietnamese SMEs negotiating cross-border deals.
+> 🏆 Built for the **CockroachDB "Build with Agentic Memory" hackathon** — the agent keeps **durable,
+> per-counterparty memory** on CockroachDB's distributed vector index (C-SPANN) and recalls it over MCP.
+> Reasoning is powered by **Qwen** models (the project began on the Qwen Cloud Autopilot Agent track).
+> Proving ground: Vietnamese SMEs negotiating cross-border deals.
 > 🇻🇳 Vietnamese readme: [`README.vi.md`](README.vi.md) · 🏗️ Architecture: [`docs/architecture.en.md`](docs/architecture.en.md) · ⚖️ Open-core boundary: [`docs/OPEN-CORE.md`](docs/OPEN-CORE.md)
 
-## Why it fits "Autopilot Agent"
+## Why it fits "Build with Agentic Memory"
 
-The track asks for an agent that **automates a real workflow end-to-end, handles ambiguous input,
-invokes external tools, and incorporates human-in-the-loop checkpoints.** Legal Guard does exactly that:
+The hackathon asks for an agent with **durable, queryable memory** that makes it act smarter over time.
+Legal Guard's agent remembers **each counterparty across deals** — stored and recalled on CockroachDB
+vector search — and combines that with end-to-end contract review, external tools (MCP), and
+human-in-the-loop checkpoints:
 
+- **Agentic memory (the hero)** — every negotiation outcome becomes a per-counterparty *episode*; on the
+  next deal the agent recalls *"they accepted an 8% penalty cap last time"* via CockroachDB `VECTOR` +
+  `CREATE VECTOR INDEX` (C-SPANN) ANN. Written async (off the hot-path), recalled as advisory context,
+  strictly org-isolated with cascade right-to-erasure. Exposed over **MCP** as `recall_memory`.
 - **End-to-end autonomy** — upload/paste a contract → the agent runs a **ReAct loop**, deciding which
   tools to call (`search_legal_knowledge`, `flag_risk`, `propose_fallback`, `request_human_review`)
   until it reaches a grounded conclusion, recording every step in a `trace`.
@@ -36,10 +45,6 @@ invokes external tools, and incorporates human-in-the-loop checkpoints.** Legal 
 - **Proactive autopilot** — `POST /monitor/run` scans newly-issued laws and tells you which of your
   past contracts are now affected — *"the agent works while you sleep"* (built for a daily cron). It
   even **self-tunes**: dismissed false alarms are suppressed next run.
-- **Agentic memory (per-counterparty)** — the agent remembers what each counterparty conceded or
-  insisted on across past deals and recalls it into the next negotiation (advisory context, strictly
-  org-isolated). Backed by a swappable `MemoryPort`; scales on **CockroachDB** distributed vector
-  indexing (C-SPANN). See the **🧠 Agentic memory** section below.
 - **Human-in-the-loop** — the message-to-counterparty stays **locked** until a reviewer approves;
   rejecting escalates the case to a real lawyer channel.
 - **AI-Native evidence** — `GET /runs` exposes a live feed of what the agent did (tool calls, risks
