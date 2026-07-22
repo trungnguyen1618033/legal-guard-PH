@@ -1,10 +1,20 @@
-"""Helper CockroachDB/vector DÙNG CHUNG — gộp các bản trùng ở embedding_store + sql_memory_store.
+"""Helper CockroachDB/vector DÙNG CHUNG — gộp các bản trùng (embedding_store + sql_memory_store + get_engine).
 
 Module LÁ (chỉ stdlib) → import từ đâu cũng KHÔNG gây vòng (embedding_store ↔ sql_memory_store trước đây
-phải nhân bản để tránh cycle). Chuẩn hóa scheme URL CRDB nằm ở `sql_case_repository.get_engine`
-(NGUỒN CHUẨN, mọi engine đi qua đó) — KHÔNG lặp ở đây.
+phải nhân bản để tránh cycle). NHÀ CHUNG duy nhất cho: chuẩn hóa scheme URL CRDB + bind vector + cosine.
 """
 from __future__ import annotations
+
+import re
+
+
+def normalize_crdb_url(url: str) -> str:
+    """URL CockroachDB → scheme `cockroachdb+psycopg://` (dialect chính thức + psycopg3; vanilla postgres
+    dialect KHÔNG parse nổi version string CRDB → mọi repo/alembic phải qua đây). Nhận biết qua 'cockroach'
+    trong URL; idempotent; khác → giữ nguyên. NGUỒN CHUẨN duy nhất (get_engine + 2 store re-export/import)."""
+    if not url or "cockroach" not in url.lower():
+        return url
+    return re.sub(r"^(postgresql(\+\w+)?|cockroachdb(\+\w+)?)://", "cockroachdb+psycopg://", url, count=1)
 
 
 def vec_literal(vec: list[float]) -> str:

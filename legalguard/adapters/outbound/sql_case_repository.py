@@ -8,12 +8,13 @@ có bảng ngay mà không cần chạy migration.
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from sqlalchemy import JSON, Boolean, Index, Integer, String, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
+# normalize_crdb_url gộp về _crdb (nhà chung); re-export ở đây để migrations/env.py import không đổi.
+from legalguard.adapters.outbound._crdb import normalize_crdb_url
 from legalguard.domain.models import AnalysisCase
 
 
@@ -22,15 +23,6 @@ class Base(DeclarativeBase):
 
 
 _ENGINES: dict = {}
-
-
-def normalize_crdb_url(url: str) -> str:
-    """URL CockroachDB → scheme `cockroachdb+psycopg://` (dialect chính thức + psycopg3; vanilla postgres
-    dialect KHÔNG parse nổi version string CRDB → mọi repo/alembic phải qua đây). Nhận biết qua 'cockroach'
-    trong URL; idempotent; khác → giữ nguyên. NGUỒN CHUẨN (embedding_store/sql_memory_store nên gộp về đây)."""
-    if not url or "cockroach" not in url.lower():
-        return url
-    return re.sub(r"^(postgresql(\+\w+)?|cockroachdb(\+\w+)?)://", "cockroachdb+psycopg://", url, count=1)
 
 
 def get_engine(database_url: str):
