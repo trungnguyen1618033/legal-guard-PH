@@ -25,6 +25,11 @@ from legalguard.domain.models import MemoryEpisode
 _RECALL_CAP = 500          # trần tình tiết/org nạp RAM (đường brute-force) — bounded → nhanh, đủ sớm
 _ANN_CAP = 40              # số ứng viên ANN kéo về trước khi re-rank counterparty (đường CockroachDB)
 _CP_BOOST = 2.0            # cùng đối tác = tín hiệu mạnh → luôn nổi lên đầu
+# NGƯỠNG tương đồng TỐI THIỂU (chống nhồi nhiễu vào prompt): tình tiết dưới ngưỡng + khác đối tác → BỎ.
+# Lexical: rel = số từ trùng (nguyên) → ngưỡng 0.15 chỉ loại rel=0. Semantic: cosine ∈ [-1,1] → loại
+# tương đồng gần-0 (embedding THẬT hiếm khi =0 nên PHẢI có ngưỡng, không thì truy vấn lạc đề vẫn recall).
+# GIÁ TRỊ 0.15 = sàn BẢO THỦ; cần HIỆU CHỈNH LIVE trên embedding Qwen thật (memory_eval bắt được lỗ hổng này).
+_MIN_SIM = 0.15
 
 
 def normalize_memory_url(url: str) -> str:
@@ -159,7 +164,7 @@ class SqlMemory:
         scored: list[tuple[float, str, MemoryEpisode]] = []
         for ep, rel in cands:
             same_cp = bool(cp) and (ep.counterparty or "").strip().lower() == cp
-            if rel <= 0 and not same_cp:                           # không liên quan → bỏ (chống nhiễu)
+            if rel < _MIN_SIM and not same_cp:                     # dưới ngưỡng + khác đối tác → bỏ (chống nhiễu)
                 continue
             scored.append((rel + (_CP_BOOST if same_cp else 0.0), ep.created_at, ep))
         scored.sort(key=lambda x: (x[0], x[1]), reverse=True)      # điểm ↓ rồi recency ↓
