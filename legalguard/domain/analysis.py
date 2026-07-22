@@ -1223,6 +1223,7 @@ class AnalysisService:
                 source_sha256=source.sha256, source_name=source.filename,
                 source_bytes=source.size_bytes, text_chars=text_chars,
                 drafting_issues=result.drafting_issues,   # → file .docx có comment gồm cả lỗi soạn thảo
+                counterparty=cp,   # trục nhớ theo-đối-tác (Option B): case → outcome episode gắn ĐÚNG đối tác
             )
             try:
                 result.case_id = self.cases.save(case)
