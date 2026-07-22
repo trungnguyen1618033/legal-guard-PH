@@ -22,6 +22,9 @@ _FEATURES = [
      "Mỗi rủi ro có hướng xử lý + điều khoản thay thế song ngữ (Việt/Anh) dán-được-ngay vào hợp đồng."),
     ("", "Đàm phán đa vòng",
      "Nhớ đã nhượng/chốt gì qua các vòng, đề xuất nước đi trao đổi, cảnh báo khi chạm điểm sống còn (walk-away)."),
+    ("", "Nhớ theo đối tác (xuyên deal)",
+     "Nêu tên đối tác của phiên → rà hợp đồng / đàm phán sau tự đối chiếu các deal & vòng TRƯỚC với đối "
+     "tác đó (mục 'Về đối tác này') — tham khảo để nhất quán, không phải căn cứ pháp lý."),
     ("", "Bản ghi nhớ sửa đổi (Word)",
      "Tổng hợp rủi ro + đề xuất thành memo tải về .docx (trên web)."),
     ("", "Tra cứu luật có nguồn",
@@ -48,6 +51,8 @@ _USAGE = [
      "Hỏi một câu pháp lý (có dấu ?) — ví dụ “Phạt vi phạm hợp đồng tối đa bao nhiêu %?”."),
     ("", "Đàm phán",
      "Sau khi rà hợp đồng, dán phản hồi/đề nghị của đối tác để nhận nước đi vòng tiếp."),
+    ("", "Ghi nhớ đối tác",
+     "Nhắn “đối tác: <Tên công ty>” để gắn đối tác cho phiên (sửa nếu đoán sai); “quên đối tác” để xóa."),
     ("", "Xem độ tin cậy",
      "Hỏi “độ chính xác/đáng tin không” (Slack) hoặc mở trang /trust (web)."),
 ]
