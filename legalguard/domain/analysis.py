@@ -366,6 +366,36 @@ def _detect_illegal(risks: list, judge: LLMPort | None) -> int:
     return upgraded
 
 
+# Nhãn kind → tiền tố người-đọc-được cho brief bộ nhớ theo-đối-tác.
+_MEM_KIND_LABEL = {
+    "profile": "Hồ sơ", "negotiation": "Đàm phán", "outcome": "Kết quả",
+    "risk": "Rủi ro", "decision": "Quyết định", "note": "Ghi chú",
+}
+
+
+def _counterparty_briefing(counterparty: str, episodes: list, limit: int = 5) -> list[str]:
+    """THUẦN: gói tình tiết bộ nhớ theo-đối-tác (deal/vòng TRƯỚC) → danh sách dòng brief NGẮN cho reply rà
+    soát ('đối tác này từng ép/nhượng/chốt gì'). ĐỊNH VỊ THAM KHẢO — KHÔNG phải căn cứ pháp lý. Hồ sơ
+    (`kind=profile`, consolidation) lên ĐẦU. Rỗng/không có content → []. Test offline (không LLM/DB)."""
+    cp = (counterparty or "").strip()
+    if not cp or not episodes:
+        return []
+    # profile trước (cô đọng nhất), còn lại theo thứ tự recall (đã xếp theo liên quan + counterparty-boost).
+    ordered = sorted(episodes, key=lambda e: 0 if getattr(e, "kind", "") == "profile" else 1)
+    out: list[str] = []
+    for e in ordered:
+        content = (getattr(e, "content", "") or "").strip()
+        if not content:
+            continue
+        label = _MEM_KIND_LABEL.get(getattr(e, "kind", ""), "Tình tiết")
+        clause = (getattr(e, "clause", "") or "").strip()
+        line = f"[{label}] " + (f"{clause}: {content}" if clause else content)
+        out.append(line[:280])
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _attach_counter_clauses(risks: list, fallbacks: list, reasoner: LLMPort | None,
                             max_n: int = 6) -> int:
     """Sinh điều khoản mới dán-được-ngay (song ngữ) INLINE cho rủi ro TRÁI LUẬT / must_fix — hậu-agent,
@@ -1143,6 +1173,23 @@ class AnalysisService:
             notes=notes,
         )
         result.execution_summary = execution_summary(result.trace)   # bằng chứng agent gọi tool (AI-Native)
+
+        # BỘ NHỚ THEO-ĐỐI-TÁC ("NHỚ đối tác"): rà HĐ MỚI với đối tác đã từng làm việc → recall tình tiết
+        # deal/vòng TRƯỚC (đối tác này từng ép/nhượng/chốt gì) làm brief THAM KHẢO. ISOLATED khỏi vòng agent
+        # (chỉ ghi `counterparty_notes` + 1 note; KHÔNG đụng risks/grounding/summary) → accuracy KHÔNG đổi.
+        # Guarded flag `agentic_memory` + org + counterparty; failure-safe. Đây là mảnh còn thiếu: recall vốn
+        # CHỈ có ở negotiate_round, còn analyze (entry chính) trước đây memory-BLIND.
+        cp = (position.counterparty if position else "") or ""
+        if self.agentic_memory and self.memory and org.id and cp.strip():
+            try:
+                q = result.summary or " ".join(r.clause for r in ctx.risks)[:400] or contract_text[:400]
+                eps = self.recall_memory(org.id, q, counterparty=cp, k=5)
+                if brief := _counterparty_briefing(cp, eps):
+                    result.counterparty_notes = brief
+                    notes.append(f"🧠 Đã tham chiếu {len(brief)} tình tiết từ đối tác '{cp.strip()}' "
+                                 "(deal/vòng trước) — xem 'Về đối tác này'.")
+            except Exception:  # noqa: BLE001 — bộ nhớ là phụ, KHÔNG chặn kết quả phân tích
+                _log.exception("Không recall được bộ nhớ đối tác (org=%s, cp=%s)", org.id, cp)
 
         # PLAYBOOK CÔNG TY: đối chiếu HĐ với chính sách org (ISOLATED khỏi vòng agent → accuracy KHÔNG đổi).
         # Flag OFF. TÁCH khỏi "trái luật VN" — đây là "trái CHUẨN công ty" (có thể vẫn hợp pháp).
