@@ -16,11 +16,27 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 
 from sqlalchemy import String, Text, event, select, text
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from legalguard.adapters.outbound.sql_case_repository import Base, get_engine
+
+
+def normalize_crdb_url(url: str) -> str:
+    """URL CockroachDB → scheme `cockroachdb+psycopg://` (dialect chính thức + psycopg3; vanilla postgres
+    dialect KHÔNG parse nổi version string CRDB). Nhận biết qua 'cockroach' trong URL; khác → giữ nguyên.
+    (Trùng `normalize_memory_url` ở sql_memory_store — để RIÊNG đây tránh import vòng
+    embedding_store↔sql_memory_store; gộp về 1 module `_crdb.py` sau khi merge 2 nhánh.)"""
+    if not url or "cockroach" not in url.lower():
+        return url
+    return re.sub(r"^(postgresql(\+\w+)?|cockroachdb(\+\w+)?)://", "cockroachdb+psycopg://", url, count=1)
+
+
+def _vec_literal(vec: list[float]) -> str:
+    """list[float] → chuỗi '[...]' để bind cho cột VECTOR CockroachDB (psycopg không có kiểu vector riêng)."""
+    return "[" + ",".join(repr(float(x)) for x in vec) + "]"
 
 
 class KbVectorRow(Base):
@@ -48,12 +64,32 @@ class SqlEmbeddingStore:
     False → brute-force (retriever tự xử). `enable_ann=False` để tắt cưỡng bức (A/B với brute-force)."""
 
     def __init__(self, database_url: str, enable_ann: bool = True) -> None:
-        self.engine = get_engine(database_url)
-        Base.metadata.create_all(self.engine)
+        self.engine = get_engine(normalize_crdb_url(database_url))
+        self._crdb = self.engine.dialect.name == "cockroachdb"
+        # CRDB (anchor): chỉ tạo BẢNG kb_vectors (không dựng cả schema app lên cluster). Khác: create_all như cũ.
+        if self._crdb:
+            KbVectorRow.__table__.create(bind=self.engine, checkfirst=True)
+        else:
+            Base.metadata.create_all(self.engine)
         self.ann_enabled = False
         self._dim: int | None = None
-        if enable_ann and self.engine.dialect.name == "postgresql":
+        if enable_ann and self._crdb:
+            self.ann_enabled = True        # C-SPANN in-DB; cột vec tạo khi biết dim (get_or_embed)
+            self._detect_vec_column()      # restart → cột vec đã có → bật ANN + nhớ dim ngay
+        elif enable_ann and self.engine.dialect.name == "postgresql":
             self._try_enable_pgvector()
+
+    def _detect_vec_column(self) -> None:
+        """CRDB restart: dò cột `vec VECTOR(dim)` đã tồn tại → set self._dim (khỏi ALTER lại)."""
+        try:
+            with self.engine.connect() as c:
+                for row in c.execute(text("SHOW COLUMNS FROM kb_vectors")):
+                    if row[0] == "vec":
+                        m = re.search(r"VECTOR\((\d+)\)", str(row[1]), re.I)
+                        if m:
+                            self._dim = int(m.group(1))
+        except Exception:  # noqa: BLE001 — không dò được → _ensure_vec_column sẽ lo khi ghi
+            pass
 
     def _try_enable_pgvector(self) -> None:
         """Bật extension vector + đăng ký kiểu vector cho psycopg. Không có/không quyền → im lặng fallback."""
@@ -82,7 +118,15 @@ class SqlEmbeddingStore:
         if self._dim is not None:
             return
         with self.engine.begin() as c:
-            c.execute(text(f"ALTER TABLE kb_vectors ADD COLUMN IF NOT EXISTS vec vector({dim})"))
+            if self._crdb:
+                # CRDB: cột VECTOR + CREATE VECTOR INDEX (C-SPANN) → ANN in-DB scale (feature #1/4).
+                c.execute(text(f"ALTER TABLE kb_vectors ADD COLUMN IF NOT EXISTS vec VECTOR({dim})"))
+                try:
+                    c.execute(text("CREATE VECTOR INDEX IF NOT EXISTS idx_kb_vec ON kb_vectors (vec)"))
+                except Exception:  # noqa: BLE001 — index đã có / cú pháp phiên bản khác → ANN vẫn chạy
+                    pass
+            else:
+                c.execute(text(f"ALTER TABLE kb_vectors ADD COLUMN IF NOT EXISTS vec vector({dim})"))
         self._dim = dim
 
     def get_or_embed(self, texts: list[str], embed_fn) -> list[list[float]] | None:
@@ -109,23 +153,32 @@ class SqlEmbeddingStore:
         # DDL (ALTER TABLE cần ACCESS EXCLUSIVE) + ghi cột vec chạy NGOÀI Session trên — nếu còn trong
         # transaction đang SELECT kb_vectors thì ALTER sẽ deadlock chờ lock. Session đã đóng → an toàn.
         if self.ann_enabled and new_pairs:
-            from pgvector import Vector                        # bọc list→vector cho binding psycopg
             self._ensure_vec_column(len(new_pairs[0][1]))
-            with self.engine.begin() as c:
-                for id_, vec in new_pairs:
-                    c.execute(text("UPDATE kb_vectors SET vec = :v WHERE id = :id"),
-                              {"v": Vector(vec), "id": id_})
+            if self._crdb:                                     # CRDB: bind vector qua chuỗi '[...]'
+                with self.engine.begin() as c:
+                    for id_, vec in new_pairs:
+                        c.execute(text("UPDATE kb_vectors SET vec = :v WHERE id = :id"),
+                                  {"v": _vec_literal(vec), "id": id_})
+            else:                                              # pgvector: bind qua kiểu Vector
+                from pgvector import Vector
+                with self.engine.begin() as c:
+                    for id_, vec in new_pairs:
+                        c.execute(text("UPDATE kb_vectors SET vec = :v WHERE id = :id"),
+                                  {"v": Vector(vec), "id": id_})
         return [cached[h] for h in ids]
 
     def search_ann(self, query_vec: list[float], texts: list[str], top_k: int) -> list[tuple[int, float]]:
         """ANN trong DB: xếp `texts` (theo hash) gần `query_vec` nhất bằng cosine — [(index, score)] top_k.
         CHỈ trong tập chunk của KB hiện tại (WHERE id = ANY). score = 1 - cosine_distance (khớp brute-force)."""
-        from pgvector import Vector                            # bọc list→vector cho binding psycopg
         ids = [_hash(t) for t in texts]
         id_to_indices: dict[str, list[int]] = {}
         for i, h in enumerate(ids):
             id_to_indices.setdefault(h, []).append(i)
-        qv = Vector(query_vec)
+        if self._crdb:
+            qv = _vec_literal(query_vec)                       # CRDB: bind vector qua chuỗi '[...]'
+        else:
+            from pgvector import Vector                        # pgvector: bọc list→kiểu Vector
+            qv = Vector(query_vec)
         with self.engine.connect() as c:
             rows = c.execute(text(
                 "SELECT id, 1 - (vec <=> :q) AS score FROM kb_vectors "
