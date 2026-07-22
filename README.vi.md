@@ -5,9 +5,11 @@ cảnh báo điều khoản rủi ro, và đề xuất chiến thuật thỏa hi
 
 **Độ chính xác đo được: ~98% (53–54/54)** trên bộ golden 12 lĩnh vực luật VN (majority-vote 3 lần/câu; 1–2 ca
 ranh giới chập chờn giữa các lần — công bố dải đo thật, không cherry-pick 100%). Phương pháp + số liệu: [`/trust`](web/trust.html).
-Giấy phép **MIT** · **400+ test** tự động · chạy offline (stub) không cần key. *(README English: [`README.md`](README.md))*
+Giấy phép **MIT** · **650+ test** tự động · chạy offline (stub) không cần key. *(README English: [`README.md`](README.md))*
 
-> Track **Autopilot Agent** (Qwen Cloud Hackathon). Qwen models trên Qwen Cloud, deploy Alibaba Cloud ECS.
+> 🏆 **CockroachDB "Build with Agentic Memory"** — agent NHỚ theo ĐỐI TÁC (tình tiết deal cũ) trên
+> CockroachDB (`VECTOR` + `CREATE VECTOR INDEX` C-SPANN, ANN in-DB), recall qua **MCP**; ghi async, cô lập
+> org, cascade erasure. Suy luận bằng **Qwen** (dự án khởi từ Qwen Cloud Autopilot Agent track).
 > 📚 **Tài liệu:** [kiến trúc](docs/architecture.md) · [sản phẩm](docs/product-overview.md) · [bảo mật](docs/security.md) · [open-core](docs/OPEN-CORE.md).
 
 ## 🚀 Quick demo (cho giám khảo)

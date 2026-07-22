@@ -105,9 +105,14 @@ returns law valid at the relevant point in time) + **citation closure**. Provide
 safe `LLMError` instead of crashing. Full write-up: [`docs/architecture.en.md`](docs/architecture.en.md)
 · diagram: [`docs/architecture-diagram.en.md`](docs/architecture-diagram.en.md).
 
-## Powered by Qwen models on Qwen Cloud, deployed on Alibaba Cloud
+## Stack — CockroachDB agentic memory · Qwen reasoning
 
-All LLM calls go to **Qwen models via Qwen Cloud / DashScope (Alibaba Cloud Model Studio)** — endpoint
+**Memory & data: CockroachDB.** Agent memory, cases, KB embeddings and the flywheel all live on
+CockroachDB; per-counterparty recall uses native `VECTOR` columns + `CREATE VECTOR INDEX` (C-SPANN) for
+in-database ANN. One `DATABASE_URL` unifies app + memory + KB; the same SQLAlchemy layer also runs on
+Postgres/SQLite via the hexagonal `MemoryPort` — swapping the backend is one line in `config/container.py`.
+
+**Reasoning: Qwen.** All LLM calls go to **Qwen models via Qwen Cloud / DashScope** — endpoint
 `https://dashscope-intl.aliyuncs.com`. Model right-sizing per task:
 
 | Qwen model | Role in the agent |
@@ -119,9 +124,10 @@ All LLM calls go to **Qwen models via Qwen Cloud / DashScope (Alibaba Cloud Mode
 | `qwen3-rerank` | Cross-encoder reranking (opt-in) |
 | `qwen3.7-plus` | Multimodal OCR for scanned/image contracts |
 
-**Deployment: Alibaba Cloud ECS** — Docker (Caddy HTTPS + FastAPI app + Postgres + Redis), `alembic
-upgrade head` on start. Embeddings persist in Postgres (`kb_vectors`). Qwen-only; the hexagonal
-`LLMPort` means swapping in a second provider (or a vector DB) is one line in `config/container.py`.
+**Deploy**: Docker (Caddy HTTPS + FastAPI + Redis), `alembic upgrade head` on start against
+**CockroachDB** (deploy target: AWS ECS + S3 for this track). Embeddings + agent memory persist as
+CockroachDB `VECTOR`. The hexagonal `LLMPort`/`MemoryPort` mean swapping the LLM provider or the database
+is one line in `config/container.py`.
 
 ## 🧠 Agentic memory — remembers each counterparty
 

@@ -52,11 +52,28 @@ positives), and emits a digest (optionally pushed to Slack/Zalo by a daily cron)
 `POST /monitor/feedback` records a "false alarm", and `filter_affected` suppresses that pair on the next
 run, so the autopilot gets quieter and more precise over time.
 
+## 4b. Agentic memory (per-counterparty, on CockroachDB)
+
+The agent has **durable, per-counterparty memory**: each negotiation outcome / round becomes a
+`MemoryEpisode` (org, counterparty, clause, content). On a later deal with the same counterparty the
+agent **recalls** the relevant episodes and injects them into the negotiation prompt as *advisory*
+context (never as legal authority — so grounded accuracy is unchanged). Writes are **async**, off the
+response hot-path.
+
+The domain depends only on a `MemoryPort` (`remember` / `recall` / `delete_by_case`). Adapters:
+`InMemoryMemory` (offline/tests, lexical) and `SqlMemory` — which auto-detects **CockroachDB** and uses a
+`vec VECTOR(1024)` column + `CREATE VECTOR INDEX` (C-SPANN) for **in-database ANN recall**
+(`ORDER BY vec <=> :q`), falling back to in-RAM cosine on SQLite/Postgres. Safety: strict **org
+isolation**, **cascade right-to-erasure** (`delete_case` wipes a case's memory), a similarity
+**noise-floor** so off-topic queries recall nothing, and PII redaction before write. Recall is also
+exposed over **MCP** (`recall_memory`). Quality is gated by `evaluation/memory_eval.py`
+(Recall@k / MRR / org-isolation / noise).
+
 ## 5. Human-in-the-loop
 
 The outbound message to the counterparty is **locked** until a reviewer approves it in the UI. Reject →
-`POST /escalate` routes the case to a configured lawyer channel. This is both a track requirement and a
-liability guardrail: the AI screens and drafts; a human authorizes.
+`POST /escalate` routes the case to a configured lawyer channel — a liability guardrail: the AI screens
+and drafts; a human authorizes.
 
 ## 6. AI-Native evidence (make the agent visible)
 
