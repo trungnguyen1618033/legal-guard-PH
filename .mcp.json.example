@@ -1,9 +1,12 @@
 {
-  "//": "CockroachDB Cloud Managed MCP Server (feature #3). Copy to .mcp.json to enable for Claude Code / any MCP client. OAuth 2.1 handled on first connect. Read-only by default (blocks DROP/TRUNCATE). Requires 'MCP integration' enabled in the CockroachDB Cloud Console (Connect modal) for the cluster.",
+  "//": "CockroachDB Cloud Managed MCP Server (feature #3). Copy to .mcp.json (or run the `claude mcp add` command in docs/crdb-features.md) to enable for Claude Code / any MCP client. Read-only by default (mcp:read); blocks DROP/TRUNCATE. Replace {your-cluster-id} with your cluster id (ccloud cluster list -o json → .id). Auth: OAuth (run /mcp → Authenticate) OR add an Authorization: Bearer <service-account-api-key> header (role Cluster Operator).",
   "mcpServers": {
-    "cockroachdb": {
+    "cockroachdb-cloud": {
       "type": "http",
-      "url": "https://cockroachlabs.cloud/mcp"
+      "url": "https://cockroachlabs.cloud/mcp",
+      "headers": {
+        "mcp-cluster-id": "{your-cluster-id}"
+      }
     }
   }
 }

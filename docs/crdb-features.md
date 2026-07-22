@@ -27,13 +27,22 @@ Official CLI, JSON output on every command → scriptable ops (deploy + monitori
 
 ## 3. Cloud Managed MCP Server (configured)
 Managed MCP endpoint lets the agent inspect schema / run read-only analytical queries against the cluster.
-- Endpoint: `https://cockroachlabs.cloud/mcp` (OAuth 2.1). Read-only by default; blocks `DROP`/`TRUNCATE`.
-- Config provided: **`.mcp.json.example`** → copy to `.mcp.json` (or
-  `claude mcp add --transport http cockroachdb https://cockroachlabs.cloud/mcp`).
-- **Activation** requires enabling *MCP integration* for the cluster in the CockroachDB Cloud Console
-  (Connect modal); may depend on cluster plan. Once enabled, OAuth runs on first connect.
-- Complements the app's own MCP server (`legalguard/adapters/inbound/mcp_server.py`:
-  `analyze_contract` / `lookup_law` / `recall_memory`).
+Endpoint `https://cockroachlabs.cloud/mcp`; read-only (`mcp:read`) by default, blocks `DROP`/`TRUNCATE`.
+Config: **`.mcp.json.example`** (needs the `mcp-cluster-id` header).
+
+**Enable (OAuth — recommended):**
+```shell
+claude mcp add cockroachdb-cloud https://cockroachlabs.cloud/mcp \
+  --transport http --header "mcp-cluster-id: <cluster-id>"      # ccloud cluster list -o json → .id
+```
+then in Claude Code: `/mcp` → `cockroachdb-cloud` → **Authenticate** → grant read → **Authorize**.
+
+**Enable (service-account API key — non-interactive):** create a service account + API key with role
+**Cluster Operator** (`ccloud service-account` / Console), add header
+`Authorization: Bearer <api-key>` alongside `mcp-cluster-id`.
+
+Complements the app's own MCP server (`legalguard/adapters/inbound/mcp_server.py`:
+`analyze_contract` / `lookup_law` / `recall_memory`).
 
 ## 4. Agent Skills Repo (bonus)
 CockroachDB's open-source Agent Skills (`cockroachlabs/cockroachdb-skills`, Apache-2.0) — machine-executable
