@@ -203,11 +203,14 @@ class MemoryPort(Protocol):
 
     def remember(self, episode: MemoryEpisode) -> str: ...
 
-    # Truy hồi tình tiết liên quan `query`, ưu tiên cùng `counterparty` nếu có. Cô lập theo org_id.
-    def recall(self, org_id: str, query: str, counterparty: str = "", k: int = 5) -> list[MemoryEpisode]: ...
+    # Truy hồi tình tiết liên quan `query`, ưu tiên cùng `counterparty`. Mặc định chỉ HIỆN TẠI (bi-temporal:
+    # bỏ tình tiết đã superseded); include_history=True lấy cả lịch sử. Cô lập org_id.
+    def recall(self, org_id: str, query: str, counterparty: str = "", k: int = 5,
+               include_history: bool = False) -> list[MemoryEpisode]: ...
 
-    # Liệt kê MỌI tình tiết của 1 đối tác (cho consolidation gộp hồ sơ). Cô lập org_id.
-    def list_by_counterparty(self, org_id: str, counterparty: str, limit: int = 200) -> list[MemoryEpisode]: ...
+    # Liệt kê tình tiết của 1 đối tác (cho consolidation). Mặc định chỉ HIỆN TẠI. Cô lập org_id.
+    def list_by_counterparty(self, org_id: str, counterparty: str, limit: int = 200,
+                             include_history: bool = False) -> list[MemoryEpisode]: ...
 
     def delete_by_case(self, case_id: str) -> int: ...   # cascade right-to-erasure (xóa case → xóa memory)
 

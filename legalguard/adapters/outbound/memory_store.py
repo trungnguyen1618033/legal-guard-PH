@@ -43,23 +43,42 @@ class InMemoryMemory:
         ep = episode
         if not ep.id:
             ep = MemoryEpisode(**{**ep.__dict__, "id": uuid.uuid4().hex})
+        self._supersede(ep)                                             # bi-temporal: cũ cùng (cp,clause) → superseded
         self._episodes = [e for e in self._episodes if e.id != ep.id]   # upsert theo id (hồ sơ profile idempotent)
         self._episodes.append(ep)
         return ep.id
 
-    def list_by_counterparty(self, org_id: str, counterparty: str, limit: int = 200) -> list[MemoryEpisode]:
+    def _supersede(self, new_ep: MemoryEpisode) -> None:
+        """Tình tiết MỚI cùng (org, counterparty, clause) → đánh dấu tình tiết HIỆN TẠI cũ là superseded
+        (valid_to + superseded_by), KHÔNG xóa. Chỉ khi cp & clause đều có + không phải profile."""
+        cp, clause = _norm(new_ep.counterparty), _norm(new_ep.clause)
+        if not (cp and clause) or new_ep.kind == "profile":
+            return
+        vt = new_ep.created_at or "superseded"
+        for i, e in enumerate(self._episodes):
+            if (e.org_id == new_ep.org_id and e.id != new_ep.id and not e.valid_to
+                    and e.kind != "profile" and _norm(e.counterparty) == cp and _norm(e.clause) == clause):
+                self._episodes[i] = MemoryEpisode(**{**e.__dict__, "valid_to": vt, "superseded_by": new_ep.id})
+
+    def list_by_counterparty(self, org_id: str, counterparty: str, limit: int = 200,
+                             include_history: bool = False) -> list[MemoryEpisode]:
         cp = _norm(counterparty)
-        out = [e for e in self._episodes if e.org_id == org_id and _norm(e.counterparty) == cp]
+        out = [e for e in self._episodes if e.org_id == org_id and _norm(e.counterparty) == cp
+               and (include_history or not e.valid_to)]
         return out[-limit:] if limit else out
 
-    def recall(self, org_id: str, query: str, counterparty: str = "", k: int = 5) -> list[MemoryEpisode]:
+    def recall(self, org_id: str, query: str, counterparty: str = "", k: int = 5,
+               include_history: bool = False) -> list[MemoryEpisode]:
         """Tình tiết liên quan nhất: cô lập org → điểm = overlap từ khóa(query, clause+content) + boost nếu
-        cùng counterparty → tie-break recency. Bỏ tình tiết điểm 0 (không liên quan → không inject nhiễu)."""
+        cùng counterparty → tie-break recency. Bỏ tình tiết điểm 0 (không liên quan → không inject nhiễu).
+        Mặc định CHỈ tình tiết HIỆN TẠI (valid_to rỗng); include_history=True để xem cả đã-superseded."""
         qterms = _terms(query)
         cp = _norm(counterparty)
         scored: list[tuple[float, str, MemoryEpisode]] = []
         for ep in self._episodes:
             if ep.org_id != org_id:                     # cô lập org TUYỆT ĐỐI
+                continue
+            if ep.valid_to and not include_history:     # đã superseded → bỏ (chỉ trả vị thế HIỆN TẠI)
                 continue
             overlap = len(qterms & _terms(f"{ep.clause} {ep.content}"))
             same_cp = bool(cp) and _norm(ep.counterparty) == cp

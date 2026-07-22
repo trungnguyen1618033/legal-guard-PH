@@ -177,6 +177,10 @@ class MemoryEpisode:
     content: str               # nội dung tình tiết (ĐÃ redact PII)
     created_at: str
     case_id: str = ""          # deal nguồn (truy vết + cascade erasure)
+    # Bi-temporal: valid_to rỗng = tình tiết HIỆN TẠI (đang đúng); có giá trị = đã bị SUPERSEDE (vị thế đối
+    # tác đổi) — GIỮ để provenance/point-in-time, KHÔNG xóa. superseded_by = id tình tiết mới thay nó.
+    valid_to: str = ""
+    superseded_by: str = ""
 
 
 @dataclass
@@ -223,6 +227,7 @@ class AnalysisResult:
     case_id: str = ""            # id bản ghi đã lưu (nếu có persistence)
     execution_summary: dict = field(default_factory=dict)  # đếm tool-call (evidence AI-Native, xem domain/runs.py)
     policy_violations: list[dict] = field(default_factory=list)  # vi phạm CHÍNH SÁCH CÔNG TY (playbook org) — TÁCH khỏi trái-luật-VN
+    counterparty_notes: list[str] = field(default_factory=list)  # BỘ NHỚ theo-đối-tác (deal TRƯỚC) recall khi rà HĐ mới — THAM KHẢO, KHÔNG phải luật (agentic memory)
 
 
 @dataclass

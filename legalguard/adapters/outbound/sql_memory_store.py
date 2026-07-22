@@ -14,7 +14,7 @@ import json
 import re
 import uuid
 
-from sqlalchemy import Index, String, Text, delete, select, text
+from sqlalchemy import Index, String, Text, delete, func, select, text, update
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from legalguard.adapters.outbound._crdb import cosine, vec_literal
@@ -48,11 +48,14 @@ class MemoryRow(Base):
     created_at: Mapped[str] = mapped_column(String, index=True, default="")
     case_id: Mapped[str] = mapped_column(String, index=True, default="")
     embedding: Mapped[str | None] = mapped_column(Text, nullable=True)   # JSON list[float] | None (offline)
+    valid_to: Mapped[str] = mapped_column(String, default="")            # bi-temporal: rỗng = HIỆN TẠI; có = superseded
+    superseded_by: Mapped[str] = mapped_column(String, default="")       # id tình tiết mới thay nó (provenance)
 
 
 def _row_to_episode(r: MemoryRow) -> MemoryEpisode:
     return MemoryEpisode(id=r.id, org_id=r.org_id, counterparty=r.counterparty, kind=r.kind,
-                         clause=r.clause, content=r.content, created_at=r.created_at, case_id=r.case_id)
+                         clause=r.clause, content=r.content, created_at=r.created_at, case_id=r.case_id,
+                         valid_to=r.valid_to or "", superseded_by=r.superseded_by or "")
 
 
 class SqlMemory:
@@ -98,14 +101,29 @@ class SqlMemory:
                 pass
         self._vec_dim = dim
 
+    def _supersede_prior(self, s: Session, new_ep: MemoryEpisode, eid: str) -> None:
+        """Bi-temporal: tình tiết MỚI cùng (org, counterparty, clause) → set valid_to + superseded_by cho
+        tình tiết HIỆN TẠI cũ (KHÔNG xóa). Chỉ khi cp & clause đều có + không phải profile. So cp/clause
+        không-phân-biệt-hoa."""
+        cp, clause = (new_ep.counterparty or "").strip(), (new_ep.clause or "").strip()
+        if not (cp and clause) or new_ep.kind == "profile":
+            return
+        s.execute(update(MemoryRow).where(
+            MemoryRow.org_id == new_ep.org_id, MemoryRow.valid_to == "", MemoryRow.kind != "profile",
+            MemoryRow.id != eid, func.lower(MemoryRow.counterparty) == cp.lower(),
+            func.lower(MemoryRow.clause) == clause.lower(),
+        ).values(valid_to=new_ep.created_at or "superseded", superseded_by=eid))
+
     def remember(self, episode: MemoryEpisode) -> str:
         ep = episode
         eid = ep.id or uuid.uuid4().hex
         vec = self._embed_one(f"{ep.clause} {ep.content}")
         with Session(self.engine) as s:
+            self._supersede_prior(s, ep, eid)         # bi-temporal: cũ cùng (cp,clause) → superseded
             s.merge(MemoryRow(id=eid, org_id=ep.org_id, counterparty=ep.counterparty, kind=ep.kind,
                               clause=ep.clause, content=ep.content, created_at=ep.created_at,
-                              case_id=ep.case_id, embedding=json.dumps(vec) if vec is not None else None))
+                              case_id=ep.case_id, embedding=json.dumps(vec) if vec is not None else None,
+                              valid_to=ep.valid_to or "", superseded_by=ep.superseded_by or ""))
             s.commit()
         if self._crdb and vec is not None:                         # ghi thêm cột vec cho ANN in-DB
             self._ensure_vec_column(len(vec))
@@ -114,28 +132,32 @@ class SqlMemory:
                           {"v": vec_literal(vec), "id": eid})
         return eid
 
-    def _candidates_ann(self, org_id: str, qv: list[float]) -> list[tuple[MemoryEpisode, float]]:
-        """CockroachDB ANN in-DB: top ứng viên gần `qv` (cosine) trong org. rel = 1 - cosine_distance."""
+    def _candidates_ann(self, org_id: str, qv: list[float],
+                        include_history: bool = False) -> list[tuple[MemoryEpisode, float]]:
+        """CockroachDB ANN in-DB: top ứng viên gần `qv` (cosine) trong org. rel = 1 - cosine_distance.
+        Mặc định chỉ HIỆN TẠI (valid_to='')."""
+        where = "WHERE org_id = :org AND vec IS NOT NULL" + ("" if include_history else " AND valid_to = ''")
         with self.engine.connect() as c:
             rows = c.execute(text(
-                "SELECT id, org_id, counterparty, kind, clause, content, created_at, case_id, "
-                "(vec <=> :q) AS dist FROM memory_episodes "
-                "WHERE org_id = :org AND vec IS NOT NULL ORDER BY vec <=> :q LIMIT :cap"),
+                "SELECT id, org_id, counterparty, kind, clause, content, created_at, case_id, valid_to, "
+                f"(vec <=> :q) AS dist FROM memory_episodes {where} ORDER BY vec <=> :q LIMIT :cap"),
                 {"q": vec_literal(qv), "org": org_id, "cap": _ANN_CAP}).all()
         out = []
         for r in rows:
             ep = MemoryEpisode(id=r[0], org_id=r[1], counterparty=r[2], kind=r[3], clause=r[4],
-                               content=r[5], created_at=r[6], case_id=r[7])
-            out.append((ep, 1.0 - float(r[8])))
+                               content=r[5], created_at=r[6], case_id=r[7], valid_to=r[8] or "")
+            out.append((ep, 1.0 - float(r[9])))
         return out
 
-    def _candidates_scan(self, org_id: str, qv: list[float] | None,
-                         qterms: set[str]) -> list[tuple[MemoryEpisode, float]]:
+    def _candidates_scan(self, org_id: str, qv: list[float] | None, qterms: set[str],
+                         include_history: bool = False) -> list[tuple[MemoryEpisode, float]]:
         """Brute-force RAM (sqlite/postgres-thường): nạp tình tiết org → rel = cosine(nếu có vector+qv) hoặc
-        overlap từ khóa (lexical)."""
+        overlap từ khóa (lexical). Mặc định chỉ HIỆN TẠI (valid_to='')."""
+        stmt = select(MemoryRow).where(MemoryRow.org_id == org_id)
+        if not include_history:
+            stmt = stmt.where(MemoryRow.valid_to == "")
         with Session(self.engine) as s:
-            rows = list(s.scalars(select(MemoryRow).where(MemoryRow.org_id == org_id)
-                                   .order_by(MemoryRow.created_at.desc()).limit(_RECALL_CAP)))
+            rows = list(s.scalars(stmt.order_by(MemoryRow.created_at.desc()).limit(_RECALL_CAP)))
         out = []
         for r in rows:
             if qv is not None and r.embedding:
@@ -145,12 +167,13 @@ class SqlMemory:
             out.append((_row_to_episode(r), rel))
         return out
 
-    def recall(self, org_id: str, query: str, counterparty: str = "", k: int = 5) -> list[MemoryEpisode]:
+    def recall(self, org_id: str, query: str, counterparty: str = "", k: int = 5,
+               include_history: bool = False) -> list[MemoryEpisode]:
         qv = self._embed_one(query) if self._embed_fn is not None else None
         if self._crdb and qv is not None and self._vec_dim is not None:
-            cands = self._candidates_ann(org_id, qv)               # CockroachDB ANN
+            cands = self._candidates_ann(org_id, qv, include_history)   # CockroachDB ANN
         else:
-            cands = self._candidates_scan(org_id, qv, _terms(query))  # brute-force/lexical
+            cands = self._candidates_scan(org_id, qv, _terms(query), include_history)  # brute-force/lexical
         cp = counterparty.strip().lower()
         scored: list[tuple[float, str, MemoryEpisode]] = []
         for ep, rel in cands:
@@ -161,13 +184,16 @@ class SqlMemory:
         scored.sort(key=lambda x: (x[0], x[1]), reverse=True)      # điểm ↓ rồi recency ↓
         return [ep for _, _, ep in scored[:max(0, k)]]
 
-    def list_by_counterparty(self, org_id: str, counterparty: str, limit: int = 200) -> list[MemoryEpisode]:
+    def list_by_counterparty(self, org_id: str, counterparty: str, limit: int = 200,
+                             include_history: bool = False) -> list[MemoryEpisode]:
         """Mọi tình tiết của 1 đối tác trong org (cho consolidation). Cô lập org; so counterparty
-        không-phân-biệt-hoa (khớp recall). Nạp org rồi lọc Python (bounded)."""
+        không-phân-biệt-hoa (khớp recall). Mặc định chỉ HIỆN TẠI (valid_to=''). Nạp org rồi lọc Python."""
         cp = counterparty.strip().lower()
+        stmt = select(MemoryRow).where(MemoryRow.org_id == org_id)
+        if not include_history:
+            stmt = stmt.where(MemoryRow.valid_to == "")
         with Session(self.engine) as s:
-            rows = list(s.scalars(select(MemoryRow).where(MemoryRow.org_id == org_id)
-                                   .order_by(MemoryRow.created_at.desc()).limit(max(1, limit) * 4)))
+            rows = list(s.scalars(stmt.order_by(MemoryRow.created_at.desc()).limit(max(1, limit) * 4)))
         out = [_row_to_episode(r) for r in rows if (r.counterparty or "").strip().lower() == cp]
         return out[:limit]
 
