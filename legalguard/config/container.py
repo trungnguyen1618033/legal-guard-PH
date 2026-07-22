@@ -115,7 +115,7 @@ def build_service(cfg: Settings = settings, kb_strategy: str = "auto") -> Analys
     memory = None
     if cfg.agentic_memory:
         from legalguard.adapters.outbound.sql_memory_store import SqlMemory
-        memory = SqlMemory(cfg.database_url, embed_fn=embed_fn)
+        memory = SqlMemory(cfg.memory_database_url or cfg.database_url, embed_fn=embed_fn)
     return AnalysisService(reasoner=reasoner, kb=kb,
                            cases=cases, outcomes=outcomes, observer=observer,
                            memory=memory, agentic_memory=cfg.agentic_memory,

@@ -1,6 +1,7 @@
 """Cấu hình đọc từ biến môi trường / .env."""
 from __future__ import annotations
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -100,6 +101,10 @@ class Settings(BaseSettings):
     revenue_log_path: str = "data/revenue.csv"
     # SQLite cho local/dev; prod đổi sang postgresql+psycopg://user:pass@host:5432/legalguard
     database_url: str = "sqlite:///data/cases.db"
+    # DB RIÊNG cho bộ nhớ agent (anchor CockroachDB — VECTOR/C-SPANN). Rỗng → dùng database_url. Đọc từ
+    # COCKROADDB_URL/COCKROACHDB_URL/CRDB_URL (chấp cả tên typo). Scheme tự chuẩn hóa sang cockroachdb+psycopg.
+    memory_database_url: str = Field(default="", validation_alias=AliasChoices(
+        "MEMORY_DATABASE_URL", "COCKROADDB_URL", "COCKROACHDB_URL", "CRDB_URL"))
     # Mức log của app (DEBUG/INFO/WARNING). INFO → thấy timing analyze + cảnh báo trong `docker logs`.
     log_level: str = "INFO"
 
