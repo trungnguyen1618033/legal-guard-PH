@@ -28,6 +28,20 @@ def test_save_and_get_roundtrip(tmp_path):
     assert got.risks[0]["severity"] == "high"      # JSON round-trip giữ cấu trúc
 
 
+def test_case_counterparty_roundtrip(tmp_path):
+    # Trục nhớ theo-đối-tác: case lưu/đọc counterparty → record_outcome suy cp từ case_id (flywheel).
+    repo = _repo(tmp_path)
+    c = _case("cp1")
+    c.counterparty = "ACME Corp"
+    repo.save(c)
+    got = repo.get("cp1")
+    assert got is not None and got.counterparty == "ACME Corp"
+    assert repo.get("nope") is None
+    # default rỗng cho case không gắn đối tác (tương thích hàng cũ)
+    repo.save(_case("cp2"))
+    assert repo.get("cp2").counterparty == ""
+
+
 def test_get_missing_returns_none(tmp_path):
     repo = _repo(tmp_path)
     assert repo.get("nope") is None

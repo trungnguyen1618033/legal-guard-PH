@@ -251,6 +251,7 @@ class AnalysisCase:
     source_bytes: int = 0
     text_chars: int = 0          # độ dài text đã phân tích (sau parse, trước redact)
     drafting_issues: list[dict] = field(default_factory=list)  # lỗi soạn thảo CÓ CẤU TRÚC → đưa vào file .docx có comment
+    counterparty: str = ""       # TÊN đối tác của deal — trục NHỚ theo-đối-tác: record_outcome suy cp từ case → gắn episode + consolidation
 
 
 # ---- Evidence doanh thu (system-of-record) ----
