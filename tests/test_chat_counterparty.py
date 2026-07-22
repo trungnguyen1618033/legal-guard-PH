@@ -3,7 +3,14 @@ persist) → analyze/negotiate gắn ĐÚNG counterparty → memory-aware review
 Trước đây conv.counterparty là field CHẾT (không persist SQL + analyze/negotiate không truyền)."""
 from __future__ import annotations
 
-from legalguard.adapters.inbound.channels import ChatHandler, _extract_counterparty
+from legalguard.adapters.inbound.channels import (
+    INTENT_NEGOTIATE,
+    INTENT_SET_COUNTERPARTY,
+    ChatHandler,
+    _extract_counterparty,
+    _parse_set_counterparty,
+    route_intent,
+)
 from legalguard.adapters.outbound.conversation_store import (
     InMemoryConversationStore,
     SqlAlchemyConversationStore,
@@ -70,6 +77,41 @@ def test_chat_counterparty_persists_across_turns():
     h.reply("k2", text="rà giúp cái này", attachment=_CONTRACT_BYTES, filename="b.txt")
     assert svc.positions[-1] is not None
     assert svc.positions[-1].counterparty == "ACME Corp"
+
+
+# ---- Set/clear counterparty command -------------------------------------------------------------
+def test_parse_set_counterparty():
+    assert _parse_set_counterparty("đối tác: ACME Corp") == "ACME Corp"
+    assert _parse_set_counterparty("đối tác là Tân Phát") == "Tân Phát"
+    assert _parse_set_counterparty("đổi đối tác sang Globex Ltd") == "Globex Ltd"
+    assert _parse_set_counterparty("counterparty: Minh Long") == "Minh Long"
+    assert _parse_set_counterparty("quên đối tác") == ""              # lệnh XÓA
+    assert _parse_set_counterparty("xóa đối tác đi") == ""
+    assert _parse_set_counterparty("đối tác từ chối đề nghị") is None  # counter-offer, KHÔNG phải lệnh
+    assert _parse_set_counterparty("rà giúp hợp đồng này") is None
+
+
+def test_route_set_counterparty():
+    assert route_intent("đối tác: ACME Corp", has_attachment=False, contract_detected=False,
+                        has_context=False, has_thread_context=False, in_thread=False,
+                        has_prev_review=False, has_last_case=False) == INTENT_SET_COUNTERPARTY
+    # 'đối tác từ chối' TRONG deal → đàm phán, KHÔNG bị lệnh set nuốt
+    assert route_intent("đối tác từ chối giảm phạt", has_attachment=False, contract_detected=False,
+                        has_context=True, has_thread_context=False, in_thread=False,
+                        has_prev_review=False, has_last_case=False) == INTENT_NEGOTIATE
+
+
+def test_chat_set_and_clear_counterparty():
+    svc = _CapturingService()
+    h = ChatHandler(svc, build_parser(), InMemoryConversationStore(), "VN")
+    r = h.reply("k3", text="đối tác: ACME Corp")
+    assert "ACME Corp" in r and h.store.get("k3").counterparty == "ACME Corp"
+    # rà HĐ sau đó (không nhắc tên) → dùng counterparty đã đặt
+    h.reply("k3", text="rà giúp", attachment=_CONTRACT_BYTES, filename="c.txt")
+    assert svc.positions[-1].counterparty == "ACME Corp"
+    # xóa
+    h.reply("k3", text="quên đối tác")
+    assert h.store.get("k3").counterparty == ""
 
 
 # ---- SQL store round-trips the new column -------------------------------------------------------

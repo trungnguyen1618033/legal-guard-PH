@@ -271,6 +271,31 @@ def _extract_counterparty(text: str) -> str:
             break
     c = " ".join(name).strip(" .,-:'\"")
     return "" if len(c) < 2 or c.lower() in _CP_STOP else c
+
+
+# Lệnh ĐẶT đối tác của phiên (RÕ RÀNG, có dấu tách để không nhầm counter-offer 'đối tác từ chối…').
+_SET_CP_RE = re.compile(
+    r"^\s*(?:ghi nhớ|lưu|đặt|set|đổi)?\s*(?:đối tác|counterparty)\s*(?:là|:|=|sang)\s+(?P<c>.+)$",
+    re.IGNORECASE)
+# Lệnh XÓA/QUÊN đối tác của phiên.
+_CLEAR_CP_RE = re.compile(
+    r"\b(?:xóa|xoá|quên|bỏ|clear|reset)\b[^\n]{0,20}\b(?:đối tác|counterparty)\b", re.IGNORECASE)
+
+
+def _parse_set_counterparty(text: str) -> str | None:
+    """Lệnh chat ĐẶT/XÓA đối tác của phiên (trục nhớ). None = KHÔNG phải lệnh; '' = lệnh XÓA; 'Tên' = ĐẶT.
+    Cho người dùng SỬA khi regex caption đoán sai, hoặc đặt TRƯỚC khi tải HĐ. Yêu cầu dấu tách rõ (':'/'là'/
+    '='/'sang') → KHÔNG nuốt câu counter-offer 'đối tác từ chối…' (không có dấu tách)."""
+    t = (text or "").strip()
+    if not t or len(t) > 120:
+        return None
+    if _CLEAR_CP_RE.search(t):
+        return ""
+    m = _SET_CP_RE.match(t)
+    if not m:
+        return None
+    name = m.group("c").strip(" .,-:'\"")
+    return name if 2 <= len(name) <= 80 else None
 _MAX_TURNS = 12      # khi vượt → summarize lượt cũ vào context, giữ N lượt gần
 _KEEP_TURNS = 6
 _MAX_SKEW = 300      # giây — chống replay (tin nhắn quá cũ → từ chối)
@@ -659,6 +684,7 @@ def format_negotiation_reply(r: dict, lang: str = "vi") -> str:
 # `contract_detected` (bool) làm đầu vào.
 INTENT_HELP = "help"
 INTENT_TRUST = "trust"
+INTENT_SET_COUNTERPARTY = "set_counterparty"   # lệnh ĐẶT/XÓA đối tác của phiên (trục nhớ theo-đối-tác)
 INTENT_EXPORT_DOC = "export_doc"        # có case gần nhất → xuất file Word có comment
 INTENT_EXPORT_GUIDE = "export_guide"    # xin xuất file nhưng chưa có case + không kèm HĐ → hướng dẫn
 INTENT_ATTACH_PROMPT = "attach_prompt"  # xin rà soát cả HĐ nhưng không kèm file → hướng dẫn đính kèm
@@ -684,6 +710,9 @@ def route_intent(text: str, *, has_attachment: bool, contract_detected: bool, ha
     # 2) TRUST — meta-câu-hỏi độ tin cậy
     if not has_attachment and _is_trust_query(t):
         return INTENT_TRUST
+    # 2b) ĐẶT/XÓA đối tác của phiên (trục nhớ) — lệnh RÕ ('đối tác: X'), không kèm file (file → caption tự trích)
+    if not has_attachment and _parse_set_counterparty(t) is not None:
+        return INTENT_SET_COUNTERPARTY
     # 3) XUẤT FILE (lệnh chat ngắn, không phải câu hỏi)
     if not has_attachment and len(ts) < 200 and _wants_file_export(t) and not _is_question(t):
         if has_last_case:
@@ -858,6 +887,15 @@ class ChatHandler:
         if intent == INTENT_TRUST:
             from legalguard.domain.trust import format_trust_text
             return ChatReply(format_trust_text())
+        if intent == INTENT_SET_COUNTERPARTY:      # ĐẶT/XÓA đối tác của phiên (trục nhớ theo-đối-tác)
+            cp = _parse_set_counterparty(text or "")
+            conv.counterparty = cp or ""
+            if cp:
+                return ChatReply(
+                    f"✅ Đã ghi nhớ đối tác của phiên: *{cp}*. Khi rà hợp đồng / đàm phán trong phiên này, "
+                    "tôi sẽ đối chiếu với các deal & vòng TRƯỚC với đối tác này (mục 'Về đối tác này').")
+            return ChatReply("✅ Đã xóa ghi nhớ đối tác của phiên. Các lần rà soát tới sẽ không đối chiếu "
+                             "theo đối tác cho đến khi bạn nêu lại (vd 'đối tác: Tên công ty').")
         if intent == INTENT_EXPORT_DOC:   # có case gần nhất → xuất file Word có comment (không rà lại)
             return ChatReply("Đang tạo file Word có nhận xét (comment) cho bản rà soát gần nhất — "
                              "sẽ gửi vào đây trong giây lát…", "export_doc", conv.last_case_id)
