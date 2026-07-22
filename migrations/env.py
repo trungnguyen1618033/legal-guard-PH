@@ -4,17 +4,20 @@ from __future__ import annotations
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from legalguard.adapters.outbound.sql_case_repository import Base
+from legalguard.adapters.outbound.sql_case_repository import Base, normalize_crdb_url
 from legalguard.config.settings import settings
 
+# URL CRDB tự chuẩn hóa sang cockroachdb+psycopg:// (vanilla postgres dialect không parse nổi CRDB).
+_DB_URL = normalize_crdb_url(settings.database_url)
+
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+config.set_main_option("sqlalchemy.url", _DB_URL)
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    context.configure(url=settings.database_url, target_metadata=target_metadata,
+    context.configure(url=_DB_URL, target_metadata=target_metadata,
                       literal_binds=True, render_as_batch=True)
     with context.begin_transaction():
         context.run_migrations()
