@@ -333,6 +333,22 @@ Moat/flywheel (`docs/moat.md`): `Outcome` (kết quả đàm phán) → `Outcome
 soát (Slack + app.html + Next.js) có 2 nút **Chốt / Sửa lại** → ghi Outcome (mọi điều khoản) + feedback →
 nuôi win-rate → lần phân tích sau hiện badge `win X%` (càng dùng càng khôn).
 
+**AGENTIC MEMORY theo-đối-tác (`MemoryPort`, anchor cuộc thi CockroachDB "Build with Agentic Memory";
+`agentic_memory` default ON)**: nhớ điều đã rà/nhượng/chốt với 1 ĐỐI TÁC → recall khi rà/đàm phán deal SAU
+(moat system-of-record xuyên deal). `MemoryEpisode{counterparty,kind,clause,content,case_id, +bi-temporal
+valid_to/superseded_by}`; store `InMemoryMemory` + `SqlMemory` (CRDB VECTOR+C-SPANN `<=>` ANN — `outbound/
+sql_memory_store.py`; URL riêng `memory_database_url`=`COCKROADDB_URL`, để trống→dùng chung `database_url`).
+**Vòng (flywheel) LIVE**: (1) CAPTURE cp ở chat (`_extract_counterparty` từ caption + lệnh "đối tác: X"/"quên
+đối tác", persist `Conversation.counterparty` migration 0019); (2) `analyze` set `AnalysisCase.counterparty`
+(migration 0020) từ `position.counterparty`; (3) `record_outcome(outcome, counterparty)` + `_remember_*` ghi
+episode gắn ĐÚNG cp (channels suy cp TỪ case — Option B); (4) **auto-consolidation** (`consolidate_memory`
+gộp episode→1 hồ sơ `kind=profile` id cố định `profile:{org}:{cp}` upsert, gate `min_episodes`; tất định,
+`domain/memory_consolidation.py`); (5) **bi-temporal** episode mới cùng (cp,clause)→superseded cũ (valid_to),
+recall mặc định chỉ HIỆN TẠI; (6) `analyze` recall → `AnalysisResult.counterparty_notes` → mục "🧠 Về đối tác
+này" mọi kênh (`_review_doc`). Hết-sức GUARDED + failure-safe + ISOLATED khỏi vòng agent/lookup → accuracy
+KHÔNG đổi. Eval: `evaluation/memory_eval.py` (Recall@k/MRR/cô-lập-org/chống-nhiễu/supersede/consolidation,
+2 backend); e2e `tests/test_flywheel_e2e.py`. MCP tool `recall_memory`. Cô lập org + cascade erasure.
+
 **Sau-ký (post-signature, `docs/internal/next-features-research-2026-07.md`) — ĐÃ CODE, FLAG-OFF (chờ hậu
 judging)**: theo dõi nghĩa vụ/hạn chót (`domain/obligations.py`, `OBLIGATION_TRACKING` default False, endpoint
 `/obligations*`, migration 0011) · playbook công ty (`domain/policy.py` check vi phạm + gợi ý từ lịch sử,
@@ -403,7 +419,7 @@ redaction (`domain/redaction.py`), prompt-injection hardening, upload limit, **r
 cá nhân, đúng PDPD/GDPR), rate limiting (`RATE_LIMIT_PER_MIN`), LLM retry/backoff (`adapters/outbound/_http.py`).
 CI: `.github/workflows/ci.yml` (ruff + pytest). Qwen via dashscope-intl (Singapore, no-training).
 DB: SQLAlchemy 2.0, 1 engine/URL (`pool_pre_ping`+`recycle` an toàn Postgres serverless), org_id index khắp;
-migrations Alembic (`migrations/`, head 0009) + `create_all()` cho dev. win_rates SQL GROUP BY; cascade erasure.
+migrations Alembic (`migrations/`, head 0020) + `create_all()` cho dev. win_rates SQL GROUP BY; cascade erasure.
 **Embed BỀN cho corpus lớn** (`outbound/embedding_store.py` `SqlEmbeddingStore`, `PERSIST_EMBEDDINGS`): lưu
 vector vào bảng `kb_vectors` theo sha256(text) → `EmbeddingRetriever(store=)` chỉ embed chunk MỚI, boot KHÔNG
 embed lại (giải bài "embed 200 file mỗi boot quá chậm"). embed cũng cắt input ≤6000 ký tự (tránh HTTP 400).
