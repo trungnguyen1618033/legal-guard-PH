@@ -35,12 +35,37 @@ def _load_dotenv() -> None:
 
 def _conn_str() -> str:
     _load_dotenv()
-    url = os.environ.get("CRDB_URL") or os.environ.get("DATABASE_URL") or (sys.argv[1] if len(sys.argv) > 1 else "")
+    # Ưu tiên biến CockroachDB (gồm vài cách gõ hay gặp) TRƯỚC DATABASE_URL (hay là placeholder Postgres local).
+    candidates = ("CRDB_URL", "COCKROACHDB_URL", "COCKROADDB_URL", "CORKROACHDB_URL",
+                  "COCKROACH_URL", "DATABASE_URL")
+    url = next((os.environ[k] for k in candidates if os.environ.get(k)), "")
+    if not url and len(sys.argv) > 1:
+        url = sys.argv[1]
     if not url:
-        sys.exit("Thiếu connection string. Đặt CRDB_URL=\"postgresql://…\" trong .env "
-                 "(hoặc export CRDB_URL, hoặc truyền làm tham số).")
-    # psycopg cần scheme postgresql:// (không phải cockroachdb://)
-    return url.replace("cockroachdb://", "postgresql://", 1)
+        sys.exit("Thiếu connection string. Đặt CRDB_URL=\"postgresql://…\" (hoặc COCKROADDB_URL) trong .env.")
+    # psycopg cần scheme postgresql:// thuần (bỏ cockroachdb:// và hậu tố SQLAlchemy +psycopg/+asyncpg)
+    url = url.replace("cockroachdb://", "postgresql://", 1)
+    url = url.replace("postgresql+psycopg://", "postgresql://", 1).replace("postgresql+asyncpg://", "postgresql://", 1)
+
+    # Nếu có user/password ở biến RIÊNG → ghép lại với percent-encode (tự xử ký tự đặc biệt @:/?#& trong pass).
+    from urllib.parse import quote, urlsplit, urlunsplit
+    pw = next((os.environ[k] for k in ("CRDB_PASSWORD", "COCKROACHDB_PASSWORD", "COCKROADDB_PASSWORD",
+                                       "CORKROADDB_PASSWORD", "CORKROACHDB_PASSWORD") if os.environ.get(k)), "")
+    usr = next((os.environ[k] for k in ("CRDB_USER", "COCKROACHDB_SQL_USER", "COCKROADDB_SQL_USER",
+                                        "CORKROACHDB_SQL_USER") if os.environ.get(k)), "")
+    if pw or usr:
+        p = urlsplit(url)
+        user = usr or (p.username or "")
+        password = pw or (p.password or "")
+        hostport = p.hostname or ""
+        if p.port:
+            hostport += f":{p.port}"
+        auth = quote(user, safe="")
+        if password:
+            auth += ":" + quote(password, safe="")
+        netloc = f"{auth}@{hostport}" if auth else hostport
+        url = urlunsplit((p.scheme, netloc, p.path, p.query, p.fragment))
+    return url
 
 
 def main() -> None:
