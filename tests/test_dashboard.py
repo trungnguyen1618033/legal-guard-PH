@@ -3,10 +3,10 @@ from legalguard.domain.dashboard import build_dashboard
 from legalguard.domain.models import AnalysisCase, Feedback
 
 
-def _case(cid, review=False, risks=None):
-    return AnalysisCase(id=cid, org_id="acme", tenant="VN", created_at="2026-06-25T00:00:00Z",
+def _case(cid, review=False, risks=None, counterparty="", created="2026-06-25T00:00:00Z"):
+    return AnalysisCase(id=cid, org_id="acme", tenant="VN", created_at=created,
                         lang="vi", contract_excerpt="", summary="", needs_human_review=review,
-                        risks=risks or [], fallbacks=[], trace=[])
+                        risks=risks or [], fallbacks=[], trace=[], counterparty=counterparty)
 
 
 def _fb(rating, ref):
@@ -30,6 +30,22 @@ def test_dashboard_aggregates_cases_and_risks():
     assert d["cases"]["total_risks"] == 3
     assert d["cases"]["risk_by_severity"] == {"high": 2, "medium": 1}
     assert d["top_risky_clauses"][0] == {"clause": "Phạt vi phạm", "count": 2}   # hay gặp nhất đầu bảng
+
+
+def test_dashboard_counterparties_moat():
+    # MOAT theo-đối-tác: gộp deal theo counterparty (số deal · rủi ro · hoạt động gần nhất); bỏ case chưa gắn.
+    cases = [
+        _case("c1", counterparty="ACME Corp", created="2026-06-01T00:00:00Z",
+              risks=[{"clause": "A", "severity": "high"}]),
+        _case("c2", counterparty="ACME Corp", created="2026-06-20T00:00:00Z",
+              risks=[{"clause": "B", "severity": "low"}]),
+        _case("c3", counterparty="Globex", created="2026-06-10T00:00:00Z"),
+        _case("c4", counterparty=""),   # chưa gắn đối tác → bỏ
+    ]
+    cps = build_dashboard(cases, [])["counterparties"]
+    assert [c["counterparty"] for c in cps] == ["ACME Corp", "Globex"]   # nhiều deal hơn lên đầu
+    acme = cps[0]
+    assert acme["deals"] == 2 and acme["risks"] == 2 and acme["last"] == "2026-06-20T00:00:00Z"
 
 
 def test_dashboard_feedback_and_gaps():

@@ -87,6 +87,7 @@
 
       <div class="card"><h2>Phân bố mức độ rủi ro</h2><div id="sev"></div></div>
       <div class="card"><h2>Điều khoản rủi ro hay gặp nhất</h2><table id="clauses"><tbody></tbody></table></div>
+      <div class="card"><h2>🧠 Đối tác đã làm việc <span class="muted" style="font-weight:400;font-size:13px">(bộ nhớ xuyên deal — càng nhiều deal, tư vấn càng sát)</span></h2><table id="counterparties"><tbody></tbody></table></div>
       <div class="card"><h2>Tín hiệu phản hồi</h2><div id="fb"></div></div>
       <div class="card"><h2>Chiến thuật thắng nhiều nhất (win-rate)</h2><table id="tactics"><tbody></tbody></table></div>
 
@@ -211,6 +212,11 @@ function render(d) {
   $('clauses').querySelector('tbody').innerHTML = (d.top_risky_clauses||[]).map(c =>
     `<tr><td>${esc(c.clause)}</td><td style="text-align:right"><b>${c.count}</b></td></tr>`).join('')
     || '<tr><td class="muted">Chưa có dữ liệu.</td></tr>';
+
+  $('counterparties').querySelector('tbody').innerHTML = (d.counterparties||[]).map(c =>
+    `<tr><td>${esc(c.counterparty)}</td><td style="text-align:right"><b>${c.deals}</b> deal · ${c.risks} rủi ro`
+    + `<br><span class="muted" style="font-size:12px">gần nhất ${esc((c.last||'').slice(0,10))}</span></td></tr>`).join('')
+    || '<tr><td class="muted">Chưa gắn đối tác cho hợp đồng nào. Nêu “đối tác: &lt;tên&gt;” khi rà soát để tích lũy bộ nhớ.</td></tr>';
 
   const fb = d.feedback.by_rating || {};
   $('fb').innerHTML = `Đúng: <b>${fb.helpful||0}</b> &nbsp; Sai: <b>${fb.wrong||0}</b> &nbsp; Thiếu: <b>${fb.incomplete||0}</b>`

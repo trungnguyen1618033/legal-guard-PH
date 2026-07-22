@@ -27,6 +27,24 @@ def build_dashboard(cases: list, feedbacks: list, win_rates: dict | None = None,
             if r.get("clause"):
                 clause_freq[r["clause"].strip()] += 1
 
+    # MOAT theo-đối-tác (system-of-record xuyên deal): gộp case theo counterparty → số deal · số rủi ro ·
+    # hoạt động gần nhất. Chỉ từ case.counterparty (không đụng memory store). Càng nhiều deal/đối tác = càng
+    # sâu bộ nhớ agentic + switching cost. Bỏ case chưa gắn đối tác.
+    cp_stats: dict[str, dict] = {}
+    for c in cases:
+        cp = (getattr(c, "counterparty", "") or "").strip()
+        if not cp:
+            continue
+        s = cp_stats.setdefault(cp, {"deals": 0, "risks": 0, "last": ""})
+        s["deals"] += 1
+        s["risks"] += len(getattr(c, "risks", None) or [])
+        created = getattr(c, "created_at", "") or ""
+        if created > s["last"]:
+            s["last"] = created
+    counterparties = sorted(
+        ({"counterparty": cp, **st} for cp, st in cp_stats.items()),
+        key=lambda x: (x["deals"], x["last"]), reverse=True)[:top_n]
+
     fb_rating: Counter = Counter(f.rating for f in feedbacks)
     weak = len({f.ref.strip().lower() for f in feedbacks
                 if f.rating in ("wrong", "incomplete") and (f.ref or "").strip()})
@@ -40,6 +58,7 @@ def build_dashboard(cases: list, feedbacks: list, win_rates: dict | None = None,
         "cases": {"total": len(cases), "needs_review": n_review,
                   "total_risks": total_risks, "risk_by_severity": dict(risk_sev)},
         "top_risky_clauses": [{"clause": c, "count": n} for c, n in clause_freq.most_common(top_n)],
+        "counterparties": counterparties,   # moat theo-đối-tác: deal đã làm với từng đối tác (system-of-record)
         "feedback": {"total": len(feedbacks), "by_rating": dict(fb_rating), "kb_gaps": weak},
         "top_tactics": [{"clause": c, "win_rate": rate, "samples": n} for c, rate, n in top_tactics],
     }
