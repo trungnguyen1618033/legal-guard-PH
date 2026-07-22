@@ -30,3 +30,11 @@ def test_memory_eval_semantic_perfect(tmp_path):
     r = evaluate(_seed(m, eps), qs)
     assert r["recall_at_k"] == 1.0
     assert all(r[g] for g in _GATES), {g: r[g] for g in _GATES}
+
+
+def test_memory_live_eval_harness_offline():
+    """Harness LIVE (embedder pluggable) chạy được OFFLINE với fake_embed → gate_pass (không cần QWEN key).
+    Bảo vệ chính code harness; đo trên embedding THẬT là chạy thủ công `python -m evaluation.memory_live_eval`."""
+    from evaluation.memory_live_eval import run
+    r = run(fake_embed, "fake", k=3)
+    assert r["gate_pass"] is True and r["recall_at_k"] == 1.0 and r["embedder"] == "fake"
