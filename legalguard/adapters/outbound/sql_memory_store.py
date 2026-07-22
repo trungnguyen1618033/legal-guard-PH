@@ -17,7 +17,7 @@ import uuid
 from sqlalchemy import Index, String, Text, delete, select, text
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
-from legalguard.adapters.outbound.embedding_store import _cosine
+from legalguard.adapters.outbound._crdb import cosine, vec_literal
 from legalguard.adapters.outbound.memory_store import _terms
 from legalguard.adapters.outbound.sql_case_repository import Base, get_engine
 from legalguard.domain.models import MemoryEpisode
@@ -33,18 +33,6 @@ _CP_BOOST = 2.0            # cùng đối tác = tín hiệu mạnh → luôn n�
 # hảo). Chọn 0.40: trên mean nhiễu (0.291), dưới mean related (0.548) → lọc phần lớn nhiễu, giữ related
 # mạnh; precision cuối dựa THÊM top-k + counterparty-boost. (0.15 cũ QUÁ THẤP — dưới cả mean nhiễu.)
 _MIN_SIM = 0.40
-
-
-def normalize_memory_url(url: str) -> str:
-    """URL CockroachDB → scheme `cockroachdb+psycopg://` (dialect chính thức + psycopg3; vanilla postgres
-    dialect KHÔNG parse được version string CRDB). Nhận biết qua 'cockroach' trong URL. Khác → giữ nguyên."""
-    if not url or "cockroach" not in url.lower():
-        return url
-    return re.sub(r"^(postgresql(\+\w+)?|cockroachdb(\+\w+)?)://", "cockroachdb+psycopg://", url, count=1)
-
-
-def _vec_literal(vec: list[float]) -> str:
-    return "[" + ",".join(repr(float(x)) for x in vec) + "]"
 
 
 class MemoryRow(Base):
@@ -72,7 +60,7 @@ class SqlMemory:
     Tự phát hiện CockroachDB → dùng ANN `<=>` in-DB; ngược lại brute-force RAM (hành vi cũ, test offline)."""
 
     def __init__(self, database_url: str, embed_fn=None) -> None:  # noqa: ANN001
-        self.engine = get_engine(normalize_memory_url(database_url))
+        self.engine = get_engine(database_url)
         # Chỉ tạo BẢNG memory (không create_all mọi bảng — tránh dựng cả schema lên CRDB).
         MemoryRow.__table__.create(bind=self.engine, checkfirst=True)
         self._embed_fn = embed_fn
@@ -123,7 +111,7 @@ class SqlMemory:
             self._ensure_vec_column(len(vec))
             with self.engine.begin() as c:
                 c.execute(text("UPDATE memory_episodes SET vec = :v WHERE id = :id"),
-                          {"v": _vec_literal(vec), "id": eid})
+                          {"v": vec_literal(vec), "id": eid})
         return eid
 
     def _candidates_ann(self, org_id: str, qv: list[float]) -> list[tuple[MemoryEpisode, float]]:
@@ -133,7 +121,7 @@ class SqlMemory:
                 "SELECT id, org_id, counterparty, kind, clause, content, created_at, case_id, "
                 "(vec <=> :q) AS dist FROM memory_episodes "
                 "WHERE org_id = :org AND vec IS NOT NULL ORDER BY vec <=> :q LIMIT :cap"),
-                {"q": _vec_literal(qv), "org": org_id, "cap": _ANN_CAP}).all()
+                {"q": vec_literal(qv), "org": org_id, "cap": _ANN_CAP}).all()
         out = []
         for r in rows:
             ep = MemoryEpisode(id=r[0], org_id=r[1], counterparty=r[2], kind=r[3], clause=r[4],
@@ -151,7 +139,7 @@ class SqlMemory:
         out = []
         for r in rows:
             if qv is not None and r.embedding:
-                rel = _cosine(qv, json.loads(r.embedding))
+                rel = cosine(qv, json.loads(r.embedding))
             else:
                 rel = float(len(qterms & _terms(f"{r.clause} {r.content}")))
             out.append((_row_to_episode(r), rel))

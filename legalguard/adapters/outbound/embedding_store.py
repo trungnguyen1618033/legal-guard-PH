@@ -15,28 +15,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import re
 
 from sqlalchemy import String, Text, event, select, text
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
+from legalguard.adapters.outbound._crdb import cosine, vec_literal
 from legalguard.adapters.outbound.sql_case_repository import Base, get_engine
-
-
-def normalize_crdb_url(url: str) -> str:
-    """URL CockroachDB → scheme `cockroachdb+psycopg://` (dialect chính thức + psycopg3; vanilla postgres
-    dialect KHÔNG parse nổi version string CRDB). Nhận biết qua 'cockroach' trong URL; khác → giữ nguyên.
-    (Trùng `normalize_memory_url` ở sql_memory_store — để RIÊNG đây tránh import vòng
-    embedding_store↔sql_memory_store; gộp về 1 module `_crdb.py` sau khi merge 2 nhánh.)"""
-    if not url or "cockroach" not in url.lower():
-        return url
-    return re.sub(r"^(postgresql(\+\w+)?|cockroachdb(\+\w+)?)://", "cockroachdb+psycopg://", url, count=1)
-
-
-def _vec_literal(vec: list[float]) -> str:
-    """list[float] → chuỗi '[...]' để bind cho cột VECTOR CockroachDB (psycopg không có kiểu vector riêng)."""
-    return "[" + ",".join(repr(float(x)) for x in vec) + "]"
 
 
 class KbVectorRow(Base):
@@ -50,13 +35,6 @@ def _hash(text_: str) -> str:
     return hashlib.sha256(text_.encode("utf-8")).hexdigest()
 
 
-def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    na = math.sqrt(sum(x * x for x in a))
-    nb = math.sqrt(sum(y * y for y in b))
-    return dot / (na * nb) if na and nb else 0.0
-
-
 class SqlEmbeddingStore:
     """Lưu/đọc embedding theo hash nội dung. Tính 1 lần, tái dùng qua các lần boot.
 
@@ -64,7 +42,7 @@ class SqlEmbeddingStore:
     False → brute-force (retriever tự xử). `enable_ann=False` để tắt cưỡng bức (A/B với brute-force)."""
 
     def __init__(self, database_url: str, enable_ann: bool = True) -> None:
-        self.engine = get_engine(normalize_crdb_url(database_url))
+        self.engine = get_engine(database_url)
         self._crdb = self.engine.dialect.name == "cockroachdb"
         # CRDB (anchor): chỉ tạo BẢNG kb_vectors (không dựng cả schema app lên cluster). Khác: create_all như cũ.
         if self._crdb:
@@ -164,7 +142,7 @@ class SqlEmbeddingStore:
                 with self.engine.begin() as c:
                     for id_, vec in new_pairs:
                         c.execute(text("UPDATE kb_vectors SET vec = :v WHERE id = :id"),
-                                  {"v": _vec_literal(vec), "id": id_})
+                                  {"v": vec_literal(vec), "id": id_})
             else:                                              # pgvector: bind qua kiểu Vector
                 from pgvector import Vector
                 with self.engine.begin() as c:
@@ -181,7 +159,7 @@ class SqlEmbeddingStore:
         for i, h in enumerate(ids):
             id_to_indices.setdefault(h, []).append(i)
         if self._crdb:
-            qv = _vec_literal(query_vec)                       # CRDB: bind vector qua chuỗi '[...]'
+            qv = vec_literal(query_vec)                       # CRDB: bind vector qua chuỗi '[...]'
         else:
             from pgvector import Vector                        # pgvector: bọc list→kiểu Vector
             qv = Vector(query_vec)
@@ -199,6 +177,6 @@ class SqlEmbeddingStore:
     @staticmethod
     def rank(query_vec: list[float], vectors: list[list[float]], top_k: int) -> list[tuple[int, float]]:
         """Cosine query ↔ từng vector → [(index, score)] top_k giảm dần (brute-force, cho fallback)."""
-        scored = [(i, _cosine(query_vec, v)) for i, v in enumerate(vectors)]
+        scored = [(i, cosine(query_vec, v)) for i, v in enumerate(vectors)]
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[:top_k]
