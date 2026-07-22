@@ -522,9 +522,11 @@ class AnalysisService:
         # đụng bước PHÁT HIỆN rủi ro (vẫn flagship) → accuracy phân tích không đổi. Rỗng → lookup_llm → reasoner.
         self.counter_llm = counter_llm or self.lookup_llm
 
-    def record_outcome(self, outcome: Outcome) -> str | None:
+    def record_outcome(self, outcome: Outcome, counterparty: str = "") -> str | None:
         rid = self.outcomes.record(outcome) if self.outcomes else None
-        self._remember_outcome(outcome)   # bộ nhớ agent (failure-safe, guarded) — ngoài win-rate flywheel
+        self._remember_outcome(outcome, counterparty)   # bộ nhớ agent (failure-safe, guarded)
+        if counterparty:                                # AUTO-CONSOLIDATE: khép flywheel (gộp hồ sơ đối tác)
+            self.consolidate_memory(outcome.org_id, counterparty)
         return rid
 
     def _remember_outcome(self, outcome: Outcome, counterparty: str = "") -> None:
@@ -550,10 +552,11 @@ class AnalysisService:
             _log.warning("recall memory lỗi (bỏ qua): %s", exc)
             return []
 
-    def consolidate_memory(self, org_id: str, counterparty: str) -> str:
+    def consolidate_memory(self, org_id: str, counterparty: str, min_episodes: int = 2) -> str:
         """CONSOLIDATION (nâng ①): gộp mọi tình tiết của 1 đối tác → 1 HỒ SƠ cô đọng (`kind=profile`),
         lưu với id CỐ ĐỊNH `profile:{org}:{cp}` → UPSERT (≤1 hồ sơ/đối tác, không phình). Recall sau trả hồ
-        sơ này (cùng counterparty → boost). Guarded flag+port; TẤT ĐỊNH (không LLM); failure-safe. Trả profile text."""
+        sơ này (cùng counterparty → boost). Chỉ gộp khi ≥ `min_episodes` tình tiết (bỏ hồ sơ 1-tình-tiết vô
+        nghĩa). Guarded flag+port; TẤT ĐỊNH (không LLM); failure-safe. Trả profile text."""
         if not (self.agentic_memory and self.memory and (counterparty or "").strip()):
             return ""
         try:
@@ -561,6 +564,8 @@ class AnalysisService:
 
             from legalguard.domain.memory_consolidation import consolidate_counterparty
             eps = self.memory.list_by_counterparty(org_id, counterparty)
+            if len(eps) < max(1, min_episodes):        # chưa đủ tình tiết → hồ sơ chưa đáng gộp
+                return ""
             profile = consolidate_counterparty(counterparty, eps)
             if profile:
                 self.memory.remember(MemoryEpisode(
@@ -687,6 +692,8 @@ class AnalysisService:
                    memory_context=format_memory_context(mem), lang=lang)
         # Nhớ vòng này theo ĐỐI TÁC (moat: đối tác này ép/nhượng gì qua vòng/deal) — guarded, redact, failure-safe.
         self._remember_negotiation(org_id or "", cp, partner_message, r)
+        if cp and org_id:                             # AUTO-CONSOLIDATE: khép flywheel (hồ sơ đối tác tự cập nhật)
+            self.consolidate_memory(org_id, cp)
         if self.observer:
             self.observer.event("negotiate_round", {"status": r.status, "grounded": r.grounded})
         return asdict(r)

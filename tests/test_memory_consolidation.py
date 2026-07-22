@@ -70,10 +70,30 @@ def test_consolidate_memory_creates_profile():
 def test_consolidate_memory_upsert_no_proliferation():
     svc = _svc()
     svc.memory.remember(_ep("ACME", "Thanh toán", "x", org="org1"))
+    svc.memory.remember(_ep("ACME", "Trọng tài", "y", org="org1"))   # ≥2 tình tiết (min_episodes)
     svc.consolidate_memory("org1", "ACME")
     svc.consolidate_memory("org1", "ACME")           # gọi lại → KHÔNG tạo hồ sơ thứ 2
-    profiles = [e for e in svc.memory.list_by_counterparty("org1", "ACME") if e.kind == "profile"]
+    profiles = [e for e in svc.memory.list_by_counterparty("org1", "ACME", include_history=True)
+                if e.kind == "profile"]
     assert len(profiles) == 1                        # id cố định → upsert
+
+
+def test_consolidate_memory_min_episodes_skips_trivial():
+    svc = _svc()
+    svc.memory.remember(_ep("ACME", "Thanh toán", "chỉ 1 tình tiết", org="org1"))
+    assert svc.consolidate_memory("org1", "ACME") == ""   # 1 < min_episodes=2 → bỏ (hồ sơ vô nghĩa)
+
+
+def test_record_outcome_counterparty_auto_consolidates():
+    from legalguard.domain.models import Outcome
+    svc = _svc()
+    def oc(cid, clause, when): return Outcome(id=cid, org_id="org1", case_id="c", clause=clause,
+                                              tactic="giữ", result="accepted", created_at=when)
+    svc.record_outcome(oc("o1", "Thanh toán", "2026-07-01"), counterparty="ACME")   # 1 tình tiết → chưa gộp
+    svc.record_outcome(oc("o2", "Trọng tài", "2026-07-02"), counterparty="ACME")    # 2 → auto-consolidate
+    profiles = [e for e in svc.memory.list_by_counterparty("org1", "ACME", include_history=True)
+                if e.kind == "profile"]
+    assert len(profiles) == 1 and "HỒ SƠ ĐỐI TÁC ACME" in profiles[0].content
 
 
 def test_consolidate_memory_flag_off():
