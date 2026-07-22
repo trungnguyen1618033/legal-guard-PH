@@ -614,14 +614,33 @@ class AnalysisService:
         # CÔ LẬP org (privacy): chỉ dùng outcome của CHÍNH công ty này, không rò từ công ty khác.
         rates = self.outcomes.win_rates(org_id) if self.outcomes else {}
         # Bộ nhớ agent theo-đối-tác: recall tình tiết deal/vòng trước (guarded flag+org) → THAM KHẢO cho vòng
-        # này. Cô lập org; [] nếu flag OFF → memory_context="" → prompt Y HỆT cũ (không đổi hành vi mặc định).
-        mem = self.recall_memory(org_id or "", f"{partner_message}\n{deal_context}", k=5) if org_id else []
+        # này, ƯU TIÊN cùng counterparty. Cô lập org; [] nếu flag OFF → memory_context="" → prompt Y HỆT cũ.
+        cp = (position.counterparty if position else "") or ""
+        mem = self.recall_memory(org_id or "", f"{partner_message}\n{deal_context}",
+                                 counterparty=cp, k=5) if org_id else []
         r = _round(self.reasoner, deal_context=deal_context, partner_message=partner_message,
                    position=position, state=state, tactics_context=format_tactics_context(rates),
                    memory_context=format_memory_context(mem), lang=lang)
+        # Nhớ vòng này theo ĐỐI TÁC (moat: đối tác này ép/nhượng gì qua vòng/deal) — guarded, redact, failure-safe.
+        self._remember_negotiation(org_id or "", cp, partner_message, r)
         if self.observer:
             self.observer.event("negotiate_round", {"status": r.status, "grounded": r.grounded})
         return asdict(r)
+
+    def _remember_negotiation(self, org_id: str, counterparty: str, partner_message: str, r) -> None:
+        """Ghi 1 tình tiết đàm phán theo-đối-tác (đối tác nêu gì → ta đánh giá/kết cục). Guarded flag+org+
+        grounded (bỏ khung offline). REDACT partner_message trước ghi. FAILURE-SAFE (không chặn vòng đàm phán)."""
+        if not (self.agentic_memory and self.memory and org_id and getattr(r, "grounded", False)):
+            return
+        try:
+            from datetime import datetime, timezone
+            pm, _ = redact(partner_message or "")
+            content = f"đối tác: {pm[:180]} · [{r.status}] {(r.assessment or '')[:180]}".strip(" ·")
+            self.memory.remember(MemoryEpisode(
+                id="", org_id=org_id, counterparty=counterparty, kind="negotiation", clause="",
+                content=content, created_at=datetime.now(timezone.utc).isoformat(), case_id=""))
+        except Exception as exc:  # noqa: BLE001 — bộ nhớ phụ, không chặn đàm phán
+            _log.warning("remember negotiation lỗi (bỏ qua): %s", exc)
 
     def compile_memo(self, items: list[dict], title: str = "", protected_party: str = "") -> dict:
         """Phase C: gộp điều khoản đã chọn → bản ghi nhớ sửa đổi (markdown + rows) cho luật sư. Thuần."""

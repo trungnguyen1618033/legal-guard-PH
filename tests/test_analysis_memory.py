@@ -13,6 +13,15 @@ class _DummyLLM:
         return None
 
 
+class _RoundLLM:
+    """Reasoner giả available=True → negotiate_round trả grounded=True (để nhớ vòng đàm phán)."""
+    name = "qwen"
+    available = True
+
+    def complete(self, prompt, *, system=None):   # noqa: ANN001
+        return ""       # _parse_round("") → khung fallback, grounded vẫn True
+
+
 class _FakeCases:
     def delete(self, case_id):   # noqa: ANN001
         return True
@@ -72,3 +81,22 @@ def test_remember_failure_never_breaks_outcome():
 
     svc = _svc(memory=_BoomMemory(), flag=True)
     svc.record_outcome(_outcome())        # KHÔNG được ném lỗi (failure-safe)
+
+
+def test_negotiate_remembers_by_counterparty():
+    from legalguard.domain.models import NegotiationPosition
+    mem = InMemoryMemory()
+    svc = AnalysisService(reasoner=_RoundLLM(), kb=object(), memory=mem, agentic_memory=True)
+    svc.negotiate_round("bối cảnh deal", "chúng tôi đòi phạt 15%",
+                        position=NegotiationPosition(counterparty="ACME"), org_id="org1")
+    got = svc.recall_memory("org1", "phạt", counterparty="ACME")
+    assert got and got[0].kind == "negotiation" and got[0].counterparty == "ACME"
+
+
+def test_negotiate_no_remember_when_flag_off():
+    from legalguard.domain.models import NegotiationPosition
+    mem = InMemoryMemory()
+    svc = AnalysisService(reasoner=_RoundLLM(), kb=object(), memory=mem, agentic_memory=False)
+    svc.negotiate_round("bối cảnh", "đòi phạt 15%",
+                        position=NegotiationPosition(counterparty="ACME"), org_id="org1")
+    assert svc.recall_memory("org1", "phạt", counterparty="ACME") == []   # flag OFF → không ghi

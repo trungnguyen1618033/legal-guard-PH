@@ -59,6 +59,7 @@ class NegotiationPosition:
     relationship: str = "new"       # new | repeat
     alternatives: bool = False      # có BATNA (đối tác/nhà cung cấp thay thế) không
     protected_party: str = ""       # "bên mình bảo vệ" (vd Bên Vay/Bên B/Buyer); rỗng = mặc định SME {country}
+    counterparty: str = ""          # bên ĐỐI TÁC (vd 'ACME Corp'); trục nhớ theo-đối-tác qua vòng/deal (agentic memory)
 
 
 @dataclass
