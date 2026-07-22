@@ -18,6 +18,7 @@ import tempfile
 import unicodedata
 from pathlib import Path
 
+from legalguard.domain.memory_consolidation import consolidate_counterparty
 from legalguard.domain.models import MemoryEpisode
 
 _REPORT = Path("evaluation/memory_report.json")
@@ -100,12 +101,19 @@ def evaluate(memory, queries: list[dict], k: int = 3) -> dict:  # noqa: ANN001
             row["pass"] = exp in ids
             row["rank"] = ids.index(exp) + 1 if exp in ids else None
         details.append(row)
+    # CONSOLIDATION: gộp hồ sơ DELTA → phải non-rỗng + phản ánh vị thế HIỆN TẠI (bi-temporal): chứa "20%"
+    # (stance mới s_new) và KHÔNG chứa "25%" (s_old đã superseded, list_by_counterparty bỏ). Gate cả
+    # consolidation LẪN tương tác consolidation×supersede.
+    prof = consolidate_counterparty("DELTA", memory.list_by_counterparty("orgA", "DELTA"))
+    consolidation_ok = bool(prof) and "20%" in prof and "25%" not in prof
+    details.append({"name": "consolidation-vị-thế-hiện-tại", "got": prof[:90], "pass": consolidation_ok})
     return {
         "recall_at_k": round(hits / rel_total, 3) if rel_total else 0.0,
         "mrr": round(mrr_sum / rel_total, 3) if rel_total else 0.0,
         "org_isolation": isolation_ok,       # PHẢI True (không rò org khác)
         "noise_rejection": noise_ok,         # PHẢI True (truy vấn nhảm → rỗng)
         "supersede_ok": supersede_ok,        # PHẢI True (bi-temporal: không recall vị thế đã superseded)
+        "consolidation_ok": consolidation_ok,  # PHẢI True (hồ sơ gộp = vị thế HIỆN TẠI, bỏ superseded)
         "k": k, "relevance_queries": rel_total, "details": details,
     }
 
@@ -134,7 +142,7 @@ def run(write: bool = True) -> dict:
         print(f"\n=== {name} ===")
         print(f"  Recall@{r['k']} = {r['recall_at_k']:.0%} | MRR = {r['mrr']:.3f} | "
               f"cô-lập-org = {'✅' if r['org_isolation'] else '❌'} | chống-nhiễu = {'✅' if r['noise_rejection'] else '❌'} | "
-              f"supersede = {'✅' if r['supersede_ok'] else '❌'}")
+              f"supersede = {'✅' if r['supersede_ok'] else '❌'} | consolidation = {'✅' if r['consolidation_ok'] else '❌'}")
         for row in r["details"]:
             tag = "✅" if row.get("pass") else "❌"
             print(f"   [{tag}] {row['name']}: {row['got']}")
