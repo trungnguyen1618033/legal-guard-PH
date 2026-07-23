@@ -49,6 +49,9 @@ class Settings(BaseSettings):
 
     # App
     default_tenant: str = "VN"
+    # ĐA-TỔ-CHỨC kênh chat: map "slack:<team_id>" / "zalo:<oa_id>" / "web:<id>" → org_id (JSON). RỖNG =
+    # ĐƠN tổ chức (mọi kênh → org 'default', hành vi hiện tại). Bật để cô lập dữ liệu/bộ nhớ nhiều công ty.
+    channel_org_map: dict[str, str] = {}
     knowledge_base_dir: str = "knowledge_base"
     rerank_enabled: bool = False     # bật LLM rerank (tốn thêm call); mặc định dùng hybrid RRF
     cross_encoder_rerank: bool = False  # bật cross-encoder rerank (Qwen qwen3-rerank) — ưu tiên hơn LLM rerank

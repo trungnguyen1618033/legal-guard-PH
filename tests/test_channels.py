@@ -596,6 +596,9 @@ def test_process_export_doc_uploads_commented_docx():
         default_tenant = "VN"
         service = _Svc()
 
+        def resolve_org(self, workspace_id="", conversation_id=""):   # đa-tổ-chức (map rỗng → default)
+            return default_org("VN")
+
         def reply_ex(self, key, **kw):
             return ChatReply("Đang tạo file Word có nhận xét…", "export_doc", "case-1")
 

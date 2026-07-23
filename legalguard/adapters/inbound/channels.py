@@ -52,7 +52,7 @@ from legalguard.domain.ports import (
     LLMError,
 )
 from legalguard.domain.redaction import redact
-from legalguard.domain.tenants import default_org
+from legalguard.domain.tenants import Organization, default_org, resolve_org
 
 # Tín hiệu nội dung là hợp đồng (→ rà soát); ngược lại coi là câu hỏi tiếp (follow-up).
 _SIGNALS = ("hợp đồng", "điều khoản", "trọng tài", "thanh toán", "kiểm định", "giao hàng",
@@ -771,11 +771,15 @@ class ChatHandler:
 
     def __init__(self, service: AnalysisService, parser: DocumentParserPort,
                  store: ConversationStorePort, default_tenant: str = "VN",
-                 rank_fn=None, default_deep: bool = True) -> None:
+                 rank_fn=None, default_deep: bool = True,
+                 org_map: "dict[str, str] | None" = None) -> None:
         self.service = service
         self.parser = parser
         self.store = store
         self.default_tenant = default_tenant
+        # ĐA-TỔ-CHỨC: map "slack:<team>"/"zalo:<oa>"/"web:<id>" → org_id. Rỗng → mọi kênh = org 'default'
+        # (ĐƠN tổ chức, hành vi hiện tại). Truyền từ settings.channel_org_map ở container.
+        self.org_map = org_map or {}
         # Slack rà soát: MẶC ĐỊNH DEEP (legal = chất lượng trước); fast chỉ khi user xin 'nhanh'. Tắt = False.
         self._default_deep = default_deep
         # rank_fn (cross-encoder, dùng chung với KB retrieval): chấm điểm LIÊN QUAN tin-thread vs câu
@@ -791,11 +795,17 @@ class ChatHandler:
         with self._locks_guard:
             return self._locks.setdefault(conversation_id, threading.Lock())
 
+    def resolve_org(self, workspace_id: str = "", conversation_id: str = "") -> Organization:
+        """Resolve org theo workspace (đa-tổ-chức); surface suy từ prefix conversation_id
+        ('slack:'/'zalo:'/'web:'). Map rỗng → org 'default' (đơn tổ chức)."""
+        surface = conversation_id.split(":", 1)[0] if ":" in conversation_id else "web"
+        return resolve_org(surface, workspace_id, self.org_map, self.default_tenant)
+
     def reply_ex(self, conversation_id: str, text: str | None = None, attachment: bytes | None = None,
                  filename: str | None = None, lang: str = "vi",
                  thread_msgs: list[dict] | None = None, bot_uid: str = "",
                  asker_id: str = "", names: dict[str, str] | None = None,
-                 in_thread: bool = False,
+                 in_thread: bool = False, workspace_id: str = "",
                  on_progress: "Callable[[dict], None] | None" = None) -> ChatReply:
         with self._conv_lock(conversation_id):     # tuần tự hóa theo hội thoại (chống race)
             conv = self.store.get(conversation_id) or Conversation(id=conversation_id)
@@ -821,7 +831,7 @@ class ChatHandler:
                 conv.updated_at = datetime.now(timezone.utc).isoformat()
                 self.store.save(conv)               # save #1 — tin user đã BỀN (trước điểm có thể chết)
             res = self._handle(conv, text, attachment, filename, lang, thread_context, in_thread,
-                               on_progress=on_progress)
+                               workspace_id=workspace_id, on_progress=on_progress)
             conv.add("assistant", res.text)
             self._summarize(conv)
             conv.updated_at = datetime.now(timezone.utc).isoformat()   # 'last active'
@@ -847,9 +857,9 @@ class ChatHandler:
                 pass
 
     def _handle(self, conv: Conversation, text, attachment, filename, lang,
-                thread_context: str = "", in_thread: bool = False,
+                thread_context: str = "", in_thread: bool = False, workspace_id: str = "",
                 on_progress: "Callable[[dict], None] | None" = None) -> ChatReply:
-        org = default_org(self.default_tenant)
+        org = self.resolve_org(workspace_id, conv.id)   # đa-tổ-chức: workspace→org (map rỗng → 'default')
         # 'SỬA LẠI' đang chờ: user vừa bấm 'Sửa lại' → bot hỏi 'muốn sửa gì'; tin NÀY là YÊU CẦU SỬA →
         # soạn lại RIÊNG điều khoản theo ý, GIỮ NGUYÊN bài phân tích (KHÔNG rà lại). One-shot: xong xoá cờ.
         # Kèm file → là HĐ mới, bỏ chờ + rà soát bình thường (rơi xuống dưới).
@@ -1691,7 +1701,8 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
              thread_ts: str | None = None, max_bytes: int = 10 * 1024 * 1024,
              supports_buttons: bool = False, reply_prefix: str = "",
              thread_fetch: tuple[str, str] | None = None, thread_required: bool = False,
-             bot_uid: str = "", asker_id: str = "", resolve_names: bool = False) -> None:
+             bot_uid: str = "", asker_id: str = "", resolve_names: bool = False,
+             workspace_id: str = "") -> None:
     """Chạy nền: tải file (nếu có) + [đọc thread ngữ cảnh] + analyze + gửi reply (webhook chỉ ack nhanh).
 
     `thread_fetch=(channel, root_ts)`: đọc toàn bộ thread làm NGỮ CẢNH (catch-up khi mention giữa hội
@@ -1778,12 +1789,12 @@ def _process(handler: ChatHandler, sender: ChatSenderPort, key: str, send_to: st
         res = handler.reply_ex(key, text=text, attachment=attachment, filename=filename,
                                thread_msgs=thread_msgs, bot_uid=bot_uid,
                                asker_id=asker_id, names=names,
-                               in_thread=thread_fetch is not None,
+                               in_thread=thread_fetch is not None, workspace_id=workspace_id,
                                on_progress=on_progress)
         reply = (reply_prefix + res.text) if reply_prefix else res.text   # vd "🔄 (cập nhật…)" khi chạy lại từ tin sửa
         if res.kind == "export_doc" and res.ref:   # LỆNH CHAT xuất file: gửi ack + dựng Word có comment & upload
             _safe_send(sender, send_to, reply, thread_ts)   # ack "đang tạo file…"
-            org = default_org(handler.default_tenant)
+            org = handler.resolve_org(workspace_id, key)   # đa-tổ-chức: cùng org với reply
             _send_comment_doc(handler.service, sender, org.id, res.ref, send_to, thread_ts)
             return
         if supports_buttons and res.kind:          # gắn nút feedback (Slack) cho câu trả lời thật
@@ -1882,6 +1893,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 return {"challenge": payload.get("challenge")}
             event = payload.get("event") or {}
             etype = event.get("type", "message")
+            team_id = payload.get("team_id", "")   # đa-tổ-chức: workspace Slack → org (map rỗng → default)
             # SỬA TIN NHẮN → chạy lại CHỈ nếu là câu TRA CỨU (stateless). Đặt TRƯỚC guard bỏ-qua subtype.
             # KHÔNG chạy lại tin phân tích/đàm phán (re-run sẽ merge nego ledger lần 2 / lệch deal context).
             if etype == "message" and event.get("subtype") == "message_changed":
@@ -1910,7 +1922,8 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 if slack_sender and slack_sender.available:
                     background.add_task(_process, handler, slack_sender,
                                         f"slack:{ch2}:{th2}", ch2, new_text, None, None, th2,
-                                        max_upload_bytes, True, "_(Cập nhật theo tin đã sửa)_\n")
+                                        max_upload_bytes, True, "_(Cập nhật theo tin đã sửa)_\n",
+                                        workspace_id=team_id)
                 return {"ok": True}
             # Bỏ qua tin của bot (tránh vòng lặp tự trả lời) + các subtype không phải tin mới
             # (message_changed/deleted...). file_share = tin nhắn kèm file → vẫn xử lý.
@@ -1981,7 +1994,7 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                     url, fn, thread_ts, max_upload_bytes, True,
                                     thread_fetch=thread_fetch, thread_required=thread_required,
                                     bot_uid=bot_uid, asker_id=event.get("user", ""),
-                                    resolve_names=resolve_names)
+                                    resolve_names=resolve_names, workspace_id=team_id)
                 return {"ok": True}
             return {"ok": True, "reply": handler.reply(key, text=text)}
 
@@ -2005,7 +2018,8 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                 ctx = json.loads(action.get("value") or "{}")
             except json.JSONDecodeError:
                 ctx = {}
-            org = default_org(handler.default_tenant)
+            team_id = (payload.get("team") or {}).get("id", "")   # đa-tổ-chức: workspace Slack → org
+            org = handler.resolve_org(team_id, f"slack:{(payload.get('channel') or {}).get('id', '')}")
             user = (payload.get("user") or {}).get("id", "")
 
             if aid == "retry_run":                 # nút 🔁 THỬ LẠI sau lỗi → chạy lại payload đã lưu
@@ -2015,7 +2029,8 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
                                              {"text": "Phiên thử lại đã hết hạn — vui lòng gửi lại tin nhắn."})
                 conv_key, send_to, r_text, r_url, r_fn, r_thread = payload_r   # conv_key riêng với retry_id
                 background.add_task(_process, handler, slack_sender, conv_key, send_to,
-                                    r_text, r_url, r_fn, r_thread, max_upload_bytes, True)
+                                    r_text, r_url, r_fn, r_thread, max_upload_bytes, True,
+                                    workspace_id=team_id)
                 return await _slack_update_msg(payload,
                                          {"text": "Đang thử lại — kết quả sẽ được gửi vào thread…"})
 
@@ -2178,11 +2193,12 @@ def build_channels_router(handler: ChatHandler, *, slack_signing_secret: str = "
             message = payload.get("message") or {}
             text = message.get("text", "")
             user_id = (payload.get("sender") or {}).get("id", "")
+            oa_id = str(payload.get("oa_id") or "")   # đa-tổ-chức: OA Zalo → org (map rỗng → default)
             key = f"zalo:{user_id}"
             if zalo_sender and zalo_sender.available:
                 url, fn = _zalo_file(message)
                 background.add_task(_process, handler, zalo_sender, key, user_id, text,
-                                    url, fn, None, max_upload_bytes)
+                                    url, fn, None, max_upload_bytes, workspace_id=oa_id)
                 return {"ok": True}
             return {"reply": handler.reply(key, text=text)}
 
