@@ -96,3 +96,14 @@ class InMemoryMemory:
         before = len(self._episodes)
         self._episodes = [ep for ep in self._episodes if ep.case_id != case_id]
         return before - len(self._episodes)
+
+    def delete_by_counterparty(self, org_id: str, counterparty: str) -> int:
+        """Erasure theo ĐỐI TÁC: xóa MỌI tình tiết của counterparty trong org (gồm negotiation/profile
+        lưu case_id=""). Cô lập org; so counterparty không-phân-biệt-hoa (unicode). Trả số đã xóa."""
+        cp = _norm(counterparty)
+        if not org_id or not cp:
+            return 0
+        before = len(self._episodes)
+        self._episodes = [ep for ep in self._episodes
+                          if not (ep.org_id == org_id and _norm(ep.counterparty) == cp)]
+        return before - len(self._episodes)

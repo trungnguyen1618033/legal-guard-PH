@@ -221,3 +221,19 @@ class SqlMemory:
             n = s.execute(delete(MemoryRow).where(MemoryRow.case_id == case_id)).rowcount
             s.commit()
         return int(n or 0)
+
+    def delete_by_counterparty(self, org_id: str, counterparty: str) -> int:
+        """Erasure theo ĐỐI TÁC: xóa MỌI tình tiết của counterparty trong org (gồm negotiation/profile lưu
+        case_id=""). Cô lập org; so counterparty unicode-lower ở PYTHON (khớp recall/supersede, tránh
+        func.lower ASCII-only trên sqlite). Trả số đã xóa."""
+        cp = (counterparty or "").strip().lower()
+        if not org_id or not cp:
+            return 0
+        with Session(self.engine) as s:
+            rows = list(s.scalars(select(MemoryRow).where(MemoryRow.org_id == org_id)))
+            ids = [r.id for r in rows if (r.counterparty or "").strip().lower() == cp]
+            if not ids:
+                return 0
+            n = s.execute(delete(MemoryRow).where(MemoryRow.id.in_(ids))).rowcount
+            s.commit()
+        return int(n or 0)

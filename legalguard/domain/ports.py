@@ -214,6 +214,10 @@ class MemoryPort(Protocol):
 
     def delete_by_case(self, case_id: str) -> int: ...   # cascade right-to-erasure (xóa case → xóa memory)
 
+    # Erasure theo ĐỐI TÁC: xóa MỌI tình tiết của 1 counterparty trong org (kể cả negotiation/profile lưu
+    # case_id="" — không xóa được bằng delete_by_case). Cô lập org. Dùng khi không còn case nào của đối tác.
+    def delete_by_counterparty(self, org_id: str, counterparty: str) -> int: ...
+
 
 @runtime_checkable
 class ObligationRepositoryPort(Protocol):

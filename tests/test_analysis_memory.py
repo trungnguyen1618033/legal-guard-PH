@@ -26,6 +26,12 @@ class _FakeCases:
     def delete(self, case_id):   # noqa: ANN001
         return True
 
+    def get(self, case_id):   # noqa: ANN001 — delete_case nạp case trước khi xóa (erasure theo đối tác)
+        return None
+
+    def list_by_org(self, org_id, limit=20):   # noqa: ANN001
+        return []
+
 
 def _svc(memory=None, flag=False, cases=None):
     return AnalysisService(reasoner=_DummyLLM(), kb=object(), cases=cases,

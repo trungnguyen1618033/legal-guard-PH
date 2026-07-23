@@ -750,6 +750,7 @@ class AnalysisService:
         orphan dữ liệu cá nhân). Trả True nếu case tồn tại & đã xóa."""
         if self.cases is None:
             return False
+        case = self.cases.get(case_id)               # nạp TRƯỚC khi xóa → biết org + đối tác cho erasure
         deleted = self.cases.delete(case_id)
         if deleted:                                  # chỉ cascade khi case thực sự bị xóa
             if self.outcomes is not None:
@@ -759,8 +760,26 @@ class AnalysisService:
             if self.obligations is not None:
                 self.obligations.delete_by_case(case_id)
             if self.memory is not None:
-                self.memory.delete_by_case(case_id)   # cascade: xóa tình tiết bộ nhớ của case
+                self.memory.delete_by_case(case_id)   # cascade: xóa tình tiết bộ nhớ CỦA CASE
+                self._purge_counterparty_memory_if_orphan(case)   # + tình tiết TỔNG-HỢP theo đối tác
         return deleted
+
+    def _purge_counterparty_memory_if_orphan(self, case) -> None:
+        """Erasure #1: negotiation/profile lưu `case_id=""` → `delete_by_case` KHÔNG dọn được. Nếu SAU khi
+        xóa case này KHÔNG còn case nào của đối tác trong org → purge toàn bộ tình tiết theo-đối-tác (không
+        còn deal backing = orphan dữ liệu cá nhân). Còn case khác → GIỮ (profile vẫn phục vụ deal đó).
+        Failure-safe: erasure phụ này lỗi KHÔNG chặn việc xóa case đã thành công (log để theo dõi tuân thủ)."""
+        cp = (getattr(case, "counterparty", "") or "").strip() if case else ""
+        org_id = getattr(case, "org_id", "") if case else ""
+        if not (cp and org_id and self.cases is not None and self.memory is not None):
+            return
+        try:
+            remaining = [c for c in self.cases.list_by_org(org_id, limit=100000)
+                         if (getattr(c, "counterparty", "") or "").strip().lower() == cp.lower()]
+            if not remaining:
+                self.memory.delete_by_counterparty(org_id, cp)
+        except Exception:  # noqa: BLE001 — case đã xóa; purge tổng-hợp best-effort, log cho tuân thủ
+            _log.exception("Không purge được bộ nhớ theo-đối-tác khi erasure (org=%s, cp=%s)", org_id, cp)
 
     # ── Nghĩa vụ & hạn chót (SAU KÝ) — API dùng chung cho MỌI kênh (HTTP/Slack/Zalo/MCP) ──
     def extract_and_store_obligations(self, contract_text: str, org_id: str, case_id: str,
