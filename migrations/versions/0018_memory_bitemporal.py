@@ -20,8 +20,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("memory_episodes", sa.Column("valid_to", sa.String(), nullable=False, server_default=""))
-    op.add_column("memory_episodes", sa.Column("superseded_by", sa.String(), nullable=False, server_default=""))
+    # IDEMPOTENT: SqlMemory.__init__ self-heal (ALTER ADD COLUMN IF NOT EXISTS valid_to/superseded_by) có thể
+    # đã thêm 2 cột này lúc APP BOOT trên cluster còn ở 0017 → op.add_column TRẦN sẽ 'DuplicateColumn' → chain
+    # KẸT ở 0017 (không lên được 0019/0020 = cases/conversations.counterparty). Kiểm cột tồn tại trước khi thêm
+    # (inspector portable sqlite/postgres/CRDB) → chạy được dù app đã self-heal.
+    existing = {c["name"] for c in sa.inspect(op.get_bind()).get_columns("memory_episodes")}
+    if "valid_to" not in existing:
+        op.add_column("memory_episodes", sa.Column("valid_to", sa.String(), nullable=False, server_default=""))
+    if "superseded_by" not in existing:
+        op.add_column("memory_episodes",
+                      sa.Column("superseded_by", sa.String(), nullable=False, server_default=""))
 
 
 def downgrade() -> None:
