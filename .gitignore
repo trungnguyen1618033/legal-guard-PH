@@ -287,3 +287,10 @@ docs/*.zip
 
 # npx skills lockfile (artifact CRDB Agent Skills)
 skills-lock.json
+
+# macOS
+.DS_Store
+
+# fast_bench artifacts run-specific (GIỮ fast_bench_report_shipped.json — trust.py đọc)
+scripts/fast_bench_report.json
+scripts/fast_bench_report_verified.json
