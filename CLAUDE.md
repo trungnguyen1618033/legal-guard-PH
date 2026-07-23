@@ -415,8 +415,13 @@ khi bạn ngủ" (đúng tinh thần Autopilot Agent). Cô lập org_id.
 
 Security (`docs/security.md`): API-key auth + per-company scoping (`API_KEYS="key:org:VN"`), PII
 redaction (`domain/redaction.py`), prompt-injection hardening, upload limit, **right-to-erasure CASCADE**
-(`delete_case` xóa case + outcomes (`delete_by_case`) + feedback (`delete_by_ref`) — không để orphan dữ liệu
-cá nhân, đúng PDPD/GDPR), rate limiting (`RATE_LIMIT_PER_MIN`), LLM retry/backoff (`adapters/outbound/_http.py`).
+(`delete_case` xóa case + outcomes (`delete_by_case`) + feedback (`delete_by_ref`) + **memory theo-đối-tác**
+(`delete_by_case` cho tình tiết gắn case; `delete_by_counterparty` cho negotiation/profile `case_id=""` khi
+KHÔNG còn case nào của đối tác) — không để orphan dữ liệu cá nhân, đúng PDPD/GDPR), rate limiting
+(`RATE_LIMIT_PER_MIN`), LLM retry/backoff (`adapters/outbound/_http.py`).
+**ĐA-TỔ-CHỨC kênh chat** (`resolve_org`, `tenants.py`): API dùng `API_KEYS` (org theo key); Slack/Zalo/web
+dùng **`CHANNEL_ORG_MAP`** (JSON `{"slack:<team_id>":"org","zalo:<oa_id>":"org"}`) → cô lập dữ liệu/bộ nhớ/
+win-rate theo `org_id` từng workspace. RỖNG = ĐƠN tổ chức (mọi kênh → org `default`, mặc định hiện tại).
 CI: `.github/workflows/ci.yml` (ruff + pytest). Qwen via dashscope-intl (Singapore, no-training).
 DB: SQLAlchemy 2.0, 1 engine/URL (`pool_pre_ping`+`recycle` an toàn Postgres serverless), org_id index khắp;
 migrations Alembic (`migrations/`, head 0020) + `create_all()` cho dev. win_rates SQL GROUP BY; cascade erasure.
