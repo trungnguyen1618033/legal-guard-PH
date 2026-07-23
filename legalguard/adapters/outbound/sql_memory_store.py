@@ -11,6 +11,7 @@ Vector luôn lưu JSON song song (portable + fallback). Cùng MemoryPort → dom
 from __future__ import annotations
 
 import json
+import logging
 import re
 import uuid
 
@@ -22,8 +23,12 @@ from legalguard.adapters.outbound.memory_store import _terms
 from legalguard.adapters.outbound.sql_case_repository import Base, get_engine
 from legalguard.domain.models import MemoryEpisode
 
+_log = logging.getLogger(__name__)
+
 _RECALL_CAP = 500          # trần tình tiết/org nạp RAM (đường brute-force) — bounded → nhanh, đủ sớm
 _ANN_CAP = 40              # số ứng viên ANN kéo về trước khi re-rank counterparty (đường CockroachDB)
+_CP_CAP = 40               # số ứng viên CÙNG-ĐỐI-TÁC bổ sung (chống same-cp rớt khỏi top-40 ANN — #5;
+                           # gồm cả NULL-vec để không mất episode embed-lỗi — #4)
 _CP_BOOST = 2.0            # cùng đối tác = tín hiệu mạnh → luôn nổi lên đầu
 # NGƯỠNG tương đồng TỐI THIỂU (chống nhồi nhiễu vào prompt): tình tiết dưới ngưỡng + khác đối tác → BỎ.
 # Lexical: rel = số từ trùng (nguyên ≥1) → ngưỡng này chỉ loại rel=0 (không đổi hành vi lexical). Semantic:
@@ -149,21 +154,39 @@ class SqlMemory:
                           {"v": vec_literal(vec), "id": eid})
         return eid
 
-    def _candidates_ann(self, org_id: str, qv: list[float],
+    def _candidates_ann(self, org_id: str, qv: list[float], counterparty: str = "",
                         include_history: bool = False) -> list[tuple[MemoryEpisode, float]]:
         """CockroachDB ANN in-DB: top ứng viên gần `qv` (cosine) trong org. rel = 1 - cosine_distance.
-        Mặc định chỉ HIỆN TẠI (valid_to='')."""
-        where = "WHERE org_id = :org AND vec IS NOT NULL" + ("" if include_history else " AND valid_to = ''")
-        with self.engine.connect() as c:
-            rows = c.execute(text(
-                "SELECT id, org_id, counterparty, kind, clause, content, created_at, case_id, valid_to, "
-                f"(vec <=> :q) AS dist FROM memory_episodes {where} ORDER BY vec <=> :q LIMIT :cap"),
-                {"q": vec_literal(qv), "org": org_id, "cap": _ANN_CAP}).all()
-        out = []
-        for r in rows:
+        Mặc định chỉ HIỆN TẠI (valid_to=''). Nếu có `counterparty`: BỔ SUNG ứng viên CÙNG-ĐỐI-TÁC (kể cả
+        NULL-vec) → chống same-cp rớt khỏi top-40 (#5) + không mất episode embed-lỗi (#4). Merge dedup theo id."""
+        vclause = "" if include_history else " AND valid_to = ''"
+        cols = ("id, org_id, counterparty, kind, clause, content, created_at, case_id, valid_to, "
+                "(vec <=> :q) AS dist")
+
+        def _mk(r) -> tuple[MemoryEpisode, float]:
             ep = MemoryEpisode(id=r[0], org_id=r[1], counterparty=r[2], kind=r[3], clause=r[4],
                                content=r[5], created_at=r[6], case_id=r[7], valid_to=r[8] or "")
-            out.append((ep, 1.0 - float(r[9])))
+            rel = 1.0 - float(r[9]) if r[9] is not None else 0.0   # NULL-vec → dist NULL → rel 0 (boost cứu)
+            return ep, rel
+
+        with self.engine.connect() as c:
+            rows = c.execute(text(
+                f"SELECT {cols} FROM memory_episodes WHERE org_id = :org AND vec IS NOT NULL{vclause} "
+                "ORDER BY vec <=> :q LIMIT :cap"),
+                {"q": vec_literal(qv), "org": org_id, "cap": _ANN_CAP}).all()
+            out = [_mk(r) for r in rows]
+            cp = (counterparty or "").strip().lower()
+            if cp:      # #4+#5 — same-cp bổ sung (unicode lower an toàn trên CRDB); lỗi → degrade ANN-only
+                try:
+                    seen = {ep.id for ep, _ in out}
+                    cp_rows = c.execute(text(
+                        f"SELECT {cols} FROM memory_episodes "
+                        f"WHERE org_id = :org AND lower(counterparty) = :cp{vclause} "
+                        "ORDER BY created_at DESC LIMIT :cap"),
+                        {"q": vec_literal(qv), "org": org_id, "cp": cp, "cap": _CP_CAP}).all()
+                    out.extend(_mk(r) for r in cp_rows if r[0] not in seen)
+                except Exception:  # noqa: BLE001 — bổ sung same-cp best-effort, không vỡ recall
+                    _log.warning("same-cp candidate query lỗi (bỏ qua, dùng ANN-only)")
         return out
 
     def _candidates_scan(self, org_id: str, qv: list[float] | None, qterms: set[str],
@@ -188,7 +211,7 @@ class SqlMemory:
                include_history: bool = False) -> list[MemoryEpisode]:
         qv = self._embed_one(query) if self._embed_fn is not None else None
         if self._crdb and qv is not None and self._vec_dim is not None:
-            cands = self._candidates_ann(org_id, qv, include_history)   # CockroachDB ANN
+            cands = self._candidates_ann(org_id, qv, counterparty, include_history)   # CockroachDB ANN
         else:
             cands = self._candidates_scan(org_id, qv, _terms(query), include_history)  # brute-force/lexical
         cp = counterparty.strip().lower()
